@@ -1,0 +1,41 @@
+# NOTE ON GPU (NVIDIA RTX A5000 / CUDA 12.8 driver):
+# torch is deliberately NOT pinned to a plain PyPI wheel here — install it
+# separately FIRST with the CUDA build, then run `pip install -r requirements.txt`
+# for everything else:
+#
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+#   pip install -r requirements.txt
+#
+# Verify GPU is picked up:
+#   python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+
+# --- Core data handling ---
+pandas>=2.0
+numpy>=1.24
+pyarrow>=14.0          # parquet read/write
+
+# --- Classical ML baselines (E1, E2a, E2b) ---
+scikit-learn>=1.3      # Logistic Regression, Random Forest
+xgboost>=2.0
+
+# --- Graph / GNN baselines (E3a, E3b, E4) ---
+# torch installed separately above (CUDA build) — do not `pip install torch` again here
+torch-geometric>=2.4
+torch-geometric-temporal>=0.54   # EvolveGCN implementation (Phase 4)
+
+# --- Config files ---
+pyyaml>=6.0
+
+# NOTE: pins below assume Python 3.12 (recommended — full ML-stack wheel
+# coverage without fighting Windows build toolchains). If you're still on
+# Python 3.8 for some reason, scipy needs <1.11 and matplotlib needs <3.8.
+
+# --- Metrics / evaluation ---
+scipy>=1.11
+
+# --- Plots for results/figures ---
+matplotlib>=3.8
+seaborn>=0.13
+
+# --- Notebooks (exploratory only, per repo structure) ---
+jupyter>=1.0

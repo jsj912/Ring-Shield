@@ -3,3 +3,5 @@ data/raw/
 __pycache__/
 *.pyc
 .env
+.venv
+.venv312
