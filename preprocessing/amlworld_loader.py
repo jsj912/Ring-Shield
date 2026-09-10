@@ -239,8 +239,6 @@ def main():
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
     parser.add_argument("--out-dir", type=Path, default=Path("data/processed"))
     parser.add_argument("--patterns", type=Path, default=Path("data/raw/HI-Small_Patterns.txt"))
-    parser.add_argument("--split-ratio", type=float, default=0.7,
-                        help="Train fraction (chronological). Default 0.7 per roadmap.")
     args = parser.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -269,23 +267,58 @@ def main():
     print(f"  Matched {n_matched}/{n_pattern_txns} pattern transactions to formatted data "
           f"({n_matched/n_pattern_txns*100:.1f}% match rate)")
 
-    # --- Chronological 70:30 split ---
-    print(f"Applying chronological {args.split_ratio:.0%} / {1-args.split_ratio:.0%} split...")
-    sorted_ts = df["Timestamp"].sort_values()
-    cutoff_idx = int(len(sorted_ts) * args.split_ratio)
-    cutoff_ts = sorted_ts.iloc[cutoff_idx]
+    # --- Chronological 60/20/20 split (matching Altman et al.) ---
+    # IBM uses a day-based split that finds the optimal day boundaries for
+    # 60/20/20. We replicate the same approach: group by day, then find the
+    # (i,j) day boundary pair that minimizes max split error vs [0.6, 0.2, 0.2].
+    print("Applying chronological 60/20/20 split (matching Altman et al.)...")
+    n_days = int(df["Timestamp"].max() / (3600 * 24) + 1)
+    daily_counts = []
+    daily_boundaries = []
+    for day in range(n_days):
+        l = day * 24 * 3600
+        r = (day + 1) * 24 * 3600
+        day_mask = (df["Timestamp"] >= l) & (df["Timestamp"] < r)
+        daily_counts.append(day_mask.sum())
+        daily_boundaries.append(l)
 
-    train_mask = df["Timestamp"] < cutoff_ts
-    test_mask = df["Timestamp"] >= cutoff_ts
+    import itertools
+    d_ts = np.array(daily_counts)
+    split_per = [0.6, 0.2, 0.2]
+    best_score = float("inf")
+    best_ij = (0, 0)
+    for i, j in itertools.combinations(range(len(d_ts)), 2):
+        if j <= i:
+            continue
+        split_totals = [d_ts[:i].sum(), d_ts[i:j].sum(), d_ts[j:].sum()]
+        total = split_totals[0] + split_totals[1] + split_totals[2]
+        if total == 0:
+            continue
+        split_props = [v / total for v in split_totals]
+        score = max(abs(v - t) / t for v, t in zip(split_props, split_per))
+        if score < best_score:
+            best_score = score
+            best_ij = (i, j)
 
-    n_train, n_test = train_mask.sum(), test_mask.sum()
+    i_day, j_day = best_ij
+    t1 = i_day * 24 * 3600
+    t2 = j_day * 24 * 3600
+
+    train_mask = df["Timestamp"] < t1
+    val_mask = (df["Timestamp"] >= t1) & (df["Timestamp"] < t2)
+    test_mask = df["Timestamp"] >= t2
+
+    n_train, n_val, n_test = train_mask.sum(), val_mask.sum(), test_mask.sum()
     n_train_laund = df.loc[train_mask, "Is Laundering"].sum()
+    n_val_laund = df.loc[val_mask, "Is Laundering"].sum()
     n_test_laund = df.loc[test_mask, "Is Laundering"].sum()
+    print(f"  Split days: train=[0,{i_day}), val=[{i_day},{j_day}), test=[{j_day},{n_days})")
     print(f"  Train: {n_train} txns ({n_train_laund} laundering, "
           f"IR={n_train_laund/n_train*100:.2f}%)")
+    print(f"  Val:   {n_val} txns ({n_val_laund} laundering, "
+          f"IR={n_val_laund/n_val*100:.2f}%)")
     print(f"  Test:  {n_test} txns ({n_test_laund} laundering, "
           f"IR={n_test_laund/n_test*100:.2f}%)")
-    print(f"  Cutoff timestamp: {cutoff_ts}")
 
     # --- Feature engineering ---
     print("Engineering account-level features (fit on train only)...")
@@ -307,9 +340,11 @@ def main():
     # --- Save ---
     print("Saving parquet files...")
     train_df = df_out[train_mask.values].reset_index(drop=True)
+    val_df = df_out[val_mask.values].reset_index(drop=True)
     test_df = df_out[test_mask.values].reset_index(drop=True)
 
     train_df.to_parquet(args.out_dir / "amlworld_train.parquet", index=False)
+    val_df.to_parquet(args.out_dir / "amlworld_val.parquet", index=False)
     test_df.to_parquet(args.out_dir / "amlworld_test.parquet", index=False)
 
     # Edge lists (for graph construction in E5b / E6)
@@ -317,6 +352,8 @@ def main():
                  "Received Currency", "Payment Format"]
     df[edge_cols][train_mask.values].to_parquet(
         args.out_dir / "amlworld_edges_train.parquet", index=False)
+    df[edge_cols][val_mask.values].to_parquet(
+        args.out_dir / "amlworld_edges_val.parquet", index=False)
     df[edge_cols][test_mask.values].to_parquet(
         args.out_dir / "amlworld_edges_test.parquet", index=False)
 
@@ -327,27 +364,31 @@ def main():
     # --- Update SPLIT_MANIFEST.md ---
     manifest_path = Path("data/SPLIT_MANIFEST.md")
     n_rings_train = train_df[train_df["ring_id"] != -1]["ring_id"].nunique()
+    n_rings_val = val_df[val_df["ring_id"] != -1]["ring_id"].nunique()
     n_rings_test = test_df[test_df["ring_id"] != -1]["ring_id"].nunique()
 
     amlworld_section = f"""
 
 ---
 
-# AMLworld HI-Small Split Manifest
+# AMLworld HI-Small Split Manifest (v2 — 60/20/20)
 
 Generated: {datetime.datetime.now().isoformat(timespec="seconds")}
 
 ## Split rule
-Chronological split at {args.split_ratio:.0%} of transactions sorted by timestamp.
+Day-based chronological 60/20/20 split (matching Altman et al. NeurIPS 2023).
+Optimal day boundaries found via min-max split error.
 
-- Train: Timestamp < {cutoff_ts}
-- Test:  Timestamp >= {cutoff_ts}
+- Train: day [0, {i_day})  →  Timestamp < {t1}
+- Val:   day [{i_day}, {j_day})  →  Timestamp in [{t1}, {t2})
+- Test:  day [{j_day}, {n_days})  →  Timestamp >= {t2}
 
 ## Transaction counts
 
 | Split | Total txns | Laundering | Illicit ratio | Unique rings |
 |-------|-----------|------------|---------------|--------------|
 | Train | {n_train} | {n_train_laund} | {n_train_laund/n_train*100:.2f}% | {n_rings_train} |
+| Val   | {n_val} | {n_val_laund} | {n_val_laund/n_val*100:.2f}% | {n_rings_val} |
 | Test  | {n_test} | {n_test_laund} | {n_test_laund/n_test*100:.2f}% | {n_rings_test} |
 
 ## Feature set
@@ -369,10 +410,10 @@ Total feature dim: {len(all_features)}
 
     print(f"""
 Done.
-  Train txns:  {n_train}  |  Test txns:  {n_test}
-  Train laund: {n_train_laund}  |  Test laund: {n_test_laund}
+  Train: {n_train}  |  Val: {n_val}  |  Test: {n_test}
+  Train laund: {n_train_laund}  |  Val laund: {n_val_laund}  |  Test laund: {n_test_laund}
   Feature dim: {len(all_features)} ({len(txn_features)} txn + {len(account_features)} account)
-  Rings total: {df_rings['ring_id'].nunique()} ({n_rings_train} in train, {n_rings_test} in test)
+  Rings total: {df_rings['ring_id'].nunique()} ({n_rings_train} train, {n_rings_val} val, {n_rings_test} test)
   Pattern match rate: {n_matched}/{n_pattern_txns} ({n_matched/n_pattern_txns*100:.1f}%)
   Manifest appended to: {manifest_path}
   Files written to: {args.out_dir}/
