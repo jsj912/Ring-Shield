@@ -75,4 +75,5 @@ data_config.json
 # ============================================
 *.tar.gz
 *.zip
-wandb/
+wandb/data/processed/*.parquet
+experiments/**/predictions.csv
