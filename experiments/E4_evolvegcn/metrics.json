@@ -1,0 +1,14 @@
+{
+  "final_train": {
+    "f1_illicit": 0.30915371329879104,
+    "precision_illicit": 0.18756163708086784,
+    "recall_illicit": 0.8789716926632004
+  },
+  "final_test": {
+    "f1_illicit": 0.2383204085492718,
+    "precision_illicit": 0.14985727878211227,
+    "recall_illicit": 0.5817174515235457
+  },
+  "best_test_f1_illicit_during_training": 0.24386040499784575,
+  "training_time_seconds": 50.078142166137695
+}

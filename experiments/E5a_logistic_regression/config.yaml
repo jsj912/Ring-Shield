@@ -1,0 +1,27 @@
+experiment: E5a_logistic_regression
+model: LogisticRegression
+dataset: AMLworld HI-Small
+class_weight: balanced
+solver: lbfgs
+max_iter: 1000
+seed: 42
+feature_dim: 18
+features:
+- Amount Sent
+- Sent Currency
+- Amount Received
+- Received Currency
+- Payment Format
+- hour_of_day
+- day_of_week
+- day_index
+- sender_out_degree
+- sender_out_amount_mean
+- sender_out_amount_std
+- sender_out_amount_max
+- sender_out_volume_total
+- receiver_in_degree
+- receiver_in_amount_mean
+- receiver_in_amount_std
+- receiver_in_amount_max
+- receiver_in_volume_total

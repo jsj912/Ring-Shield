@@ -1,0 +1,22 @@
+experiment: E5b_gfp_xgboost
+model: XGBoost + real per-edge GFP features + Optuna
+dataset: AMLworld HI-Small
+split: 60/20/20
+gfp_version: v2 (per-edge exact pattern counting)
+optuna_n_trials: 50
+best_trial: 44
+best_val_f1: 0.36171284634760703
+best_params:
+  max_depth: 12
+  learning_rate: 0.060940535383840054
+  scale_pos_weight: 1520.556239246705
+  subsample: 0.7998599207043823
+  colsample_bytree: 0.6181474277059628
+  min_child_weight: 20
+  gamma: 3.1500934149790636
+  reg_alpha: 0.00021867463749492656
+  reg_lambda: 0.00019286951588141392
+  num_round: 724
+seed: 42
+feature_dim: 28
+gfp_gain_pct: 46.52549220078758

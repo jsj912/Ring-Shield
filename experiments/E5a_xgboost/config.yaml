@@ -1,0 +1,32 @@
+experiment: E5a_xgboost
+model: XGBoost
+dataset: AMLworld HI-Small
+n_rounds: 500
+best_round: 9
+early_stopping: 30
+max_depth: 8
+lr: 0.05
+scale_pos_weight: 1283.1584980237153
+tree_method: hist
+device: cpu
+seed: 42
+feature_dim: 18
+features:
+- Amount Sent
+- Sent Currency
+- Amount Received
+- Received Currency
+- Payment Format
+- hour_of_day
+- day_of_week
+- day_index
+- sender_out_degree
+- sender_out_amount_mean
+- sender_out_amount_std
+- sender_out_amount_max
+- sender_out_volume_total
+- receiver_in_degree
+- receiver_in_amount_mean
+- receiver_in_amount_std
+- receiver_in_amount_max
+- receiver_in_volume_total

@@ -1,0 +1,14 @@
+{
+  "train": {
+    "f1_minority": 0.00437595190295206,
+    "precision_minority": 0.0021939001015615217,
+    "recall_minority": 0.8102766798418972
+  },
+  "test": {
+    "f1_minority": 0.0075850449869161556,
+    "precision_minority": 0.003807179664334859,
+    "recall_minority": 0.9851024208566108,
+    "average_precision": 0.004777760820753529
+  },
+  "training_time_seconds": 7.799035310745239
+}

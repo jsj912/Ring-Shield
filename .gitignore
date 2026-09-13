@@ -77,3 +77,4 @@ data_config.json
 *.zip
 wandb/data/processed/*.parquet
 experiments/**/predictions.csv
+experiments/*/predictions_seed*.csv

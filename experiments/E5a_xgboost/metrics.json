@@ -1,0 +1,36 @@
+{
+  "train": {
+    "f1_minority": 0.016508786829555106,
+    "precision_minority": 0.008323177760943315,
+    "recall_minority": 0.9988142292490119,
+    "average_precision": 0.08945218585692123
+  },
+  "test": {
+    "f1_minority": 0.027597930679874497,
+    "precision_minority": 0.014036248745810474,
+    "recall_minority": 0.8162631905648665,
+    "average_precision": 0.05351388453529337
+  },
+  "training_time_seconds": 30.087941646575928,
+  "best_round": 9,
+  "feature_importances": {
+    "Payment Format": 270200.8125,
+    "sender_out_degree": 16317.0078125,
+    "day_of_week": 7869.39501953125,
+    "Amount Received": 7023.07666015625,
+    "sender_out_amount_max": 6858.21728515625,
+    "day_index": 6196.5419921875,
+    "sender_out_volume_total": 4688.09814453125,
+    "receiver_in_degree": 4339.50634765625,
+    "Sent Currency": 3584.18359375,
+    "Amount Sent": 3125.577880859375,
+    "sender_out_amount_mean": 2918.008056640625,
+    "receiver_in_volume_total": 2799.02099609375,
+    "sender_out_amount_std": 2702.900390625,
+    "receiver_in_amount_max": 2171.208251953125,
+    "hour_of_day": 2008.5548095703125,
+    "receiver_in_amount_mean": 1927.052001953125,
+    "Received Currency": 1856.858154296875,
+    "receiver_in_amount_std": 1653.354248046875
+  }
+}

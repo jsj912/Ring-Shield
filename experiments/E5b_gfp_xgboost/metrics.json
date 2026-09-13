@@ -1,0 +1,48 @@
+{
+  "trainval": {
+    "f1_minority": 0.7848574887201497,
+    "precision_minority": 0.6458974823401558,
+    "recall_minority": 1.0,
+    "average_precision": 0.9943813718445657
+  },
+  "test": {
+    "f1_minority": 0.5340228633641807,
+    "precision_minority": 0.47552108579738245,
+    "recall_minority": 0.6089385474860335,
+    "average_precision": 0.5886455550054353
+  },
+  "best_val_f1": 0.36171284634760703,
+  "search_time_seconds": 6872.439312458038,
+  "final_training_time_seconds": 800.0102415084839,
+  "feature_importances": {
+    "Payment Format": 14739.4404296875,
+    "scatter_gather": 7292.3720703125,
+    "temporal_cycle": 5132.060546875,
+    "cycle_length": 1626.3951416015625,
+    "sender_out_degree": 1272.6973876953125,
+    "gather_scatter": 1050.3394775390625,
+    "fan_out": 985.0778198242188,
+    "day_index": 942.8001708984375,
+    "deg_out_src": 797.815185546875,
+    "sender_out_amount_max": 457.130126953125,
+    "Amount Received": 424.93133544921875,
+    "receiver_in_degree": 313.321044921875,
+    "deg_in_dst": 306.9312744140625,
+    "deg_in_src": 295.93603515625,
+    "sender_out_volume_total": 276.2913818359375,
+    "Amount Sent": 265.40496826171875,
+    "fan_in": 231.01589965820312,
+    "sender_out_amount_mean": 229.32659912109375,
+    "Sent Currency": 219.0268096923828,
+    "hour_of_day": 207.2167510986328,
+    "deg_out_dst": 204.96395874023438,
+    "receiver_in_amount_max": 203.04039001464844,
+    "day_of_week": 201.89622497558594,
+    "receiver_in_amount_mean": 196.42372131347656,
+    "Received Currency": 172.85354614257812,
+    "sender_out_amount_std": 165.74307250976562,
+    "receiver_in_volume_total": 165.01551818847656,
+    "receiver_in_amount_std": 147.30108642578125
+  },
+  "gfp_gain_pct": 46.52549220078758
+}
