@@ -416,7 +416,15 @@ def load_data(raw_dir, data_dir, args):
         te_data = create_hetero_obj(te_data.x, te_data.y, te_data.edge_index,
                                      te_data.edge_attr, te_data.timestamps, swap_ports)
 
-    return tr_data, val_data, te_data, tr_inds, val_inds, te_inds
+    # Stash test-edge metadata for predictions (E7 needs EdgeID, from_id, to_id, Timestamp)
+    te_meta = pd.DataFrame({
+        "EdgeID": df["EdgeID"].values[te_inds.numpy()],
+        "from_id": df["from_id"].values[te_inds.numpy()],
+        "to_id": df["to_id"].values[te_inds.numpy()],
+        "Timestamp": df["Timestamp"].values[te_inds.numpy()],
+    })
+
+    return tr_data, val_data, te_data, tr_inds, val_inds, te_inds, te_meta
 
 
 # ===========================================================================
@@ -590,7 +598,7 @@ def run_single_seed(seed, args, device):
     print(f"  SEED {seed}")
     print(f"{'='*60}")
 
-    tr_data, val_data, te_data, tr_inds, val_inds, te_inds = load_data(
+    tr_data, val_data, te_data, tr_inds, val_inds, te_inds, te_meta = load_data(
         args.raw_dir, args.data_dir, args)
 
     is_hetero = isinstance(tr_data, HeteroData)
@@ -689,9 +697,15 @@ def run_single_seed(seed, args, device):
     # Save per-seed artifacts
     pd.DataFrame(training_log).to_csv(
         args.out_dir / f"training_log_seed{seed}.csv", index=False)
-    pd.DataFrame({"true_label": test_labels, "predicted_label": test_preds,
-                   "pred_prob": test_probs}).to_csv(
-        args.out_dir / f"predictions_seed{seed}.csv", index=False)
+
+    # Predictions with full edge metadata (E7 needs EdgeID, from_id, to_id, Timestamp)
+    assert len(test_labels) == len(te_meta), (
+        f"Prediction count {len(test_labels)} != test edge count {len(te_meta)}")
+    pred_df = te_meta.copy()
+    pred_df["true_label"] = test_labels
+    pred_df["predicted_label"] = test_preds
+    pred_df["pred_prob"] = test_probs
+    pred_df.to_csv(args.out_dir / f"predictions_seed{seed}.csv", index=False)
 
     return {
         "seed": seed,
@@ -812,7 +826,7 @@ def main():
     (args.out_dir / "metrics.json").write_text(json.dumps(metrics_out, indent=2), encoding="utf-8")
 
     # Save best seed's predictions as the main predictions.csv
-    best_seed_result = max(all_results, key=lambda r: r["test"]["f1_minority"])
+    best_seed_result = max(all_results, key=lambda r: r["best_val_f1"])
     best_seed = best_seed_result["seed"]
     import shutil
     shutil.copy(args.out_dir / f"predictions_seed{best_seed}.csv",
