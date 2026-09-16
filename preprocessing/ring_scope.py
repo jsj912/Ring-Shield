@@ -7,14 +7,18 @@ Per ring: n_txn (pattern lines of the ring), n_txn_train/val/test (lines assigne
 by timestamp against the split boundaries), frac_test, start/end (loader basis), n_members,
 n_banks, pattern_type; plus n_rows_train/val/test = rows of the transaction table labelled
 with the ring (duplicate payments make this >= the line count; not used for scope).
-Summary: in-scope counts under policy `strict` (all matched txns in the split) and
-`majority` (> 50%), number straddling split boundaries, number with < 3 members, for the
-test split and the validation split. Ceiling: (a) test laundering transactions, (b) those
-in a strict-scope test ring, (c) fraction of strict-scope ring members whose incident
-test-period transactions are all licit-labelled or absent (all in val/train).
+Summary, for the test and the validation split, under three policies:
+    test_visible  >= 1 pattern line in the split; scored members = accounts on the ring's
+                  lines in that split only                                   (PRIMARY)
+    strict        all pattern lines in the split; full membership              (appendix)
+    majority      > 50 % of pattern lines in the split; full membership        (appendix)
+ring count, rings with < 3 (visible) members and their pattern-type breakdown, straddling
+count; plus the pattern breakdown of all rings with < 3 members. Ceiling under test_visible:
+(a) test laundering transactions, (b) those in an in-scope ring, (c) in-scope-ring members
+(full membership) with no test-period transaction. Strict ceiling kept for the appendix.
 
-Policy (recorded in docs/RING_GROUND_TRUTH_DEFINITION.md): strict for every reported
-number, majority once in an appendix, rings with < 3 members stay in the denominator,
+Policy (recorded in docs/RING_GROUND_TRUTH_DEFINITION.md): test_visible for every reported
+number, strict and majority in an appendix, rings with < 3 members stay in the denominator,
 Jaccard 0.5 with a sweep at 0.3 and 0.7.
 
 --dry-run keeps a deterministic 1% of rings (at least one, random_state=--seed) and writes
@@ -39,11 +43,15 @@ from preprocessing.account_bank import bank_of_series, load_account_bank_map, lo
 
 SPLITS = ["train", "val", "test"]
 DRY_RUN_FRAC = 0.01
+POLICIES = ["test_visible", "strict", "majority"]
 POLICY = {
-    "scope_policy": "strict",
-    "appendix_policy": "majority",
-    "majority_rule": "n_txn_<split> / n_txn > 0.5",
-    "strict_rule": "n_txn_<split> == n_txn and n_txn > 0",
+    "scope_policy": "test_visible",
+    "appendix_policies": ["strict", "majority"],
+    "test_visible_rule": "n_txn_<split> >= 1; scored members = union(from_id, to_id) over the ring's "
+                         "pattern lines in <split> only",
+    "strict_rule": "n_txn_<split> == n_txn and n_txn > 0; full membership",
+    "majority_rule": "n_txn_<split> / n_txn > 0.5; full membership",
+    "scope_unit": "pattern lines (3,209), not matched rows (3,455)",
     "rings_with_lt3_members": "stay in the denominator",
     "jaccard_threshold": 0.5,
     "jaccard_sweep": [0.3, 0.7],
@@ -117,13 +125,30 @@ def ring_table(gt: pd.DataFrame, splits: dict[str, pd.DataFrame], bank_of: pd.Se
     rows = pd.DataFrame(rows).reindex(pattern.index).fillna(0).astype("int64")
     rows["n_rows"] = rows[[f"n_rows_{s}" for s in SPLITS]].sum(axis=1)
 
+    # visible membership: accounts on the ring's pattern lines inside each split
+    vis_cols = []
+    for sp in ("test", "val"):
+        g_sp = gt[line_split == sp]
+        mem_sp = (pd.concat([g_sp[["ring_id", "from_id"]].rename(columns={"from_id": "acc"}),
+                             g_sp[["ring_id", "to_id"]].rename(columns={"to_id": "acc"})])
+                  .drop_duplicates().groupby("ring_id")["acc"])
+        vis_cols.append(mem_sp.nunique().reindex(pattern.index).fillna(0).astype("int64")
+                        .rename(f"n_visible_members_{sp}"))
+        vis_cols.append(mem_sp.agg(lambda x: sorted(int(v) for v in x)).reindex(pattern.index)
+                        .rename(f"visible_members_{sp}"))
+    vis_cols = pd.concat(vis_cols, axis=1)
+    for sp in ("test", "val"):
+        vis_cols[f"visible_members_{sp}"] = vis_cols[f"visible_members_{sp}"].apply(
+            lambda v: v if isinstance(v, list) else [])
+
     t = pd.concat([pattern.rename("pattern_type"), n_lines, counts, rows, start, end, n_members, n_banks,
-                   member_lists], axis=1)
+                   member_lists, vis_cols], axis=1)
     t["frac_test"] = np.where(t["n_txn"] > 0, t["n_txn_test"] / t["n_txn"].replace(0, np.nan), np.nan)
     t["frac_val"] = np.where(t["n_txn"] > 0, t["n_txn_val"] / t["n_txn"].replace(0, np.nan), np.nan)
     t["splits_present"] = [[s for s in SPLITS if r[f"n_txn_{s}"] > 0] for _, r in t.iterrows()]
     t["straddles"] = t["splits_present"].map(len) > 1
     for s in ("test", "val"):
+        t[f"test_visible_{s}"] = t[f"n_txn_{s}"] > 0
         t[f"strict_{s}"] = (t[f"n_txn_{s}"] == t["n_txn"]) & (t["n_txn"] > 0)
         t[f"majority_{s}"] = t[f"n_txn_{s}"] / t["n_txn"].replace(0, np.nan) > 0.5
         t[f"majority_{s}"] = t[f"majority_{s}"].fillna(False).astype(bool)
@@ -132,32 +157,47 @@ def ring_table(gt: pd.DataFrame, splits: dict[str, pd.DataFrame], bank_of: pd.Se
     return t.reset_index()
 
 
+def _pattern_counts(df: pd.DataFrame) -> dict:
+    return {k: int(v) for k, v in df["pattern_type"].value_counts().sort_index().items()}
+
+
+def members_col(policy: str, split: str) -> str:
+    """Which membership a policy scores: visible-in-split for test_visible, full otherwise."""
+    return f"n_visible_members_{split}" if policy == "test_visible" else "n_members"
+
+
 def scope_summary(t: pd.DataFrame) -> dict:
+    lt3_all = t[t["n_members"] < 3]
     out = {"n_rings": int(len(t)),
            "n_rings_with_no_matched_rows": int((t["n_rows"] == 0).sum()),
            "n_pattern_lines": int(t["n_txn"].sum()),
            "n_matched_rows": int(t["n_rows"].sum()),
            "n_rings_straddling_any_boundary": int(t["straddles"].sum()),
-           "n_rings_lt3_members": int((t["n_members"] < 3).sum()),
+           "n_rings_lt3_members": int(len(lt3_all)),
+           "n_rings_lt3_members_by_pattern": _pattern_counts(lt3_all),
            "n_rings_cross_bank": int(t["cross_bank"].sum()),
            "cross_bank_fraction": float(t["cross_bank"].mean()) if len(t) else float("nan"),
-           "n_rings_by_pattern": t["pattern_type"].value_counts().sort_index().to_dict()}
-    for s in ("test", "val"):
-        touching = t[t[f"n_txn_{s}"] > 0]
-        strict = t[t[f"strict_{s}"]]
-        major = t[t[f"majority_{s}"]]
-        out[s] = {
-            "n_rings_touching_split": int(len(touching)),
-            "n_rings_strict": int(len(strict)),
-            "n_rings_majority": int(len(major)),
-            "n_rings_straddling": int(touching["straddles"].sum()),
-            "n_rings_majority_but_not_strict": int(len(major) - len(strict)),
-            "n_rings_lt3_members_strict": int((strict["n_members"] < 3).sum()),
-            "n_rings_lt3_members_majority": int((major["n_members"] < 3).sum()),
-            "n_rings_strict_by_pattern": strict["pattern_type"].value_counts().sort_index().to_dict(),
-            "n_txn_in_strict_rings": int(strict["n_txn"].sum()),
-            "n_rows_in_strict_rings": int(strict[f"n_rows_{s}"].sum()),
-        }
+           "n_rings_by_pattern": _pattern_counts(t)}
+    for sp in ("test", "val"):
+        touching = t[t[f"n_txn_{sp}"] > 0]
+        block = {"n_rings_touching_split": int(len(touching)),
+                 "n_rings_straddling": int(touching["straddles"].sum()),
+                 "policies": {}}
+        for pol in POLICIES:
+            sel = t[t[f"{pol}_{sp}"]]
+            mcol = members_col(pol, sp)
+            lt3 = sel[sel[mcol] < 3]
+            block["policies"][pol] = {
+                "n_rings": int(len(sel)),
+                "members_scored": "visible in split" if pol == "test_visible" else "full membership",
+                "n_rings_lt3_members": int(len(lt3)),
+                "n_rings_lt3_members_by_pattern": _pattern_counts(lt3),
+                "n_rings_by_pattern": _pattern_counts(sel),
+                "n_txn_in_scope_rings_in_split": int(sel[f"n_txn_{sp}"].sum()),
+                "n_rows_in_scope_rings_in_split": int(sel[f"n_rows_{sp}"].sum()),
+                "n_scored_members_total": int(sel[mcol].sum()),
+            }
+        out[sp] = block
     return out
 
 
@@ -165,43 +205,47 @@ def scope_summary(t: pd.DataFrame) -> dict:
 # ceiling
 # --------------------------------------------------------------------------- #
 def ceiling(t: pd.DataFrame, test: pd.DataFrame) -> dict:
-    strict_ids = set(t.loc[t["strict_test"], "ring_id"].tolist())
     ring_rows = test[test["ring_id"] != -1]
     illicit = test[test["Is Laundering"] == 1]
     n_illicit = int(len(illicit))
-    n_in_strict = int(illicit["ring_id"].isin(strict_ids).sum())
-    n_in_any_ring = int((illicit["ring_id"] != -1).sum())
 
     # per-account incident test-period transactions and how many of them are illicit
     inc = pd.concat([test[["from_id", "Is Laundering"]].rename(columns={"from_id": "acc"}),
                      test[["to_id", "Is Laundering"]].rename(columns={"to_id": "acc"})])
     per_acc = inc.groupby("acc")["Is Laundering"].agg(n_test_txn="size", n_illicit="sum")
 
-    def member_stats(rows: pd.DataFrame) -> dict:
-        members = sorted({int(a) for m in rows["members"] for a in m})
+    def block(policy: str) -> dict:
+        sel = t[t[f"{policy}_test"]]
+        ids = set(sel["ring_id"].tolist())
+        n_in = int(illicit["ring_id"].isin(ids).sum())
+        members = sorted({int(a) for m in sel["members"] for a in m})  # full membership
         st = per_acc.reindex(members)
         no_test = st["n_test_txn"].isna()
         all_licit = (~no_test) & (st["n_illicit"] == 0)
-        unrec = no_test | all_licit
         n = len(members)
-        return {"n_members": n,
-                "n_members_no_test_txn": int(no_test.sum()),
-                "n_members_all_test_txn_licit": int(all_licit.sum()),
-                "n_members_unrecoverable": int(unrec.sum()),
-                "fraction_unrecoverable": float(unrec.sum() / n) if n else float("nan")}
+        return {
+            "n_rings": int(len(sel)),
+            "b_n_test_laundering_txn_in_scope_ring": n_in,
+            "b_fraction": float(n_in / n_illicit) if n_illicit else float("nan"),
+            "c_n_members_full": n,
+            "c_n_members_no_test_txn": int(no_test.sum()),
+            "c_fraction_no_test_txn": float(no_test.sum() / n) if n else float("nan"),
+            "c_n_members_all_test_txn_licit": int(all_licit.sum()),
+            "c_n_members_unrecoverable": int((no_test | all_licit).sum()),
+            "c_fraction_unrecoverable": float((no_test | all_licit).sum() / n) if n else float("nan"),
+        }
 
     return {
         "a_n_test_laundering_txn": n_illicit,
-        "b_n_test_laundering_txn_in_strict_ring": n_in_strict,
-        "b_n_test_laundering_txn_in_any_ring": n_in_any_ring,
-        "b_fraction_in_strict_ring": float(n_in_strict / n_illicit) if n_illicit else float("nan"),
-        "c_strict_test_ring_members": member_stats(t[t["strict_test"]]),
-        "c_majority_test_ring_members": member_stats(t[t["majority_test"]]),
-        "c_all_ring_members": member_stats(t),
+        "b_n_test_laundering_txn_in_any_ring": int((illicit["ring_id"] != -1).sum()),
+        "primary_policy": "test_visible",
+        "by_policy": {pol: block(pol) for pol in POLICIES},
         "note_ring_labelled_test_rows": int(len(ring_rows)),
         "note_ring_labelled_test_rows_with_licit_label": int((ring_rows["Is Laundering"] == 0).sum()),
-        "c_definition": ("member is unrecoverable from test evidence if it has no test-period transaction "
-                         "(all in train/val) or every incident test-period transaction is labelled licit"),
+        "c_definition": ("(c) counts in-scope-ring members by FULL membership that have no test-period "
+                         "transaction at all, i.e. cannot be recovered from test evidence; "
+                         "'unrecoverable' additionally counts members whose every test transaction is "
+                         "labelled licit"),
     }
 
 
@@ -223,7 +267,7 @@ def run(gt_path: Path, splits_dir: Path, out_path: Path, *, account_bank: Path |
     summary = scope_summary(t)
     ceil = ceiling(t, splits["test"])
 
-    per_ring = t.drop(columns=["members"]).copy()
+    per_ring = t.drop(columns=["members", "visible_members_test", "visible_members_val"]).copy()
     per_ring["start"] = per_ring["start"].astype(int)
     per_ring["end"] = per_ring["end"].astype(int)
     result = {
@@ -243,14 +287,17 @@ def run(gt_path: Path, splits_dir: Path, out_path: Path, *, account_bank: Path |
     out_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     s = summary
     print(f"[ring_scope] {s['n_rings']} rings -> {out_path}")
-    print(f"  test: strict {s['test']['n_rings_strict']}, majority {s['test']['n_rings_majority']}, "
-          f"straddling {s['test']['n_rings_straddling']}, <3 members (strict) {s['test']['n_rings_lt3_members_strict']}")
-    print(f"  val:  strict {s['val']['n_rings_strict']}, majority {s['val']['n_rings_majority']}, "
-          f"straddling {s['val']['n_rings_straddling']}, <3 members (strict) {s['val']['n_rings_lt3_members_strict']}")
-    print(f"  cross-bank rings: {s['n_rings_cross_bank']}/{s['n_rings']} = {s['cross_bank_fraction']:.3f}")
-    print(f"  ceiling: (a) {ceil['a_n_test_laundering_txn']} test laundering txns; "
-          f"(b) {ceil['b_n_test_laundering_txn_in_strict_ring']} in strict rings; "
-          f"(c) {ceil['c_strict_test_ring_members']['fraction_unrecoverable']:.3f} of strict-ring members unrecoverable")
+    for sp in ("test", "val"):
+        parts = [f"{pol} {s[sp]['policies'][pol]['n_rings']} (<3: {s[sp]['policies'][pol]['n_rings_lt3_members']})"
+                 for pol in POLICIES]
+        print(f"  {sp}: " + ", ".join(parts) + f"; straddling {s[sp]['n_rings_straddling']}")
+    print(f"  cross-bank rings: {s['n_rings_cross_bank']}/{s['n_rings']} = {s['cross_bank_fraction']:.3f}; "
+          f"<3 members overall: {s['n_rings_lt3_members']} {s['n_rings_lt3_members_by_pattern']}")
+    tv = ceil["by_policy"]["test_visible"]
+    print(f"  ceiling (test_visible): (a) {ceil['a_n_test_laundering_txn']} test laundering txns; "
+          f"(b) {tv['b_n_test_laundering_txn_in_scope_ring']} in in-scope rings; "
+          f"(c) {tv['c_n_members_no_test_txn']}/{tv['c_n_members_full']} = {tv['c_fraction_no_test_txn']:.3f} "
+          f"members with no test txn")
     return result
 
 

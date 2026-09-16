@@ -31,7 +31,7 @@ Numbers are the ones written in the corresponding `experiments/<ID>/metrics.json
 | Raw-data hash manifest (pins the `edge_id` numbering) | `scripts/data_manifest.py` | `docs/data_manifest.json` | done |
 | account_id → bank_code table (loader key rule, validated vs accounts.csv) | `preprocessing/account_bank.py` | `data/processed/account_bank.parquet` | done — 515,088 accounts, 30,470 banks |
 | `from_bank`/`to_bank` on the three split Parquets and the ring ground truth | `preprocessing/add_bank_columns.py` | `data/processed/amlworld_*.parquet` (in place) | done |
-| Ring scope per policy (strict / majority), boundary and size counts, evidence ceiling | `preprocessing/ring_scope.py` | `docs/ring_scope.json`, `docs/RING_GROUND_TRUTH_DEFINITION.md` | done — 86 strict / 120 majority test rings |
+| Ring scope per policy (test_visible primary; strict / majority appendix), <3-member and boundary counts, evidence ceiling | `preprocessing/ring_scope.py` | `docs/ring_scope.json`, `docs/RING_GROUND_TRUTH_DEFINITION.md` | done — 183 test / 157 val rings (test_visible) |
 
 Not implemented (removed in Step 1 because they were stubs or dead ends): the Elliptic
 pipeline, EvolveGCN, GATv2, rule engine, cascade pipeline, explainability, ablations,

@@ -40,6 +40,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from evaluation.ring_metrics import evaluate_rings  # noqa: E402
+from preprocessing.account_bank import load_paths  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -49,9 +50,13 @@ def load_ground_truth(path: Path, t_min: float, t_max: float, policy: str):
     """Build {ring_id: member set} and {ring_id: pattern} for in-scope rings.
 
     A ring is in scope per D1 section 4. `policy` decides boundary rings:
-        strict   -- every transaction inside [t_min, t_max]   (D1 default)
-        majority -- more than half its transactions inside
-        start    -- its earliest transaction inside
+        test_visible -- at least one transaction inside [t_min, t_max]; the
+                        member set is the union of from_id/to_id over the
+                        ring's transactions inside the window only (D1 default,
+                        decided 2026-09-16)
+        strict       -- every transaction inside [t_min, t_max]; full members
+        majority     -- more than half its transactions inside; full members
+        start        -- its earliest transaction inside; full members
     """
     gt = pd.read_parquet(path)
     for col in ("ring_id", "from_id", "to_id", "timestamp_int"):
@@ -64,7 +69,9 @@ def load_ground_truth(path: Path, t_min: float, t_max: float, policy: str):
 
     grp = gt.groupby("ring_id")
     frac = grp["_in"].mean()
-    if policy == "strict":
+    if policy == "test_visible":
+        keep = frac[frac > 0].index
+    elif policy == "strict":
         keep = frac[frac == 1.0].index
     elif policy == "majority":
         keep = frac[frac > 0.5].index
@@ -75,6 +82,8 @@ def load_ground_truth(path: Path, t_min: float, t_max: float, policy: str):
         raise SystemExit(f"unknown scope policy: {policy}")
 
     sub = gt[gt["ring_id"].isin(keep)]
+    if policy == "test_visible":
+        sub = sub[sub["_in"]]  # scored members: only accounts seen in the window
     truth = {rid: set(g["from_id"]) | set(g["to_id"])
              for rid, g in sub.groupby("ring_id")}
     patterns = (sub.groupby("ring_id")["pattern_type"].first().to_dict()
@@ -210,6 +219,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preds", type=Path, required=True)
     ap.add_argument("--ring-gt", type=Path, required=True)
+    ap.add_argument("--test-parquet", type=Path, default=None,
+                    help="split parquet defining the scope window (loader time basis); "
+                         "default <paths.yaml processed_dir>/amlworld_test.parquet")
     ap.add_argument("--out", type=Path, required=True)
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--threshold", type=float,
@@ -223,8 +235,8 @@ def main():
                          "the module docstring before raising this")
     ap.add_argument("--max-gap-hours", type=float, default=None)
     ap.add_argument("--match-threshold", type=float, default=0.5)
-    ap.add_argument("--scope", choices=["strict", "majority", "start"],
-                    default="strict")
+    ap.add_argument("--scope", choices=["test_visible", "strict", "majority", "start"],
+                    default="test_visible")
     args = ap.parse_args()
 
     print(f"Loading {args.preds} ...")
@@ -243,7 +255,20 @@ def main():
     else:
         threshold = args.threshold
 
-    t_min, t_max = preds["Timestamp"].min(), preds["Timestamp"].max()
+    # Scope window in the LOADER time basis, taken from the split parquet. The
+    # predictions CSV is legacy_csv_time_offset_s (10 s) lower and must not be
+    # used here: it silently dropped ring 346 from the strict set (85 vs 86).
+    paths = load_paths()
+    test_parquet = args.test_parquet or paths["processed_dir"] / "amlworld_test.parquet"
+    ts = pd.read_parquet(test_parquet, columns=["Timestamp"])["Timestamp"]
+    t_min, t_max = int(ts.min()), int(ts.max())
+    offset = int(paths["legacy_csv_time_offset_s"])
+    observed = int(preds["Timestamp"].min()) - t_min
+    if observed != -offset:
+        raise SystemExit(f"predictions Timestamp basis is off by {observed}s from the split "
+                         f"parquet; expected -{offset}s (configs/paths.yaml legacy_csv_time_offset_s)")
+    print(f"  scope window [{t_min}, {t_max}] from {test_parquet} (loader basis; "
+          f"predictions CSV is {offset}s lower)")
     print(f"Loading {args.ring_gt} ...")
     truth, patterns = load_ground_truth(args.ring_gt, t_min, t_max, args.scope)
     if not truth:
@@ -280,6 +305,9 @@ def main():
         "max_gap_hours": args.max_gap_hours,
         "match_threshold": args.match_threshold,
         "scope_policy": args.scope,
+        "scope_window": [t_min, t_max],
+        "scope_window_source": str(test_parquet),
+        "legacy_csv_time_offset_s": offset,
         **metrics.to_dict(),
     }, indent=2))
     print(f"Wrote metrics -> {meta}")
