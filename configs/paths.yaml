@@ -1,0 +1,4 @@
+# Canonical data / output locations, relative to the repository root.
+raw_dir: data/raw
+processed_dir: data/processed
+experiments_dir: experiments

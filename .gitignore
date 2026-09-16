@@ -78,3 +78,10 @@ data_config.json
 wandb/data/processed/*.parquet
 experiments/**/predictions.csv
 experiments/*/predictions_seed*.csv
+
+# ============================================
+# PREDICTIONS / CHECKPOINTS / PARQUET (never committed)
+# ============================================
+experiments/**/predictions*.csv
+*.parquet
+*.ckpt
