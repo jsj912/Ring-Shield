@@ -16,12 +16,12 @@ No retraining required. This is a single forward pass over the test loader.
 Place in the repo root (next to models/) and run with EXACTLY the flags used
 for training:
 
-    python score_test_set.py --arch gatv2 ^
+    python score_test_set.py --arch gine ^
         --raw-dir data/raw --data-dir data/processed ^
-        --ckpt experiments/E6_gatv2/model_best_seed1.pt ^
-        --threshold 0.53 ^
-        --out experiments/E6_gatv2/predictions_with_ids.csv ^
-        --n-hidden 64 --n-heads 4 ^
+        --ckpt experiments/E6_tgn/model_best_seed1.pt ^
+        --threshold 0.46 ^
+        --out experiments/E6_tgn/predictions_with_ids.csv ^
+        --n-hidden 66 ^
         --emlps --ports --tds --reverse-mp --ego --gfp ^
         --num-neighs 100 100
 
@@ -69,7 +69,7 @@ def mask_and_ids(batch, loader, inds, is_hetero):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arch", choices=["gatv2", "gine"], required=True)
+    ap.add_argument("--arch", choices=["gine"], required=True)
     ap.add_argument("--ckpt", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--threshold", type=float, required=True,
@@ -93,10 +93,7 @@ def main():
     args = ap.parse_args()
     args.num_neighs = list(args.num_neighs)
 
-    if args.arch == "gatv2":
-        from models.gatv2 import GATv2e as Net, load_data, get_loaders
-    else:
-        from models.tgn import GINe as Net, load_data, get_loaders
+    from models.tgn import GINe as Net, load_data, get_loaders
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
@@ -126,8 +123,6 @@ def main():
         n_hidden=args.n_hidden, edge_updates=args.emlps, edge_dim=e_dim,
         dropout=args.dropout, final_dropout=args.final_dropout,
     )
-    if args.arch == "gatv2":
-        kwargs["n_heads"] = args.n_heads
     model = Net(**kwargs)
     if is_hetero:
         model = to_hetero(model, te_data.metadata(), aggr="mean")
