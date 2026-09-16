@@ -1,8 +1,8 @@
 {
-  "recorded_utc": "2026-09-16T10:04:13+00:00",
-  "git_commit": "672496879e587337d11d67a6694b22bfa8ec616a",
+  "recorded_utc": "2026-09-16T11:24:19+00:00",
+  "git_commit": "fe15cdda284e3e41ef5d3b6f87e50845e3ea02a8",
   "raw_dir": "data\\raw",
-  "note": "formatted_transactions.csv row order defines edge_id; regenerate only at the Step 3 retrain (with kind='mergesort') and re-record this manifest.",
+  "note": "formatted_transactions.csv row order defines edge_id. Since Step 3a it is produced with sort_values(kind='mergesort') (stable), so the numbering is reproducible from the raw file; the pre-Step-3a (introsort) numbering is mapped by data/processed/edge_id_remap.parquet.",
   "files": {
     "HI-Small_Trans.csv": {
       "sha256": "b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040",
@@ -20,7 +20,7 @@
       "lines": 4319
     },
     "formatted_transactions.csv": {
-      "sha256": "67e006e6eb0124ab7697336fa96a4115f5c5011a74cfb6ebd95140bdd1b9e9d7",
+      "sha256": "3b9678458eeece7e78ec7e9dbc6ae1aabf80e3c7949c4e85e2b2766ab780aff4",
       "bytes": 266605148,
       "lines": 5078346
     }

@@ -1,6 +1,6 @@
 {
-  "created_utc": "2026-09-16T10:29:59+00:00",
-  "git_commit": "de63e8ec8876eb30af1e8787ee1d9e6a3b4ffeb7",
+  "created_utc": "2026-09-16T11:21:44+00:00",
+  "git_commit": "fe15cdda284e3e41ef5d3b6f87e50845e3ea02a8",
   "command": "python preprocessing/ring_scope.py --gt data/processed/amlworld_ring_ground_truth.parquet --splits data/processed --out docs/ring_scope.json",
   "inputs": {
     "gt": "data\\processed\\amlworld_ring_ground_truth.parquet",

@@ -70,7 +70,9 @@ df = pd.DataFrame(rows, columns=[
     "Payment Format", "Is Laundering"
 ])
 
-df = df.sort_values("Timestamp").reset_index(drop=True)
+# Stable sort: rows with equal timestamps keep their raw-file order, so EdgeID is
+# reproducible across pandas/numpy builds (the default introsort is not stable).
+df = df.sort_values("Timestamp", kind="mergesort").reset_index(drop=True)
 df["EdgeID"] = range(len(df))
 
 df.to_csv(out_path, index=False)

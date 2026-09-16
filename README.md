@@ -21,7 +21,7 @@ Numbers are the ones written in the corresponding `experiments/<ID>/metrics.json
 | Per-edge GFP motif features (fan-in/out, cycles, scatter-gather, degree) | `graph/motif_features.py` | `data/processed/amlworld_gfp_features_*.parquet` | done |
 | Tabular baselines (LogReg / RF / XGBoost) | `baselines/*_aml.py` | `experiments/E5a_*` | done |
 | GFP + XGBoost with Optuna search | `baselines/gfp_xgboost_aml.py` | `experiments/E5b_gfp_xgboost` | done — test F1 0.534 |
-| Multi-GINe edge classifier (edge-MLPs, ports, time deltas, reverse MP, ego IDs, GFP) | `models/tgn.py` | `experiments/E6_tgn` | done — test F1 0.599 ± 0.009 over seeds {1, 42, 123} |
+| Multi-GINe edge classifier (edge-MLPs, ports, time deltas, reverse MP, ego IDs, GFP) | `models/tgn.py` | `experiments/E6_tgn` | done — test F1 0.599 ± 0.009 over seeds {1, 42, 123}; numbers pre-date the Step 3a seed-mask fix (841 test edges were never scored) and non-causal sampling |
 | Test-set scoring with edge IDs (checkpoint chosen by val F1) | `score_test_set.py` | `experiments/E6_tgn/predictions_with_ids.csv` (untracked) | done |
 | Ring aggregation from scored edges | `models/ring_aggregator.py` | `experiments/legacy_E7_test_tuned` | runs, but its thresholds were tuned on the test set — **not reported** |
 | Ring metrics (precision / recall / F1, member coverage, Jaccard) | `evaluation/ring_metrics.py` | — | done |
@@ -30,8 +30,10 @@ Numbers are the ones written in the corresponding `experiments/<ID>/metrics.json
 | Column contract (single source of truth; generates `contract/README.md`) | `contract/schema.py` | — | done |
 | Raw-data hash manifest (pins the `edge_id` numbering) | `scripts/data_manifest.py` | `docs/data_manifest.json` | done |
 | account_id → bank_code table (loader key rule, validated vs accounts.csv) | `preprocessing/account_bank.py` | `data/processed/account_bank.parquet` | done — 515,088 accounts, 30,470 banks |
-| `from_bank`/`to_bank` on the three split Parquets and the ring ground truth | `preprocessing/add_bank_columns.py` | `data/processed/amlworld_*.parquet` (in place) | done |
+| `from_bank`/`to_bank` on the three split Parquets and the ring ground truth (emitted by the loader) | `preprocessing/amlworld_loader.py` | `data/processed/amlworld_*.parquet` | done |
 | Ring scope per policy (test_visible primary; strict / majority appendix), <3-member and boundary counts, evidence ceiling | `preprocessing/ring_scope.py` | `docs/ring_scope.json`, `docs/RING_GROUND_TRUTH_DEFINITION.md` | done — 183 test / 157 val rings (test_visible) |
+| Stable `edge_id` numbering (mergesort) + old→new id map for positional artefacts | `scripts/format_kaggle_files.py`, `scripts/remap_edge_ids.py` | `data/raw/formatted_transactions.csv`, `data/processed/edge_id_remap.parquet` | done — 99.7% of ids moved, splits/rings/scope unchanged |
+| Shared mini-batch loader: every seed scored exactly once, id column stripped, optional causal sampling (30-min window fallback; PyG native route needs pyg-lib) | `models/causal_loader.py` (used by `models/tgn.py`, `score_test_set.py`) | — | done — 11 tests; no retrain yet |
 
 Not implemented (removed in Step 1 because they were stubs or dead ends): the Elliptic
 pipeline, EvolveGCN, GATv2, rule engine, cascade pipeline, explainability, ablations,
@@ -84,11 +86,20 @@ python scripts/data_manifest.py --check
 python -m pytest contract/tests -q
 ```
 
+Step 3a (data regeneration, loader tests; no training):
+
+```bash
+python scripts/format_kaggle_files.py data/raw/HI-Small_Trans.csv
+python preprocessing/amlworld_loader.py --raw-dir data/raw --out-dir data/processed --patterns data/raw/HI-Small_Patterns.txt
+python scripts/remap_edge_ids.py --old <previous formatted_transactions.csv> --apply-gfp data/processed --apply-preds experiments/E6_tgn/predictions_with_ids.csv
+python scripts/data_manifest.py
+python -m pytest tests contract/tests preprocessing/tests -q
+```
+
 L0 additions (Step 2):
 
 ```bash
 python preprocessing/account_bank.py
-python preprocessing/add_bank_columns.py
 python preprocessing/ring_scope.py --gt data/processed/amlworld_ring_ground_truth.parquet --splits data/processed --out docs/ring_scope.json
 python -m pytest preprocessing/tests contract/tests -q
 ```

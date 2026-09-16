@@ -39,9 +39,13 @@ import yaml
 from sklearn.metrics import f1_score, precision_score, recall_score, average_precision_score
 
 from torch_geometric.data import Data, HeteroData
-from torch_geometric.loader import LinkNeighborLoader
 from torch_geometric.nn import GINEConv, BatchNorm, Linear, to_hetero
 from torch_geometric.transforms import BaseTransform
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from models.causal_loader import ROUTE as LOADER_ROUTE, make_loader, seed_mask  # noqa: E402
+
+DRY_RUN_FRAC = 0.01
 
 
 # ===========================================================================
@@ -221,13 +225,21 @@ class GINe(nn.Module):
 # ===========================================================================
 # Data loading
 # ===========================================================================
-def load_gfp_features(data_dir, split, edge_count):
-    """Load per-edge GFP features if available, apply log1p to high-magnitude cols."""
+def load_gfp_features(data_dir, split, edge_ids):
+    """Load per-edge GFP features if available, apply log1p to high-magnitude cols.
+
+    Rows are aligned to `edge_ids` (the split's EdgeID values, in order) through the
+    parquet's EdgeID column, so a row subset (--dry-run) or a re-keyed parquet is handled;
+    when the parquet is already in split order this equals the old positional read.
+    """
     gfp_path = data_dir / f"amlworld_gfp_features_{split}.parquet"
     if not gfp_path.exists():
         return None
     gfp = pd.read_parquet(gfp_path)
+    assert "EdgeID" in gfp.columns, f"{gfp_path} has no EdgeID column"
     gfp_cols = [c for c in gfp.columns if c != "EdgeID"]
+    gfp = gfp.set_index("EdgeID").reindex(np.asarray(edge_ids))
+    assert not gfp.isna().any().any(), f"{gfp_path}: GFP rows missing for some EdgeIDs of the {split} split"
     # log1p transform for high-magnitude features (fan_out max ~49k)
     for col in gfp_cols:
         gfp[col] = np.log1p(gfp[col].values.astype(np.float32))
@@ -238,9 +250,12 @@ def load_data(raw_dir, data_dir, args):
     fmt_path = raw_dir / "formatted_transactions.csv"
     print(f"  Loading {fmt_path}...")
     df = pd.read_csv(fmt_path)
-    df["Timestamp"] = df["Timestamp"] - df["Timestamp"].min()
-
     max_n_id = df[["from_id", "to_id"]].to_numpy().max() + 1
+    if getattr(args, "dry_run", False):
+        seed = getattr(args, "dry_run_seed", 1)
+        df = df.sample(frac=DRY_RUN_FRAC, random_state=seed).sort_values("EdgeID").reset_index(drop=True)
+        print(f"  DRY RUN: {len(df)} rows ({DRY_RUN_FRAC:.0%}, seed {seed}); node table kept at {max_n_id} ids")
+    df["Timestamp"] = df["Timestamp"] - df["Timestamp"].min()
     timestamps = torch.tensor(df["Timestamp"].values, dtype=torch.float32)
     y = torch.tensor(df["Is Laundering"].values, dtype=torch.long)
 
@@ -302,9 +317,10 @@ def load_data(raw_dir, data_dir, args):
         # tr_data edges = train edges only
         # val_data edges = train + val edges
         # te_data edges = all edges
-        gfp_tr = load_gfp_features(data_dir, "train", len(e_tr))
-        gfp_val = load_gfp_features(data_dir, "val", None)
-        gfp_te = load_gfp_features(data_dir, "test", None)
+        edge_ids = df["EdgeID"].values
+        gfp_tr = load_gfp_features(data_dir, "train", edge_ids[tr_inds.numpy()])
+        gfp_val = load_gfp_features(data_dir, "val", edge_ids[val_inds.numpy()])
+        gfp_te = load_gfp_features(data_dir, "test", edge_ids[te_inds.numpy()])
 
         if gfp_tr is not None and gfp_val is not None and gfp_te is not None:
             tr_data.edge_attr = torch.cat([tr_data.edge_attr, gfp_tr], dim=1)
@@ -324,7 +340,7 @@ def load_data(raw_dir, data_dir, args):
         for name, data in [("train", tr_data), ("val", val_data), ("test", te_data)]:
             n_before = data.edge_attr.shape[1]
             data = add_ports_and_tds(data, args.ports, args.tds)
-            print(f"    {name}: {n_before} → {data.edge_attr.shape[1]} edge features")
+            print(f"    {name}: {n_before} -> {data.edge_attr.shape[1]} edge features")
             if name == "train":
                 tr_data = data
             elif name == "val":
@@ -371,46 +387,17 @@ def load_data(raw_dir, data_dir, args):
 # Loaders
 # ===========================================================================
 def get_loaders(tr_data, val_data, te_data, tr_inds, val_inds, te_inds, args):
+    """Train / val / test loaders from models.causal_loader.make_loader.
+
+    Seeds: train = every train edge (shuffled), val = val edges, test = test edges, as
+    before. `args.causal` selects causal sampling; False keeps today's sampler. Every
+    batch carries `seed_mask` / `seed_global` and has the global-id column stripped.
+    """
     transform = AddEgoIds() if args.ego else None
-
-    if isinstance(tr_data, HeteroData):
-        tr_eli = tr_data['node', 'to', 'node'].edge_index
-        tr_el = tr_data['node', 'to', 'node'].y
-        tr_loader = LinkNeighborLoader(tr_data, num_neighbors=args.num_neighs,
-                                        edge_label_index=(('node', 'to', 'node'), tr_eli),
-                                        edge_label=tr_el,
-                                        batch_size=args.batch_size, shuffle=True,
-                                        transform=transform)
-
-        val_eli = val_data['node', 'to', 'node'].edge_index[:, val_inds]
-        val_el = val_data['node', 'to', 'node'].y[val_inds]
-        val_loader = LinkNeighborLoader(val_data, num_neighbors=args.num_neighs,
-                                         edge_label_index=(('node', 'to', 'node'), val_eli),
-                                         edge_label=val_el,
-                                         batch_size=args.batch_size, shuffle=False,
-                                         transform=transform)
-
-        te_eli = te_data['node', 'to', 'node'].edge_index[:, te_inds]
-        te_el = te_data['node', 'to', 'node'].y[te_inds]
-        te_loader = LinkNeighborLoader(te_data, num_neighbors=args.num_neighs,
-                                        edge_label_index=(('node', 'to', 'node'), te_eli),
-                                        edge_label=te_el,
-                                        batch_size=args.batch_size, shuffle=False,
-                                        transform=transform)
-    else:
-        tr_loader = LinkNeighborLoader(tr_data, num_neighbors=args.num_neighs,
-                                        batch_size=args.batch_size, shuffle=True,
-                                        transform=transform)
-        val_loader = LinkNeighborLoader(val_data, num_neighbors=args.num_neighs,
-                                         edge_label_index=val_data.edge_index[:, val_inds],
-                                         edge_label=val_data.y[val_inds],
-                                         batch_size=args.batch_size, shuffle=False,
-                                         transform=transform)
-        te_loader = LinkNeighborLoader(te_data, num_neighbors=args.num_neighs,
-                                        edge_label_index=te_data.edge_index[:, te_inds],
-                                        edge_label=te_data.y[te_inds],
-                                        batch_size=args.batch_size, shuffle=False,
-                                        transform=transform)
+    causal = bool(getattr(args, "causal", False))
+    tr_loader = make_loader(tr_data, tr_inds, args, causal=causal, shuffle=True, transform=transform)
+    val_loader = make_loader(val_data, val_inds, args, causal=causal, shuffle=False, transform=transform)
+    te_loader = make_loader(te_data, te_inds, args, causal=causal, shuffle=False, transform=transform)
     return tr_loader, val_loader, te_loader
 
 
@@ -418,20 +405,29 @@ def get_loaders(tr_data, val_data, te_data, tr_inds, val_inds, te_inds, args):
 # Training & evaluation
 # ===========================================================================
 def _get_mask_and_clean(batch, loader, inds, is_hetero):
-    """Get seed edge mask and strip ID column from edge features."""
-    inds_cpu = inds.detach().cpu()
-    if is_hetero:
-        batch_edge_inds = inds_cpu[batch['node', 'to', 'node'].input_id.detach().cpu()]
-        batch_edge_ids = loader.data['node', 'to', 'node'].edge_attr.detach().cpu()[batch_edge_inds, 0]
-        mask = torch.isin(batch['node', 'to', 'node'].edge_attr[:, 0].detach().cpu(), batch_edge_ids)
-        batch['node', 'to', 'node'].edge_attr = batch['node', 'to', 'node'].edge_attr[:, 1:]
-        batch['node', 'rev_to', 'node'].edge_attr = batch['node', 'rev_to', 'node'].edge_attr[:, 1:]
-    else:
-        batch_edge_inds = inds_cpu[batch.input_id.detach().cpu()]
-        batch_edge_ids = loader.data.edge_attr.detach().cpu()[batch_edge_inds, 0]
-        mask = torch.isin(batch.edge_attr[:, 0].detach().cpu(), batch_edge_ids)
-        batch.edge_attr = batch.edge_attr[:, 1:]
-    return mask
+    """Seed mask of a batch from make_loader (id column already stripped).
+
+    Returns (mask over the `to` edges, global seed indices in the same order). Every seed
+    edge of the batch is present exactly once, so `mask.sum() == len(input_id)`.
+    """
+    mask, seed_global = seed_mask(batch)
+    return mask, seed_global
+
+
+def _align_to_inds(inds, seed_globals, *arrays):
+    """Reorder per-seed arrays (collected in batch order) into the order of `inds`."""
+    inds = inds.detach().cpu()
+    got = torch.cat(seed_globals)
+    pos = torch.full((int(max(inds.max(), got.max())) + 1,), -1, dtype=torch.long)
+    pos[inds] = torch.arange(inds.numel())
+    order = pos[got]
+    assert (order >= 0).all(), "scored an edge that is not a seed"
+    assert order.numel() == inds.numel() and torch.unique(order).numel() == inds.numel(), (
+        f"scored {order.numel()} edges for {inds.numel()} seeds")
+    inv = torch.empty_like(order)
+    inv[order] = torch.arange(order.numel())
+    inv = inv.numpy()
+    return [a[inv] for a in arrays]
 
 
 def train_epoch(loader, inds, model, optimizer, loss_fn, device, is_hetero):
@@ -441,7 +437,7 @@ def train_epoch(loader, inds, model, optimizer, loss_fn, device, is_hetero):
 
     for batch in loader:
         optimizer.zero_grad()
-        mask = _get_mask_and_clean(batch, loader, inds, is_hetero)
+        mask, _ = _get_mask_and_clean(batch, loader, inds, is_hetero)
         batch.to(device)
 
         if is_hetero:
@@ -471,10 +467,11 @@ def train_epoch(loader, inds, model, optimizer, loss_fn, device, is_hetero):
 @torch.no_grad()
 def evaluate(loader, inds, model, device, is_hetero, threshold=0.5):
     model.eval()
-    preds_all, gts_all, probs_all = [], [], []
+    preds_all, gts_all, probs_all, ids_all = [], [], [], []
 
     for batch in loader:
-        mask = _get_mask_and_clean(batch, loader, inds, is_hetero)
+        mask, seed_global = _get_mask_and_clean(batch, loader, inds, is_hetero)
+        ids_all.append(seed_global.detach().cpu())
         batch.to(device)
 
         if is_hetero:
@@ -496,6 +493,9 @@ def evaluate(loader, inds, model, device, is_hetero, threshold=0.5):
     preds_all = torch.cat(preds_all).numpy()
     gts_all = torch.cat(gts_all).numpy()
     probs_all = torch.cat(probs_all).numpy()
+    # batches may come in time-window order; return everything in the order of `inds`
+    preds_all, gts_all, probs_all = _align_to_inds(inds, ids_all, preds_all, gts_all, probs_all)
+    assert not np.isnan(probs_all).any(), "NaN probability for a seed edge"
 
     return {
         "f1_minority": f1_score(gts_all, preds_all, pos_label=1, zero_division=0),
@@ -550,10 +550,10 @@ def run_single_seed(seed, args, device):
     sample_batch = next(iter(tr_loader))
     if is_hetero:
         n_feats = sample_batch['node'].x.shape[1]
-        e_dim = sample_batch['node', 'to', 'node'].edge_attr.shape[1] - 1
+        e_dim = sample_batch['node', 'to', 'node'].edge_attr.shape[1]  # id column already stripped
     else:
         n_feats = sample_batch.x.shape[1]
-        e_dim = sample_batch.edge_attr.shape[1] - 1
+        e_dim = sample_batch.edge_attr.shape[1]
 
     model = GINe(
         num_features=n_feats, num_gnn_layers=args.n_gnn_layers,
@@ -683,7 +683,13 @@ def main():
     parser.add_argument("--num-neighs", nargs="+", type=int, default=[100, 100])
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--seeds", nargs="+", type=int, default=[42])
+    parser.add_argument("--causal", action="store_true",
+                        help="causal neighbour sampling (models/causal_loader.py); default keeps the "
+                             "original sampler")
+    parser.add_argument("--dry-run", action="store_true",
+                        help=f"train on a {DRY_RUN_FRAC:.0%} row sample of formatted_transactions.csv")
     args = parser.parse_args()
+    args.dry_run_seed = args.seeds[0]
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -746,6 +752,10 @@ def main():
         "w_ce1": args.w_ce1, "w_ce2": args.w_ce2,
         "num_neighbors": args.num_neighs,
         "n_parameters": all_results[0]["n_params"],
+        "causal_sampling": bool(args.causal),
+        "loader_route": LOADER_ROUTE["route"] if args.causal else "non-causal",
+        "loader_window_s": LOADER_ROUTE["window_s"] if args.causal else None,
+        "dry_run": bool(args.dry_run),
     }
     (args.out_dir / "config.yaml").write_text(yaml.dump(config, sort_keys=False), encoding="utf-8")
 

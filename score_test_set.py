@@ -2,14 +2,14 @@
 Re-score the test set from a saved checkpoint, keeping each prediction's
 global edge index so the output can be joined to the raw transactions.
 
-Why this is needed: models/gatv2.py and models/tgn.py select seed edges with
+Why this is needed: models/tgn.py used to select seed edges with
     mask = torch.isin(batch.edge_attr[:, 0], batch_edge_ids)
-which searches the SAMPLED SUBGRAPH for the seed IDs. A seed edge only appears
-there if neighbour sampling happened to draw it, so a small fraction of test
-edges are silently never scored, and the surviving rows come out in subgraph
-order rather than te_inds order. Column 0 is the arange row index added at
-load time, so the identity of each scored edge is available -- the training
-script just throws it away.
+which searched the SAMPLED SUBGRAPH for the seed IDs, so seeds the sampler did
+not draw were silently never scored (841 NaN rows in E6_tgn). Step 3a replaced
+that with models/causal_loader.py, which puts every seed edge in its batch
+exactly once and exposes `seed_mask` / `seed_global`; this script and
+models/tgn.py now share that loader. Add --causal for causal sampling. This
+file is superseded by models/score.py in Step 3.3.
 
 No retraining required. This is a single forward pass over the test loader.
 
@@ -44,27 +44,14 @@ from torch_geometric.nn import to_hetero
 
 
 def mask_and_ids(batch, loader, inds, is_hetero):
-    """Like _get_mask_and_clean, but also returns the global edge indices."""
-    inds_cpu = inds.detach().cpu()
-    if is_hetero:
-        store = batch["node", "to", "node"]
-        batch_edge_inds = inds_cpu[store.input_id.detach().cpu()]
-        seed_ids = loader.data["node", "to", "node"].edge_attr.detach().cpu()[
-            batch_edge_inds, 0]
-        col0 = store.edge_attr[:, 0].detach().cpu()
-        mask = torch.isin(col0, seed_ids)
-        ids = col0[mask].long()
-        store.edge_attr = store.edge_attr[:, 1:]
-        batch["node", "rev_to", "node"].edge_attr = \
-            batch["node", "rev_to", "node"].edge_attr[:, 1:]
-    else:
-        batch_edge_inds = inds_cpu[batch.input_id.detach().cpu()]
-        seed_ids = loader.data.edge_attr.detach().cpu()[batch_edge_inds, 0]
-        col0 = batch.edge_attr[:, 0].detach().cpu()
-        mask = torch.isin(col0, seed_ids)
-        ids = col0[mask].long()
-        batch.edge_attr = batch.edge_attr[:, 1:]
-    return mask, ids
+    """Seed mask and global edge indices of a batch built by models.causal_loader.
+
+    Every seed edge of the batch is present exactly once and the global-id column is
+    already stripped, so this no longer depends on the sampler having drawn the seed.
+    """
+    from models.causal_loader import seed_mask
+    mask, ids = seed_mask(batch)
+    return mask.detach().cpu(), ids.detach().cpu()
 
 
 def main():
@@ -90,7 +77,10 @@ def main():
     ap.add_argument("--ego", action="store_true")
     ap.add_argument("--gfp", action="store_true")
     ap.add_argument("--num-neighs", nargs="+", type=int, default=[100, 100])
+    ap.add_argument("--causal", action="store_true", help="causal neighbour sampling (models/causal_loader.py)")
+    ap.add_argument("--dry-run", action="store_true", help="score a 1% row sample (pipeline check only)")
     args = ap.parse_args()
+    args.dry_run_seed = 1
     args.num_neighs = list(args.num_neighs)
 
     from models.tgn import GINe as Net, load_data, get_loaders
@@ -112,10 +102,10 @@ def main():
     sample = next(iter(tr_loader))
     if is_hetero:
         n_feats = sample["node"].x.shape[1]
-        e_dim = sample["node", "to", "node"].edge_attr.shape[1] - 1
+        e_dim = sample["node", "to", "node"].edge_attr.shape[1]  # id column already stripped
     else:
         n_feats = sample.x.shape[1]
-        e_dim = sample.edge_attr.shape[1] - 1
+        e_dim = sample.edge_attr.shape[1]
     print(f"  n_feats={n_feats}, edge_dim={e_dim}, hetero={is_hetero}")
 
     kwargs = dict(

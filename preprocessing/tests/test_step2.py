@@ -21,7 +21,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from preprocessing.account_bank import (  # noqa: E402
     ACCOUNT_BANK_COLUMNS, bank_of_series, load_account_bank_map, load_paths,
 )
-from preprocessing import add_bank_columns as abc  # noqa: E402
+from preprocessing import amlworld_loader as loader  # noqa: E402
 from preprocessing import ring_scope as rs  # noqa: E402
 
 PATHS = load_paths()
@@ -31,8 +31,11 @@ SCOPE_JSON = REPO_ROOT / "docs" / "ring_scope.json"
 GT_DOC = REPO_ROOT / "docs" / "RING_GROUND_TRUTH_DEFINITION.md"
 SEED = 1
 
+TARGETS = ["amlworld_train.parquet", "amlworld_val.parquet", "amlworld_test.parquet",
+           "amlworld_ring_ground_truth.parquet"]
+
 pytestmark = pytest.mark.skipif(
-    not all((PROC / f).exists() for f in abc.TARGETS) or not PATHS["account_bank_map"].exists(),
+    not all((PROC / f).exists() for f in TARGETS) or not PATHS["account_bank_map"].exists(),
     reason="processed data not on disk",
 )
 
@@ -44,39 +47,37 @@ def bank_of():
     return bank_of_series(amap)
 
 
-# ---------------------------------------------------------------- 2.1 dry run
-@pytest.fixture(scope="module")
-def banks_dry(tmp_path_factory):
-    out = tmp_path_factory.mktemp("banks")
-    abc.main(["--dry-run", "--out-dir", str(out), "--seed", str(SEED)])
-    return out
+# ---------------------------------------------------------------- 2.1 (banks written by the loader)
+def test_attach_banks_inserts_after_to_id(bank_of):
+    df = pd.read_parquet(PROC / "amlworld_ring_ground_truth.parquet").drop(columns=["from_bank", "to_bank"])
+    out = loader.attach_banks(df, bank_of)
+    cols = list(out.columns)
+    assert cols[cols.index("to_id") + 1: cols.index("to_id") + 3] == ["from_bank", "to_bank"]
+    assert out["from_bank"].dtype == "int64" and out["to_bank"].dtype == "int64"
+    assert (bank_of.reindex(out["from_id"].values).values == out["from_bank"].values).all()
+    assert (bank_of.reindex(out["to_id"].values).values == out["to_bank"].values).all()
 
 
-def test_bank_columns_dry_run(banks_dry, bank_of):
-    for name in abc.TARGETS:
-        df = pd.read_parquet(banks_dry / name)
-        src_n = pd.read_parquet(PROC / name, columns=["from_id"]).shape[0]
-        assert len(df) == round(abc.DRY_RUN_FRAC * src_n), name
-        cols = list(df.columns)
-        assert cols[cols.index("to_id") + 1: cols.index("to_id") + 3] == ["from_bank", "to_bank"], name
-        assert df["from_bank"].dtype == "int64" and df["to_bank"].dtype == "int64"
-        assert (bank_of.reindex(df["from_id"].values).values == df["from_bank"].values).all()
-        assert (bank_of.reindex(df["to_id"].values).values == df["to_bank"].values).all()
-        log = json.loads((banks_dry / (name + ".banks.log.json")).read_text())
-        assert log["n_rows_out"] == len(df) and log["dry_run"] is True
-
-
-def test_bank_columns_idempotent(banks_dry, bank_of):
-    df = pd.read_parquet(banks_dry / "amlworld_ring_ground_truth.parquet")
-    again = abc.add_bank_columns(df, bank_of)
+def test_attach_banks_idempotent(bank_of):
+    df = pd.read_parquet(PROC / "amlworld_ring_ground_truth.parquet")
+    again = loader.attach_banks(df, bank_of)
     pd.testing.assert_frame_equal(df, again)
     assert list(again.columns).count("from_bank") == 1
 
 
-def test_bank_columns_missing_account_raises(bank_of):
+def test_attach_banks_missing_account_raises(bank_of):
     df = pd.DataFrame({"from_id": [0, 10**9], "to_id": [1, 2]})
     with pytest.raises(AssertionError, match="no bank_code"):
-        abc.add_bank_columns(df, bank_of)
+        loader.attach_banks(df, bank_of)
+
+
+def test_every_split_parquet_has_bank_columns_from_the_loader(bank_of):
+    for name in TARGETS:
+        df = pd.read_parquet(PROC / name, columns=["from_id", "to_id", "from_bank", "to_bank"])
+        assert df["from_bank"].notna().all() and df["to_bank"].notna().all()
+        s = df.sample(n=min(5000, len(df)), random_state=SEED)
+        assert (bank_of.reindex(s["from_id"].values).values == s["from_bank"].values).all()
+        assert (bank_of.reindex(s["to_id"].values).values == s["to_bank"].values).all()
 
 
 # ---------------------------------------------------------------- 2.2 / 2.3 dry run
@@ -251,17 +252,6 @@ def test_check2_every_gt_account_has_bank_and_cross_bank_fraction_recorded(bank_
     assert j["summary"]["n_rings_cross_bank"] == 366
     doc = GT_DOC.read_text(encoding="utf-8")
     assert f"{j['summary']['cross_bank_fraction']:.1%}" in doc or str(j["summary"]["n_rings_cross_bank"]) in doc
-
-
-@full
-def test_check2_split_parquets_have_bank_columns(bank_of):
-    for name in abc.TARGETS[:3]:
-        df = pd.read_parquet(PROC / name, columns=["from_id", "to_id", "from_bank", "to_bank"])
-        assert df["from_bank"].notna().all() and df["to_bank"].notna().all()
-        s = df.sample(n=5000, random_state=SEED)
-        assert (bank_of.reindex(s["from_id"].values).values == s["from_bank"].values).all()
-        assert (bank_of.reindex(s["to_id"].values).values == s["to_bank"].values).all()
-        assert Path(str(PROC / name) + ".banks.log.json").exists()
 
 
 @full

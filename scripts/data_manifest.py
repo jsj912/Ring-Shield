@@ -3,10 +3,9 @@
     python scripts/data_manifest.py            # writes docs/data_manifest.json
     python scripts/data_manifest.py --check    # exits 1 if any file differs from the manifest
 
-edge_id is only reproducible against the exact formatted_transactions.csv on disk
-(scripts/format_kaggle_files.py sorts by Timestamp with an unstable sort), so its hash is
-pinned here. The sort switches to kind="mergesort" at the Step 3 regeneration and the
-manifest is re-recorded then.
+edge_id is defined by the row order of formatted_transactions.csv, so its hash is pinned
+here. Since Step 3a scripts/format_kaggle_files.py sorts with kind="mergesort" (stable), so
+the numbering is reproducible from HI-Small_Trans.csv alone.
 """
 from __future__ import annotations
 
@@ -54,8 +53,9 @@ def main(argv=None):
         "recorded_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git_commit": git_commit(),
         "raw_dir": str(raw_dir.relative_to(REPO_ROOT)),
-        "note": ("formatted_transactions.csv row order defines edge_id; regenerate only at the Step 3 "
-                 "retrain (with kind='mergesort') and re-record this manifest."),
+        "note": ("formatted_transactions.csv row order defines edge_id. Since Step 3a it is produced with "
+                 "sort_values(kind='mergesort') (stable), so the numbering is reproducible from the raw "
+                 "file; the pre-Step-3a (introsort) numbering is mapped by data/processed/edge_id_remap.parquet."),
         "files": current,
     }
     MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")

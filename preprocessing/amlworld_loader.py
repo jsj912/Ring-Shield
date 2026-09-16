@@ -20,23 +20,48 @@ Expects inside --raw-dir:
 
 Produces inside --out-dir:
     amlworld_train.parquet       (per-transaction features + labels, train split)
+    amlworld_val.parquet         (same, validation split)
     amlworld_test.parquet        (per-transaction features + labels, test split)
+    -- every split carries from_bank / to_bank (Step 2.1 / 3a), taken from
+       data/processed/account_bank.parquet (preprocessing/account_bank.py)
+    -- Timestamp is the loader basis: seconds since (first day 00:00 - 10 s),
+       exactly as in formatted_transactions.csv
     amlworld_edges_train.parquet (from_id, to_id, timestamp for train-period edges)
     amlworld_edges_test.parquet  (same, test-period)
     amlworld_ring_ground_truth.parquet  (ring_id, pattern_type, from_id, to_id,
                                          timestamp — for E7 ring-level evaluation)
 
-Also appends AMLworld section to data/SPLIT_MANIFEST.md.
+Also appends AMLworld section to data/SPLIT_MANIFEST.md (a --dry-run appends to
+<out-dir>/dryrun/SPLIT_MANIFEST.md instead).
 """
 
 import argparse
 import re
 import datetime
+import sys
 from pathlib import Path
 from datetime import datetime as dt_class
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from preprocessing.account_bank import bank_of_series, load_account_bank_map  # noqa: E402
+
+DRY_RUN_FRAC = 0.01
+
+
+def attach_banks(df: pd.DataFrame, bank_of: pd.Series) -> pd.DataFrame:
+    """Insert from_bank / to_bank (int64) right after to_id; every id must have a bank."""
+    df = df.drop(columns=[c for c in ("from_bank", "to_bank") if c in df.columns])
+    fb = bank_of.reindex(df["from_id"].values)
+    tb = bank_of.reindex(df["to_id"].values)
+    n_missing = int(fb.isna().sum() + tb.isna().sum())
+    assert n_missing == 0, f"{n_missing} account ids have no bank_code in account_bank.parquet"
+    pos = list(df.columns).index("to_id") + 1
+    df.insert(pos, "from_bank", fb.values.astype("int64"))
+    df.insert(pos + 1, "to_bank", tb.values.astype("int64"))
+    return df
 
 
 # ============================================================================
@@ -239,8 +264,21 @@ def main():
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
     parser.add_argument("--out-dir", type=Path, default=Path("data/processed"))
     parser.add_argument("--patterns", type=Path, default=Path("data/raw/HI-Small_Patterns.txt"))
+    parser.add_argument("--account-bank", type=Path, default=None,
+                        help="account_id -> bank_code parquet; default configs/paths.yaml account_bank_map "
+                             "(built from the raw Trans CSV on first use)")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="row-sampling seed for --dry-run; default configs/seeds.yaml[0]")
+    parser.add_argument("--dry-run", action="store_true",
+                        help=f"process a {DRY_RUN_FRAC:.0%} row sample and write to <out-dir>/dryrun/")
     args = parser.parse_args()
 
+    if args.dry_run:
+        if args.seed is None:
+            import yaml
+            with open(Path(__file__).resolve().parents[1] / "configs" / "seeds.yaml") as f:
+                args.seed = int(yaml.safe_load(f)["seeds"][0])
+        args.out_dir = args.out_dir / "dryrun"
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     # --- Load formatted transactions ---
@@ -248,6 +286,14 @@ def main():
     print(f"Loading {fmt_path} ...")
     df = pd.read_csv(fmt_path)
     print(f"  {len(df)} transactions, columns: {df.columns.tolist()}")
+    if args.dry_run:
+        df = df.sample(frac=DRY_RUN_FRAC, random_state=args.seed).sort_values("EdgeID").reset_index(drop=True)
+        print(f"  DRY RUN: {len(df)} rows ({DRY_RUN_FRAC:.0%}, seed {args.seed}) -> {args.out_dir}")
+
+    # --- Banks (Step 2.1): one shared table, never re-parsed ---
+    bank_of = bank_of_series(load_account_bank_map(args.account_bank))
+    df = attach_banks(df, bank_of)
+    print(f"  Attached from_bank/to_bank ({df['from_bank'].nunique()} sending banks)")
 
     # --- Parse pattern ground truth ---
     print("Parsing pattern ground truth...")
@@ -331,7 +377,7 @@ def main():
                     "hour_of_day", "day_of_week", "day_index"]
     account_features = [c for c in df.columns if c.startswith("sender_") or c.startswith("receiver_")]
     all_features = txn_features + account_features
-    meta_cols = ["EdgeID", "from_id", "to_id", "Timestamp", "Is Laundering",
+    meta_cols = ["EdgeID", "from_id", "to_id", "from_bank", "to_bank", "Timestamp", "Is Laundering",
                  "ring_id", "pattern_type"]
 
     keep_cols = meta_cols + all_features
@@ -357,12 +403,12 @@ def main():
     df[edge_cols][test_mask.values].to_parquet(
         args.out_dir / "amlworld_edges_test.parquet", index=False)
 
-    # Ring ground truth (for E7+ ring-level evaluation)
-    ring_gt = df_rings.copy()
+    # Ring ground truth (for E7+ ring-level evaluation), with banks
+    ring_gt = attach_banks(df_rings.copy(), bank_of)
     ring_gt.to_parquet(args.out_dir / "amlworld_ring_ground_truth.parquet", index=False)
 
     # --- Update SPLIT_MANIFEST.md ---
-    manifest_path = Path("data/SPLIT_MANIFEST.md")
+    manifest_path = (args.out_dir / "SPLIT_MANIFEST.md") if args.dry_run else Path("data/SPLIT_MANIFEST.md")
     n_rings_train = train_df[train_df["ring_id"] != -1]["ring_id"].nunique()
     n_rings_val = val_df[val_df["ring_id"] != -1]["ring_id"].nunique()
     n_rings_test = test_df[test_df["ring_id"] != -1]["ring_id"].nunique()
