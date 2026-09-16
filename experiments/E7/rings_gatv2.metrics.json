@@ -1,0 +1,61 @@
+{
+  "predictions": "experiments\\E6_gatv2\\predictions_with_ids.csv",
+  "threshold": 0.20583862590000002,
+  "top_pct": 0.5,
+  "min_size": 3,
+  "min_conf": 0.0,
+  "min_density": 0.0,
+  "max_gap_hours": null,
+  "match_threshold": 0.5,
+  "scope_policy": "strict",
+  "ring_precision": 0.0805,
+  "ring_recall": 0.4941,
+  "ring_f1": 0.1384,
+  "member_coverage": 0.9308,
+  "mean_jaccard": 0.9009,
+  "n_predicted": 522,
+  "n_truth": 85,
+  "n_matched": 42,
+  "per_pattern": {
+    "BIPARTITE": {
+      "n_truth": 15.0,
+      "n_matched": 0.0,
+      "recall": 0.0
+    },
+    "STACK": {
+      "n_truth": 6.0,
+      "n_matched": 1.0,
+      "recall": 0.16666666666666666
+    },
+    "RANDOM": {
+      "n_truth": 12.0,
+      "n_matched": 6.0,
+      "recall": 0.5
+    },
+    "CYCLE": {
+      "n_truth": 9.0,
+      "n_matched": 6.0,
+      "recall": 0.6666666666666666
+    },
+    "SCATTER-GATHER": {
+      "n_truth": 10.0,
+      "n_matched": 5.0,
+      "recall": 0.5
+    },
+    "FAN-IN": {
+      "n_truth": 9.0,
+      "n_matched": 6.0,
+      "recall": 0.6666666666666666
+    },
+    "GATHER-SCATTER": {
+      "n_truth": 15.0,
+      "n_matched": 11.0,
+      "recall": 0.7333333333333333
+    },
+    "FAN-OUT": {
+      "n_truth": 9.0,
+      "n_matched": 7.0,
+      "recall": 0.7777777777777778
+    }
+  }
+}

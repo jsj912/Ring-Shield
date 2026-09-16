@@ -91,8 +91,10 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Loading data (this replays the full preprocessing) ...")
-    tr_data, val_data, te_data, tr_inds, val_inds, te_inds, te_meta = load_data(
-        args.raw_dir, args.data_dir, args)
+    # load_data returns 6 values in the original repo and 7 in the current
+    # version (te_meta appended). Tolerate both.
+    _ret = load_data(args.raw_dir, args.data_dir, args)
+    tr_data, val_data, te_data, tr_inds, val_inds, te_inds = _ret[:6]
     is_hetero = isinstance(tr_data, HeteroData)
     print(f"  is_hetero = {is_hetero}")
 

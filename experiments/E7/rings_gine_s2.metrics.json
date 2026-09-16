@@ -1,0 +1,61 @@
+{
+  "predictions": "experiments\\E6_tgn\\predictions_with_ids.csv",
+  "threshold": 0.29804980299999967,
+  "top_pct": 0.5,
+  "min_size": 2,
+  "min_conf": 0.0,
+  "min_density": 0.0,
+  "max_gap_hours": null,
+  "match_threshold": 0.5,
+  "scope_policy": "strict",
+  "ring_precision": 0.0151,
+  "ring_recall": 0.5647,
+  "ring_f1": 0.0293,
+  "member_coverage": 0.9296,
+  "mean_jaccard": 0.8829,
+  "n_predicted": 3187,
+  "n_truth": 85,
+  "n_matched": 48,
+  "per_pattern": {
+    "BIPARTITE": {
+      "n_truth": 15.0,
+      "n_matched": 2.0,
+      "recall": 0.13333333333333333
+    },
+    "STACK": {
+      "n_truth": 6.0,
+      "n_matched": 2.0,
+      "recall": 0.3333333333333333
+    },
+    "RANDOM": {
+      "n_truth": 12.0,
+      "n_matched": 7.0,
+      "recall": 0.5833333333333334
+    },
+    "CYCLE": {
+      "n_truth": 9.0,
+      "n_matched": 9.0,
+      "recall": 1.0
+    },
+    "SCATTER-GATHER": {
+      "n_truth": 10.0,
+      "n_matched": 5.0,
+      "recall": 0.5
+    },
+    "FAN-IN": {
+      "n_truth": 9.0,
+      "n_matched": 6.0,
+      "recall": 0.6666666666666666
+    },
+    "GATHER-SCATTER": {
+      "n_truth": 15.0,
+      "n_matched": 10.0,
+      "recall": 0.6666666666666666
+    },
+    "FAN-OUT": {
+      "n_truth": 9.0,
+      "n_matched": 7.0,
+      "recall": 0.7777777777777778
+    }
+  }
+}
