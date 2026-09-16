@@ -68,6 +68,13 @@ python models/tgn.py --raw-dir data/raw --data-dir data/processed --out-dir expe
 python score_test_set.py --arch gine --raw-dir data/raw --data-dir data/processed --ckpt experiments/E6_tgn/model_best_seed1.pt --n-hidden 66 --threshold 0.46 --out experiments/E6_tgn/predictions_with_ids.csv
 ```
 
+Contract files (Step 1.2):
+
+```bash
+python contract/make_scored_edges.py --preds experiments/E6_tgn/predictions_with_ids.csv --model-id gine --seed 1
+python -m pytest contract/tests -q
+```
+
 ## Hardware
 
 All runs so far: Intel Xeon W-2295 (18C/36T, 3.0 GHz), 128 GB RAM, NVIDIA RTX A5000
