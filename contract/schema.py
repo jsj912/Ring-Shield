@@ -175,9 +175,10 @@ loader-basis timestamps directly.
 
 ## Account -> bank map
 
-`from_bank` / `to_bank` come from `data/processed/account_bank.parquet`, rebuilt from
-`HI-Small_Trans.csv` with the loader's key rule (`str(bank) + str(account)`, ids in
-first-appearance order) and validated 100% against `HI-Small_accounts.csv`.
+`from_bank` / `to_bank` come from `data/processed/account_bank.parquet`
+(`account_id, bank_code, account_number`; built by `preprocessing/account_bank.py` from
+`HI-Small_Trans.csv` with the loader's key rule, `str(bank) + str(account)`, ids in
+first-appearance order, and validated 100% against `HI-Small_accounts.csv`).
 """
 
 

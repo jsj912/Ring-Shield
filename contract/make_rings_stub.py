@@ -34,6 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from contract.make_scored_edges import load_paths, write_log  # noqa: E402
+from preprocessing.account_bank import bank_of_series, load_account_bank_map  # noqa: E402
 from contract.schema import (  # noqa: E402
     E7_RING_CSV_COLUMNS,
     RINGS_COLUMNS,
@@ -94,7 +95,7 @@ def make_rings_stub(
     ts = se["timestamp"].values
     is_seed = se["is_seed"].values
 
-    bank_of = pd.read_parquet(account_map_path).set_index("account_id")["bank_id"]
+    bank_of = bank_of_series(load_account_bank_map(account_map_path))
 
     rows = []
     for r in e7.itertuples(index=False):

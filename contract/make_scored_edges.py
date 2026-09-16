@@ -16,9 +16,8 @@ Outputs:
     <out_dir>/labels_test.parquet   edge_id, true_label  -- internal only (PR-50); with
                              --dry-run it is written as labels_test_dryrun.parquet
 
-The account -> bank map is rebuilt from the raw HI-Small_Trans.csv with exactly the
-key rule the loader uses (str(bank) + str(account), ids in first-appearance order),
-validated against HI-Small_accounts.csv, and cached at paths.yaml:account_bank_map.
+The account -> bank map comes from preprocessing/account_bank.py
+(paths.yaml:account_bank_map, built on first use).
 """
 from __future__ import annotations
 
@@ -29,13 +28,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from preprocessing.account_bank import bank_of_series, load_account_bank_map  # noqa: E402
 from contract.schema import (  # noqa: E402
     LABELS_COLUMNS,
     LABELS_ORDER,
@@ -72,64 +71,6 @@ def write_log(out_path: Path, log: dict) -> Path:
     with open(p, "w") as f:
         json.dump(log, f, indent=2)
     return p
-
-
-# --------------------------------------------------------------------------- #
-# account -> bank map
-# --------------------------------------------------------------------------- #
-def build_account_bank_map(raw_trans_csv: Path, accounts_csv: Path | None = None) -> pd.DataFrame:
-    """Rebuild the loader's account_map and attach the bank id of every account.
-
-    Reproduces preprocessing/amlworld_loader.py::rebuild_account_map vectorised:
-    key = str(From Bank) + str(Account), ids assigned in order of first appearance,
-    from-account before to-account within a row. Returns a DataFrame with columns
-    [account_id, bank_id, account_number], one row per account id 0..n-1.
-
-    If accounts_csv is given, every (bank, account) key must exist there with the
-    same bank id; otherwise an AssertionError is raised.
-    """
-    raw = pd.read_csv(raw_trans_csv, usecols=[1, 2, 3, 4])
-    raw.columns = ["from_bank", "from_acc", "to_bank", "to_acc"]
-
-    n = len(raw)
-    keys = np.empty(2 * n, dtype=object)
-    keys[0::2] = (raw["from_bank"].astype(str) + raw["from_acc"].astype(str)).values
-    keys[1::2] = (raw["to_bank"].astype(str) + raw["to_acc"].astype(str)).values
-    banks = np.empty(2 * n, dtype=np.int64)
-    banks[0::2] = raw["from_bank"].values
-    banks[1::2] = raw["to_bank"].values
-    accs = np.empty(2 * n, dtype=object)
-    accs[0::2] = raw["from_acc"].astype(str).values
-    accs[1::2] = raw["to_acc"].astype(str).values
-
-    uniq, first_idx = np.unique(keys, return_index=True)
-    order = np.argsort(first_idx)  # first-appearance order == loader id order
-    amap = pd.DataFrame({
-        "account_id": np.arange(len(uniq), dtype=np.int64),
-        "bank_id": banks[first_idx[order]],
-        "account_number": accs[first_idx[order]],
-        "key": uniq[order],
-    })
-
-    if accounts_csv is not None:
-        acc = pd.read_csv(accounts_csv)
-        acc["key"] = acc["Bank ID"].astype(str) + acc["Account Number"].astype(str)
-        chk = amap.merge(acc[["key", "Bank ID"]], on="key", how="left")
-        n_missing = int(chk["Bank ID"].isna().sum())
-        assert n_missing == 0, f"{n_missing} accounts from the Trans CSV are absent in {accounts_csv}"
-        n_disagree = int((chk["Bank ID"].astype(np.int64) != chk["bank_id"]).sum())
-        assert n_disagree == 0, f"{n_disagree} accounts have a different bank id in {accounts_csv}"
-
-    return amap.drop(columns="key")
-
-
-def load_account_bank_map(raw_trans_csv: Path, accounts_csv: Path | None, cache: Path) -> pd.DataFrame:
-    if cache.exists():
-        return pd.read_parquet(cache)
-    amap = build_account_bank_map(raw_trans_csv, accounts_csv)
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    amap.to_parquet(cache, index=False)
-    return amap
 
 
 # --------------------------------------------------------------------------- #
@@ -191,8 +132,8 @@ def make_scored_edges(
     assert (m["true_label"] == m["Is Laundering"]).all(), "true_label disagrees with 'Is Laundering'"
 
     # 3. banks ----------------------------------------------------------------
-    amap = load_account_bank_map(raw_trans_csv, accounts_csv, account_map_cache)
-    bank_of = amap.set_index("account_id")["bank_id"]
+    amap = load_account_bank_map(account_map_cache, raw_trans_csv=raw_trans_csv, accounts_csv=accounts_csv)
+    bank_of = bank_of_series(amap)
     m["from_bank"] = bank_of.reindex(m["from_id"].values).values
     m["to_bank"] = bank_of.reindex(m["to_id"].values).values
     assert not m["from_bank"].isna().any() and not m["to_bank"].isna().any(), (

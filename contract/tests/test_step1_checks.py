@@ -90,7 +90,7 @@ def test_check2_join_back_to_test_parquet(scored):
 
 # Check 3 ---------------------------------------------------------------------------
 def test_check3_rings(rings):
-    bank_of = pd.read_parquet(PATHS["account_bank_map"]).set_index("account_id")["bank_id"]
+    bank_of = pd.read_parquet(PATHS["account_bank_map"]).set_index("account_id")["bank_code"]
     assert len(rings) == 178
     assert (rings["n_members"] >= 3).all()
     assert (rings["members"].map(len) >= 3).all()

@@ -145,13 +145,13 @@ def test_edge_id_indexes_formatted_transactions(run):
 def test_bank_map_reproduces_loader_account_map(tmp_path):
     """build_account_bank_map must assign the same id to every account as the
     loader's rebuild_account_map (run here on the first 20k raw rows)."""
-    from contract.make_scored_edges import build_account_bank_map
+    from preprocessing.account_bank import build_account_bank_map
     from preprocessing.amlworld_loader import rebuild_account_map
     prefix = tmp_path / "prefix.csv"
     pd.read_csv(RAW_TRANS_CSV, nrows=20_000).to_csv(prefix, index=False)
     loader_map, _ = rebuild_account_map(prefix)
     ours = build_account_bank_map(prefix, accounts_csv=ACCOUNTS_CSV)
-    ours_map = dict(zip(ours["bank_id"].astype(str) + ours["account_number"], ours["account_id"]))
+    ours_map = dict(zip(ours["bank_code"].astype(str) + ours["account_number"], ours["account_id"]))
     assert ours_map == loader_map
 
 
@@ -159,18 +159,18 @@ def test_cached_map_covers_every_account_in_output(run):
     amap = pd.read_parquet(ACCOUNT_MAP).set_index("account_id")
     assert amap.index.equals(pd.RangeIndex(len(amap)))
     df = run["df"]
-    assert (amap.loc[df["from_id"], "bank_id"].values == df["from_bank"].values).all()
-    assert (amap.loc[df["to_id"], "bank_id"].values == df["to_bank"].values).all()
+    assert (amap.loc[df["from_id"], "bank_code"].values == df["from_bank"].values).all()
+    assert (amap.loc[df["to_id"], "bank_code"].values == df["to_bank"].values).all()
 
 
 def test_bank_map_agrees_with_accounts_csv():
     amap = pd.read_parquet(ACCOUNT_MAP)
     acc = pd.read_csv(ACCOUNTS_CSV)
     acc["key"] = acc["Bank ID"].astype(str) + acc["Account Number"].astype(str)
-    amap["key"] = amap["bank_id"].astype(str) + amap["account_number"].astype(str)
+    amap["key"] = amap["bank_code"].astype(str) + amap["account_number"].astype(str)
     chk = amap.merge(acc[["key", "Bank ID"]], on="key", how="left")
     assert chk["Bank ID"].notna().all()
-    assert (chk["Bank ID"].astype("int64") == chk["bank_id"]).all()
+    assert (chk["Bank ID"].astype("int64") == chk["bank_code"]).all()
 
 
 def test_tenant_id_is_from_bank(run):

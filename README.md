@@ -29,6 +29,9 @@ Numbers are the ones written in the corresponding `experiments/<ID>/metrics.json
 | `rings` contract parquet, connected-components baseline from the legacy E7 CSV | `contract/make_rings_stub.py` | `contract/out/rings_stub_cc.parquet` (+ `.log.json`) | done — stub; real rings in Steps 6-8 |
 | Column contract (single source of truth; generates `contract/README.md`) | `contract/schema.py` | — | done |
 | Raw-data hash manifest (pins the `edge_id` numbering) | `scripts/data_manifest.py` | `docs/data_manifest.json` | done |
+| account_id → bank_code table (loader key rule, validated vs accounts.csv) | `preprocessing/account_bank.py` | `data/processed/account_bank.parquet` | done — 515,088 accounts, 30,470 banks |
+| `from_bank`/`to_bank` on the three split Parquets and the ring ground truth | `preprocessing/add_bank_columns.py` | `data/processed/amlworld_*.parquet` (in place) | done |
+| Ring scope per policy (strict / majority), boundary and size counts, evidence ceiling | `preprocessing/ring_scope.py` | `docs/ring_scope.json`, `docs/RING_GROUND_TRUTH_DEFINITION.md` | done — 86 strict / 120 majority test rings |
 
 Not implemented (removed in Step 1 because they were stubs or dead ends): the Elliptic
 pipeline, EvolveGCN, GATv2, rule engine, cascade pipeline, explainability, ablations,
@@ -79,6 +82,15 @@ python contract/make_scored_edges.py --preds experiments/E6_tgn/predictions_with
 python contract/make_rings_stub.py --e7-csv experiments/legacy_E7_test_tuned/rings_gine.csv --scored-edges contract/out/scored_edges_gine_1.parquet --aggregator-id cc
 python scripts/data_manifest.py --check
 python -m pytest contract/tests -q
+```
+
+L0 additions (Step 2):
+
+```bash
+python preprocessing/account_bank.py
+python preprocessing/add_bank_columns.py
+python preprocessing/ring_scope.py --gt data/processed/amlworld_ring_ground_truth.parquet --splits data/processed --out docs/ring_scope.json
+python -m pytest preprocessing/tests contract/tests -q
 ```
 
 ## Hardware

@@ -135,7 +135,7 @@ def test_placeholders(run):
 def test_ring_id_and_tenant(run, e7_rows):
     assert run["df"]["ring_id"].tolist() == [f"{AGG}-{i}" for i in e7_rows.index]
     assert (run["df"]["aggregator_id"] == AGG).all()
-    bank_of = pd.read_parquet(PATHS["account_bank_map"]).set_index("account_id")["bank_id"]
+    bank_of = pd.read_parquet(PATHS["account_bank_map"]).set_index("account_id")["bank_code"]
     for r in run["df"].itertuples(index=False):
         banks = bank_of.loc[list(r.members)]
         assert banks.notna().all()
