@@ -1,0 +1,28 @@
+{
+  "recorded_utc": "2026-09-16T10:04:13+00:00",
+  "git_commit": "672496879e587337d11d67a6694b22bfa8ec616a",
+  "raw_dir": "data\\raw",
+  "note": "formatted_transactions.csv row order defines edge_id; regenerate only at the Step 3 retrain (with kind='mergesort') and re-record this manifest.",
+  "files": {
+    "HI-Small_Trans.csv": {
+      "sha256": "b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040",
+      "bytes": 475664283,
+      "lines": 5078346
+    },
+    "HI-Small_accounts.csv": {
+      "sha256": "786808526e33cfc441212dd6fccda7edfc24172149bed59c6ef59b186836b014",
+      "bytes": 34053187,
+      "lines": 518582
+    },
+    "HI-Small_Patterns.txt": {
+      "sha256": "2c546b5ce6009e73851f0139af053cf845f08bf92f3bc82fe1eb937dec2ef39b",
+      "bytes": 323844,
+      "lines": 4319
+    },
+    "formatted_transactions.csv": {
+      "sha256": "67e006e6eb0124ab7697336fa96a4115f5c5011a74cfb6ebd95140bdd1b9e9d7",
+      "bytes": 266605148,
+      "lines": 5078346
+    }
+  }
+}

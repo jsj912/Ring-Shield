@@ -11,13 +11,14 @@ configs/paths.yaml. Add --dry-run to process a deterministic 1% sample of the
 prediction rows (sampled with random_state=--seed).
 
 Outputs:
-    <out>            the contract parquet (columns / order: contract/schema.py)
-    <out>.log.json   row counts, NaN count, timestamp offset, inputs, git commit
+    <out>                    scored_edges parquet (columns / order: contract/schema.py)
+    <out>.log.json           row counts, NaN count, timestamp offset, inputs, git commit
+    <out_dir>/labels_test.parquet   edge_id, true_label  -- internal only (PR-50); with
+                             --dry-run it is written as labels_test_dryrun.parquet
 
 The account -> bank map is rebuilt from the raw HI-Small_Trans.csv with exactly the
 key rule the loader uses (str(bank) + str(account), ids in first-appearance order),
-validated against HI-Small_accounts.csv, and cached at
-<processed_dir>/amlworld_account_bank_map.parquet.
+validated against HI-Small_accounts.csv, and cached at paths.yaml:account_bank_map.
 """
 from __future__ import annotations
 
@@ -36,20 +37,23 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from contract.schema import (  # noqa: E402
+    LABELS_COLUMNS,
+    LABELS_ORDER,
     PREDICTIONS_WITH_IDS_COLUMNS,
     SCORED_EDGES_COLUMNS,
     SCORED_EDGES_ORDER,
     TEST_PARQUET_RENAMES,
+    pandas_dtypes,
 )
 
-ACCOUNT_MAP_CACHE = "amlworld_account_bank_map.parquet"
 DRY_RUN_FRAC = 0.01
 
 
 def load_paths(paths_yaml: Path = REPO_ROOT / "configs" / "paths.yaml") -> dict:
+    """configs/paths.yaml with path-valued entries resolved against the repo root."""
     with open(paths_yaml) as f:
         cfg = yaml.safe_load(f)
-    return {k: (REPO_ROOT / v) for k, v in cfg.items()}
+    return {k: (REPO_ROOT / v if isinstance(v, str) else v) for k, v in cfg.items()}
 
 
 def git_commit() -> str:
@@ -59,6 +63,15 @@ def git_commit() -> str:
         ).strip()
     except Exception:  # pragma: no cover
         return "unknown"
+
+
+def write_log(out_path: Path, log: dict) -> Path:
+    log = {"created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+           "git_commit": git_commit(), **log}
+    p = Path(str(out_path) + ".log.json")
+    with open(p, "w") as f:
+        json.dump(log, f, indent=2)
+    return p
 
 
 # --------------------------------------------------------------------------- #
@@ -132,16 +145,21 @@ def make_scored_edges(
     *,
     raw_trans_csv: Path | None = None,
     account_map_cache: Path | None = None,
+    labels_path: Path | None = None,
     dry_run: bool = False,
 ) -> dict:
     """Convert predictions_with_ids.csv + test parquet into the scored_edges contract.
 
+    Also writes labels_test.parquet (edge_id, true_label) next to out_path.
     Returns the log dict that is also written to <out_path>.log.json.
     """
     preds_csv, test_parquet, accounts_csv, out_path = map(Path, (preds_csv, test_parquet, accounts_csv, out_path))
     paths = load_paths()
     raw_trans_csv = Path(raw_trans_csv) if raw_trans_csv else paths["raw_dir"] / "HI-Small_Trans.csv"
-    account_map_cache = Path(account_map_cache) if account_map_cache else paths["processed_dir"] / ACCOUNT_MAP_CACHE
+    account_map_cache = Path(account_map_cache) if account_map_cache else paths["account_bank_map"]
+    labels_path = Path(labels_path) if labels_path else out_path.parent / (
+        "labels_test_dryrun.parquet" if dry_run else "labels_test.parquet")
+    expected_offset = int(paths["legacy_csv_time_offset_s"])
 
     # 1. predictions ---------------------------------------------------------
     preds = pd.read_csv(preds_csv)
@@ -153,8 +171,8 @@ def make_scored_edges(
         preds = preds.sample(frac=DRY_RUN_FRAC, random_state=seed).sort_values("EdgeID").reset_index(drop=True)
 
     # 2. join on EdgeID ------------------------------------------------------
-    test_cols = ["EdgeID", "from_id", "to_id", "Timestamp", "Is Laundering"] + [
-        c for c in TEST_PARQUET_RENAMES if c != "Timestamp"]
+    test_cols = ["EdgeID", "from_id", "to_id", "Is Laundering"] + [
+        c for c in TEST_PARQUET_RENAMES if c != "EdgeID"]
     test = pd.read_parquet(test_parquet, columns=test_cols)
     assert test["EdgeID"].is_unique, "EdgeID is not unique in test parquet"
     m = preds.merge(test, on="EdgeID", how="left", suffixes=("", "_test"), validate="one_to_one")
@@ -162,12 +180,14 @@ def make_scored_edges(
     assert n_unmatched == 0, f"{n_unmatched} prediction EdgeIDs not found in {test_parquet}"
     assert (m["from_id"] == m["from_id_test"]).all(), "from_id disagrees between predictions and test parquet"
     assert (m["to_id"] == m["to_id_test"]).all(), "to_id disagrees between predictions and test parquet"
-    # The model script re-bases Timestamp to df.Timestamp.min(); the loader re-based to
-    # (first day 00:00 - 10 s). The two therefore differ by one global constant.
+    # The model script re-based Timestamp to df.Timestamp.min(); the loader re-based to
+    # (first day 00:00 - 10 s). The two differ by one global constant (paths.yaml).
     ts_offset = (m["Timestamp_test"] - m["Timestamp"]).unique()
     assert len(ts_offset) == 1, (
         f"Timestamp offset between predictions and test parquet is not constant: {ts_offset[:5]}")
     ts_offset = int(ts_offset[0])
+    assert ts_offset == expected_offset, (
+        f"observed timestamp offset {ts_offset}s != configs/paths.yaml legacy_csv_time_offset_s={expected_offset}")
     assert (m["true_label"] == m["Is Laundering"]).all(), "true_label disagrees with 'Is Laundering'"
 
     # 3. banks ----------------------------------------------------------------
@@ -180,8 +200,8 @@ def make_scored_edges(
     m["tenant_id"] = m["from_bank"]
 
     # 4. renames --------------------------------------------------------------
-    m = m.drop(columns=["Timestamp", "from_id_test", "to_id_test", "true_label"]).rename(
-        columns={**TEST_PARQUET_RENAMES, "Timestamp_test": "timestamp", "Is Laundering": "true_label"})
+    m = m.drop(columns=["Timestamp", "from_id_test", "to_id_test", "Is Laundering"]).rename(
+        columns={**TEST_PARQUET_RENAMES, "Timestamp_test": "timestamp"})
 
     # 5./6. scores -------------------------------------------------------------
     nan_mask = m["pred_prob"].isna()
@@ -193,13 +213,13 @@ def make_scored_edges(
     m["seed"] = seed
 
     # 7. write ------------------------------------------------------------------
-    out = m[SCORED_EDGES_ORDER].astype(SCORED_EDGES_COLUMNS)
+    out = m[SCORED_EDGES_ORDER].astype(pandas_dtypes(SCORED_EDGES_COLUMNS))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out.to_parquet(out_path, index=False)
+    labels = m[LABELS_ORDER].astype(pandas_dtypes(LABELS_COLUMNS))
+    labels.to_parquet(labels_path, index=False)
 
     log = {
-        "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "git_commit": git_commit(),
         "model_id": model_id,
         "seed": seed,
         "dry_run": dry_run,
@@ -213,15 +233,16 @@ def make_scored_edges(
         "n_rows_out": int(len(out)),
         "n_nan_pred_prob": n_nan,
         "n_is_seed": int(out["is_seed"].sum()),
-        "n_true_positive_label": int(out["true_label"].sum()),
+        "n_true_label_positive": int(labels["true_label"].sum()),
         "timestamp_offset_seconds": ts_offset,
         "columns": SCORED_EDGES_ORDER,
         "out_path": str(out_path),
+        "labels_path": str(labels_path),
     }
-    with open(str(out_path) + ".log.json", "w") as f:
-        json.dump(log, f, indent=2)
+    write_log(out_path, log)
     print(f"[make_scored_edges] wrote {len(out):,} rows -> {out_path}  "
-          f"(NaN pred_prob kept: {n_nan}, is_seed: {log['n_is_seed']}, ts offset: {ts_offset}s)")
+          f"(NaN pred_prob kept: {n_nan}, is_seed: {log['n_is_seed']}, ts offset: {ts_offset}s); "
+          f"labels -> {labels_path}")
     return log
 
 

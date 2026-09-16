@@ -2,3 +2,12 @@
 raw_dir: data/raw
 processed_dir: data/processed
 experiments_dir: experiments
+
+# account_id -> bank_id map (built once by contract/make_scored_edges.py, Step 2.1 reuses it)
+account_bank_map: data/processed/account_bank.parquet
+
+# The legacy model scripts (models/tgn.py, score_test_set.py, ring_aggregator.py) re-based
+# time to df.Timestamp.min(); the loader re-based to (first day 00:00 - 10 s). Every legacy
+# CSV timestamp is therefore this many seconds LOWER than the loader-basis parquets.
+# contract/* asserts and adds it. models/score.py (Step 3.3) writes loader basis directly.
+legacy_csv_time_offset_s: 10

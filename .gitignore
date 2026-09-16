@@ -85,3 +85,4 @@ experiments/*/predictions_seed*.csv
 experiments/**/predictions*.csv
 *.parquet
 *.ckpt
+contract/out/*_dryrun*

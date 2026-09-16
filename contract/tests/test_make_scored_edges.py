@@ -19,13 +19,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from contract.make_scored_edges import (  # noqa: E402
-    ACCOUNT_MAP_CACHE, DRY_RUN_FRAC, load_paths, main, make_scored_edges,
+    DRY_RUN_FRAC, load_paths, main, make_scored_edges,
 )
 from contract.schema import (  # noqa: E402
-    PREDICTIONS_WITH_IDS_COLUMNS, SCORED_EDGES_COLUMNS, SCORED_EDGES_ORDER,
+    LABELS_ORDER, PREDICTIONS_WITH_IDS_COLUMNS, SCORED_EDGES_COLUMNS, SCORED_EDGES_ORDER,
+    pandas_dtypes,
 )
 
 PATHS = load_paths()
+ACCOUNT_MAP = PATHS["account_bank_map"]
 PREDS_CSV = REPO_ROOT / "experiments" / "E6_tgn" / "predictions_with_ids.csv"
 TEST_PARQUET = PATHS["processed_dir"] / "amlworld_test.parquet"
 ACCOUNTS_CSV = PATHS["raw_dir"] / "HI-Small_accounts.csv"
@@ -42,19 +44,19 @@ pytestmark = pytest.mark.skipif(
 def run(tmp_path_factory):
     out = tmp_path_factory.mktemp("scored") / f"scored_edges_{MODEL_ID}_{SEED}_dryrun.parquet"
     log = make_scored_edges(PREDS_CSV, TEST_PARQUET, ACCOUNTS_CSV, MODEL_ID, SEED, out, dry_run=True)
-    return {"out": out, "log": log, "df": pd.read_parquet(out)}
+    return {"out": out, "log": log, "df": pd.read_parquet(out), "labels": pd.read_parquet(log["labels_path"])}
 
 
 @pytest.fixture(scope="module")
 def preds_sample(run):
     preds = pd.read_csv(PREDS_CSV)
-    return preds[preds["EdgeID"].isin(run["df"]["EdgeID"])].sort_values("EdgeID").reset_index(drop=True)
+    return preds[preds["EdgeID"].isin(run["df"]["edge_id"])].sort_values("EdgeID").reset_index(drop=True)
 
 
 @pytest.fixture(scope="module")
 def test_rows(run):
     t = pd.read_parquet(TEST_PARQUET)
-    return t[t["EdgeID"].isin(run["df"]["EdgeID"])].sort_values("EdgeID").reset_index(drop=True)
+    return t[t["EdgeID"].isin(run["df"]["edge_id"])].sort_values("EdgeID").reset_index(drop=True)
 
 
 # 7. exact contract columns, contract order, dtypes ----------------------------
@@ -64,7 +66,7 @@ def test_columns_are_exactly_the_contract_in_order(run):
 
 def test_dtypes_match_contract(run):
     got = {c: str(run["df"][c].dtype) for c in run["df"].columns}
-    for col, want in SCORED_EDGES_COLUMNS.items():
+    for col, want in pandas_dtypes(SCORED_EDGES_COLUMNS).items():
         if want == "string":
             assert got[col].startswith("str"), (col, got[col])
         else:
@@ -76,7 +78,7 @@ def test_dry_run_is_one_percent_and_unique(run, preds_sample):
     n_all = run["log"]["n_rows_predictions"]
     assert n_all == 863_900
     assert len(run["df"]) == round(DRY_RUN_FRAC * n_all)
-    assert run["df"]["EdgeID"].is_unique
+    assert run["df"]["edge_id"].is_unique
     assert len(preds_sample) == len(run["df"])  # every output EdgeID exists in the input
 
 
@@ -103,18 +105,22 @@ def test_predictions_header_constant_matches_file():
 # 2. join on EdgeID; from_id / to_id / Timestamp agree on 100% of rows ------------
 def test_join_agrees_with_test_parquet(run, test_rows, preds_sample):
     df = run["df"]
-    assert (df["EdgeID"].values == test_rows["EdgeID"].values).all()
+    assert (df["edge_id"].values == test_rows["EdgeID"].values).all()
     assert (df["from_id"].values == test_rows["from_id"].values).all()
     assert (df["to_id"].values == test_rows["to_id"].values).all()
     assert (df["from_id"].values == preds_sample["from_id"].values).all()
     assert (df["to_id"].values == preds_sample["to_id"].values).all()
-    assert (df["true_label"].values == test_rows["Is Laundering"].values).all()
-    assert (df["true_label"].values == preds_sample["true_label"].values).all()
+    assert "true_label" not in df.columns  # PR-50: no ground truth in the contract file
+    labels = run["labels"]
+    assert list(labels.columns) == LABELS_ORDER
+    assert (labels["edge_id"].values == df["edge_id"].values).all()
+    assert (labels["true_label"].values == test_rows["Is Laundering"].values).all()
+    assert (labels["true_label"].values == preds_sample["true_label"].values).all()
     # timestamp is the test-parquet one; the model's differs by one global constant
     assert (df["timestamp"].values == test_rows["Timestamp"].values).all()
     offset = df["timestamp"].values - preds_sample["Timestamp"].values
     assert len(np.unique(offset)) == 1
-    assert int(offset[0]) == run["log"]["timestamp_offset_seconds"] == 10
+    assert int(offset[0]) == run["log"]["timestamp_offset_seconds"] == PATHS["legacy_csv_time_offset_s"] == 10
 
 
 def test_edge_id_indexes_formatted_transactions(run):
@@ -124,15 +130,15 @@ def test_edge_id_indexes_formatted_transactions(run):
     if not fmt_csv.exists():
         pytest.skip("formatted_transactions.csv not on disk")
     df = run["df"].sample(n=200, random_state=SEED)
-    rows = set(df["EdgeID"].tolist())
+    rows = set(df["edge_id"].tolist())
     fmt = pd.read_csv(fmt_csv, skiprows=lambda i: i != 0 and (i - 1) not in rows).set_index("EdgeID")
-    fmt = fmt.loc[df["EdgeID"].values]
+    fmt = fmt.loc[df["edge_id"].values]
     assert (fmt["from_id"].values == df["from_id"].values).all()
     assert (fmt["to_id"].values == df["to_id"].values).all()
     assert (fmt["Timestamp"].values == df["timestamp"].values).all()
     assert np.allclose(fmt["Amount Sent"].values, df["amount_sent"].values)
     assert np.allclose(fmt["Amount Received"].values, df["amount_received"].values)
-    assert (fmt["Is Laundering"].values == df["true_label"].values).all()
+    assert (fmt["Is Laundering"].values == run["labels"].set_index("edge_id").loc[df["edge_id"], "true_label"].values).all()
 
 
 # 3. banks via the account map; tenant_id = from_bank ------------------------------
@@ -150,7 +156,7 @@ def test_bank_map_reproduces_loader_account_map(tmp_path):
 
 
 def test_cached_map_covers_every_account_in_output(run):
-    amap = pd.read_parquet(PATHS["processed_dir"] / ACCOUNT_MAP_CACHE).set_index("account_id")
+    amap = pd.read_parquet(ACCOUNT_MAP).set_index("account_id")
     assert amap.index.equals(pd.RangeIndex(len(amap)))
     df = run["df"]
     assert (amap.loc[df["from_id"], "bank_id"].values == df["from_bank"].values).all()
@@ -158,7 +164,7 @@ def test_cached_map_covers_every_account_in_output(run):
 
 
 def test_bank_map_agrees_with_accounts_csv():
-    amap = pd.read_parquet(PATHS["processed_dir"] / ACCOUNT_MAP_CACHE)
+    amap = pd.read_parquet(ACCOUNT_MAP)
     acc = pd.read_csv(ACCOUNTS_CSV)
     acc["key"] = acc["Bank ID"].astype(str) + acc["Account Number"].astype(str)
     amap["key"] = amap["bank_id"].astype(str) + amap["account_number"].astype(str)
