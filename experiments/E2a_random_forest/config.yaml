@@ -1,0 +1,13 @@
+experiment_id: "E2a"
+name: "random_forest_elliptic"
+dataset: "elliptic"
+feature_set: "AF"
+split: "chronological_1-34_train_35-49_test"
+val_split: "chronological_1-29_train_proper_30-34_val"
+model: "RandomForestClassifier"
+hyperparameters:
+  n_estimators: 100
+  class_weight: "selected via validation F1 sweep over [none, balanced, light_3x, light_5x] — see metrics.json for chosen value"
+  decision_threshold: "selected via validation precision-recall curve F1-maximization — see metrics.json for chosen value"
+random_seed: 42
+notes: Uses the same validation-tuning methodology as E1 (Logistic Regression), for a fair, consistent comparison across baselines — not just a fair comparison of model architectures, but of tuning discipline too.

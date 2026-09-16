@@ -1,0 +1,8 @@
+feature_set: "AF"                # used by every baseline
+n_features: 165                  # 166 columns total minus the time_step column
+exclude_columns: ["time_step"]   # never used as a model feature — leakage risk
+feature_columns: "columns 2 through 166 inclusive (0-indexed: 2..166), i.e. everything except txId and time_step"
+rationale: >
+  AF chosen (not LF) to keep tabular baselines maximally strong, so any GNN
+  improvement in Phase 3+ is a genuine signal, not an artifact of a weakened
+  baseline. Matches Weber et al.'s headline RF=0.796 (AF) result.

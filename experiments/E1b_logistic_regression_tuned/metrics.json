@@ -1,0 +1,18 @@
+{
+  "illicit_f1": 0.48892825509300264,
+  "illicit_precision": 0.4697872340425532,
+  "illicit_recall": 0.5096952908587258,
+  "roc_auc": 0.8939605127055889,
+  "confusion_matrix": [
+    [
+      14964,
+      623
+    ],
+    [
+      531,
+      552
+    ]
+  ],
+  "chosen_class_weight": "none",
+  "chosen_threshold": 0.7727916568174964
+}

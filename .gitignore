@@ -1,0 +1,11 @@
+data/raw/
+data/processed/
+data/checksums/
+experiments/*/model.pkl
+experiments/*/model.ckpt
+results/figures/*.html
+*.pt
+*.parquet
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
