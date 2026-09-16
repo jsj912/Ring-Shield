@@ -25,6 +25,10 @@ Numbers are the ones written in the corresponding `experiments/<ID>/metrics.json
 | Test-set scoring with edge IDs (checkpoint chosen by val F1) | `score_test_set.py` | `experiments/E6_tgn/predictions_with_ids.csv` (untracked) | done |
 | Ring aggregation from scored edges | `models/ring_aggregator.py` | `experiments/legacy_E7_test_tuned` | runs, but its thresholds were tuned on the test set — **not reported** |
 | Ring metrics (precision / recall / F1, member coverage, Jaccard) | `evaluation/ring_metrics.py` | — | done |
+| `scored_edges` contract parquet (17 cols, no labels) + internal `labels_test.parquet` | `contract/make_scored_edges.py` | `contract/out/scored_edges_gine_1.parquet`, `contract/out/labels_test.parquet` (+ `.log.json`) | done |
+| `rings` contract parquet, connected-components baseline from the legacy E7 CSV | `contract/make_rings_stub.py` | `contract/out/rings_stub_cc.parquet` (+ `.log.json`) | done — stub; real rings in Steps 6-8 |
+| Column contract (single source of truth; generates `contract/README.md`) | `contract/schema.py` | — | done |
+| Raw-data hash manifest (pins the `edge_id` numbering) | `scripts/data_manifest.py` | `docs/data_manifest.json` | done |
 
 Not implemented (removed in Step 1 because they were stubs or dead ends): the Elliptic
 pipeline, EvolveGCN, GATv2, rule engine, cascade pipeline, explainability, ablations,
@@ -68,10 +72,12 @@ python models/tgn.py --raw-dir data/raw --data-dir data/processed --out-dir expe
 python score_test_set.py --arch gine --raw-dir data/raw --data-dir data/processed --ckpt experiments/E6_tgn/model_best_seed1.pt --n-hidden 66 --threshold 0.46 --out experiments/E6_tgn/predictions_with_ids.csv
 ```
 
-Contract files (Step 1.2):
+Contract files (Step 1.2-1.3) and checks:
 
 ```bash
 python contract/make_scored_edges.py --preds experiments/E6_tgn/predictions_with_ids.csv --model-id gine --seed 1
+python contract/make_rings_stub.py --e7-csv experiments/legacy_E7_test_tuned/rings_gine.csv --scored-edges contract/out/scored_edges_gine_1.parquet --aggregator-id cc
+python scripts/data_manifest.py --check
 python -m pytest contract/tests -q
 ```
 
