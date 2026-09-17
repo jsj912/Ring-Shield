@@ -87,7 +87,7 @@ def pandas_dtypes(spec: dict) -> dict:
 # --------------------------------------------------------------------------- #
 # inputs we depend on
 # --------------------------------------------------------------------------- #
-# Exact header expected from score_test_set.py / attach_ids_to_predictions.py
+# Exact header of the legacy predictions_with_ids.csv (E6, produced by the deleted score_test_set.py)
 PREDICTIONS_WITH_IDS_COLUMNS = [
     "EdgeID", "from_id", "to_id", "Timestamp",
     "true_label", "pred_prob", "predicted_label",
@@ -132,7 +132,7 @@ edit the schema, not this page. If a spec or the Implementation Plan disagrees w
 | File | Producer | Columns |
 |---|---|---|
 | `out/scored_edges_<model>_<seed>.parquet` | `make_scored_edges.py` | `SCORED_EDGES_COLUMNS` |
-| `out/labels_test.parquet` | `make_scored_edges.py` (internal, never shipped) | `LABELS_COLUMNS` |
+| `out/labels_{{train,val,test}}.parquet` | `make_labels.py` (internal, never shipped; `labels_test` also written by `make_scored_edges.py`) | `LABELS_COLUMNS` |
 | `out/rings_stub_<aggregator>.parquet` | `make_rings_stub.py` | `RINGS_COLUMNS` |
 
 Parquets are git-ignored; the `*.log.json` beside each one (row counts, inputs, git
@@ -154,7 +154,9 @@ No ground truth in this file (PR-50).
 
 {_table(SCORED_EDGES_COLUMNS)}
 
-## labels_test (internal)
+## labels_<split> (internal)
+
+Read by `evaluation/edge_metrics.py`; never joined into a shipped file.
 
 {_table(LABELS_COLUMNS)}
 

@@ -22,7 +22,7 @@ Numbers are the ones written in the corresponding `experiments/<ID>/metrics.json
 | Tabular baselines (LogReg / RF / XGBoost) | `baselines/*_aml.py` | `experiments/E5a_*` | done |
 | GFP + XGBoost with Optuna search | `baselines/gfp_xgboost_aml.py` | `experiments/E5b_gfp_xgboost` | done — test F1 0.534 |
 | Multi-GINe edge classifier (edge-MLPs, ports, time deltas, reverse MP, ego IDs, GFP) | `models/tgn.py` | `experiments/E6_tgn` | done — test F1 0.599 ± 0.009 over seeds {1, 42, 123}; numbers pre-date the Step 3a seed-mask fix (841 test edges were never scored) and non-causal sampling |
-| Test-set scoring with edge IDs (checkpoint chosen by val F1) | `score_test_set.py` | `experiments/E6_tgn/predictions_with_ids.csv` (untracked) | done |
+| Split scoring from a checkpoint (any split, causal or not, optional head-input embeddings) | `models/score.py` | `experiments/<run>/scores_<split>_seed<S>.parquet`, `embeddings_*.parquet` | done — replaces `score_test_set.py` |
 | Ring aggregation from scored edges | `models/ring_aggregator.py` | `experiments/legacy_E7_test_tuned` | runs, but its thresholds were tuned on the test set — **not reported** |
 | Ring metrics (precision / recall / F1, member coverage, Jaccard) | `evaluation/ring_metrics.py` | — | done |
 | `scored_edges` contract parquet (17 cols, no labels) + internal `labels_test.parquet` | `contract/make_scored_edges.py` | `contract/out/scored_edges_gine_1.parquet`, `contract/out/labels_test.parquet` (+ `.log.json`) | done |
@@ -33,7 +33,10 @@ Numbers are the ones written in the corresponding `experiments/<ID>/metrics.json
 | `from_bank`/`to_bank` on the three split Parquets and the ring ground truth (emitted by the loader) | `preprocessing/amlworld_loader.py` | `data/processed/amlworld_*.parquet` | done |
 | Ring scope per policy (test_visible primary; strict / majority appendix), <3-member and boundary counts, evidence ceiling | `preprocessing/ring_scope.py` | `docs/ring_scope.json`, `docs/RING_GROUND_TRUTH_DEFINITION.md` | done — 183 test / 157 val rings (test_visible) |
 | Stable `edge_id` numbering (mergesort) + old→new id map for positional artefacts | `scripts/format_kaggle_files.py`, `scripts/remap_edge_ids.py` | `data/raw/formatted_transactions.csv`, `data/processed/edge_id_remap.parquet` | done — 99.7% of ids moved, splits/rings/scope unchanged |
-| Shared mini-batch loader: every seed scored exactly once, id column stripped, optional causal sampling (30-min window fallback; PyG native route needs pyg-lib) | `models/causal_loader.py` (used by `models/tgn.py`, `score_test_set.py`) | — | done — 11 tests; no retrain yet |
+| Shared mini-batch loader: every seed scored exactly once, id column stripped, optional causal sampling (30-min window fallback; PyG native route needs pyg-lib) | `models/causal_loader.py` (used by `models/tgn.py`, `models/score.py`) | — | done |
+| **R1**: Multi-GINe v2 retrained with causal sampling, 5 seeds (configs/seeds.yaml) | `models/tgn.py --causal` | `experiments/R1_gine_causal` | done — test F1 0.611 ± 0.026, AP 0.563 ± 0.039 (mean ± sd over 5 seeds) |
+| Leak row: E6 checkpoints re-scored non-causally with the fixed seed mask | `models/score.py --non-causal` | `experiments/R1_gine_noncausal` | done — test F1 0.590 ± 0.007, AP 0.594 ± 0.047 (3 seeds) |
+| Edge metrics (F1 @ val threshold, AP, MCC, AUC, P@k; seed bootstrap CI) | `evaluation/edge_metrics.py`, `contract/make_labels.py` | `experiments/R1_*/metrics.json`, `results/tables/r1_edge_metrics.csv` | done |
 
 Not implemented (removed in Step 1 because they were stubs or dead ends): the Elliptic
 pipeline, EvolveGCN, GATv2, rule engine, cascade pipeline, explainability, ablations,
@@ -74,7 +77,7 @@ Multi-GINe edge classifier and scored test edges:
 
 ```bash
 python models/tgn.py --raw-dir data/raw --data-dir data/processed --out-dir experiments/E6_tgn --epochs 100 --emlps --ports --tds --reverse-mp --ego --gfp --num-neighs 100 100 --seeds 1 42 123
-python score_test_set.py --arch gine --raw-dir data/raw --data-dir data/processed --ckpt experiments/E6_tgn/model_best_seed1.pt --n-hidden 66 --threshold 0.46 --out experiments/E6_tgn/predictions_with_ids.csv
+python models/score.py --run-dir experiments/E6_tgn --seed 1 --split test --non-causal   # legacy E6 checkpoint
 ```
 
 Contract files (Step 1.2-1.3) and checks:
@@ -84,6 +87,16 @@ python contract/make_scored_edges.py --preds experiments/E6_tgn/predictions_with
 python contract/make_rings_stub.py --e7-csv experiments/legacy_E7_test_tuned/rings_gine.csv --scored-edges contract/out/scored_edges_gine_1.parquet --aggregator-id cc
 python scripts/data_manifest.py --check
 python -m pytest contract/tests -q
+```
+
+Step 3b (causal training, scoring, leak row, edge metrics):
+
+```bash
+python contract/make_labels.py
+python models/tgn.py --arch gine --causal --seeds 1 2 3 4 5 --out-dir experiments/R1_gine_causal --epochs 100 --emlps --ports --tds --reverse-mp --ego --gfp --num-neighs 100 100
+python models/score.py --run-dir experiments/R1_gine_causal --seeds 1 2 3 4 5 --splits val test train --embeddings-for val test
+python models/score.py --run-dir experiments/E6_tgn --seeds 1 42 123 --splits val test --non-causal --out-dir experiments/R1_gine_noncausal
+python evaluation/edge_metrics.py --run-dir experiments/R1_gine_causal experiments/R1_gine_noncausal
 ```
 
 Step 3a (data regeneration, loader tests; no training):

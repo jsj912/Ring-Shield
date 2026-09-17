@@ -8,7 +8,7 @@ edit the schema, not this page. If a spec or the Implementation Plan disagrees w
 | File | Producer | Columns |
 |---|---|---|
 | `out/scored_edges_<model>_<seed>.parquet` | `make_scored_edges.py` | `SCORED_EDGES_COLUMNS` |
-| `out/labels_test.parquet` | `make_scored_edges.py` (internal, never shipped) | `LABELS_COLUMNS` |
+| `out/labels_{train,val,test}.parquet` | `make_labels.py` (internal, never shipped; `labels_test` also written by `make_scored_edges.py`) | `LABELS_COLUMNS` |
 | `out/rings_stub_<aggregator>.parquet` | `make_rings_stub.py` | `RINGS_COLUMNS` |
 
 Parquets are git-ignored; the `*.log.json` beside each one (row counts, inputs, git
@@ -48,7 +48,9 @@ No ground truth in this file (PR-50).
 | 16 | `model_id` | string | e.g. 'gine' |
 | 17 | `seed` | int64 | training seed of the model that produced score_raw |
 
-## labels_test (internal)
+## labels_<split> (internal)
+
+Read by `evaluation/edge_metrics.py`; never joined into a shipped file.
 
 | # | column | type | meaning |
 |---|---|---|---|

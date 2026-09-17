@@ -76,15 +76,28 @@ def test_evaluate_returns_one_row_per_seed_in_inds_order(setup, causal):
     assert 0.0 <= metrics["average_precision"] <= 1.0
 
 
-def test_score_test_set_mask_and_ids(setup):
-    from score_test_set import mask_and_ids
-    va, te, val_inds, te_inds, args, _ = setup
-    loader = make_loader(te, te_inds, args, causal=False, batch_size=4096, transform=AddEgoIds())
-    got = []
-    for batch in loader:
-        mask, ids = mask_and_ids(batch, loader, te_inds, True)
-        assert int(mask.sum()) == ids.numel()
-        got.append(ids)
-    got = torch.cat(got)
-    assert torch.equal(torch.sort(got)[0], torch.sort(te_inds)[0])
-    assert got.numel() == torch.unique(got).numel()
+@pytest.mark.parametrize("causal", [False, True])
+def test_score_py_scores_every_edge_once_with_embeddings(tmp_path, causal):
+    """models/score.py on the 1% dry-run val split with the E6 seed-1 checkpoint: one row per
+    split edge, zero NaN, embeddings = 3 * n_hidden columns, loader-basis timestamps."""
+    from models.score import score_split
+    run_dir = REPO_ROOT / "experiments" / "E6_tgn"
+    if not (run_dir / "model_best_seed1.pt").exists():
+        pytest.skip("E6 checkpoint not on disk")
+    log = score_split(run_dir, 1, "val", tmp_path, causal=causal, export_embeddings=True, dry_run=True,
+                      device=torch.device("cpu"))
+    import pandas as pd
+    sc = pd.read_parquet(log["scores_path"])
+    assert list(sc.columns) == ["edge_id", "timestamp", "score_raw"]
+    assert len(sc) == log["n_split_edges"] and sc["edge_id"].is_unique
+    assert log["n_nan_scores"] == 0 and not sc["score_raw"].isna().any()
+    assert sc["edge_id"].is_monotonic_increasing
+    # loader basis: every timestamp matches the val parquet for that edge_id
+    va = pd.read_parquet(REPO_ROOT / "data" / "processed" / "amlworld_val.parquet", columns=["EdgeID", "Timestamp"])
+    ref = va.set_index("EdgeID").loc[sc["edge_id"], "Timestamp"].values
+    assert (ref == sc["timestamp"].values).all(), "timestamps are not in the loader basis"
+    emb = pd.read_parquet(log["embeddings"]["path"])
+    assert emb.shape == (len(sc), 1 + 3 * 66)
+    assert (emb["edge_id"].values == sc["edge_id"].values).all()
+    assert not emb.drop(columns="edge_id").isna().any().any()
+    assert str(emb["emb_000"].dtype) == "float32"

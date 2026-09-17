@@ -5,7 +5,7 @@ Turns per-transaction fraud scores into ring-level detections:
 
     score edges  ->  threshold  ->  connected components  ->  filter  ->  rings
 
-Input is a predictions_with_ids.csv produced by score_test_set.py, which must
+Input is a legacy predictions_with_ids.csv (E6; score_test_set.py is deleted), which must
 carry from_id, to_id, Timestamp and pred_prob. Ground truth follows
 docs/RING_GROUND_TRUTH_DEFINITION.md.
 

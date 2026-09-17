@@ -251,11 +251,20 @@ def load_data(raw_dir, data_dir, args):
     print(f"  Loading {fmt_path}...")
     df = pd.read_csv(fmt_path)
     max_n_id = df[["from_id", "to_id"]].to_numpy().max() + 1
+    # Timestamps stay in the LOADER basis (seconds since first day 00:00 - 10 s), the same
+    # basis as data/processed/amlworld_*.parquet. The old `Timestamp - min` rebase is gone;
+    # after z-normalisation the constant made no difference to the model, and every output
+    # file (scores, embeddings, predictions) is now directly joinable to the parquets.
+    tr_pq = data_dir / "amlworld_train.parquet"
+    if tr_pq.exists():
+        pq_min = int(pd.read_parquet(tr_pq, columns=["Timestamp"])["Timestamp"].min())
+        assert int(df["Timestamp"].min()) == pq_min, (
+            f"formatted_transactions.csv Timestamp basis (min {int(df['Timestamp'].min())}) differs from "
+            f"{tr_pq} (min {pq_min}); regenerate one of them")
     if getattr(args, "dry_run", False):
         seed = getattr(args, "dry_run_seed", 1)
         df = df.sample(frac=DRY_RUN_FRAC, random_state=seed).sort_values("EdgeID").reset_index(drop=True)
         print(f"  DRY RUN: {len(df)} rows ({DRY_RUN_FRAC:.0%}, seed {seed}); node table kept at {max_n_id} ids")
-    df["Timestamp"] = df["Timestamp"] - df["Timestamp"].min()
     timestamps = torch.tensor(df["Timestamp"].values, dtype=torch.float32)
     y = torch.tensor(df["Is Laundering"].values, dtype=torch.long)
 
@@ -373,14 +382,16 @@ def load_data(raw_dir, data_dir, args):
         te_data = create_hetero_obj(te_data.x, te_data.y, te_data.edge_index,
                                      te_data.edge_attr, te_data.timestamps, swap_ports)
 
-    te_meta = pd.DataFrame({
-        "EdgeID": df["EdgeID"].values[te_inds.numpy()],
-        "from_id": df["from_id"].values[te_inds.numpy()],
-        "to_id": df["to_id"].values[te_inds.numpy()],
-        "Timestamp": df["Timestamp"].values[te_inds.numpy()],
+    # Per-edge metadata for ALL edges, in data order (global edge index == row). Callers
+    # slice it with tr_inds / val_inds / te_inds. Timestamp is loader basis.
+    edge_meta = pd.DataFrame({
+        "EdgeID": df["EdgeID"].values,
+        "from_id": df["from_id"].values,
+        "to_id": df["to_id"].values,
+        "Timestamp": df["Timestamp"].values,
     })
 
-    return tr_data, val_data, te_data, tr_inds, val_inds, te_inds, te_meta
+    return tr_data, val_data, te_data, tr_inds, val_inds, te_inds, edge_meta
 
 
 # ===========================================================================
@@ -538,8 +549,9 @@ def run_single_seed(seed, args, device):
     print(f"  SEED {seed}")
     print(f"{'='*60}")
 
-    tr_data, val_data, te_data, tr_inds, val_inds, te_inds, te_meta = load_data(
+    tr_data, val_data, te_data, tr_inds, val_inds, te_inds, edge_meta = load_data(
         args.raw_dir, args.data_dir, args)
+    te_meta = edge_meta.iloc[te_inds.numpy()].reset_index(drop=True)
 
     is_hetero = isinstance(tr_data, HeteroData)
 
@@ -646,15 +658,20 @@ def run_single_seed(seed, args, device):
     pred_df["pred_prob"] = test_probs
     pred_df.to_csv(args.out_dir / f"predictions_seed{seed}.csv", index=False)
 
-    return {
+    result = {
         "seed": seed,
         "best_val_f1": best_val_f1,
         "best_epoch": best_epoch,
-        "best_threshold": best_thresh,
+        "best_threshold": float(best_thresh),
         "test": test_metrics,
         "n_params": n_params,
+        "epochs_run": len(training_log),
+        "mean_epoch_time_s": float(np.mean([r["time_s"] for r in training_log])),
         "training_log": training_log,
     }
+    per_seed = {k: v for k, v in result.items() if k != "training_log"}
+    (args.out_dir / f"metrics_seed{seed}.json").write_text(json.dumps(per_seed, indent=2), encoding="utf-8")
+    return result
 
 
 # ===========================================================================
@@ -683,6 +700,7 @@ def main():
     parser.add_argument("--num-neighs", nargs="+", type=int, default=[100, 100])
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--seeds", nargs="+", type=int, default=[42])
+    parser.add_argument("--arch", choices=["gine"], default="gine", help="model architecture (only gine)")
     parser.add_argument("--causal", action="store_true",
                         help="causal neighbour sampling (models/causal_loader.py); default keeps the "
                              "original sampler")
@@ -712,9 +730,16 @@ def main():
         result = run_single_seed(seed, args, device)
         all_results.append(result)
 
-    # Aggregate results
+    # Aggregate results over EVERY seed present in out-dir (this invocation's seeds plus
+    # any metrics_seed*.json written by earlier invocations), so seeds can be run in
+    # separate processes.
+    all_results = []
+    for f in sorted(args.out_dir.glob("metrics_seed*.json")):
+        all_results.append(json.loads(f.read_text(encoding="utf-8")))
+    all_results.sort(key=lambda r: r["seed"])
+    seeds_all = [r["seed"] for r in all_results]
     print(f"\n{'='*60}")
-    print(f"  AGGREGATE RESULTS ({len(args.seeds)} seeds)")
+    print(f"  AGGREGATE RESULTS ({len(seeds_all)} seeds: {seeds_all})")
     print(f"{'='*60}")
 
     test_f1s = [r["test"]["f1_minority"] for r in all_results]
@@ -739,13 +764,20 @@ def main():
         print("  Multi-GINe does NOT beat E5b — report honestly per roadmap.")
 
     # Save final config + aggregate metrics
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=Path(__file__).resolve().parents[1],
+                                         text=True).strip()
+    except Exception:
+        commit = "unknown"
     config = {
-        "experiment": "E6_tgn",
+        "experiment": args.out_dir.name,
         "model": "Multi-GINe v2",
+        "arch": args.arch,
+        "git_commit": commit,
         "adaptations": adaptations,
         "dataset": "AMLworld HI-Small",
         "split": "60/20/20 day-based",
-        "seeds": args.seeds,
+        "seeds": seeds_all,
         "epochs": args.epochs, "patience": args.patience,
         "batch_size": args.batch_size, "lr": args.lr,
         "n_hidden": args.n_hidden, "n_gnn_layers": args.n_gnn_layers,
@@ -759,6 +791,8 @@ def main():
     }
     (args.out_dir / "config.yaml").write_text(yaml.dump(config, sort_keys=False), encoding="utf-8")
 
+    # Training-time summary only; the reported edge metrics come from
+    # evaluation/edge_metrics.py on the score files (metrics.json is written there).
     metrics_out = {
         "mean_test_f1": mean_f1, "std_test_f1": std_f1,
         "mean_test_ap": mean_ap, "std_test_ap": std_ap,
@@ -767,10 +801,12 @@ def main():
             "best_val_f1": r["best_val_f1"],
             "best_epoch": r["best_epoch"],
             "best_threshold": r["best_threshold"],
+            "epochs_run": r.get("epochs_run"),
+            "mean_epoch_time_s": r.get("mean_epoch_time_s"),
             "test": r["test"],
         } for r in all_results],
     }
-    (args.out_dir / "metrics.json").write_text(json.dumps(metrics_out, indent=2), encoding="utf-8")
+    (args.out_dir / "training_summary.json").write_text(json.dumps(metrics_out, indent=2), encoding="utf-8")
 
     # Save best seed's predictions as the main predictions.csv
     best_seed_result = max(all_results, key=lambda r: r["best_val_f1"])

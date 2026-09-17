@@ -1,5 +1,4 @@
-"""Mini-batch loader shared by training (models/tgn.py) and scoring (score_test_set.py,
-models/score.py).
+"""Mini-batch loader shared by training (models/tgn.py) and scoring (models/score.py).
 
     loader = make_loader(data, seed_inds, args, causal=True)
 
