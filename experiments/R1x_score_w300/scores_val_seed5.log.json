@@ -1,0 +1,32 @@
+{
+  "created_utc": "2026-09-17T10:14:11+00:00",
+  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal",
+  "checkpoint": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal\\model_best_seed5.pt",
+  "run_config_commit": "617805865432d73e6e9a59dfa153940f6a65f327",
+  "seed": 5,
+  "split": "val",
+  "dry_run": false,
+  "causal": true,
+  "loader_route": "fallback",
+  "loader_window_s": 300,
+  "num_neighbors": [
+    100,
+    100
+  ],
+  "batch_size": 8192,
+  "n_rows": 965524,
+  "n_split_edges": 965524,
+  "n_nan_scores": 0,
+  "score_min": 0.0,
+  "score_max": 0.9999995231628418,
+  "score_mean": 0.004317850389167434,
+  "timestamp_basis": "loader (seconds since first day 00:00 - 10 s)",
+  "timestamp_min": 518410,
+  "timestamp_max": 691150,
+  "embeddings": null,
+  "device": "cuda",
+  "seconds": 463.4,
+  "data_load_seconds": 1443.6,
+  "scores_path": "E:\\JSJ\\Ring-Shield\\experiments\\R1x_gine_causal_w300\\scores_val_seed5.parquet"
+}

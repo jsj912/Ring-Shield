@@ -1,0 +1,34 @@
+# How aggregator thresholds are chosen (Step 4, ringshield/run_rings.py). Nothing is tuned on
+# the test period: the grid below is searched on the VALIDATION split's rings
+# (docs/RING_GROUND_TRUTH_DEFINITION.md section 7, policy test_visible) and the chosen values
+# are written to the run's config.yaml before the aggregator sees the test split.
+#
+# seed_frac_pct: keep the top N % of the split's scored edges as seed edges (a percentile cut
+# is comparable across models and seeds; an absolute score is not). Quantile selection is
+# calibration-invariant: isotonic calibration is monotone, so calibrated and raw scores pick
+# the same seed edges up to ties -- B0 rows can be produced on raw scores; calibration (3c)
+# matters for confidence comparability, XAI weights and the expansion policy's score feature.
+# The B0 grid is threshold x min_size only: time-gap / density filters are baseline variants
+# (B3, Step 7), not B0 knobs.
+# min_size: minimum members of a predicted ring (GT doc section 6: {2, 3}; under 3 the 51 test
+# rings with < 3 visible members are guaranteed misses).
+# objective: the validation metric that picks the cell; ties -> the smaller seed_frac_pct, then
+# the larger min_size (fewer, cleaner rings).
+# selection column: score_raw, always. Isotonic calibration is monotone but collapses the score
+# onto ~100-150 tie levels; a quantile cut on the calibrated column lands inside a level and the
+# strict rule would then drop a slice of the intended seeds (gfpxgb: 264 of 960 at 0.1 %). The
+# calibrated score feeds confidence / max_edge_prob, XAI weights and the expansion policy.
+# cut: strict -- seeds are the edges with score > q, q = the (100 - seed_frac_pct) percentile of
+# the non-NaN scores. A plateau of exactly tied scores on the boundary is therefore excluded,
+# never swept in (val GNN scores have ~7,600 edges tied at 0.088088; rank-normalised density
+# scores and XGBoost leaves tie heavily). An explicit absolute threshold (legacy CLI) is
+# inclusive (score >= t).
+cut: strict
+grid:
+  seed_frac_pct: [0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0]
+  min_size: [2, 3]
+objective: ring_f1
+tie_break: [smallest_seed_frac_pct, largest_min_size]
+match_threshold: 0.5          # Jaccard for a match (fixed; 0.3 / 0.7 reported as a sweep, never tuned)
+jaccard_sweep: [0.3, 0.7]
+scope: test_visible           # strict / majority reported in the appendix block only

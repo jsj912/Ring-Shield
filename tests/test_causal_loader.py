@@ -126,3 +126,30 @@ def test_non_causal_reproduces_todays_sampler(val):
         assert torch.equal(nb[TO].edge_index[:, mask], nb[TO].edge_label_index)
         n += 1
     assert n == 4
+
+
+def test_window_s_parameter(val):
+    """Step 3b-x: make_loader(window_s=W) / args.window_s narrow the fallback window; the value
+    used is recorded on the loader (None for the non-causal route)."""
+    va, val_inds, args = val
+    ts_all = va[TO].timestamps
+    for w in (60, 300):
+        loader = make_loader(va, val_inds, args, causal=True, window_s=w)
+        if ROUTE["route"] != "fallback":
+            pytest.skip("native route active; window not applicable")
+        assert loader.window_s == w
+        spans = []
+        for batch in loader:
+            _, seed_global = seed_mask(batch)
+            st = ts_all[seed_global]
+            spans.append(float(st.max() - st.min()))
+            for key in (TO, REV):
+                if batch[key].edge_index.size(1):
+                    assert float(batch[key].timestamps.max()) <= float(st.max())
+        assert max(spans) <= w
+        assert len(loader) > len(make_loader(va, val_inds, args, causal=True, window_s=WINDOW_S))
+    args.window_s = 300
+    assert make_loader(va, val_inds, args, causal=True).window_s == 300
+    del args.window_s
+    assert make_loader(va, val_inds, args, causal=True).window_s == WINDOW_S
+    assert make_loader(va, val_inds, args, causal=False).window_s is None

@@ -1,15 +1,15 @@
 {
   "seed": 3,
-  "best_val_f1": 0.5860889395667047,
-  "best_epoch": 26,
-  "best_threshold": 0.5600000000000002,
+  "best_val_f1": 0.619641888225719,
+  "best_epoch": 27,
+  "best_threshold": 0.6500000000000001,
   "test": {
-    "f1_minority": 0.6008079324274697,
-    "precision_minority": 0.7356115107913669,
-    "recall_minority": 0.5077591558038486,
-    "average_precision": 0.5421330515846753
+    "f1_minority": 0.6607989167230873,
+    "precision_minority": 0.7267311988086373,
+    "recall_minority": 0.6058348851644941,
+    "average_precision": 0.6681984690970207
   },
   "n_params": 148812,
-  "epochs_run": 46,
-  "mean_epoch_time_s": 251.061351351116
+  "epochs_run": 47,
+  "mean_epoch_time_s": 259.4866810758063
 }

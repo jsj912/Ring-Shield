@@ -1,0 +1,497 @@
+{
+  "created_utc": "2026-09-17T12:23:26+00:00",
+  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "n_sampled": 10000,
+  "n_illicit": 18,
+  "seed": 1,
+  "dry_run": false,
+  "window_s": 86400,
+  "max_cycle_hops": 5,
+  "adjacency": "train + val + test edges (as graph/motif_features.py main builds it)",
+  "definition": "full = production feature functions on the full adjacency; le = same functions on the adjacency truncated to timestamp <= t_e; lt = truncated to < t_e (strict). frac_differs = share of sampled edges with full != restricted; mean_abs_diff = mean |full - restricted| over the sample (raw counts, before log1p).",
+  "reproduces_stored_parquet": {
+    "fan_out": 1.0,
+    "fan_in": 1.0,
+    "deg_out_src": 1.0,
+    "deg_in_src": 1.0,
+    "deg_out_dst": 1.0,
+    "deg_in_dst": 1.0,
+    "scatter_gather": 1.0,
+    "gather_scatter": 1.0,
+    "temporal_cycle": 1.0,
+    "cycle_length": 1.0
+  },
+  "le": {
+    "all": {
+      "n": 10000,
+      "frac_differs": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 0.0,
+        "deg_in_src": 0.0,
+        "deg_out_dst": 0.0,
+        "deg_in_dst": 0.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "mean_abs_diff": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 0.0,
+        "deg_in_src": 0.0,
+        "deg_out_dst": 0.0,
+        "deg_in_dst": 0.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "max_abs_diff": {
+        "fan_out": 0,
+        "fan_in": 0,
+        "deg_out_src": 0,
+        "deg_in_src": 0,
+        "deg_out_dst": 0,
+        "deg_in_dst": 0,
+        "scatter_gather": 0,
+        "gather_scatter": 0,
+        "temporal_cycle": 0,
+        "cycle_length": 0
+      },
+      "mean_full": {
+        "fan_out": 917.4622,
+        "fan_in": 3.283,
+        "deg_out_src": 7330.4963,
+        "deg_in_src": 57.5717,
+        "deg_out_dst": 247.3399,
+        "deg_in_dst": 26.3443,
+        "scatter_gather": 1.4433,
+        "gather_scatter": 0.0254,
+        "temporal_cycle": 0.0233,
+        "cycle_length": 0.0243
+      }
+    },
+    "illicit": {
+      "n": 18,
+      "frac_differs": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 0.0,
+        "deg_in_src": 0.0,
+        "deg_out_dst": 0.0,
+        "deg_in_dst": 0.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "mean_abs_diff": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 0.0,
+        "deg_in_src": 0.0,
+        "deg_out_dst": 0.0,
+        "deg_in_dst": 0.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "max_abs_diff": {
+        "fan_out": 0,
+        "fan_in": 0,
+        "deg_out_src": 0,
+        "deg_in_src": 0,
+        "deg_out_dst": 0,
+        "deg_in_dst": 0,
+        "scatter_gather": 0,
+        "gather_scatter": 0,
+        "temporal_cycle": 0,
+        "cycle_length": 0
+      },
+      "mean_full": {
+        "fan_out": 126.05555555555556,
+        "fan_in": 4.111111111111111,
+        "deg_out_src": 1162.611111111111,
+        "deg_in_src": 21.444444444444443,
+        "deg_out_dst": 16.88888888888889,
+        "deg_in_dst": 17.22222222222222,
+        "scatter_gather": 0.5555555555555556,
+        "gather_scatter": 0.4444444444444444,
+        "temporal_cycle": 0.2222222222222222,
+        "cycle_length": 0.3888888888888889
+      }
+    },
+    "licit": {
+      "n": 9982,
+      "frac_differs": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 0.0,
+        "deg_in_src": 0.0,
+        "deg_out_dst": 0.0,
+        "deg_in_dst": 0.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "mean_abs_diff": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 0.0,
+        "deg_in_src": 0.0,
+        "deg_out_dst": 0.0,
+        "deg_in_dst": 0.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "max_abs_diff": {
+        "fan_out": 0,
+        "fan_in": 0,
+        "deg_out_src": 0,
+        "deg_in_src": 0,
+        "deg_out_dst": 0,
+        "deg_in_dst": 0,
+        "scatter_gather": 0,
+        "gather_scatter": 0,
+        "temporal_cycle": 0,
+        "cycle_length": 0
+      },
+      "mean_full": {
+        "fan_out": 918.8893007413344,
+        "fan_in": 3.281506712081747,
+        "deg_out_src": 7341.618513323983,
+        "deg_in_src": 57.63684632338209,
+        "deg_out_dst": 247.75545982768983,
+        "deg_in_dst": 26.36074934882789,
+        "scatter_gather": 1.4449008214786616,
+        "gather_scatter": 0.024644359847725908,
+        "temporal_cycle": 0.022941294329793627,
+        "cycle_length": 0.02364255660188339
+      }
+    }
+  },
+  "lt": {
+    "all": {
+      "n": 10000,
+      "frac_differs": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 1.0,
+        "deg_in_src": 0.0493,
+        "deg_out_dst": 0.0242,
+        "deg_in_dst": 1.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "mean_abs_diff": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 1.6968,
+        "deg_in_src": 0.0523,
+        "deg_out_dst": 0.0631,
+        "deg_in_dst": 1.0627,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "max_abs_diff": {
+        "fan_out": 0,
+        "fan_in": 0,
+        "deg_out_src": 28,
+        "deg_in_src": 3,
+        "deg_out_dst": 22,
+        "deg_in_dst": 7,
+        "scatter_gather": 0,
+        "gather_scatter": 0,
+        "temporal_cycle": 0,
+        "cycle_length": 0
+      },
+      "mean_full": {
+        "fan_out": 917.4622,
+        "fan_in": 3.283,
+        "deg_out_src": 7330.4963,
+        "deg_in_src": 57.5717,
+        "deg_out_dst": 247.3399,
+        "deg_in_dst": 26.3443,
+        "scatter_gather": 1.4433,
+        "gather_scatter": 0.0254,
+        "temporal_cycle": 0.0233,
+        "cycle_length": 0.0243
+      }
+    },
+    "illicit": {
+      "n": 18,
+      "frac_differs": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 1.0,
+        "deg_in_src": 0.3888888888888889,
+        "deg_out_dst": 0.05555555555555555,
+        "deg_in_dst": 1.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "mean_abs_diff": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 1.3888888888888888,
+        "deg_in_src": 0.3888888888888889,
+        "deg_out_dst": 0.05555555555555555,
+        "deg_in_dst": 1.1111111111111112,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "max_abs_diff": {
+        "fan_out": 0,
+        "fan_in": 0,
+        "deg_out_src": 2,
+        "deg_in_src": 1,
+        "deg_out_dst": 1,
+        "deg_in_dst": 2,
+        "scatter_gather": 0,
+        "gather_scatter": 0,
+        "temporal_cycle": 0,
+        "cycle_length": 0
+      },
+      "mean_full": {
+        "fan_out": 126.05555555555556,
+        "fan_in": 4.111111111111111,
+        "deg_out_src": 1162.611111111111,
+        "deg_in_src": 21.444444444444443,
+        "deg_out_dst": 16.88888888888889,
+        "deg_in_dst": 17.22222222222222,
+        "scatter_gather": 0.5555555555555556,
+        "gather_scatter": 0.4444444444444444,
+        "temporal_cycle": 0.2222222222222222,
+        "cycle_length": 0.3888888888888889
+      }
+    },
+    "licit": {
+      "n": 9982,
+      "frac_differs": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 1.0,
+        "deg_in_src": 0.0486876377479463,
+        "deg_out_dst": 0.024143458224804647,
+        "deg_in_dst": 1.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "mean_abs_diff": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 1.6973552394309757,
+        "deg_in_src": 0.051693047485473854,
+        "deg_out_dst": 0.06311360448807854,
+        "deg_in_dst": 1.0626127028651573,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "max_abs_diff": {
+        "fan_out": 0,
+        "fan_in": 0,
+        "deg_out_src": 28,
+        "deg_in_src": 3,
+        "deg_out_dst": 22,
+        "deg_in_dst": 7,
+        "scatter_gather": 0,
+        "gather_scatter": 0,
+        "temporal_cycle": 0,
+        "cycle_length": 0
+      },
+      "mean_full": {
+        "fan_out": 918.8893007413344,
+        "fan_in": 3.281506712081747,
+        "deg_out_src": 7341.618513323983,
+        "deg_in_src": 57.63684632338209,
+        "deg_out_dst": 247.75545982768983,
+        "deg_in_dst": 26.36074934882789,
+        "scatter_gather": 1.4449008214786616,
+        "gather_scatter": 0.024644359847725908,
+        "temporal_cycle": 0.022941294329793627,
+        "cycle_length": 0.02364255660188339
+      }
+    }
+  },
+  "seconds": 27.7,
+  "all_illicit_test_edges": {
+    "n": 1611,
+    "le": {
+      "n": 1611,
+      "frac_differs": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 0.0,
+        "deg_in_src": 0.0,
+        "deg_out_dst": 0.0,
+        "deg_in_dst": 0.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "mean_abs_diff": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 0.0,
+        "deg_in_src": 0.0,
+        "deg_out_dst": 0.0,
+        "deg_in_dst": 0.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "max_abs_diff": {
+        "fan_out": 0,
+        "fan_in": 0,
+        "deg_out_src": 0,
+        "deg_in_src": 0,
+        "deg_out_dst": 0,
+        "deg_in_dst": 0,
+        "scatter_gather": 0,
+        "gather_scatter": 0,
+        "temporal_cycle": 0,
+        "cycle_length": 0
+      },
+      "mean_full": {
+        "fan_out": 805.064556176288,
+        "fan_in": 2.1495965238981998,
+        "deg_out_src": 6318.538175046555,
+        "deg_in_src": 52.10552451893234,
+        "deg_out_dst": 19.072004965859715,
+        "deg_in_dst": 18.02048417132216,
+        "scatter_gather": 0.2954686530105525,
+        "gather_scatter": 0.19180633147113593,
+        "temporal_cycle": 0.09062693978895096,
+        "cycle_length": 0.12414649286157665
+      }
+    },
+    "lt": {
+      "n": 1611,
+      "frac_differs": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 1.0,
+        "deg_in_src": 0.48044692737430167,
+        "deg_out_dst": 0.0031036623215394167,
+        "deg_in_dst": 1.0,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "mean_abs_diff": {
+        "fan_out": 0.0,
+        "fan_in": 0.0,
+        "deg_out_src": 2.116697703289882,
+        "deg_in_src": 0.4823091247672253,
+        "deg_out_dst": 0.0031036623215394167,
+        "deg_in_dst": 1.0943513345747982,
+        "scatter_gather": 0.0,
+        "gather_scatter": 0.0,
+        "temporal_cycle": 0.0,
+        "cycle_length": 0.0
+      },
+      "max_abs_diff": {
+        "fan_out": 0,
+        "fan_in": 0,
+        "deg_out_src": 26,
+        "deg_in_src": 3,
+        "deg_out_dst": 1,
+        "deg_in_dst": 4,
+        "scatter_gather": 0,
+        "gather_scatter": 0,
+        "temporal_cycle": 0,
+        "cycle_length": 0
+      },
+      "mean_full": {
+        "fan_out": 805.064556176288,
+        "fan_in": 2.1495965238981998,
+        "deg_out_src": 6318.538175046555,
+        "deg_in_src": 52.10552451893234,
+        "deg_out_dst": 19.072004965859715,
+        "deg_in_dst": 18.02048417132216,
+        "scatter_gather": 0.2954686530105525,
+        "gather_scatter": 0.19180633147113593,
+        "temporal_cycle": 0.09062693978895096,
+        "cycle_length": 0.12414649286157665
+      }
+    }
+  },
+  "temporal_cycle_lookahead": {
+    "definition": "LEGACY forward temporal_cycle (pre 3b-z): closing-edge timestamp - t_e for every edge flagged in the legacy parquet (same BFS order as the old production code)",
+    "source_parquets": "amlworld_gfp_features_<split>_legacy_forwardcycle.parquet",
+    "split_end_timestamp": {
+      "train": 518350,
+      "val": 691150,
+      "test": 1527490
+    },
+    "train": {
+      "n_edges_with_cycle": 24636,
+      "n_closing_after_split_end": 5099,
+      "lookahead_s": {
+        "min": 60,
+        "median": 50340.0,
+        "p90": 551910.0,
+        "max": 1416480
+      },
+      "frac_lookahead_over": {
+        "1h": 0.7148075986361422,
+        "6h": 0.6282269849001462,
+        "24h": 0.35598311414190614,
+        "72h": 0.21712128592303945
+      }
+    },
+    "val": {
+      "n_edges_with_cycle": 4119,
+      "n_closing_after_split_end": 1207,
+      "lookahead_s": {
+        "min": 60,
+        "median": 30300.0,
+        "p90": 136068.00000000006,
+        "max": 862320
+      },
+      "frac_lookahead_over": {
+        "1h": 0.5610585093469289,
+        "6h": 0.5214857975236707,
+        "24h": 0.28065064336003887,
+        "72h": 0.017965525613012866
+      }
+    },
+    "test": {
+      "n_edges_with_cycle": 2240,
+      "n_closing_after_split_end": 0,
+      "lookahead_s": {
+        "min": 60,
+        "median": 840.0,
+        "p90": 96564.00000000003,
+        "max": 694140
+      },
+      "frac_lookahead_over": {
+        "1h": 0.3424107142857143,
+        "6h": 0.28348214285714285,
+        "24h": 0.12455357142857143,
+        "72h": 0.008035714285714285
+      }
+    }
+  }
+}

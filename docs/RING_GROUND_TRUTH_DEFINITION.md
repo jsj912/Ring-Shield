@@ -242,6 +242,31 @@ must therefore treat a ring as belonging to every bank with a member, and this
 near-universal cross-bank rate is a synthetic-data caveat, not a property of real
 laundering rings.
 
+## 4a. Evaluation windows inside the test split (Step 3b-w apply, 2026-09-17)
+
+`docs/TEST_TAIL.md`: the last eight test days (days 10–17, 1,108 edges) hold 655 of the
+1,611 test positives at a 59 % base rate and no licit background. Headline numbers are
+therefore computed on the **primary window, test days 8–9** (`configs/eval_window.yaml`);
+the **tail, days 10–17**, is always reported beside them and never merged in; the whole
+split is kept as a labelled third column.
+
+The `test_visible` rule is applied **per window**: a ring is in scope of a window if ≥ 1 of
+its pattern-line transactions falls in the window, and its scored members are the
+endpoints of its transactions inside that window only. **A straddling ring's tail edges
+belong to the tail block**, on the truth side and on the prediction side (a predicted ring
+is likewise restricted to the endpoints of its member edges inside the window;
+`ringshield/evaluate.py`). Counts (`tests/test_eval_window.py` asserts them):
+
+| window | days | in-scope rings (`test_visible`) | rings with ≥ 3 scored members |
+|---|---|---|---|
+| primary | 8–9 | **174** (= 183 − 9 rings whose every visible edge is in the tail) | 114 |
+| tail | 10–17 | **109** (rings with ≥ 1 tail edge; 100 of them also have primary edges) | 84 |
+| whole | 8–17 | 183 | 132 |
+
+Ring-Recall on the primary window has 174 in the denominator; the 9 all-tail rings and
+the tail-only edges of the 100 partial rings are scored in the tail block. Val (days 6–7)
+has no tail; thresholds and grids are chosen there as before.
+
 ## 5. Matching a predicted ring to a ground-truth ring
 
 A predicted ring `P` (set of accounts) **matches** a ground-truth ring `T`
@@ -336,9 +361,11 @@ Given the matching rule in section 5:
 
 **Validation grid.** Every aggregator parameter is chosen on the validation split
 (`test_visible` val rings) and written to the run's `config.yaml` before the test run:
-score threshold (or top-percentile), `min_size ∈ {2, 3}`, and any density / gap filter.
-Nothing is tuned on the test period. Jaccard stays fixed at 0.5 (sweep 0.3 / 0.7 reported,
-not tuned).
+the seed quantile (`seed_frac_pct`, `configs/threshold_rule.yaml`) and `min_size ∈ {2, 3}`.
+That is the whole B0 grid ("threshold, components, size"); a time-gap split or a density
+filter is not a B0 knob but a baseline variant (B3, Step 7), evaluated on the same expanded
+subgraph as the proposed method (corrected 2026-09-17, Step 4). Nothing is tuned on the
+test period. Jaccard stays fixed at 0.5 (sweep 0.3 / 0.7 reported, not tuned).
 
 > **Time-to-Detection caveat.** Neighbour sampling in `LinkNeighborLoader` has
 > no temporal filter, so a transaction's score can depend on transactions that

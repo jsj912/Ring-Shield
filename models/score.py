@@ -20,6 +20,8 @@ Row count == split size, every seed scored exactly once (models/causal_loader gu
 zero NaN, rows in split (edge_id) order, timestamps in the loader basis. The embedding is
 the input to the classifier head for the `to` edge type: cat(relu(x_src), relu(x_dst),
 edge_repr) = 3 * n_hidden float32 columns (198 for n_hidden = 66).
+--window-s W overrides the causal fallback window (default: the run's loader_window_s,
+else 1,800 s); the value used is written to the log as loader_window_s.
 --dry-run scores the 1% row sample (pipeline check only; not a reportable output).
 """
 from __future__ import annotations
@@ -43,7 +45,7 @@ from torch_geometric.nn import to_hetero
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from models.causal_loader import ROUTE, TO, make_loader, seed_mask  # noqa: E402
+from models.causal_loader import ROUTE, TO, WINDOW_S, make_loader, seed_mask  # noqa: E402
 from models.tgn import AddEgoIds, GINe, _align_to_inds, load_data  # noqa: E402
 from preprocessing.account_bank import load_paths  # noqa: E402
 
@@ -68,6 +70,7 @@ def args_from_run_config(run_dir: Path, *, dry_run: bool, dry_run_seed: int) -> 
         num_neighs=list(cfg["num_neighbors"]), batch_size=int(cfg["batch_size"]),
         dropout=float(cfg.get("dropout", 0.01)), final_dropout=float(cfg.get("final_dropout", 0.1)),
         dry_run=dry_run, dry_run_seed=dry_run_seed,
+        window_s=int(cfg.get("loader_window_s") or WINDOW_S),
     )
     for name, flag in ADAPTATION_FLAGS.items():
         setattr(a, flag, name in cfg.get("adaptations", []))
@@ -112,17 +115,19 @@ class RunScorer:
         print(f"[score] data ready in {self.load_seconds}s")
 
     def score(self, seed: int, split: str, out_dir: Path, *, causal: bool | None = None,
-              export_embeddings: bool = False) -> dict:
+              export_embeddings: bool = False, window_s: int | None = None) -> dict:
         assert split in SPLITS, split
         args, cfg, out_dir = self.args, self.cfg, Path(out_dir)
         if causal is None:
             causal = bool(cfg.get("causal_sampling", False))
+        if window_s is None:
+            window_s = args.window_s
         ckpt = self.run_dir / f"model_best_seed{seed}.pt"
         assert ckpt.exists(), ckpt
         t0 = time.time()
         data, inds = self.splits[split]
         loader = make_loader(data, inds, args, causal=causal, shuffle=False,
-                             transform=AddEgoIds() if args.ego else None)
+                             transform=AddEgoIds() if args.ego else None, window_s=window_s)
         sample = next(iter(loader))
         model, hetero = build_model(args, data, sample, self.device)
         model.load_state_dict(torch.load(ckpt, map_location=self.device, weights_only=True))
@@ -185,7 +190,7 @@ class RunScorer:
             "run_dir": str(self.run_dir), "checkpoint": str(ckpt), "run_config_commit": cfg.get("git_commit"),
             "seed": seed, "split": split, "dry_run": self.dry_run,
             "causal": causal, "loader_route": ROUTE["route"] if causal else "non-causal",
-            "loader_window_s": ROUTE["window_s"] if causal else None,
+            "loader_window_s": loader.window_s,
             "num_neighbors": args.num_neighs, "batch_size": args.batch_size,
             "n_rows": int(len(scores)), "n_split_edges": int(inds.numel()),
             "n_nan_scores": int(np.isnan(probs).sum()),
@@ -201,15 +206,17 @@ class RunScorer:
         }
         Path(str(scores_path).replace(".parquet", ".log.json")).write_text(json.dumps(log, indent=2), encoding="utf-8")
         print(f"[score] {self.run_dir.name} seed {seed} {split}: {len(scores):,} rows, NaN {log['n_nan_scores']}, "
-              f"causal={causal} ({log['loader_route']}), emb={emb_shape}, {log['seconds']}s -> {scores_path}")
+              f"causal={causal} ({log['loader_route']}, W={loader.window_s}), emb={emb_shape}, {log['seconds']}s "
+              f"-> {scores_path}")
         return log
 
 
 def score_split(run_dir: Path, seed: int, split: str, out_dir: Path, *, causal: bool | None = None,
-                export_embeddings: bool = False, dry_run: bool = False, device: torch.device | None = None) -> dict:
+                export_embeddings: bool = False, dry_run: bool = False, device: torch.device | None = None,
+                window_s: int | None = None) -> dict:
     """One (seed, split); loads the data for this call only."""
     return RunScorer(run_dir, dry_run=dry_run, dry_run_seed=seed, device=device).score(
-        seed, split, out_dir, causal=causal, export_embeddings=export_embeddings)
+        seed, split, out_dir, causal=causal, export_embeddings=export_embeddings, window_s=window_s)
 
 
 def main(argv=None):
@@ -224,13 +231,16 @@ def main(argv=None):
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--causal", dest="causal", action="store_true", default=None)
     g.add_argument("--non-causal", dest="causal", action="store_false")
+    ap.add_argument("--window-s", type=int, default=None,
+                    help="causal fallback window in seconds (default: the run's loader_window_s)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
     scorer = RunScorer(args.run_dir, dry_run=args.dry_run, dry_run_seed=args.seeds[0])
     for seed in args.seeds:
         for split in args.splits:
             emb = (split in args.embeddings_for) if args.embeddings_for is not None else args.export_embeddings
-            scorer.score(seed, split, args.out_dir or args.run_dir, causal=args.causal, export_embeddings=emb)
+            scorer.score(seed, split, args.out_dir or args.run_dir, causal=args.causal, export_embeddings=emb,
+                         window_s=args.window_s)
 
 
 if __name__ == "__main__":

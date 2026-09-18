@@ -1,0 +1,22 @@
+{
+  "created_utc": "2026-09-17T18:39:53+00:00",
+  "root": "experiments\\R2_b0",
+  "models": {
+    "density": [
+      "seed1",
+      "seed2",
+      "seed3",
+      "seed4",
+      "seed5"
+    ],
+    "gfpxgb": [
+      "seed1",
+      "seed2",
+      "seed3",
+      "seed4",
+      "seed5"
+    ]
+  },
+  "primary_window": "days [8, 9]",
+  "note": "CIs pending Step 9"
+}

@@ -1,0 +1,38 @@
+{
+  "created_utc": "2026-09-17T19:02:31+00:00",
+  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "command": "run",
+  "scores": "contract/out/scored_edges_gfpxgb_1.parquet",
+  "edge_subset": null,
+  "n_edges_in_file": 863900,
+  "n_edge_subset_ids": null,
+  "n_edges_used": 863900,
+  "n_scored": 863900,
+  "model_dir": "models/artifacts/cc_gfpxgb_seed1",
+  "model": {
+    "model_id": "gfpxgb",
+    "seed": 1,
+    "aggregator": "cc",
+    "version": 1,
+    "feature_set": "trailing_closescycle"
+  },
+  "aggregator": "cc",
+  "params": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "max_gap_hours": null
+  },
+  "selection_column": "score_raw",
+  "quantile_cut": {
+    "q": 0.9578946405649293,
+    "rule": "strict: score_raw > q, computed within the edges given (after --edge-subset)",
+    "n_seeds": 864,
+    "n_on_boundary": 0
+  },
+  "n_rings": 97,
+  "n_seed_edges": 513,
+  "n_member_edges": 914,
+  "ring_id_rule": "f'{aggregator}-{model_id}-{seed}-{idx}'",
+  "tenant_rule": "sender bank (from_bank) of the ring's earliest seed edge; ties -> smallest edge_id",
+  "out": "experiments\\R2_b0\\gfpxgb\\seed1\\rings_cli.parquet"
+}

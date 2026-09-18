@@ -1,0 +1,87 @@
+{
+  "created_utc": "2026-09-17T19:02:32+00:00",
+  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "command": "eval",
+  "rings": "experiments/R2_b0/gfpxgb/seed1/rings_cli.parquet",
+  "truth": "data/processed/amlworld_ring_ground_truth.parquet",
+  "scope": "test_visible",
+  "window": "primary",
+  "t_min": 691210,
+  "t_max": 864009,
+  "match_threshold": 0.5,
+  "holdout": null,
+  "n_rings_in_file": 97,
+  "predicted_restricted_to_window": true,
+  "ring_precision": 0.5185,
+  "ring_recall": 0.2414,
+  "ring_f1": 0.3294,
+  "member_coverage": 0.7803,
+  "mean_jaccard": 0.7579,
+  "n_predicted": 81,
+  "n_truth": 174,
+  "n_matched": 42,
+  "per_pattern": {
+    "GATHER-SCATTER": {
+      "n_truth": 37.0,
+      "n_matched": 13.0,
+      "recall": 0.35135135135135137
+    },
+    "STACK": {
+      "n_truth": 22.0,
+      "n_matched": 1.0,
+      "recall": 0.045454545454545456
+    },
+    "CYCLE": {
+      "n_truth": 22.0,
+      "n_matched": 7.0,
+      "recall": 0.3181818181818182
+    },
+    "SCATTER-GATHER": {
+      "n_truth": 22.0,
+      "n_matched": 8.0,
+      "recall": 0.36363636363636365
+    },
+    "RANDOM": {
+      "n_truth": 17.0,
+      "n_matched": 1.0,
+      "recall": 0.058823529411764705
+    },
+    "FAN-IN": {
+      "n_truth": 18.0,
+      "n_matched": 6.0,
+      "recall": 0.3333333333333333
+    },
+    "FAN-OUT": {
+      "n_truth": 20.0,
+      "n_matched": 6.0,
+      "recall": 0.3
+    },
+    "BIPARTITE": {
+      "n_truth": 16.0,
+      "n_matched": 0.0,
+      "recall": 0.0
+    }
+  },
+  "ring_recall_ge3": 0.3246,
+  "n_truth_ge3": 114,
+  "n_matched_ge3": 37,
+  "jaccard_sweep": {
+    "0.3": {
+      "ring_precision": 0.6667,
+      "ring_recall": 0.3103,
+      "ring_f1": 0.4235,
+      "n_matched": 54
+    },
+    "0.7": {
+      "ring_precision": 0.2593,
+      "ring_recall": 0.1207,
+      "ring_f1": 0.1647,
+      "n_matched": 21
+    }
+  },
+  "pred_size": {
+    "n_rings": 81,
+    "mean_members": 3.45679012345679,
+    "max_members": 11
+  }
+}

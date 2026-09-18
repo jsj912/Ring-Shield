@@ -43,7 +43,7 @@ from torch_geometric.nn import GINEConv, BatchNorm, Linear, to_hetero
 from torch_geometric.transforms import BaseTransform
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from models.causal_loader import ROUTE as LOADER_ROUTE, make_loader, seed_mask  # noqa: E402
+from models.causal_loader import ROUTE as LOADER_ROUTE, WINDOW_S, make_loader, seed_mask  # noqa: E402
 
 DRY_RUN_FRAC = 0.01
 
@@ -704,6 +704,9 @@ def main():
     parser.add_argument("--causal", action="store_true",
                         help="causal neighbour sampling (models/causal_loader.py); default keeps the "
                              "original sampler")
+    parser.add_argument("--window-s", type=int, default=WINDOW_S,
+                        help="causal fallback window in seconds (seeds batched in contiguous windows "
+                             f"this wide; within-batch leak <= this); default {WINDOW_S}")
     parser.add_argument("--dry-run", action="store_true",
                         help=f"train on a {DRY_RUN_FRAC:.0%} row sample of formatted_transactions.csv")
     args = parser.parse_args()
@@ -786,7 +789,7 @@ def main():
         "n_parameters": all_results[0]["n_params"],
         "causal_sampling": bool(args.causal),
         "loader_route": LOADER_ROUTE["route"] if args.causal else "non-causal",
-        "loader_window_s": LOADER_ROUTE["window_s"] if args.causal else None,
+        "loader_window_s": (args.window_s if LOADER_ROUTE["route"] == "fallback" else None) if args.causal else None,
         "dry_run": bool(args.dry_run),
     }
     (args.out_dir / "config.yaml").write_text(yaml.dump(config, sort_keys=False), encoding="utf-8")

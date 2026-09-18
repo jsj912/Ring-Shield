@@ -1,7 +1,7 @@
 experiment: R1_gine_causal
 model: Multi-GINe v2
 arch: gine
-git_commit: 617805865432d73e6e9a59dfa153940f6a65f327
+git_commit: ee8fadfd88603eff0c3e4c3daa2f7e72743f111e
 adaptations:
 - edge_MLPs
 - ports

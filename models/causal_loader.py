@@ -21,9 +21,11 @@ Every batch coming out of the loader satisfies:
     native   PyG LinkNeighborLoader(time_attr="timestamps", edge_label_time=...) with
              edge-level time on both stores -- exact per-seed causality.
     fallback if the installed PyG rejects edge-level temporal sampling: seeds are sorted
-             by time and batched in contiguous windows of WINDOW_S seconds (capped at
+             by time and batched in contiguous windows of `window_s` seconds (capped at
              batch_size); after sampling every edge with timestamp > max seed timestamp
-             of the batch is dropped from both stores. Within-batch leak <= WINDOW_S.
+             of the batch is dropped from both stores. Within-batch leak <= window_s.
+             `window_s` comes from make_loader(window_s=...), else `args.window_s`, else
+             WINDOW_S (1,800 s); the value used is stored on the loader (`loader.window_s`).
   The active route is logged once (`ROUTE`).
 * with `causal=False`, sampling is exactly today's LinkNeighborLoader call (same
   arguments, same batching); only the seed guarantee and id stripping are added.
@@ -41,7 +43,7 @@ from torch_geometric.loader import LinkNeighborLoader
 
 TO = ("node", "to", "node")
 REV = ("node", "rev_to", "node")
-WINDOW_S = 1800  # fallback window width in seconds
+WINDOW_S = 1800  # default fallback window width in seconds (override: --window-s)
 EDGE_TENSORS = ("edge_attr", "timestamps", "y", "e_id")  # per-edge tensors we carry along
 
 ROUTE: dict = {"route": None, "error": None, "window_s": WINDOW_S}
@@ -177,13 +179,19 @@ class WindowBatchSampler(Sampler[list[int]]):
 # --------------------------------------------------------------------------- #
 def make_loader(data, seed_inds: torch.Tensor, args, causal: bool, *, shuffle: bool = False,
                 batch_size: int | None = None, transform: Callable | None = None,
-                num_neighbors: list[int] | None = None) -> LinkNeighborLoader:
+                num_neighbors: list[int] | None = None, window_s: int | None = None) -> LinkNeighborLoader:
     """Build the loader. `args` needs num_neighs and batch_size (as in models/tgn.py);
-    `transform` is applied after the seed/causal fix (e.g. AddEgoIds)."""
+    `transform` is applied after the seed/causal fix (e.g. AddEgoIds). `window_s` is the
+    fallback window (default `args.window_s`, else WINDOW_S); the loader records the value
+    it used as `loader.window_s` (None for the native and non-causal routes)."""
     hetero = isinstance(data, HeteroData)
     seed_inds = torch.as_tensor(seed_inds, dtype=torch.long).detach().cpu()
     batch_size = int(batch_size or args.batch_size)
     num_neighbors = list(num_neighbors or args.num_neighs)
+    if window_s is None:
+        window_s = getattr(args, "window_s", None)
+    window_s = int(window_s if window_s is not None else WINDOW_S)
+    assert window_s > 0, f"window_s must be positive, got {window_s}"
     to = _store(data, TO)
     if hetero and "timestamps" not in data[REV]:
         data[REV].timestamps = to.timestamps  # same edge order; needed for causal filtering / native route
@@ -196,8 +204,10 @@ def make_loader(data, seed_inds: torch.Tensor, args, causal: bool, *, shuffle: b
     eli_arg = (TO, eli) if hetero else eli
 
     if not causal:
-        return LinkNeighborLoader(data, edge_label_index=eli_arg, edge_label=el,
-                                  batch_size=batch_size, shuffle=shuffle, **common)
+        loader = LinkNeighborLoader(data, edge_label_index=eli_arg, edge_label=el,
+                                    batch_size=batch_size, shuffle=shuffle, **common)
+        loader.window_s = None
+        return loader
 
     seed_ts = to.timestamps[seed_inds]
     if ROUTE["route"] in (None, "native"):
@@ -208,15 +218,16 @@ def make_loader(data, seed_inds: torch.Tensor, args, causal: bool, *, shuffle: b
             if ROUTE["route"] is None:
                 ROUTE.update(route="native", error=None)
                 print("[causal_loader] route=native (PyG edge-level temporal sampling on both stores)")
+            loader.window_s = None
             return loader
         except (ImportError, NotImplementedError, ValueError, RuntimeError) as e:
             if ROUTE["route"] is None:
                 ROUTE.update(route="fallback", error=f"{type(e).__name__}: {e}")
-                print(f"[causal_loader] route=fallback window={WINDOW_S}s -- native rejected: {ROUTE['error']}")
+                print(f"[causal_loader] route=fallback window={window_s}s -- native rejected: {ROUTE['error']}")
 
-    sampler = WindowBatchSampler(seed_ts, batch_size=batch_size, window_s=WINDOW_S, shuffle=shuffle)
+    sampler = WindowBatchSampler(seed_ts, batch_size=batch_size, window_s=window_s, shuffle=shuffle)
     loader = LinkNeighborLoader(data, edge_label_index=eli_arg, edge_label=el, batch_sampler=sampler, **common)
-    loader.window_s = WINDOW_S
+    loader.window_s = window_s
     return loader
 
 
