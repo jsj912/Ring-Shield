@@ -75,12 +75,28 @@ def from_run_dir(run_dir: Path, model_dir: Path, version: int = 1) -> Path:
     run_dir = Path(run_dir)
     cfg = yaml.safe_load((run_dir / "config.yaml").read_text(encoding="utf-8"))
     chosen = cfg["chosen"]
-    return write_model(model_dir, model_id=cfg.get("model_id", "unknown"), seed=int(cfg.get("seed", 0)),
-                       aggregator=cfg["aggregator"],
-                       params={"seed_frac_pct": float(chosen["seed_frac_pct"]), "min_size": int(chosen["min_size"]),
-                               "max_gap_hours": chosen.get("max_gap_hours")},
-                       feature_set=cfg.get("feature_set", "unknown"),
+    params = {"seed_frac_pct": float(chosen["seed_frac_pct"]), "min_size": int(chosen["min_size"]),
+              "max_gap_hours": chosen.get("max_gap_hours")}
+    extra = {"val_ring_f1_at_chosen": chosen.get("val_ring_f1"), "scope": cfg.get("scope"),
+             "eval_window": cfg.get("eval_windows", {}).get("primary")}
+    if cfg["aggregator"] == "expand":
+        # Step 6.4: the expansion operating point plus the policy itself (policy/ next to model.json);
+        # `python -m ringshield run --aggregator expand` needs --gfp and (for the cosine features) --embeddings
+        import shutil
+        params.update({"delta_t_h": float(chosen["delta_t_h"]), "p_min": float(chosen["p_min"]),
+                       "max_hops": int(cfg["candidate_definition"]["max_hops"]),
+                       "max_events_per_query": int(cfg["candidate_definition"]["max_events_per_query"]),
+                       "policy_kind": cfg["policy_kind"],
+                       "head_constants": cfg.get("context", {}).get("test", {}).get("head_constants")})
+        if cfg["policy_kind"] == "model":
+            src = Path(cfg["method"].split("policy:", 1)[1])
+            dst = Path(model_dir) / "policy"
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in ("policy.json", "policy.txt"):
+                shutil.copy(src / f, dst / f)
+        extra["expansion_inputs"] = ("run needs --gfp <split GFP parquet> and --embeddings <R1 embeddings parquet of the "
+                                     "same detector seed>")
+    return write_model(model_dir, model_id=cfg.get("model_id", "unknown"), seed=int(cfg.get("seed", cfg.get("detector_seed", 0))),
+                       aggregator=cfg["aggregator"], params=params, feature_set=cfg.get("feature_set", "trailing_closescycle"),
                        source=f"{run_dir.as_posix()} (ringshield/run_rings.py config.yaml, chosen on val)",
-                       version=version,
-                       extra={"val_ring_f1_at_chosen": chosen.get("val_ring_f1"), "scope": cfg.get("scope"),
-                              "eval_window": cfg.get("eval_windows", {}).get("primary")})
+                       version=version, extra=extra)

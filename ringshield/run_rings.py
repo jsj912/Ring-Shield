@@ -18,6 +18,12 @@
 
 --dry-run keeps 1 % of each split's scored edges (pipeline check; rings will be near-empty).
 Every argument, the grid and the git commit are recorded in config.yaml.
+
+--aggregator expand (Step 6.4) dispatches to ringshield/expand/run_expand.py: the B0 cell is fixed
+(the seed's R2 config), the val grid is delta_t x p_min, and the policy comes from --policy-dir
+(trained, ringshield/expand/policy.py) or --policy rule|rule_q (B1 / B1b):
+
+    python ringshield/run_rings.py --aggregator expand --seed 1 --policy-dir experiments/R3_expansion/policy_proposed         --out experiments/R3_expansion/runs/proposed/seed1
 """
 from __future__ import annotations
 
@@ -46,7 +52,7 @@ from ringshield.scored_edges import build_scored_edges  # noqa: E402
 from ringshield.truth import POLICIES, load_ground_truth, split_window  # noqa: E402
 from ringshield.windows import EVAL_WINDOW_YAML, load_windows  # noqa: E402
 
-AGGREGATORS = {"cc": aggregate_cc}
+AGGREGATORS = {"cc": aggregate_cc, "expand": "ringshield.expand.run_expand"}   # expand: separate runner (own grid)
 RULE_PATH = REPO_ROOT / "configs" / "threshold_rule.yaml"
 DRY_RUN_FRAC = 0.01
 
@@ -83,8 +89,11 @@ def seed_edge_precision(rings: list[Ring], labels: pd.DataFrame | None) -> dict 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--scores-val", type=Path, required=True)
-    ap.add_argument("--scores-test", type=Path, required=True)
+    ap.add_argument("--scores-val", type=Path, default=None, help="required for --aggregator cc")
+    ap.add_argument("--scores-test", type=Path, default=None, help="required for --aggregator cc")
+    ap.add_argument("--policy-dir", type=Path, default=None, help="expand: trained policy directory")
+    ap.add_argument("--policy", choices=["rule", "rule_q"], default=None, help="expand: rule baseline B1 / B1b")
+    ap.add_argument("--r1-dir", type=Path, default=None, help="expand: R1 run dir with scores / embeddings / checkpoints")
     ap.add_argument("--labels-dir", type=Path, default=REPO_ROOT / "contract" / "out")
     ap.add_argument("--aggregator", choices=sorted(AGGREGATORS), default="cc")
     ap.add_argument("--choose-on", choices=["val"], default="val", help="only val is allowed (nothing is tuned on test)")
@@ -100,6 +109,16 @@ def main(argv=None):
     ap.add_argument("--seed", type=int, default=1, help="training seed of the scores (recorded; also the dry-run sample seed)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
+    if args.aggregator == "expand":
+        from ringshield.expand import run_expand
+        sub = ["--seed", str(args.seed), "--out", str(args.out), "--scope", args.scope, "--model-id", args.model_id,
+               "--labels-dir", str(args.labels_dir), "--eval-window", str(args.eval_window)]
+        sub += ["--policy-dir", str(args.policy_dir)] if args.policy_dir else ["--policy", args.policy or "rule"]
+        sub += ["--r1-dir", str(args.r1_dir)] if args.r1_dir else []
+        sub += ["--max-gap-hours", str(args.max_gap_hours)] if args.max_gap_hours is not None else []
+        sub += ["--dry-run"] if args.dry_run else []
+        return run_expand.main(sub)
+    assert args.scores_val and args.scores_test, "--aggregator cc needs --scores-val and --scores-test"
 
     t0 = time.time()
     rule = yaml.safe_load(args.rule.read_text(encoding="utf-8"))

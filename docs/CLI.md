@@ -42,7 +42,8 @@ Tenant-scoped inference — restrict the input to a set of edges:
 | `--scores` | a **scored_edges** parquet in the contract layout (`contract/schema.py::SCORED_EDGES_COLUMNS`: `edge_id, tenant_id, from_id, to_id, from_bank, to_bank, timestamp, amount_*, currency_*, payment_format, score_raw, score_calibrated, is_seed, model_id, seed`). `score_calibrated` may equal `score_raw` when no calibration exists. |
 | `--edge-subset` | optional parquet with an `edge_id` column. Only those edges are read; everything else (the quantile, components, member edges) is computed **within the subset**. |
 | `--model-dir` | a model directory (§4). It fixes the aggregator, its validation-chosen parameters, and the `model_id` / `seed` of the scorer whose scores are expected. |
-| `--aggregator` | `cc` today; `expand` and `full` exit with code 2 and the message "arrives in Steps 6-8" until they exist. If given, it overrides the model dir's aggregator (a note is printed). |
+| `--aggregator` | `cc` or `expand` (Step 6); `full` exits with code 2 ("arrives in Step 8") until it exists. If given, it overrides the model dir's aggregator (a note is printed). |
+| `--gfp`, `--embeddings` | `expand` only: the split's GFP parquet (`data/processed/amlworld_gfp_features_<split>.parquet`) and the R1 embeddings parquet of the same detector seed and split. Without `--gfp` the policy's GFP features are zero; without `--embeddings` its cosine features are missing (a note is printed either way). |
 | `--out` | the rings parquet (§3); `<out>.log.json` is written beside it. |
 | `--split val\|test` | research convenience only: lets `--scores` be a bare `models/score.py` file (`edge_id, timestamp, score_raw`), which is then joined with `data/processed/amlworld_<split>.parquet`. The platform should always pass a contract file. |
 | `--seed-frac-pct`, `--min-size`, `--max-gap-hours` | override the model dir's parameters (leave alone in production). |
@@ -69,6 +70,17 @@ Tenant-scoped inference — restrict the input to a set of edges:
   (and therefore in the subset when one is given). `expanded_edges` is empty, `topology_type`
   is `UNKNOWN` with uniform `topology_probs`, `conservation_closure` is NaN and the role
   lists are empty until Steps 6–8 fill them — the columns are already there.
+* **`expand` (Step 6).** The model dir carries the expansion operating point (`params.delta_t_h`,
+  `params.p_min`, `max_hops`, `max_events_per_query`, `policy_kind`, the detector head constants
+  for `dead_region`) and the trained policy under `policy/`. Seeds are selected exactly as for
+  `cc`; each seed component is then grown by the policy inside
+  `[min seed time − delta_t, max seed time + delta_t]` and rings are the components of
+  seed + expanded edges (an added edge can merge two seed components). `expanded_edges` is
+  filled, `conservation_closure` is the mean in/out closure over the ring's included accounts
+  that have both flows (NaN if none); `seed_edges ⊆ member_edges`, `expanded_edges ⊆
+  member_edges`, seed and expanded sets are disjoint. `topology_type` / roles still wait for
+  Steps 7–8. Example: `models/artifacts/expand_gine_causal_seed1` with
+  `--gfp data/processed/amlworld_gfp_features_test.parquet --embeddings experiments/R1_gine_causal/embeddings_test_seed1.parquet`.
 * **Determinism.** Same input, same model dir → identical output.
 
 ## 2. `train` — analyst verdicts in, new model directory out
@@ -148,8 +160,14 @@ next to them. The research side creates one from a validated experiment:
 .venv312/Scripts/python.exe -m ringshield export-model --run-dir experiments/R2_b0/gfpxgb/seed1 --out-model-dir models/artifacts/cc_gfpxgb_seed1
 ```
 
-Available now: `models/artifacts/cc_gfpxgb_seed1` (GFP + XGBoost, seed 1, cc, 0.1 % / min_size 3).
-The Multi-GINe (`gine`) model dirs follow when the R1 re-run lands.
+Available now: `models/artifacts/cc_gine_causal_seed1` (Multi-GINe, causal, trailing features,
+seed 1, cc, 0.1 % / min_size 3 — the model behind `contract/out/rings_stub_cc.parquet`),
+`models/artifacts/cc_gfpxgb_seed1` (GFP + XGBoost, seed 1, cc, 0.1 % / min_size 3) and
+`models/artifacts/expand_gine_causal_seed1` (the Step 6 expansion policy on the seed-1 gine
+scores: cc cell 0.1 % / 3, Δt 24 h, p_min 0.7; `export-model` from an `expand` run copies the
+policy files into the model dir). Contract
+scored_edges to feed them: `contract/out/scored_edges_gine_causal_1{,_val}.parquet`,
+`contract/out/scored_edges_gfpxgb_1{,_val}.parquet`.
 
 ## 5. Checks
 

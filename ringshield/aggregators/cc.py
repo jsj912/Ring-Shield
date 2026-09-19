@@ -122,15 +122,39 @@ def aggregate_cc(scored_edges: pd.DataFrame, seed_frac_pct: float, min_size: int
     if not flagged_mask.any():
         return []
 
-    flagged = scored_edges.loc[flagged_mask, ["from_id", "to_id", "timestamp", conf_col]]
+    return rings_from_masks(scored_edges, flagged_mask, None, min_size, max_gap_hours, conf_col=conf_col,
+                            aggregator_id=aggregator_id, verbose=verbose)
+
+
+def seed_graph(scored_edges: pd.DataFrame, edge_mask: np.ndarray, conf_col: str) -> nx.Graph:
+    """Undirected account graph of the masked transactions (parallel transactions -> one edge with
+    the list of their scores / times)."""
+    sub = scored_edges.loc[edge_mask, ["from_id", "to_id", "timestamp", conf_col]]
     G = nx.Graph()
-    for f, t, ts, p in flagged.itertuples(index=False):
+    for f, t, ts, p in sub.itertuples(index=False):
         if G.has_edge(f, t):
             e = G[f][t]
             e["probs"].append(p)
             e["times"].append(ts)
         else:
             G.add_edge(f, t, probs=[p], times=[ts])
+    return G
+
+
+def rings_from_masks(scored_edges: pd.DataFrame, flagged_mask: np.ndarray, expanded_mask: np.ndarray | None,
+                     min_size: int, max_gap_hours: float | None = None, *, conf_col: str = "score_raw",
+                     aggregator_id: str = AGGREGATOR_ID, verbose: bool = False) -> list[Ring]:
+    """Components of the graph of flagged (seed) + expanded edges, size filter, Ring records.
+    `expanded_mask` (Step 6) adds the expansion's edges to the graph; they become `expanded_edges`
+    of their component, seeds stay `seed_edges`, and `confidence` / `max_edge_prob` are computed
+    over the seed edges only. Both masks are positional over `scored_edges`."""
+    if expanded_mask is None:
+        expanded_mask = np.zeros(len(scored_edges), dtype=bool)
+    assert not (flagged_mask & expanded_mask).any(), "an edge cannot be both a seed and an expanded edge"
+    G = seed_graph(scored_edges, flagged_mask | expanded_mask, conf_col)
+    is_seed_pair = {}
+    for f, t in scored_edges.loc[flagged_mask, ["from_id", "to_id"]].itertuples(index=False):
+        is_seed_pair[(f, t)] = is_seed_pair[(t, f)] = True
     components = list(nx.connected_components(G))
     if verbose:
         print(f"  Raw connected components: {len(components)}")
@@ -147,8 +171,11 @@ def aggregate_cc(scored_edges: pd.DataFrame, seed_frac_pct: float, min_size: int
             continue
         sub = G.subgraph(members)
         m = sub.number_of_edges()
-        probs = [p for _, _, d in sub.edges(data=True) for p in d["probs"]]
+        probs = [p for u, v, d in sub.edges(data=True) if (u, v) in is_seed_pair for p in d["probs"]]
         times = [t for _, _, d in sub.edges(data=True) for t in d["times"]]
+        if not probs:
+            n_small += 1                       # a component of expanded edges only cannot happen; guard anyway
+            continue
         kept.append({
             "members": sorted(int(x) for x in members), "n_edges": m,
             "confidence": float(np.mean(probs)), "max_edge_prob": float(np.max(probs)),
@@ -185,6 +212,7 @@ def aggregate_cc(scored_edges: pd.DataFrame, seed_frac_pct: float, min_size: int
     in_win[same] = (ts[same] >= start[rf[same]]) & (ts[same] <= end[rf[same]])
     member_of = np.where(in_win, rf, -1)
     seed_of = np.where(in_win & flagged_mask, rf, -1)
+    exp_of = np.where(in_win & expanded_mask, rf, -1)
 
     # bank of every member account, from the edges it appears on (contract: most common bank)
     bank_of: dict[int, int] = {}
@@ -197,12 +225,15 @@ def aggregate_cc(scored_edges: pd.DataFrame, seed_frac_pct: float, min_size: int
     for i, r in enumerate(kept):
         member_edges = edge_id[member_of == i]
         seed_edges = edge_id[seed_of == i]
-        assert len(seed_edges) > 0 and len(member_edges) >= len(seed_edges)
+        expanded_edges = edge_id[exp_of == i]
+        assert len(seed_edges) > 0 and len(member_edges) >= len(seed_edges) + len(expanded_edges)
         assert int(ts[member_of == i].min()) == r["start_time"]
         banks = np.array([bank_of[a] for a in r["members"]], dtype=np.int64)
-        rings.append(Ring.baseline(
+        ring = Ring.baseline(
             ring_id=f"{aggregator_id}-{i}", tenant_id=_mode_smallest(banks), aggregator_id=aggregator_id,
             members=r["members"], member_edges=member_edges.tolist(), seed_edges=seed_edges.tolist(),
             n_edges=r["n_edges"], start_time=r["start_time"], end_time=r["end_time"],
-            confidence=r["confidence"], max_edge_prob=r["max_edge_prob"], density=r["density"]))
+            confidence=r["confidence"], max_edge_prob=r["max_edge_prob"], density=r["density"])
+        ring.expanded_edges = expanded_edges.tolist()
+        rings.append(ring)
     return rings

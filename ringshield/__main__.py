@@ -63,13 +63,35 @@ def _load_scored_edges(path: Path, split: str | None) -> pd.DataFrame:
                      f"a bare scores file (edge_id, timestamp, score_raw) needs --split val|test")
 
 
-def _aggregate(name: str, se: pd.DataFrame, params: dict, model_id: str, seed: int) -> list[Ring]:
+def _aggregate(name: str, se: pd.DataFrame, params: dict, model_id: str, seed: int, *, model_dir: Path | None = None,
+               gfp: Path | None = None, embeddings: Path | None = None, report: dict | None = None) -> list[Ring]:
     if name == "cc":
         rings = aggregate_cc(se, float(params["seed_frac_pct"]), int(params["min_size"]), params.get("max_gap_hours"),
                              aggregator_id="cc")
-    elif name in ("expand", "full"):
-        raise UsageError(f"aggregator '{name}' arrives in Steps 6-8 (expansion / partition); only 'cc' exists today. "
-                         f"The command line and the output schema will not change.")
+    elif name == "expand":
+        from ringshield.aggregators.expand import aggregate_expand
+        from ringshield.expand.context import build_context
+        from ringshield.expand.policy import Policy
+        for k in ("delta_t_h", "p_min", "policy_kind"):
+            if k not in params:
+                raise UsageError(f"model dir has no params.{k}: not an 'expand' model (export one from a run_expand output)")
+        if params["policy_kind"] == "model":
+            if model_dir is None or not (Path(model_dir) / "policy" / "policy.txt").exists():
+                raise UsageError(f"{model_dir}: policy/policy.txt missing")
+            policy = Policy.load(Path(model_dir) / "policy")
+        else:
+            policy = Policy.rule(params["policy_kind"])
+        if gfp is None:
+            print("[ringshield run] note: --gfp not given; the policy's GFP features are zero", file=sys.stderr)
+        if embeddings is None and policy.kind == "model":
+            print("[ringshield run] note: --embeddings not given; cosine features are missing (NaN)", file=sys.stderr)
+        ctx = build_context(se, gfp_parquet=gfp, embeddings_parquet=embeddings, head_constants=params.get("head_constants"))
+        rings = aggregate_expand(se, float(params["seed_frac_pct"]), int(params["min_size"]), params.get("max_gap_hours"),
+                                 policy=policy, ctx=ctx, p_min=float(params["p_min"]), delta_t_h=float(params["delta_t_h"]),
+                                 max_hops=int(params.get("max_hops", 2)), aggregator_id="expand", report=report)
+    elif name == "full":
+        raise UsageError("aggregator 'full' arrives in Step 8 (partition); 'cc' and 'expand' exist today. "
+                         "The command line and the output schema will not change.")
     else:
         raise UsageError(f"unknown aggregator {name!r}; choose from {', '.join(AGGREGATORS)}")
     return rings
@@ -109,7 +131,9 @@ def cmd_run(a) -> int:
         print(f"[ringshield run] note: scores carry model_id {se['model_id'].iloc[0]!r}, model dir says {model_id!r}",
               file=sys.stderr)
     q = threshold_for_pct(se[SELECT_COL].to_numpy(float), float(params["seed_frac_pct"]))
-    rings = _aggregate(aggregator, se, params, model_id, seed)
+    report: dict = {}
+    rings = _aggregate(aggregator, se, params, model_id, seed, model_dir=Path(a.model_dir),
+                       gfp=Path(a.gfp) if a.gfp else None, embeddings=Path(a.embeddings) if a.embeddings else None, report=report)
 
     # contract ids and the tenant rule (docs/CLI.md): sender bank of the earliest seed edge
     se_idx = se.set_index("edge_id").sort_index()
@@ -131,12 +155,15 @@ def cmd_run(a) -> int:
                             "n_seeds": int((se[SELECT_COL] > q).sum()), "n_on_boundary": int((se[SELECT_COL] == q).sum())},
            "n_rings": len(out_rings), "n_seed_edges": int(sum(len(r.seed_edges) for r in out_rings)),
            "n_member_edges": int(sum(len(r.member_edges) for r in out_rings)),
+           "n_expanded_edges": int(sum(len(r.expanded_edges) for r in out_rings)),
+           "expansion": report or None, "gfp": str(a.gfp) if a.gfp else None, "embeddings": str(a.embeddings) if a.embeddings else None,
            "ring_id_rule": "f'{aggregator}-{model_id}-{seed}-{idx}'",
            "tenant_rule": "sender bank (from_bank) of the ring's earliest seed edge; ties -> smallest edge_id",
            "out": str(out)}
     Path(str(out) + ".log.json").write_text(json.dumps(log, indent=2), encoding="utf-8")
     print(f"[ringshield run] {len(out_rings)} rings from {len(se):,} edges ({log['quantile_cut']['n_seeds']:,} seeds, "
-          f"q={q:.6f}, {log['quantile_cut']['n_on_boundary']} tied on the boundary) -> {out}")
+          f"q={q:.6f}, {log['quantile_cut']['n_on_boundary']} tied on the boundary"
+          + (f", {log['n_expanded_edges']} expanded edges" if aggregator == "expand" else "") + f") -> {out}")
     return 0
 
 
@@ -287,6 +314,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--seed-frac-pct", type=float, default=None, help="override the model dir's quantile (rarely)")
     r.add_argument("--min-size", type=int, default=None)
     r.add_argument("--max-gap-hours", type=float, default=None)
+    r.add_argument("--gfp", default=None, help="expand: the split's GFP parquet (amlworld_gfp_features_<split>.parquet)")
+    r.add_argument("--embeddings", default=None, help="expand: R1 embeddings parquet of the same detector seed and split")
     r.set_defaults(fn=cmd_run)
 
     t = sub.add_parser("train", help="feed analyst verdicts back (copies the base model; no retraining yet)")

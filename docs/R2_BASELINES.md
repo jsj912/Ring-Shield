@@ -1,9 +1,10 @@
 # R2 — three detectors through the connected-components aggregator B0 (Step 4)
 
-Status 2026-09-17: package (`ringshield/`) and runner (`ringshield/run_rings.py`) in place and
-tested; the reportable rows wait for the trailing-feature R1 (training) and the 3b-w apply
-step (evaluation window). Numbers in this file that come from legacy-feature scores are
-marked as such and are pipeline checks, not results.
+Status 2026-09-18: package (`ringshield/`), runner (`ringshield/run_rings.py`) and CLI
+(`python -m ringshield`) in place and tested; all three B0 rows are on trailing-feature scores
+under the primary evaluation window (3b-w apply) and the Step 3c seed-fraction rule. Numbers
+in this file that come from legacy-feature scores are marked as such and are pipeline checks,
+not results.
 
 ## Motivating figure: why B0 cannot be improved by turning its own knob
 
@@ -61,14 +62,25 @@ members); val cell chosen per seed on the 157 val rings (all seeds chose the sam
 
 | model | features | seeds | val cell (pct / min_size) | ring-P | ring-R | **ring-F1** | R≥3 | coverage | seed edges (n, precision, illicit recall) | tail F1 | whole F1 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| gine_causal · cc | trailing | 5 | — | — | — | **pending R1** | — | — | — | — | — |
+| gine_causal · cc | trailing | 5 | 0.1 / 3 | 0.814 ± 0.049 | 0.384 ± 0.040 | **0.521 ± 0.045** | 0.516 | 0.866 | 289, 0.933, 0.282 | 0.563 | 0.471 |
 | gfpxgb · cc | trailing | 5 | 0.1 / 3 | 0.558 ± 0.032 | 0.248 ± 0.008 | **0.344 ± 0.012** | 0.332 ± 0.010 | 0.793 | 204, 0.837, 0.179 | 0.563 | 0.377 |
 | density · cc | trailing | 1 (×5 copies) | 1.0 / 2 | 0.017 | 0.012 | **0.014** | 0.009 | 1.000 | 8,605, 0.002, 0.021 | 0.018 | 0.013 |
 
-Per-pattern recall (primary): gfpxgb — SCATTER-GATHER 0.38, FAN-IN 0.38, GATHER-SCATTER 0.34,
-CYCLE 0.32, FAN-OUT 0.27, RANDOM 0.13, STACK 0.05, BIPARTITE 0.00; density — FAN-OUT 0.05,
-GATHER-SCATTER 0.03, all others 0. Jaccard sweep (gfpxgb): F1 0.42 at 0.3, 0.18 at 0.7.
-Appendix (gfpxgb primary): strict F1 0.041, majority 0.118.
+Per-pattern recall (primary): gine_causal — SCATTER-GATHER 0.65, FAN-OUT 0.60, GATHER-SCATTER
+0.56, FAN-IN 0.53, RANDOM 0.31, CYCLE 0.22, STACK 0.02, BIPARTITE 0.00; gfpxgb — SCATTER-GATHER
+0.38, FAN-IN 0.38, GATHER-SCATTER 0.34, CYCLE 0.32, FAN-OUT 0.27, RANDOM 0.13, STACK 0.05,
+BIPARTITE 0.00; density — FAN-OUT 0.05, GATHER-SCATTER 0.03, all others 0. Jaccard sweep:
+gine_causal F1 0.55 at 0.3 / 0.39 at 0.7, gfpxgb 0.42 / 0.18. Appendix (primary): gine_causal
+strict F1 0.031, majority 0.127; gfpxgb 0.041 / 0.118. Per-seed gine_causal primary F1:
+0.539, 0.539, 0.490, 0.576, 0.463 (seed 5 is the seed that collapsed at epoch 35 and recovered;
+best val F1 0.529 vs 0.55–0.62 for the others).
+
+The three rows read the way the motivating figure says they should: every detector has the
+same operating point (0.1 % seeds, min_size 3 — the density detector has none), and what
+separates them is the *precision of the seed set*: 93 % (GNN) vs 84 % (GFP + XGBoost) vs 0.2 %
+(density), which carries straight through to ring precision (0.81 / 0.56 / 0.02) at nearly the
+same recall-of-positives (28 % / 18 % / 2 %). None of them recovers more than 38 % of the
+primary-window rings, and the missing ones are the quiet members that no seed reaches.
 
 Edge level (`evaluation/edge_metrics.py`, labels `gfpxgb` / `density`, primary window, 5 seeds):
 gfpxgb F1 0.353 ± 0.014, AP 0.306, AP/prevalence 276, P@R=0.5 0.17, AUC 0.974 (val: 0.421 /
@@ -113,5 +125,9 @@ edges 299 at 89.3 % precision covering 27.9 % of the 956 primary positives; non-
 rings, P 0.837 / R 0.414 / F1 0.554, R≥3 0.561, seed edges 355 at 86.5 % precision covering
 32.1 %. (`experiments/R2_cc_gine_legacyfeat{,_noncausal}/seed1`.)
 
-Item 6 (gine rows, three-detector comparison and write-up): **pending R1** (seeds 2–5 in
-training).
+Edge level, gine_causal (`results/tables/r1_edge_metrics.csv`, row `causal`, primary window,
+5 seeds): F1 0.495 ± 0.027, AP 0.449 ± 0.052, AP/prevalence 405, P@R=0.5 0.35, AUC 0.965 —
+against the legacy-feature causal row 0.494 / 0.436 / 394 / 0.33: removing the forward-looking
+cycle flag cost nothing on the primary window (it only fed the tail: tail F1 0.739 vs 0.786).
+
+Item 6 done with this table; CIs pending Step 9.

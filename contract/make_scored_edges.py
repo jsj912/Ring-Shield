@@ -1,10 +1,22 @@
-"""Build the scored_edges contract parquet from a predictions_with_ids.csv.
+"""Build the scored_edges contract parquet from a predictions_with_ids.csv (Step 1) or, since
+Step 3c, from a calibrated models/score.py scores parquet.
 
 Usage (PowerShell):
 
     python contract/make_scored_edges.py ^
         --preds experiments/E6_tgn/predictions_with_ids.csv ^
         --model-id gine --seed 1
+
+    python contract/make_scored_edges.py ^
+        --scores experiments/R1_gine_causal/scores_test_seed1.parquet --split test ^
+        --model-id gine_causal --seed 1 --k-from experiments/R2_b0/gine_causal/seed1/config.yaml
+
+The --scores form (Step 3c) joins the split parquet (edge attributes, banks) with the scores
+file, requires a `score_calibrated` column (models/calibrate.py must have run), sets
+is_seed from the seed-fraction rule in configs/threshold_rule.yaml (strict quantile on
+score_raw within the split at k* = --seed-frac-pct, or the chosen cell of a
+ringshield/run_rings.py config given with --k-from), and writes exactly SCORED_EDGES_COLUMNS
+(no labels; labels_<split>.parquet come from contract/make_labels.py).
 
 Defaults for --test-parquet, --accounts-csv, --raw-trans-csv and --out come from
 configs/paths.yaml. Add --dry-run to process a deterministic 1% sample of the
@@ -28,6 +40,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import yaml
 
@@ -187,10 +200,53 @@ def make_scored_edges(
     return log
 
 
+def make_scored_edges_from_scores(scores_parquet: Path, split: str, model_id: str, seed: int, out_path: Path,
+                                  *, seed_frac_pct: float, k_source: str, dry_run: bool = False) -> dict:
+    """Step 3c: contract parquet from a calibrated scores parquet + the seed-fraction rule."""
+    import yaml
+    from ringshield.aggregators.cc import seed_mask_for_pct, threshold_for_pct
+    from ringshield.scored_edges import build_scored_edges
+    scores_parquet, out_path = Path(scores_parquet), Path(out_path)
+    sc_cols = pd.read_parquet(scores_parquet).columns
+    assert "score_calibrated" in sc_cols, f"{scores_parquet}: no score_calibrated column -- run models/calibrate.py first"
+    se = build_scored_edges(scores_parquet, split, model_id=model_id, seed=seed)
+    if dry_run:
+        se = se.sample(frac=DRY_RUN_FRAC, random_state=seed).sort_values("edge_id").reset_index(drop=True)
+    rule = yaml.safe_load((REPO_ROOT / "configs" / "threshold_rule.yaml").read_text(encoding="utf-8"))
+    assert rule.get("cut") == "strict" and rule.get("selection_column") == "score_raw", rule
+    raw = se["score_raw"].to_numpy(float)
+    q = threshold_for_pct(raw, seed_frac_pct)
+    se["is_seed"] = seed_mask_for_pct(raw, seed_frac_pct)
+    n_nan = int(np.isnan(raw).sum())
+    assert not se["score_calibrated"].isna().any(), "NaN in score_calibrated"
+    assert n_nan == 0, f"{n_nan} NaN score_raw rows: the seed-mask fix should have removed them"
+    assert "true_label" not in se.columns
+    out = se[SCORED_EDGES_ORDER].astype(pandas_dtypes(SCORED_EDGES_COLUMNS))
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out.to_parquet(out_path, index=False)
+    log = {"model_id": model_id, "seed": seed, "split": split, "dry_run": dry_run,
+           "inputs": {"scores_parquet": str(scores_parquet), "split_parquet": f"amlworld_{split}.parquet",
+                      "threshold_rule": "configs/threshold_rule.yaml", "k_source": k_source},
+           "seed_rule": {"seed_frac_pct": seed_frac_pct, "cut": "strict (score_raw > q)", "q": q,
+                         "quantile_scope": "this split", "n_on_boundary": int((raw == q).sum())},
+           "n_rows_out": int(len(out)), "n_nan_score_raw": n_nan, "n_nan_score_calibrated": 0,
+           "n_is_seed": int(out["is_seed"].sum()), "calibrated": bool(not out["score_calibrated"].equals(out["score_raw"])),
+           "columns": SCORED_EDGES_ORDER, "out_path": str(out_path)}
+    write_log(out_path, log)
+    print(f"[make_scored_edges] wrote {len(out):,} rows -> {out_path}  (is_seed: {log['n_is_seed']:,} at "
+          f"{seed_frac_pct}% [q={q:.6f}, {log['seed_rule']['n_on_boundary']} tied], NaN 0)")
+    return log
+
+
 def main(argv=None):
     paths = load_paths()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--preds", type=Path, required=True, help="predictions_with_ids.csv")
+    ap.add_argument("--preds", type=Path, default=None, help="predictions_with_ids.csv (Step 1 form)")
+    ap.add_argument("--scores", type=Path, default=None, help="calibrated models/score.py scores parquet (Step 3c form)")
+    ap.add_argument("--split", choices=["val", "test"], default="test", help="--scores form: which split the file scores")
+    ap.add_argument("--seed-frac-pct", type=float, default=None, help="--scores form: k* (top %% of edges are seeds)")
+    ap.add_argument("--k-from", type=Path, default=None,
+                    help="--scores form: a ringshield/run_rings.py config.yaml; k* = its chosen seed_frac_pct")
     ap.add_argument("--model-id", required=True, help="e.g. gine")
     ap.add_argument("--seed", type=int, required=True, help="seed the predictions were produced with")
     ap.add_argument("--test-parquet", type=Path, default=paths["processed_dir"] / "amlworld_test.parquet")
@@ -203,6 +259,18 @@ def main(argv=None):
 
     suffix = "_dryrun" if args.dry_run else ""
     out = args.out or (REPO_ROOT / "contract" / "out" / f"scored_edges_{args.model_id}_{args.seed}{suffix}.parquet")
+    if args.scores is not None:
+        if args.seed_frac_pct is None:
+            assert args.k_from is not None, "--scores needs --seed-frac-pct or --k-from"
+            import yaml
+            cfg = yaml.safe_load(Path(args.k_from).read_text(encoding="utf-8"))
+            k, k_src = float(cfg["chosen"]["seed_frac_pct"]), f"{args.k_from} (chosen on val)"
+        else:
+            k, k_src = float(args.seed_frac_pct), "--seed-frac-pct"
+        make_scored_edges_from_scores(args.scores, args.split, args.model_id, args.seed, out,
+                                      seed_frac_pct=k, k_source=k_src, dry_run=args.dry_run)
+        return
+    assert args.preds is not None, "give --preds (Step 1 form) or --scores (Step 3c form)"
     make_scored_edges(args.preds, args.test_parquet, args.accounts_csv, args.model_id, args.seed, out,
                       raw_trans_csv=args.raw_trans_csv, dry_run=args.dry_run)
 

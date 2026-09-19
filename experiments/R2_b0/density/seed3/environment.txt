@@ -1,6 +1,6 @@
 python: 3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
 platform: Windows-11-10.0.22621-SP0
-git_commit: ee8fadfd88603eff0c3e4c3daa2f7e72743f111e
+git_commit: 5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd
 
 # pip freeze
 aiohappyeyeballs==2.7.1

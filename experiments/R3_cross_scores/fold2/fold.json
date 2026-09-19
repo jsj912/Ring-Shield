@@ -1,0 +1,43 @@
+{
+  "fold": 2,
+  "held_out_days": [
+    2,
+    3
+  ],
+  "train_days": [
+    0,
+    1,
+    4,
+    5
+  ],
+  "n_train_edges": 2834109,
+  "n_train_illicit": 1732,
+  "n_held_out_edges": 414812,
+  "n_held_out_illicit": 798,
+  "epochs": 30,
+  "best_epoch": 4,
+  "best_val_f1": 0.5002901915264074,
+  "val_tuned_threshold": 0.5400000000000001,
+  "train_seed": 1,
+  "held_out": {
+    "f1_at_val_threshold": 0.466789667896679,
+    "precision_at_val_threshold": 0.8846153846153846,
+    "recall_at_val_threshold": 0.31704260651629074,
+    "average_precision": 0.4145437751532958,
+    "f1_oracle_threshold": 0.514817950889077,
+    "base_rate": 0.0019237630541064385
+  },
+  "head_constants": [
+    0.3368106782436371,
+    0.37077975273132324
+  ],
+  "n_dead_region": 0,
+  "checkpoint": "experiments\\R3_cross_scores\\fold2\\model_best.pt",
+  "scores": "experiments\\R3_cross_scores\\scores_fold2.parquet",
+  "mean_epoch_time_s": 199.0771600564321,
+  "score_seconds": 24.8,
+  "loader_route": "fallback",
+  "loader_window_s": 1800,
+  "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+  "created_utc": "2026-09-18T20:12:55+00:00"
+}

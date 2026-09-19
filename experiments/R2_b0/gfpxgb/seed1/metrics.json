@@ -1,7 +1,7 @@
 {
   "experiment": "seed1",
-  "created_utc": "2026-09-17T18:32:13+00:00",
-  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "created_utc": "2026-09-18T08:45:29+00:00",
+  "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
   "aggregator": "cc",
   "scope": "test_visible",
   "chosen": {
@@ -1025,5 +1025,5 @@
     "member_edge_precision": 0.47474747474747475,
     "member_edge_recall_of_illicit": 0.2722007722007722
   },
-  "seconds": 165.8
+  "seconds": 48.0
 }

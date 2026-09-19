@@ -1,0 +1,231 @@
+{
+  "created_utc": "2026-09-18T23:36:33+00:00",
+  "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+  "n_rows": 3248921,
+  "n_folds": 5,
+  "dry_run": false,
+  "assertion": {
+    "rule": "day(edge) not in train_days[fold(edge)] for every row; one row per train edge",
+    "violations": 0,
+    "passed": true
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "held_out_days": [
+        0
+      ],
+      "train_days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "n_train_edges": 2134000,
+      "n_train_illicit": 2208,
+      "n_held_out_edges": 1114921,
+      "n_held_out_illicit": 322,
+      "epochs": 30,
+      "best_epoch": 11,
+      "best_val_f1": 0.5096774193548387,
+      "val_tuned_threshold": 0.6000000000000002,
+      "train_seed": 1,
+      "held_out": {
+        "f1_at_val_threshold": 0.0441752760954756,
+        "precision_at_val_threshold": 0.024949698189134808,
+        "recall_at_val_threshold": 0.19254658385093168,
+        "average_precision": 0.0321867100686958,
+        "f1_oracle_threshold": 0.09645390070921986,
+        "base_rate": 0.0002888097004182359
+      },
+      "head_constants": [
+        0.21913084387779236,
+        0.25943684577941895
+      ],
+      "n_dead_region": 0,
+      "mean_epoch_time_s": 157.67828050454457,
+      "score_seconds": 46.2,
+      "loader_route": "fallback",
+      "loader_window_s": 1800,
+      "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+      "created_utc": "2026-09-18T17:06:03+00:00"
+    },
+    {
+      "fold": 1,
+      "held_out_days": [
+        1
+      ],
+      "train_days": [
+        0,
+        2,
+        3,
+        4,
+        5
+      ],
+      "n_train_edges": 2494472,
+      "n_train_illicit": 2122,
+      "n_held_out_edges": 754449,
+      "n_held_out_illicit": 408,
+      "epochs": 30,
+      "best_epoch": 24,
+      "best_val_f1": 0.6061922868006518,
+      "val_tuned_threshold": 0.7000000000000002,
+      "train_seed": 1,
+      "held_out": {
+        "f1_at_val_threshold": 0.23097112860892388,
+        "precision_at_val_threshold": 0.24858757062146894,
+        "recall_at_val_threshold": 0.21568627450980393,
+        "average_precision": 0.1533451764279736,
+        "f1_oracle_threshold": 0.24482758620689654,
+        "base_rate": 0.0005407920217271148
+      },
+      "head_constants": [
+        0.08520156145095825,
+        0.03322258219122887
+      ],
+      "n_dead_region": 1622,
+      "mean_epoch_time_s": 166.78357385794322,
+      "score_seconds": 37.1,
+      "loader_route": "fallback",
+      "loader_window_s": 1800,
+      "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+      "created_utc": "2026-09-18T18:31:31+00:00"
+    },
+    {
+      "fold": 2,
+      "held_out_days": [
+        2,
+        3
+      ],
+      "train_days": [
+        0,
+        1,
+        4,
+        5
+      ],
+      "n_train_edges": 2834109,
+      "n_train_illicit": 1732,
+      "n_held_out_edges": 414812,
+      "n_held_out_illicit": 798,
+      "epochs": 30,
+      "best_epoch": 4,
+      "best_val_f1": 0.5002901915264074,
+      "val_tuned_threshold": 0.5400000000000001,
+      "train_seed": 1,
+      "held_out": {
+        "f1_at_val_threshold": 0.466789667896679,
+        "precision_at_val_threshold": 0.8846153846153846,
+        "recall_at_val_threshold": 0.31704260651629074,
+        "average_precision": 0.4145437751532958,
+        "f1_oracle_threshold": 0.514817950889077,
+        "base_rate": 0.0019237630541064385
+      },
+      "head_constants": [
+        0.3368106782436371,
+        0.37077975273132324
+      ],
+      "n_dead_region": 0,
+      "mean_epoch_time_s": 199.0771600564321,
+      "score_seconds": 24.8,
+      "loader_route": "fallback",
+      "loader_window_s": 1800,
+      "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+      "created_utc": "2026-09-18T20:12:55+00:00"
+    },
+    {
+      "fold": 3,
+      "held_out_days": [
+        4
+      ],
+      "train_days": [
+        0,
+        1,
+        2,
+        3,
+        5
+      ],
+      "n_train_edges": 2766271,
+      "n_train_illicit": 2059,
+      "n_held_out_edges": 482650,
+      "n_held_out_illicit": 471,
+      "epochs": 30,
+      "best_epoch": 22,
+      "best_val_f1": 0.5237315875613748,
+      "val_tuned_threshold": 0.5500000000000002,
+      "train_seed": 1,
+      "held_out": {
+        "f1_at_val_threshold": 0.5382716049382716,
+        "precision_at_val_threshold": 0.6430678466076696,
+        "recall_at_val_threshold": 0.46284501061571126,
+        "average_precision": 0.4911201784875986,
+        "f1_oracle_threshold": 0.5513654096228868,
+        "base_rate": 0.0009758624261887496
+      },
+      "head_constants": [
+        0.22820085287094116,
+        0.05523856729269028
+      ],
+      "n_dead_region": 406,
+      "mean_epoch_time_s": 197.65785959561666,
+      "score_seconds": 26.1,
+      "loader_route": "fallback",
+      "loader_window_s": 1800,
+      "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+      "created_utc": "2026-09-18T21:53:38+00:00"
+    },
+    {
+      "fold": 4,
+      "held_out_days": [
+        5
+      ],
+      "train_days": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "n_train_edges": 2766832,
+      "n_train_illicit": 1999,
+      "n_held_out_edges": 482089,
+      "n_held_out_illicit": 531,
+      "epochs": 30,
+      "best_epoch": 19,
+      "best_val_f1": 0.5442504515352198,
+      "val_tuned_threshold": 0.5300000000000001,
+      "train_seed": 1,
+      "held_out": {
+        "f1_at_val_threshold": 0.5409429280397022,
+        "precision_at_val_threshold": 0.7927272727272727,
+        "recall_at_val_threshold": 0.4105461393596987,
+        "average_precision": 0.47352182697001616,
+        "f1_oracle_threshold": 0.5532934131736527,
+        "base_rate": 0.0011014563700893403
+      },
+      "head_constants": [
+        0.0871090367436409,
+        0.060410745441913605
+      ],
+      "n_dead_region": 129,
+      "mean_epoch_time_s": 201.8627598841985,
+      "score_seconds": 27.3,
+      "loader_route": "fallback",
+      "loader_window_s": 1800,
+      "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+      "created_utc": "2026-09-18T23:36:30+00:00"
+    }
+  ],
+  "columns": {
+    "score_raw": "fold model softmax",
+    "score_quantile": "rank / N of score_raw within the fold (the policy's detector feature, amendment a)",
+    "dead_region": "score_raw == a head constant of the fold model",
+    "score_calibrated": "R1 seed 1 val calibrator applied; recorded, not used by the policy"
+  },
+  "n_dead_region": 2157,
+  "caveats": [
+    "edge-feature z-normalisation statistics are R1's (all six train days, unsupervised)",
+    "checkpoint selection on the val split whose loader carries the full train graph as neighbourhood context (no held-out labels are used)"
+  ],
+  "out": "experiments\\R3_cross_scores\\cross_scores_train.parquet"
+}

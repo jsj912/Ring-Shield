@@ -1,7 +1,7 @@
 {
   "experiment": "seed1",
-  "created_utc": "2026-09-17T17:56:00+00:00",
-  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "created_utc": "2026-09-18T08:49:09+00:00",
+  "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
   "aggregator": "cc",
   "scope": "test_visible",
   "chosen": {
@@ -12,7 +12,8 @@
   },
   "feature_set": "trailing_closescycle",
   "reportable": true,
-  "score_column": "score_calibrated",
+  "selection_column": "score_raw",
+  "confidence_column": "score_calibrated",
   "eval_windows": {
     "val": {
       "name": "val",
@@ -1024,5 +1025,5 @@
     "member_edge_precision": 0.0028625954198473282,
     "member_edge_recall_of_illicit": 0.04633204633204633
   },
-  "seconds": 59.1
+  "seconds": 18.6
 }

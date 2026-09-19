@@ -30,7 +30,7 @@ PATHS = load_paths()
 OUT = REPO_ROOT / "contract" / "out"
 SCORED = OUT / "scored_edges_gine_1.parquet"
 LABELS = OUT / "labels_test.parquet"
-RINGS = OUT / "rings_stub_cc.parquet"
+RINGS = OUT / "rings_stub_cc_step1_legacy.parquet"  # the Step 1 stub, kept; rings_stub_cc.parquet is rebuilt in Step 3c
 TEST_PARQUET = PATHS["processed_dir"] / "amlworld_test.parquet"
 README = REPO_ROOT / "contract" / "README.md"
 

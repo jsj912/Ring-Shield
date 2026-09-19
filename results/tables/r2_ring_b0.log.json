@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-09-17T18:39:53+00:00",
+  "created_utc": "2026-09-18T08:50:30+00:00",
   "root": "experiments\\R2_b0",
   "models": {
     "density": [
@@ -10,6 +10,13 @@
       "seed5"
     ],
     "gfpxgb": [
+      "seed1",
+      "seed2",
+      "seed3",
+      "seed4",
+      "seed5"
+    ],
+    "gine_causal": [
       "seed1",
       "seed2",
       "seed3",

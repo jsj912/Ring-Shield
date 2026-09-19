@@ -1,7 +1,7 @@
 experiment: seed4
 step: 4 (R2 baselines through B0)
-created_utc: '2026-09-17T18:00:59+00:00'
-git_commit: ee8fadfd88603eff0c3e4c3daa2f7e72743f111e
+created_utc: '2026-09-18T08:50:06+00:00'
+git_commit: 5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd
 aggregator: cc
 aggregator_fn: ringshield.aggregators.cc.aggregate_cc
 scores_val: experiments\R2_b0\density_scores\scores_val_seed4.parquet
@@ -14,12 +14,14 @@ model_id: density
 seed: 4
 feature_set: trailing_closescycle
 reportable: true
-score_column: score_calibrated
+selection_column: score_raw
+confidence_column: score_calibrated
 calibrated: false
-score_column_note: seed selection is a quantile of the score; isotonic calibration
-  is monotone, so raw and calibrated scores select the same seed edges up to ties
-  (calibration matters for confidence comparability, XAI weights and the expansion
-  policy, not for B0)
+score_column_note: 'seeds are selected by a strict quantile cut on score_raw; isotonic
+  calibration is monotone but collapses the score to ~100-150 tie levels, so cutting
+  the calibrated score would drop a slice of the intended seeds at the boundary (gfpxgb:
+  264/960 at 0.1%). Calibrated scores feed confidence / max_edge_prob, XAI weights
+  and the expansion policy, not selection'
 threshold_rule: E:\JSJ\Ring-Shield\configs\threshold_rule.yaml
 objective: ring_f1
 match_threshold: 0.5
@@ -30,14 +32,12 @@ grid:
   seed_frac_pct:
   - 0.05
   - 0.1
+  - 0.15
   - 0.2
   - 0.3
   - 0.5
   - 0.75
   - 1.0
-  - 1.5
-  - 2.0
-  - 3.0
   min_size:
   - 2
   - 3
@@ -98,6 +98,34 @@ grid_results_val:
   test_q: 0.9990056719527723
   test_n_seeds: 854
   test_n_on_boundary: 11
+- seed_frac_pct: 0.15
+  min_size: 2
+  n_rings: 88
+  ring_precision: 0.0114
+  ring_recall: 0.0064
+  ring_f1: 0.0082
+  member_coverage: 1.0
+  n_matched: 1
+  val_q: 0.9984821713390863
+  val_n_seeds: 1437
+  val_n_on_boundary: 58
+  test_q: 0.9984986688274106
+  test_n_seeds: 1294
+  test_n_on_boundary: 7
+- seed_frac_pct: 0.15
+  min_size: 3
+  n_rings: 72
+  ring_precision: 0.0139
+  ring_recall: 0.0064
+  ring_f1: 0.0087
+  member_coverage: 1.0
+  n_matched: 1
+  val_q: 0.9984821713390863
+  val_n_seeds: 1437
+  val_n_on_boundary: 58
+  test_q: 0.9984986688274106
+  test_n_seeds: 1294
+  test_n_on_boundary: 7
 - seed_frac_pct: 0.2
   min_size: 2
   n_rings: 93
@@ -238,90 +266,6 @@ grid_results_val:
   test_q: 0.9899908785739091
   test_n_seeds: 8639
   test_n_on_boundary: 0
-- seed_frac_pct: 1.5
-  min_size: 2
-  n_rings: 150
-  ring_precision: 0.0267
-  ring_recall: 0.0255
-  ring_f1: 0.0261
-  member_coverage: 1.0
-  n_matched: 4
-  val_q: 0.9850000958029008
-  val_n_seeds: 14483
-  val_n_on_boundary: 0
-  test_q: 0.985
-  test_n_seeds: 12958
-  test_n_on_boundary: 2
-- seed_frac_pct: 1.5
-  min_size: 3
-  n_rings: 105
-  ring_precision: 0.019
-  ring_recall: 0.0127
-  ring_f1: 0.0153
-  member_coverage: 1.0
-  n_matched: 2
-  val_q: 0.9850000958029008
-  val_n_seeds: 14483
-  val_n_on_boundary: 0
-  test_q: 0.985
-  test_n_seeds: 12958
-  test_n_on_boundary: 2
-- seed_frac_pct: 2.0
-  min_size: 2
-  n_rings: 151
-  ring_precision: 0.0265
-  ring_recall: 0.0255
-  ring_f1: 0.026
-  member_coverage: 1.0
-  n_matched: 4
-  val_q: 0.9800011392777395
-  val_n_seeds: 19311
-  val_n_on_boundary: 0
-  test_q: 0.979998900335687
-  test_n_seeds: 17278
-  test_n_on_boundary: 0
-- seed_frac_pct: 2.0
-  min_size: 3
-  n_rings: 106
-  ring_precision: 0.0189
-  ring_recall: 0.0127
-  ring_f1: 0.0152
-  member_coverage: 1.0
-  n_matched: 2
-  val_q: 0.9800011392777395
-  val_n_seeds: 19311
-  val_n_on_boundary: 0
-  test_q: 0.979998900335687
-  test_n_seeds: 17278
-  test_n_on_boundary: 0
-- seed_frac_pct: 3.0
-  min_size: 2
-  n_rings: 159
-  ring_precision: 0.0252
-  ring_recall: 0.0255
-  ring_f1: 0.0253
-  member_coverage: 1.0
-  n_matched: 4
-  val_q: 0.9700007974944173
-  val_n_seeds: 28966
-  val_n_on_boundary: 0
-  test_q: 0.9699988424586179
-  test_n_seeds: 25916
-  test_n_on_boundary: 5
-- seed_frac_pct: 3.0
-  min_size: 3
-  n_rings: 106
-  ring_precision: 0.0189
-  ring_recall: 0.0127
-  ring_f1: 0.0152
-  member_coverage: 1.0
-  n_matched: 2
-  val_q: 0.9700007974944173
-  val_n_seeds: 28966
-  val_n_on_boundary: 0
-  test_q: 0.9699988424586179
-  test_n_seeds: 25916
-  test_n_on_boundary: 5
 chosen:
   seed_frac_pct: 1.0
   min_size: 2

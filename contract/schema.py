@@ -30,8 +30,8 @@ SCORED_EDGES_COLUMNS = {
     "currency_received": ("int64", "loader integer encoding of 'Received Currency'"),
     "payment_format": ("int64", "loader integer encoding of 'Payment Format'"),
     "score_raw": ("float64", "model pred_prob; NaN when the model produced no score"),
-    "score_calibrated": ("float64", "== score_raw until Step 3 adds calibration"),
-    "is_seed": ("bool", "predicted_label == 1; False when score_raw is NaN"),
+    "score_calibrated": ("float64", "isotonic calibration fit on the val split (models/calibrate.py, Step 3c); == score_raw for files written before calibration"),
+    "is_seed": ("bool", "seed-fraction rule (configs/threshold_rule.yaml): score_raw > quantile(1 - k*/100) within the split, strict; Step 1 files used predicted_label == 1. False when score_raw is NaN"),
     "model_id": ("string", "e.g. 'gine'"),
     "seed": ("int64", "training seed of the model that produced score_raw"),
 }
@@ -51,8 +51,8 @@ TOPOLOGY_TYPES = ["FAN-OUT", "FAN-IN", "GATHER-SCATTER", "SCATTER-GATHER",
                   "CYCLE", "RANDOM", "BIPARTITE", "STACK"]  # AMLworld pattern names, 8 classes
 
 RINGS_COLUMNS = {
-    "ring_id": ("string", "f'{aggregator_id}-{ring_idx}'"),
-    "tenant_id": ("int64", "most common from_bank among members"),
+    "ring_id": ("string", "f'{aggregator}-{model_id}-{seed}-{idx}' (Step 5 CLI rule, e.g. 'cc-gine_causal-1-0'; the Step 1 stub used f'{aggregator_id}-{ring_idx}')"),
+    "tenant_id": ("int64", "sender bank (from_bank) of the ring's earliest seed edge, ties -> smallest edge_id (Step 5 rule; the Step 1 stub used the most common bank among members). The platform derives the full set of banks with a member itself"),
     "aggregator_id": ("string", "e.g. 'cc' (connected components)"),
     "members": ("list<int64>", "account ids"),
     "n_members": ("int64", "len(members)"),
@@ -133,7 +133,7 @@ edit the schema, not this page. If a spec or the Implementation Plan disagrees w
 |---|---|---|
 | `out/scored_edges_<model>_<seed>.parquet` | `make_scored_edges.py` | `SCORED_EDGES_COLUMNS` |
 | `out/labels_{{train,val,test}}.parquet` | `make_labels.py` (internal, never shipped; `labels_test` also written by `make_scored_edges.py`) | `LABELS_COLUMNS` |
-| `out/rings_stub_<aggregator>.parquet` | `make_rings_stub.py` | `RINGS_COLUMNS` |
+| `out/rings_stub_<aggregator>.parquet` | `python -m ringshield run` (Step 3c+; `make_rings_stub.py` for the Step 1 file) | `RINGS_COLUMNS` |
 
 Parquets are git-ignored; the `*.log.json` beside each one (row counts, inputs, git
 commit) is committed and is the only thing quoted from these folders.
@@ -144,9 +144,11 @@ python contract/make_rings_stub.py --e7-csv experiments/legacy_E7_test_tuned/rin
 python -m pytest contract/tests -q
 ```
 
-Status (Step 1): scores are **not yet calibrated** (`score_calibrated == score_raw`,
-replaced in Step 3) and rings are the **connected-components baseline** (replaced in
-Steps 6-8).
+Status (Step 3c / 5): `scored_edges_gine_causal_1.parquet` carries isotonic-calibrated
+scores and `is_seed` from the seed-fraction rule; `rings_stub_cc.parquet` is the
+connected-components baseline built from it by `python -m ringshield run` (replaced in
+Steps 6-8). The Step 1 files (`scored_edges_gine_1.parquet`, `rings_stub_cc_step1_legacy.parquet`)
+are kept for the Step 1 checks only.
 
 ## scored_edges
 

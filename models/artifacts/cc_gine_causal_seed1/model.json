@@ -1,0 +1,30 @@
+{
+  "model_id": "gine_causal",
+  "seed": 1,
+  "aggregator": "cc",
+  "params": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "max_gap_hours": null
+  },
+  "feature_set": "trailing_closescycle",
+  "threshold_rule": "configs/threshold_rule.yaml (strict quantile on score_raw)",
+  "source": "experiments/R2_b0/gine_causal/seed1 (ringshield/run_rings.py config.yaml, chosen on val)",
+  "version": 1,
+  "created_utc": "2026-09-18T08:51:00+00:00",
+  "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+  "val_ring_f1_at_chosen": 0.5693,
+  "scope": "test_visible",
+  "eval_window": {
+    "name": "primary",
+    "split": "test",
+    "days": [
+      8,
+      9
+    ],
+    "bounds": [
+      691210,
+      864009
+    ]
+  }
+}

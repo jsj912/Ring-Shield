@@ -1,34 +1,42 @@
-# How aggregator thresholds are chosen (Step 4, ringshield/run_rings.py). Nothing is tuned on
-# the test period: the grid below is searched on the VALIDATION split's rings
-# (docs/RING_GROUND_TRUTH_DEFINITION.md section 7, policy test_visible) and the chosen values
-# are written to the run's config.yaml before the aggregator sees the test split.
+# Seed-fraction rule (Step 3c, refined in Steps 3b-w / 4). Read by ringshield/run_rings.py and
+# python -m ringshield run; written BEFORE any test run, nothing is chosen on the test period.
 #
-# seed_frac_pct: keep the top N % of the split's scored edges as seed edges (a percentile cut
-# is comparable across models and seeds; an absolute score is not). Quantile selection is
-# calibration-invariant: isotonic calibration is monotone, so calibrated and raw scores pick
-# the same seed edges up to ties -- B0 rows can be produced on raw scores; calibration (3c)
-# matters for confidence comparability, XAI weights and the expansion policy's score feature.
-# The B0 grid is threshold x min_size only: time-gap / density filters are baseline variants
-# (B3, Step 7), not B0 knobs.
-# min_size: minimum members of a predicted ring (GT doc section 6: {2, 3}; under 3 the 51 test
-# rings with < 3 visible members are guaranteed misses).
-# objective: the validation metric that picks the cell; ties -> the smaller seed_frac_pct, then
-# the larger min_size (fewer, cleaner rings).
-# selection column: score_raw, always. Isotonic calibration is monotone but collapses the score
-# onto ~100-150 tie levels; a quantile cut on the calibrated column lands inside a level and the
-# strict rule would then drop a slice of the intended seeds (gfpxgb: 264 of 960 at 0.1 %). The
-# calibrated score feeds confidence / max_edge_prob, XAI weights and the expansion policy.
-# cut: strict -- seeds are the edges with score > q, q = the (100 - seed_frac_pct) percentile of
-# the non-NaN scores. A plateau of exactly tied scores on the boundary is therefore excluded,
-# never swept in (val GNN scores have ~7,600 edges tied at 0.088088; rank-normalised density
-# scores and XGBoost leaves tie heavily). An explicit absolute threshold (legacy CLI) is
-# inclusive (score >= t).
-cut: strict
+# Rule text
+#   seeds(split) = { e in split : score_raw(e) > q },  q = quantile(score_raw over the split's
+#   non-NaN scores, 1 - seed_frac_pct / 100), computed on the SAME split being scored (val
+#   quantile for val, test quantile for test; within the --edge-subset when one is given) --
+#   a quantile, never an absolute cut-off, because per-seed val-optimal raw thresholds spanned
+#   0.46-0.71 while F1 barely moved.
+#   k* = argmax over the grid of validation Ring-F1 under the B0 aggregator (ringshield/aggregators/cc.py),
+#   scope test_visible, Jaccard 0.5, with min_size chosen jointly from {2, 3}; ties -> the smaller
+#   seed_frac_pct, then the larger min_size. k* is chosen per scorer seed on its own val scores and
+#   recorded in the run's config.yaml (and in the exported model.json) before the test run.
+#
+# Two refinements to the Step 3c text, recorded here because they change what a seed is:
+#   cut: strict  -- "score > q", not ">= q". Edges tied exactly at q are excluded rather than
+#        swept in wholesale: ties are edges the model cannot distinguish (the val GNN scores
+#        have 5,835 edges tied at 0.088088 = the classifier head's dead region; rank-normalised
+#        density scores and XGBoost leaves tie heavily). An explicit absolute --threshold in
+#        the legacy CLI stays inclusive. (Step 3b-w apply, 2026-09-17.)
+#   selection_column: score_raw -- not score_calibrated. Isotonic calibration is monotone, so
+#        the two select the same edges *except at ties*, and isotonic collapses ~800k distinct
+#        raw scores onto ~100-150 tie levels; a quantile cut on the calibrated column lands
+#        inside a level and the strict rule would drop a slice of the intended seeds (gfpxgb:
+#        264 of 960 at 0.1 %). The calibrated score feeds confidence / max_edge_prob, XAI
+#        weights and the expansion policy's score feature (Step 4, 2026-09-18).
+#
+# provisional: false -- Step 4 (B0) exists, so k* is the validation Ring-F1 argmax, not the
+# edge-F1 stand-in the 3c text allowed before Step 4.
 grid:
-  seed_frac_pct: [0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0]
+  seed_frac_pct: [0.05, 0.10, 0.15, 0.20, 0.30, 0.50, 0.75, 1.00]
   min_size: [2, 3]
 objective: ring_f1
 tie_break: [smallest_seed_frac_pct, largest_min_size]
+cut: strict
+selection_column: score_raw
+confidence_column: score_calibrated_if_present
+quantile_scope: same_split_being_scored
+provisional: false
 match_threshold: 0.5          # Jaccard for a match (fixed; 0.3 / 0.7 reported as a sweep, never tuned)
 jaccard_sweep: [0.3, 0.7]
 scope: test_visible           # strict / majority reported in the appendix block only
