@@ -96,6 +96,27 @@ def from_run_dir(run_dir: Path, model_dir: Path, version: int = 1) -> Path:
                 shutil.copy(src / f, dst / f)
         extra["expansion_inputs"] = ("run needs --gfp <split GFP parquet> and --embeddings <R1 embeddings parquet of the "
                                      "same detector seed>")
+    if cfg["aggregator"] == "full":
+        # Step 7: expansion operating point (fixed from R3) + partition method and its val-chosen cell;
+        # policy/ and affinity/ copied next to model.json
+        import shutil
+        cell = {k: chosen[k] for k in ("gap_h", "resolution", "cut", "threshold") if k in chosen}
+        params.update({"delta_t_h": float(chosen["delta_t_h"]), "p_min": float(chosen["p_min"]), "max_hops": 2,
+                       "max_events_per_query": 500, "policy_kind": "model", "partition": chosen["method"], "partition_cell": cell,
+                       "cluster_seed": int(cfg.get("cluster_seed", 0)),
+                       "head_constants": cfg.get("context", {}).get("test", {}).get("head_constants")})
+        src = Path(cfg["expansion_fixed"]["policy_dir"])
+        dst = Path(model_dir) / "policy"
+        dst.mkdir(parents=True, exist_ok=True)
+        for f in ("policy.json", "policy.txt"):
+            shutil.copy(src / f, dst / f)
+        if cfg.get("affinity_dir"):
+            src = Path(cfg["affinity_dir"])
+            dst = Path(model_dir) / "affinity"
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in ("affinity.json", "affinity.txt"):
+                shutil.copy(src / f, dst / f)
+        extra["expansion_inputs"] = "run needs --gfp <split GFP parquet> and --embeddings <R1 embeddings parquet of the same detector seed>"
     return write_model(model_dir, model_id=cfg.get("model_id", "unknown"), seed=int(cfg.get("seed", cfg.get("detector_seed", 0))),
                        aggregator=cfg["aggregator"], params=params, feature_set=cfg.get("feature_set", "trailing_closescycle"),
                        source=f"{run_dir.as_posix()} (ringshield/run_rings.py config.yaml, chosen on val)",

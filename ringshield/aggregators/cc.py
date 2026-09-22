@@ -17,7 +17,8 @@ Semantics are exactly the legacy CLI's: parallel transactions between the same p
 graph edge (so `n_edges` counts distinct unordered pairs and `density = n_edges / (n (n-1))`),
 `confidence` is the mean score over the thresholded transactions, and `max_gap_hours` re-clusters
 each component through transactions no further apart than that (breaks chains through busy
-shared accounts). A note on density (FR04.6 suggests min 0.4): a 5-node CYCLE has density 0.25
+shared accounts; the helper was a no-op from E7 until it was fixed in Step 7 -- see
+`_split_by_time`). A note on density (FR04.6 suggests min 0.4): a 5-node CYCLE has density 0.25
 and a 1-to-5 FAN-OUT 0.167, so density is reported, not used as a filter, here.
 """
 from __future__ import annotations
@@ -63,26 +64,72 @@ def _mode_smallest(values: np.ndarray) -> int:
     return int(vals[np.argmax(counts)])
 
 
+def time_window_labels(from_acc: np.ndarray, to_acc: np.ndarray, ts: np.ndarray, comp: np.ndarray,
+                       gap_seconds: float) -> np.ndarray:
+    """Group id per edge: two edges of the same component are joined when they share an account and
+    are at most `gap_seconds` apart in time. Union-find over the per-(component, account) time
+    order, so a burst of activity at an account stays together and a later burst starts a new
+    group. Deterministic; ids are renumbered 0..k-1 in first-appearance order of the roots."""
+    n = len(from_acc)
+    if n == 0:
+        return np.zeros(0, dtype=np.int64)
+    parent = np.arange(n)
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    acc = np.concatenate([np.asarray(from_acc), np.asarray(to_acc)])
+    key = np.concatenate([np.asarray(comp), np.asarray(comp)]).astype(np.int64) * (int(acc.max()) + 2) + acc
+    idx = np.concatenate([np.arange(n), np.arange(n)])
+    t = np.asarray(ts, dtype=np.float64)[idx]
+    order = np.lexsort((idx, t, key))
+    key, idx, t = key[order], idx[order], t[order]
+    for k in range(1, len(idx)):                      # consecutive events at the same account
+        if key[k] == key[k - 1] and t[k] - t[k - 1] <= gap_seconds:
+            a, b = find(idx[k]), find(idx[k - 1])
+            if a != b:
+                parent[max(a, b)] = min(a, b)
+    roots = np.array([find(i) for i in range(n)])
+    _, lab = np.unique(roots, return_inverse=True)
+    return lab.astype(np.int64)
+
+
 def _split_by_time(G: nx.Graph, components, max_gap_seconds: float):
-    """Re-cluster each component using only edges close in time (legacy behaviour)."""
+    """Re-cluster each component into groups of accounts whose transactions are close in time.
+
+    Step 7 close (2026-09-22): this used to add every account-graph edge to its re-clustering graph
+    before applying the time test, so it never split anything -- `max_gap_hours` was a no-op from
+    E7 until now, and no reported number depended on it (nothing in R1-R4 passed the argument).
+    It now delegates to `time_window_labels` (the same routine `ringshield.aggregators.full` uses
+    for baseline B3): edges are grouped at the edge level, then each account is assigned to the
+    group holding most of its edges (ties -> the earliest group), because the callers of this
+    function build rings from node-disjoint components. An account bridging two bursts therefore
+    lands in one of them.
+    """
     out = []
     for members in components:
         sub = G.subgraph(members)
-        H = nx.Graph()
-        H.add_nodes_from(members)
-        for u, v, d in sub.edges(data=True):
-            H.add_edge(u, v, t=float(np.median(d["times"])))
-        edges = sorted(H.edges(data=True), key=lambda e: e[2]["t"])
-        K = nx.Graph()
-        K.add_nodes_from(members)
-        for i, (u, v, d) in enumerate(edges):
-            K.add_edge(u, v)
-            for u2, v2, d2 in edges[i + 1:]:
-                if d2["t"] - d["t"] > max_gap_seconds:
-                    break
-                if u2 in (u, v) or v2 in (u, v):
-                    K.add_edge(u2, v2)
-        out.extend(nx.connected_components(K))
+        edges = [(u, v, float(np.median(d["times"]))) for u, v, d in sub.edges(data=True)]
+        if not edges:
+            out.append(set(members))
+            continue
+        fa = np.array([e[0] for e in edges], dtype=np.int64)
+        ta = np.array([e[1] for e in edges], dtype=np.int64)
+        tt = np.array([e[2] for e in edges], dtype=np.float64)
+        lab = time_window_labels(fa, ta, tt, np.zeros(len(edges), dtype=np.int64), max_gap_seconds)
+        counts: dict[int, dict[int, int]] = {}
+        for a, l in zip(np.concatenate([fa, ta]).tolist(), np.concatenate([lab, lab]).tolist()):
+            counts.setdefault(a, {})[l] = counts.setdefault(a, {}).get(l, 0) + 1
+        groups: dict[int, set] = {}
+        for a, c in counts.items():
+            best = min(c, key=lambda l: (-c[l], l))
+            groups.setdefault(best, set()).add(a)
+        for a in members:                                     # isolated accounts keep their own group
+            if a not in counts:
+                groups.setdefault(-1 - len(groups), set()).add(a)
+        out.extend(g for _, g in sorted(groups.items()))
     return out
 
 

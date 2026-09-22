@@ -87,3 +87,4 @@ experiments/**/predictions*.csv
 *.ckpt
 contract/out/*_dryrun*
 docs/*_dryrun.json
+external/

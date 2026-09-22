@@ -106,7 +106,7 @@ def test_run_rejects_unknown_and_future_aggregators(work):
     assert rc == 2 and "not an 'expand' model" in err          # a cc model dir cannot drive the expansion (Step 6)
     rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "model_cc",
                        "--aggregator", "full", "--out", d / "x.parquet")
-    assert rc == 2 and "Step 8" in err
+    assert rc == 2 and "not a 'full' model" in err
     rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "nope",
                        "--aggregator", "cc", "--out", d / "x.parquet")
     assert rc == 2 and "model directory" in err

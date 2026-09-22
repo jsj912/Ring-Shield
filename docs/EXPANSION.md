@@ -242,11 +242,14 @@ What the table says:
   with a seed of their ring (0 of 51 in train), and the 25 zero-seed rings contribute nothing;
   neither is reachable by any candidate-generation trick short of counterpart-of-counterpart
   search — which is exactly the hub explosion the 500-event cap removes.
-* **Where the larger gain lives is Step 7.** On val with R1 seed 1, 87 % of member edges are
+* **Where the rest of the loss lives.** On val with R1 seed 1, 87 % of member edges are
   already seeds and 146 of 157 rings have seed-account Jaccard ≥ 0.5, so B0's recall loss there
-  is chaining and `min_size`, not missing members. Expansion's contribution is modest by
-  construction (+0.06 ring-F1 on test); the partition step (Step 7) is where the chaining
-  losses can be recovered, and a small R3 delta is the expected outcome, not a surprise.
+  is chaining and `min_size`, not missing members; expansion's contribution is modest by
+  construction (+0.06 ring-F1 on test). Step 7's decomposition (`docs/PARTITION.md`) showed
+  that chaining is a val phenomenon: on the test primary window only 4 predictions per seed
+  hold more than one truth ring, and 76 of the 95 unmatched truth rings are touched by no
+  prediction at all (median size 2, below `min_size` or without a seed). The earlier line here
+  ("Step 7 is where the larger gain lives") was right for val and wrong for test.
 * The operating point sits at the conservative corner of the specified grid (Δt 24 h, p_min 0.7)
   on every seed; the grid was not extended.
 * Train embeddings come from the fold models with R1's normalisation statistics (caveat

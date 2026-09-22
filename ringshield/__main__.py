@@ -90,8 +90,32 @@ def _aggregate(name: str, se: pd.DataFrame, params: dict, model_id: str, seed: i
                                  policy=policy, ctx=ctx, p_min=float(params["p_min"]), delta_t_h=float(params["delta_t_h"]),
                                  max_hops=int(params.get("max_hops", 2)), aggregator_id="expand", report=report)
     elif name == "full":
-        raise UsageError("aggregator 'full' arrives in Step 8 (partition); 'cc' and 'expand' exist today. "
-                         "The command line and the output schema will not change.")
+        from ringshield.aggregators.full import aggregate_full
+        from ringshield.expand.context import build_context
+        from ringshield.expand.policy import Policy
+        from ringshield.partition.affinity import Affinity
+        for k in ("delta_t_h", "p_min", "partition"):
+            if k not in params:
+                raise UsageError(f"model dir has no params.{k}: not a 'full' model (export one from a run_partition output)")
+        md = Path(model_dir) if model_dir is not None else None
+        if md is None or not (md / "policy" / "policy.txt").exists():
+            raise UsageError(f"{model_dir}: policy/policy.txt missing")
+        policy = Policy.load(md / "policy")
+        affinity = None
+        if params["partition"] in ("b4", "pivot", "average"):
+            if not (md / "affinity" / "affinity.txt").exists():
+                raise UsageError(f"{model_dir}: affinity/affinity.txt missing for partition {params['partition']!r}")
+            affinity = Affinity.load(md / "affinity")
+        if gfp is None:
+            print("[ringshield run] note: --gfp not given; GFP features are zero", file=sys.stderr)
+        if embeddings is None:
+            print("[ringshield run] note: --embeddings not given; cosine features are missing (NaN)", file=sys.stderr)
+        ctx = build_context(se, gfp_parquet=gfp, embeddings_parquet=embeddings, head_constants=params.get("head_constants"))
+        rings = aggregate_full(se, float(params["seed_frac_pct"]), int(params["min_size"]), params.get("max_gap_hours"),
+                               policy=policy, ctx=ctx, p_min=float(params["p_min"]), delta_t_h=float(params["delta_t_h"]),
+                               affinity=affinity, method=params["partition"], seed=int(params.get("cluster_seed", 0)),
+                               max_hops=int(params.get("max_hops", 2)), aggregator_id="full", report=report,
+                               **{k: v for k, v in (params.get("partition_cell") or {}).items()})
     else:
         raise UsageError(f"unknown aggregator {name!r}; choose from {', '.join(AGGREGATORS)}")
     return rings
@@ -157,13 +181,14 @@ def cmd_run(a) -> int:
            "n_member_edges": int(sum(len(r.member_edges) for r in out_rings)),
            "n_expanded_edges": int(sum(len(r.expanded_edges) for r in out_rings)),
            "expansion": report or None, "gfp": str(a.gfp) if a.gfp else None, "embeddings": str(a.embeddings) if a.embeddings else None,
+           "partition": params.get("partition"), "partition_cell": params.get("partition_cell"),
            "ring_id_rule": "f'{aggregator}-{model_id}-{seed}-{idx}'",
            "tenant_rule": "sender bank (from_bank) of the ring's earliest seed edge; ties -> smallest edge_id",
            "out": str(out)}
     Path(str(out) + ".log.json").write_text(json.dumps(log, indent=2), encoding="utf-8")
     print(f"[ringshield run] {len(out_rings)} rings from {len(se):,} edges ({log['quantile_cut']['n_seeds']:,} seeds, "
           f"q={q:.6f}, {log['quantile_cut']['n_on_boundary']} tied on the boundary"
-          + (f", {log['n_expanded_edges']} expanded edges" if aggregator == "expand" else "") + f") -> {out}")
+          + (f", {log['n_expanded_edges']} expanded edges" if aggregator in ("expand", "full") else "") + f") -> {out}")
     return 0
 
 

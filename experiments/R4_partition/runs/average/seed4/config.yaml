@@ -1,0 +1,146 @@
+experiment: seed4
+step: 7.4 (R4 partition)
+created_utc: '2026-09-22T08:01:39+00:00'
+git_commit: 858afd46c4bffc0e229341a3eebcecb148d8f1e9
+aggregator: full
+method: average
+detector_seed: 4
+r1_dir: E:\JSJ\Ring-Shield\experiments\R1_gine_causal
+r3_config: E:\JSJ\Ring-Shield\experiments\R3_expansion\runs\proposed\seed4\config.yaml
+expansion_fixed:
+  delta_t_h: 24.0
+  p_min: 0.7
+  policy_dir: E:\JSJ\Ring-Shield\experiments\R3_expansion\policy_proposed
+affinity_dir: E:\JSJ\Ring-Shield\experiments\R4_partition\affinity
+affinity_cv_auc_pr: 0.9733834079984509
+cluster_seed: 0
+b0_cell_fixed:
+  seed_frac_pct: 0.1
+  min_size: 3
+grid:
+- cut: 0.3
+- cut: 0.5
+- cut: 0.7
+- cut: 0.9
+grid_results_val:
+- cut: 0.3
+  n_rings: 138
+  ring_precision: 0.6377
+  ring_recall: 0.5605
+  ring_f1: 0.5966
+  mean_jaccard: 0.9299
+  member_coverage: 0.9541
+  n_matched: 88
+  components_split: 7
+  n_clusters: 547
+  n_rings_gt100: 0
+- cut: 0.5
+  n_rings: 134
+  ring_precision: 0.6567
+  ring_recall: 0.5605
+  ring_f1: 0.6048
+  mean_jaccard: 0.9458
+  member_coverage: 0.9699
+  n_matched: 88
+  components_split: 3
+  n_clusters: 543
+  n_rings_gt100: 0
+- cut: 0.7
+  n_rings: 132
+  ring_precision: 0.6515
+  ring_recall: 0.5478
+  ring_f1: 0.5952
+  mean_jaccard: 0.9484
+  member_coverage: 0.9721
+  n_matched: 86
+  components_split: 3
+  n_clusters: 541
+  n_rings_gt100: 0
+- cut: 0.9
+  n_rings: 126
+  ring_precision: 0.6349
+  ring_recall: 0.5096
+  ring_f1: 0.5654
+  mean_jaccard: 0.9565
+  member_coverage: 0.9736
+  n_matched: 80
+  components_split: 0
+  n_clusters: 535
+  n_rings_gt100: 0
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  delta_t_h: 24.0
+  p_min: 0.7
+  method: average
+  cut: 0.5
+  val_ring_f1: 0.6048
+scope: test_visible
+model_id: gine_causal
+selection_column: score_raw
+confidence_column: score_calibrated
+context:
+  val:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed\amlworld_gfp_features_val.parquet
+    embeddings_parquet: E:\JSJ\Ring-Shield\experiments\R1_gine_causal\embeddings_val_seed4.parquet
+    checkpoint: E:\JSJ\Ring-Shield\experiments\R1_gine_causal\model_best_seed4.pt
+    head_constants:
+    - 0.20098449289798737
+    - 0.047434620559215546
+    n_dead_region: 222
+  test:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed\amlworld_gfp_features_test.parquet
+    embeddings_parquet: E:\JSJ\Ring-Shield\experiments\R1_gine_causal\embeddings_test_seed4.parquet
+    checkpoint: E:\JSJ\Ring-Shield\experiments\R1_gine_causal\model_best_seed4.pt
+    head_constants:
+    - 0.20098449289798737
+    - 0.047434620559215546
+    n_dead_region: 1408
+scope_windows:
+  val:
+  - 518410
+  - 691150
+  test:
+  - 691210
+  - 1527490
+eval_window: E:\JSJ\Ring-Shield\configs\eval_window.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 6
+    - 7
+    bounds:
+    - 518410
+    - 691209
+  primary:
+    name: primary
+    split: test
+    days:
+    - 8
+    - 9
+    bounds:
+    - 691210
+    - 864009
+  tail:
+    name: tail
+    split: test
+    days:
+    - 10
+    - 17
+    bounds:
+    - 864010
+    - 1555209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 8
+    - 17
+    bounds:
+    - 691210
+    - 1555209
+primary_block: primary
+n_val_truth_rings: 157
+dry_run: false

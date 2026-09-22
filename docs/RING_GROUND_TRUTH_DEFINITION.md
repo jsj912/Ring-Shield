@@ -327,6 +327,26 @@ recover, whatever it does; it is exactly the gap between full and visible member
 is why `test_visible` scores visible members. (c′) members do have test transactions but
 none labelled illicit; they are not in the visible set either.
 
+**Ring-level ceiling on the primary window (Step 7 close, 2026-09-22.)** The same question at
+ring level: of the 174 `test_visible` rings in the primary window (test days 8–9), how many can
+a pipeline match at Jaccard 0.5 at all? Mean per detector seed over 5 seeds, from
+`evaluation/unmatched_rings.py` (`results/tables/r4_unmatched.csv`), for the best pipeline to
+date (`full` = detector at 0.1 % + expansion + partition):
+
+| | primary (174 rings) | val (157 rings) |
+|---|---|---|
+| matched at Jaccard 0.5 | **80.2** | 86.2 |
+| **(a) fewer than 3 visible members** — undetectable under `min_size` 3 | **48.6 (28 %)** | 39.6 (25 %) |
+| **(b) ≥ 3 members, untouched by any seed or expanded edge** | **33.2 (19 %)** | 15.0 (10 %) |
+| (c) touched, Jaccard < 0.5: over-merged / under-covered | 9.6 / 2.4 | 7.2 / 9.0 |
+
+(a) is a property of the ground truth under `min_size` 3, not of a model: 1,359 of the 1,387
+(a)-rings counted across seeds have exactly 2 visible members and 28 have 1. With `min_size` 3
+fixed, **ring recall on the primary window is capped at about 0.72** ((174 − 48.6) / 174) and the
+reachable part beyond today's 0.46 is mostly class (b) — rings the detector does not fire on at
+all. Quote (a) and (b) in the limitations next to (c) above; the per-pattern split (BIPARTITE is
+almost entirely (a) + (b)) is in `docs/PARTITION.md`.
+
 ## Appendix A. Strict and majority policies (not used for reported numbers)
 
 | | strict | majority |
