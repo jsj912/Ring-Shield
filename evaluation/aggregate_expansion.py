@@ -5,10 +5,11 @@
 
 One row per method: mean +/- std (ddof=1) over seeds of the PRIMARY block's ring precision /
 recall / F1, Ring-Recall>=3, member coverage and mean Jaccard; the chosen (delta_t, p_min) per
-seed; the policy's grouped-CV AUC-PR; and the two interim Step 6 columns until Step 9 lands the
-real quiet-member recall -- expanded edges that are member edges of a truth ring vs not, and
-truth member accounts newly covered relative to B0 -- plus the tail / whole F1 for reference.
-`quiet_member_recall` is the placeholder column ('pending Step 9').
+seed; the policy's grouped-CV AUC-PR; the expansion diagnostics (expanded edges that are member
+edges of a truth ring vs not, truth member accounts newly covered relative to B0); and the
+tail / whole F1 for reference. Since Step 9 every row also carries `quiet_member_recall` with its
+bootstrap CI and the CIs of the ring metrics, read from the Step 9 companions
+(`results/tables/r9_quiet_members.csv`, `r9_ring_ci.csv`) by `aggregate_results.step9_lookup`.
 """
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from evaluation.aggregate_results import _ms, load_runs  # noqa: E402
+from evaluation.aggregate_results import _ms, load_runs, step9_lookup  # noqa: E402
 
 PRIMARY = ["ring_precision", "ring_recall", "ring_f1", "ring_recall_ge3", "member_coverage", "mean_jaccard"]
 ORDER = ["b0", "b1", "b1b", "proposed", "no_detector", "no_account_state", "no_embedding", "hop1"]
@@ -63,11 +64,10 @@ def row_for(name: str, runs: list[dict]) -> dict:
         for k in ("expanded_true_member_mean", "expanded_not_member_mean", "expanded_member_precision_mean",
                   "quiet_accounts_newly_covered_mean", "accounts_lost_vs_b0_mean", "non_truth_accounts_added_mean"):
             row[k] = 0.0 if name == "b0" else np.nan
-    row["quiet_member_recall"] = "pending Step 9"
+    row.update(step9_lookup(name))
     for w in ("tail", "whole"):
         mu, sd = _ms([r["blocks"][w]["ring_f1"] for r in runs])
         row[f"{w}_ring_f1_mean"], row[f"{w}_ring_f1_std"] = mu, sd
-    row["ci"] = "CIs pending Step 9"
     return row
 
 

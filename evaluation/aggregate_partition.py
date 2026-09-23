@@ -24,7 +24,7 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from evaluation.aggregate_results import _ms, load_runs  # noqa: E402
+from evaluation.aggregate_results import _ms, load_runs, step9_lookup  # noqa: E402
 
 PRIMARY = ["ring_precision", "ring_recall", "ring_f1", "ring_recall_ge3", "mean_jaccard", "member_coverage"]
 ORDER = ["b0", "expand", "b2", "b3", "b4", "b5", "pivot", "average", "proposed"]
@@ -75,7 +75,9 @@ def row_for(name: str, runs: list[dict]) -> dict:
     for w in ("tail", "whole"):
         mu, sd = _ms([r["blocks"][w]["ring_f1"] for r in runs])
         row[f"{w}_ring_f1_mean"], row[f"{w}_ring_f1_std"] = mu, sd
-    row["ci"] = "CIs pending Step 9"
+    # r4 row names -> Step 9 method names: 'proposed' is the val-chosen clustering (average on
+    # 4 of 5 seeds) and 'expand' is the R3 proposed run shown for continuity
+    row.update(step9_lookup({"proposed": "average", "expand": "proposed"}.get(name, name)))
     return row
 
 

@@ -1,0 +1,16 @@
+{
+  "created_utc": "2026-09-22T18:16:17+00:00",
+  "selection": "accuracy on the VAL split's test_visible truth rings with >= 3 visible members (val is a 2-day split, the same fragment size as the primary window); nothing chosen on test",
+  "n_val_rings": 114,
+  "accuracy": {
+    "rule": 0.43859649122807015,
+    "head": 0.5,
+    "head_w2": 0.5087719298245614
+  },
+  "chosen": "head_w2",
+  "chosen_dir": "experiments/R5_typing/head_w2",
+  "variants": {
+    "head": "train-visible rings over the whole 6-day train split (+ recovered train rings)",
+    "head_w2": "train split sliced into 2-day windows first (+ recovered train rings)"
+  }
+}

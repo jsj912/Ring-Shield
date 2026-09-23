@@ -1,6 +1,6 @@
 {
-  "created_utc": "2026-09-18T08:51:02+00:00",
-  "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+  "created_utc": "2026-09-22T14:40:18+00:00",
+  "git_commit": "d4217353ec33ab99714b61b6fc8078f5f17a1c76",
   "command": "run",
   "scores": "contract/out/scored_edges_gine_causal_1.parquet",
   "edge_subset": null,
@@ -32,6 +32,12 @@
   "n_rings": 98,
   "n_seed_edges": 728,
   "n_member_edges": 1295,
+  "n_expanded_edges": 0,
+  "expansion": null,
+  "gfp": null,
+  "embeddings": null,
+  "partition": null,
+  "partition_cell": null,
   "ring_id_rule": "f'{aggregator}-{model_id}-{seed}-{idx}'",
   "tenant_rule": "sender bank (from_bank) of the ring's earliest seed edge; ties -> smallest edge_id",
   "out": "contract\\out\\rings_stub_cc.parquet"

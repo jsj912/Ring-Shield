@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-09-18T08:50:30+00:00",
+  "created_utc": "2026-09-23T03:21:19+00:00",
   "root": "experiments\\R2_b0",
   "models": {
     "density": [
@@ -25,5 +25,5 @@
     ]
   },
   "primary_window": "days [8, 9]",
-  "note": "CIs pending Step 9"
+  "note": "CIs and quiet-member recall come from the Step 9 companions (results/tables/r2_ci.csv, r9_quiet_members.csv)"
 }

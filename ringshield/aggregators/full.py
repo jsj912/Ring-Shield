@@ -26,9 +26,18 @@ seeds + expanded -> components of their account graph. Then one of
 Each cluster becomes one Ring: members = endpoints of its included edges, `seed_edges` /
 `expanded_edges` its included edges, `member_edges` every edge of the split among the members
 inside [start, end] (the contract's rule), `n_edges` / `density` over the distinct account pairs
-of its included edges, `confidence` / `max_edge_prob` over its seed edges, `conservation_closure`
-as for 'expand'. Clusters with fewer than `min_size` members are dropped. Rings of a partition
-may share accounts (a hub belongs to every attempt that used it).
+of its included edges, `max_edge_prob` over its seed edges. Clusters with fewer than `min_size`
+members are dropped. Rings of a partition may share accounts (a hub belongs to every attempt
+that used it).
+
+Step 8 fills the rest of the contract from `ringshield.roles` and `ringshield.typing`:
+`source_accounts` / `sink_accounts` / `mule_accounts` from the account roles,
+`conservation_closure` = 1 - |inflow at sinks - outflow at sources| / max(both), NaN without a
+source or a sink, `confidence` = mean `score_calibrated` over the seed edges x that closure (the
+closure factor is dropped when it is NaN), `expanded_edge_probs` aligned with `expanded_edges`
+(pass `probs=`, the expansion trajectories carry them), and `topology_type` / `topology_probs`
+from the typing head (`head=`) or the rule scorer (`head="rule"`); without either the ring stays
+UNKNOWN / uniform.
 """
 from __future__ import annotations
 
@@ -45,6 +54,7 @@ from ringshield.expand.features import FeatureContext
 from ringshield.partition.affinity import Affinity, cluster_average, cluster_pivot, reattach_small
 from ringshield.partition.pairs import components_of, pair_features
 from ringshield.rings import Ring
+from ringshield.roles import account_roles, conservation_closure, load_roles_config, ring_confidence, role_arrays
 
 AGGREGATOR_ID = "full"
 METHODS = ("b2", "b3", "b4", "pivot", "average")
@@ -160,7 +170,11 @@ def partition_labels(ctx: FeatureContext, inc_pos: np.ndarray, is_seed: np.ndarr
 
 
 def rings_from_edge_clusters(scored_edges: pd.DataFrame, idx, inc_pos: np.ndarray, is_seed: np.ndarray, labels: np.ndarray,
-                             min_size: int, *, aggregator_id: str = AGGREGATOR_ID, conf_col: str | None = None) -> list[Ring]:
+                             min_size: int, *, aggregator_id: str = AGGREGATOR_ID, conf_col: str | None = None,
+                             probs: dict | None = None, head=None, report: dict | None = None) -> list[Ring]:
+    """`probs`: {edge_id: expansion probability} for the expanded edges (Step 8 contract column).
+    `head`: a ringshield.typing.head.TypingHead, or the string "rule" for the rule scorer, or None
+    (topology stays UNKNOWN / uniform)."""
     conf_col = conf_col or score_column(scored_edges)
     conf = scored_edges[conf_col].to_numpy(float)
     bank_f, bank_t = scored_edges["from_bank"].to_numpy(np.int64), scored_edges["to_bank"].to_numpy(np.int64)
@@ -176,6 +190,7 @@ def rings_from_edge_clusters(scored_edges: pd.DataFrame, idx, inc_pos: np.ndarra
         seeds = ep[is_seed[m]]
         if len(seeds) == 0:
             continue
+        mean_seed_score = float(np.nanmean(conf[seeds]))
         start, end = int(idx.ts[ep].min()), int(idx.ts[ep].max())
         # member edges: every edge of the split with both endpoints in the cluster inside [start, end]
         lo, hi = idx.window(members_d, start, end)
@@ -185,20 +200,28 @@ def rings_from_edge_clusters(scored_edges: pd.DataFrame, idx, inc_pos: np.ndarra
         member_edges = cand[both]
         pairs_d = np.unique(np.minimum(f, t).astype(np.int64) * (len(idx.acc_uniq) + 1) + np.maximum(f, t))
         n_edges, n = len(pairs_d), len(members_d)
-        o = pd.Series(amt[ep]).groupby(f).sum()
-        i = pd.Series(amt[ep]).groupby(t).sum()
-        both_acc = o.index.intersection(i.index)
-        closure = math.nan
-        if len(both_acc):
-            closure = float((np.minimum(i.loc[both_acc].to_numpy(), o.loc[both_acc].to_numpy()) /
-                             np.maximum(i.loc[both_acc].to_numpy(), o.loc[both_acc].to_numpy())).mean())
+        closure = math.nan                      # filled below from the account roles (contract definition)
         banks = np.concatenate([bank_f[ep], bank_t[ep]])
         rings.append({"members": idx.acc_uniq[members_d].tolist(), "member_edges": idx.edge_id[member_edges].tolist(),
                       "seed_edges": idx.edge_id[seeds].tolist(), "expanded_edges": idx.edge_id[ep[~is_seed[m]]].tolist(),
-                      "n_edges": n_edges, "start": start, "end": end, "confidence": float(np.nanmean(conf[seeds])),
+                      "n_edges": n_edges, "start": start, "end": end, "confidence": mean_seed_score, "mean_seed_score": mean_seed_score,
                       "max_edge_prob": float(np.nanmax(conf[seeds])), "density": n_edges / (n * (n - 1)) if n > 1 else 0.0,
                       "closure": closure, "tenant": _mode_smallest(banks)})
-    rings.sort(key=lambda r: -r["confidence"])
+    # Step 8: roles, closure, contract confidence, expansion probabilities, topology
+    cfg = load_roles_config()
+    n_closure_nan = 0
+    for r in rings:
+        stub = Ring.baseline(ring_id="tmp", tenant_id=r["tenant"], aggregator_id=aggregator_id, members=r["members"],
+                             member_edges=sorted(r["member_edges"]), seed_edges=sorted(r["seed_edges"]), n_edges=r["n_edges"],
+                             start_time=r["start"], end_time=r["end"], confidence=0.0, max_edge_prob=r["max_edge_prob"],
+                             density=r["density"])
+        stub.expanded_edges = sorted(r["expanded_edges"])
+        roles = account_roles(stub, scored_edges, config=cfg)
+        r["roles"] = roles
+        r["closure"] = conservation_closure(roles)
+        n_closure_nan += int(math.isnan(r["closure"]))
+        r["confidence"] = ring_confidence(r["mean_seed_score"], r["closure"])
+    rings.sort(key=lambda r: (-r["confidence"], min(r["seed_edges"])))
     out = []
     for k, r in enumerate(rings):
         ring = Ring.baseline(ring_id=f"{aggregator_id}-{k}", tenant_id=r["tenant"], aggregator_id=aggregator_id, members=r["members"],
@@ -206,9 +229,54 @@ def rings_from_edge_clusters(scored_edges: pd.DataFrame, idx, inc_pos: np.ndarra
                              start_time=r["start"], end_time=r["end"], confidence=r["confidence"], max_edge_prob=r["max_edge_prob"],
                              density=r["density"])
         ring.expanded_edges = sorted(r["expanded_edges"])
+        ring.expanded_edge_probs = [float(probs.get(e, float("nan"))) if probs else float("nan") for e in ring.expanded_edges]
         ring.conservation_closure = r["closure"]
+        arrays = role_arrays(r["roles"], cfg)
+        ring.source_accounts, ring.sink_accounts, ring.mule_accounts = arrays["source_accounts"], arrays["sink_accounts"], arrays["mule_accounts"]
         assert set(ring.seed_edges) <= set(ring.member_edges) and set(ring.expanded_edges) <= set(ring.member_edges)
+        assert len(ring.expanded_edge_probs) == len(ring.expanded_edges)
         out.append(ring)
+    if head is not None and out:
+        _attach_topology(out, scored_edges, head)
+    if report is not None:
+        report.update({"n_rings_closure_nan": n_closure_nan,
+                       "n_rings_no_expansion_probs": int(sum(1 for r in out if r.expanded_edges and any(math.isnan(p) for p in r.expanded_edge_probs)))})
+    return out
+
+
+def _attach_topology(rings: list[Ring], scored_edges: pd.DataFrame, head) -> None:
+    """Fill topology_type / topology_probs from the typing head (or the rule scorer)."""
+    from ringshield.typing.features import ring_features
+    from ringshield.typing.rules import rule_probs, rule_type
+    from contract.schema import TOPOLOGY_TYPES
+    cfg = load_roles_config()
+    se = scored_edges.set_index("edge_id")
+    rows = []
+    for r in rings:
+        inc = sorted(set(r.seed_edges + r.expanded_edges))
+        edges = se.loc[inc].reset_index()
+        roles = account_roles(r, scored_edges, config=cfg)
+        rows.append(ring_features(edges, roles, seed_ratio=len(r.seed_edges) / max(len(inc), 1)))
+    if head == "rule":
+        for r, f in zip(rings, rows):
+            r.topology_type = rule_type(f)
+            r.topology_probs = [float(x) for x in rule_probs(f)]
+        return
+    P = head.predict_probs(rows)
+    for r, p in zip(rings, P):
+        r.topology_type = TOPOLOGY_TYPES[int(np.argmax(p))]
+        r.topology_probs = [float(x) for x in p]
+
+
+def expansion_probs(trajs: list[dict], p_min: float) -> dict[int, float]:
+    """{edge_id: policy probability} over the additions a run at `p_min` keeps (contract column)."""
+    out: dict[int, float] = {}
+    for t in trajs:
+        for e in truncate(t, p_min):
+            for eid, p, _, _ in t["adds"]:
+                if eid == e:
+                    out[int(eid)] = float(p)
+                    break
     return out
 
 
@@ -216,7 +284,8 @@ def aggregate_full(scored_edges: pd.DataFrame, seed_frac_pct: float, min_size: i
                    policy, ctx: FeatureContext, p_min: float, delta_t_h: float, affinity: Affinity | None = None,
                    method: str = "pivot", cut: float = 0.5, threshold: float = 0.5, gap_h: float | None = None,
                    resolution: float = 1.0, seed: int = 0, max_hops: int = 2, aggregator_id: str = AGGREGATOR_ID,
-                   report: dict | None = None, trajs: list[dict] | None = None, pairs: pd.DataFrame | None = None) -> list[Ring]:
+                   report: dict | None = None, trajs: list[dict] | None = None, pairs: pd.DataFrame | None = None,
+                   head=None) -> list[Ring]:
     """One operating point end to end. `trajs` / `pairs` may be passed to reuse the expansion and the
     pair affinities across methods (the grids in run_partition.py do)."""
     seed_mask = seed_mask_for_pct(scored_edges[SELECT_COL].to_numpy(float), seed_frac_pct)
@@ -228,7 +297,8 @@ def aggregate_full(scored_edges: pd.DataFrame, seed_frac_pct: float, min_size: i
         pairs = component_pairs(ctx, inc_pos, is_seed, comp, affinity)
     labels = partition_labels(ctx, inc_pos, is_seed, comp, method=method, pairs=pairs, cut=cut, threshold=threshold,
                               gap_h=gap_h if gap_h is not None else max_gap_hours, resolution=resolution, seed=seed, min_members=min_size)
-    rings = rings_from_edge_clusters(scored_edges, ctx.idx, inc_pos, is_seed, labels, min_size, aggregator_id=aggregator_id)
+    rings = rings_from_edge_clusters(scored_edges, ctx.idx, inc_pos, is_seed, labels, min_size, aggregator_id=aggregator_id,
+                                     probs=expansion_probs(trajs, p_min), head=head, report=report)
     if report is not None:
         report.update({"method": method, "n_included": int(len(inc_pos)), "n_seeds": int(is_seed.sum()), "n_components": int(comp.max() + 1) if len(comp) else 0,
                        "n_clusters": int(len(np.unique(labels[labels >= 0]))), "n_dropped_edges": int((labels < 0).sum()),

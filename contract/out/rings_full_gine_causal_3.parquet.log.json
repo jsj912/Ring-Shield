@@ -1,0 +1,104 @@
+{
+  "created_utc": "2026-09-22T18:19:24+00:00",
+  "git_commit": "d4217353ec33ab99714b61b6fc8078f5f17a1c76",
+  "contract_version": "rings.parquet v1 (Step 8)",
+  "detector_seed": 3,
+  "aggregator": "full",
+  "inputs": {
+    "scores": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal\\scores_test_seed3.parquet",
+    "embeddings": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal\\embeddings_test_seed3.parquet",
+    "policy": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\policy_proposed",
+    "affinity": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\affinity",
+    "typing_head": "E:\\JSJ\\Ring-Shield\\experiments\\R5_typing\\head_w2",
+    "roles_config": "configs/roles.yaml"
+  },
+  "params": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "delta_t_h": 24.0,
+    "p_min": 0.7,
+    "partition": "average",
+    "cut": 0.5,
+    "max_events_per_query": 500
+  },
+  "n_rings": 113,
+  "columns": [
+    "ring_id",
+    "tenant_id",
+    "aggregator_id",
+    "members",
+    "n_members",
+    "member_edges",
+    "seed_edges",
+    "expanded_edges",
+    "expanded_edge_probs",
+    "n_edges",
+    "start_time",
+    "end_time",
+    "duration_hours",
+    "confidence",
+    "max_edge_prob",
+    "density",
+    "conservation_closure",
+    "topology_type",
+    "topology_probs",
+    "source_accounts",
+    "sink_accounts",
+    "mule_accounts"
+  ],
+  "fields": {
+    "n_seed_edges": 754,
+    "n_expanded_edges": 155,
+    "n_member_edges": 1556,
+    "expanded_edge_probs_aligned": true,
+    "n_rings_with_expansion": 57,
+    "n_rings_closure_nan": 5,
+    "n_rings_with_source": 108,
+    "n_rings_with_sink": 112,
+    "n_rings_with_mule": 42,
+    "n_accounts_by_role": {
+      "source": 361,
+      "sink": 390,
+      "mule_or_holder": 108
+    },
+    "topology_counts": {
+      "FAN-OUT": 28,
+      "GATHER-SCATTER": 23,
+      "SCATTER-GATHER": 16,
+      "STACK": 15,
+      "FAN-IN": 14,
+      "CYCLE": 14,
+      "RANDOM": 3
+    },
+    "n_topology_unknown": 0,
+    "confidence": {
+      "min": 0.32101125376240874,
+      "max": 1.0,
+      "mean": 0.8761165419283096
+    },
+    "conservation_closure": {
+      "n_nan": 5,
+      "mean_non_nan": 0.9446614788543302
+    }
+  },
+  "primary_window": {
+    "n_predicted": 95,
+    "n_truth": 174,
+    "n_matched": 77,
+    "ring_precision": 0.8105,
+    "ring_recall": 0.4425,
+    "ring_f1": 0.5725,
+    "mean_jaccard": 0.9264,
+    "member_coverage": 0.9423,
+    "ring_recall_ge3": 0.5965
+  },
+  "reproduces_r4_average_run": {
+    "ring_precision": true,
+    "ring_recall": true,
+    "ring_f1": true,
+    "mean_jaccard": true,
+    "member_coverage": true
+  },
+  "seconds": 51.6,
+  "out": "E:\\JSJ\\Ring-Shield\\contract\\out\\rings_full_gine_causal_3.parquet"
+}

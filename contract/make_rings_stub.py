@@ -120,6 +120,7 @@ def make_rings_stub(
             "member_edges": member_edges.tolist(),
             "seed_edges": seed_edges.tolist(),
             "expanded_edges": [],
+            "expanded_edge_probs": [],
             "n_edges": int(r.n_edges),
             "start_time": int(r.start_time),
             "end_time": int(r.end_time),

@@ -176,7 +176,64 @@ and `affinity/`). Contract
 scored_edges to feed them: `contract/out/scored_edges_gine_causal_1{,_val}.parquet`,
 `contract/out/scored_edges_gfpxgb_1{,_val}.parquet`.
 
-## 5. Checks
+## 5. Two functions for the XAI layer (Step 8)
+
+Both live in `ringshield/roles.py` and are importable, not CLI commands: the XAI layer calls them
+per ring and per edge.
+
+```python
+from ringshield.roles import account_roles, rerun_ring
+
+roles = account_roles(ring, scored_edges)
+# {account_id: {"role": "mule", "inflow": 9990.0, "outflow": 9980.0, "hold_time_s": 7200.0,
+#               "closure": 0.999, "n_in": 1, "n_out": 1}}
+
+out = rerun_ring(edges_without_one_edge, "full", affinity=aff, cut=0.5, min_size=3)
+# {"confidence": 0.83, "n_rings": 2, "largest_ring_edges": [1001, 1002, 1005]}
+```
+
+* `account_roles(ring, scored_edges, edges="included"|"member")` — flows per account over the
+  ring's window with amounts deduplicated on (from, to, timestamp, amount); **five roles**
+  `source | sink | mule | holder | peripheral` from `configs/roles.yaml` (τ 0.25, hold 72 h).
+  The rings contract carries **three** arrays, which is what the platform and XAI sides built
+  against: `source_accounts`, `sink_accounts` and `mule_accounts` = roles *mule* **and** *holder*
+  merged (`configs/roles.yaml::contract_arrays`). The distinction is kept in this function, so the
+  XAI evidence panel should show the fine-grained role — "holder" (money balanced but sat longer
+  than 72 h) reads very differently from "mule" to an analyst — while the parquet stays as
+  shipped. `peripheral` accounts appear in no contract array.
+* `rerun_ring(subgraph_edges, aggregator_id, ...)` — re-runs **only the grouping stage** on the
+  edges given: `cc` = connected components + the size filter, `full` = shared-account pairs, the
+  affinity model and average linkage at the val-chosen cut (pass `affinity=`, `cut=`, `min_size=`;
+  `method="pivot"` for the other clustering). It never expands and never touches the full graph.
+  Deterministic for identical input. `confidence` follows the contract: mean `score_calibrated`
+  over the group's seed edges × its conservation closure; NaN when no group survives `min_size`.
+* **`features_degraded` in the result.** The `full` grouping reads the candidate pair's GFP cosine
+  and embedding cosine. Without `gfp=` and `emb=` (slices restricted to the ring are enough) those
+  are zero / NaN — a different feature set from the one the shipped rings were built with, so
+  leave-one-out weights computed that way are not comparable with them. The result dict says
+  `features_degraded: True` in that case and `False` when both were supplied (always `False` for
+  `cc`, which uses neither). Do not average the two.
+* **Leave-one-out: use `RingRerunner`.** Build it once per ring and call `.without(edge_id)` per
+  member edge; the index, the GFP / embedding context and the amount percentile are computed once
+  for the whole ring, so every call sees the same feature scaling the aggregator used:
+
+  ```python
+  from ringshield.roles import RingRerunner
+  rr = RingRerunner(ring_edges, "full", affinity=aff, cut=0.5, min_size=3, gfp=gfp, emb=emb)
+  base = rr.run()
+  loo = {e: rr.without(e) for e in ring_edges["edge_id"]}
+  ```
+
+  Latency (30-edge ring, `tests/test_roles_typing.py` asserts the p95, not the mean, because the
+  budget is per call): `full` **p95 25 ms**, mean 23 ms; the whole 30-call leave-one-out takes
+  **0.7 s** against the XAI layer's 2 s budget. `cc` is ~6 ms per call. A standalone `rerun_ring`
+  costs ~34 ms and can spike over 100 ms once in a hundred calls under GC; the rerunner does not.
+
+  **Lifecycle: one rerunner per ring, dropped when its leave-one-out loop ends.** It holds the
+  ring's frame, index and feature context (a few hundred KB for a large ring), so keeping a pool
+  of them across rings buys nothing — the cache is only useful within one ring's calls.
+
+## 6. Checks
 
 ```bash
 .venv312/Scripts/python.exe -m pytest tests/test_cli.py -q      # 5 tests, ~10 s, on a 1 % sample

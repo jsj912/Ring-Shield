@@ -1,0 +1,875 @@
+{
+  "created_utc": "2026-09-23T03:20:43+00:00",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "window": "primary",
+  "windows": [
+    "primary",
+    "whole"
+  ],
+  "by_window": {
+    "primary": {
+      "n_matched_rings": 401,
+      "n_seeds": 5,
+      "head": {
+        "point": 0.2194513715710723,
+        "lo": 0.18204488778054864,
+        "hi": 0.2593516209476309,
+        "n": 401
+      },
+      "rule": {
+        "point": 0.20698254364089774,
+        "lo": 0.16957605985037408,
+        "hi": 0.2494389027431421,
+        "n": 401
+      },
+      "head_macro_f1": 0.15539050075706393,
+      "rule_macro_f1": 0.14286760043804864,
+      "per_class": {
+        "FAN-OUT": {
+          "n": 64,
+          "head_recall": 0.5625,
+          "rule_recall": 0.578125
+        },
+        "FAN-IN": {
+          "n": 56,
+          "head_recall": 0.30357142857142855,
+          "rule_recall": 0.4107142857142857
+        },
+        "GATHER-SCATTER": {
+          "n": 117,
+          "head_recall": 0.1282051282051282,
+          "rule_recall": 0.08547008547008547
+        },
+        "SCATTER-GATHER": {
+          "n": 78,
+          "head_recall": 0.16666666666666666,
+          "rule_recall": 0.07692307692307693
+        },
+        "CYCLE": {
+          "n": 42,
+          "head_recall": 0.11904761904761904,
+          "rule_recall": 0.047619047619047616
+        },
+        "RANDOM": {
+          "n": 35,
+          "head_recall": 0.02857142857142857,
+          "rule_recall": 0.14285714285714285
+        },
+        "BIPARTITE": {
+          "n": 5,
+          "head_recall": 0.0,
+          "rule_recall": 0.0
+        },
+        "STACK": {
+          "n": 4,
+          "head_recall": 0.25,
+          "rule_recall": 0.0
+        }
+      },
+      "head_confusion": {
+        "columns": [
+          "FAN-OUT",
+          "FAN-IN",
+          "GATHER-SCATTER",
+          "SCATTER-GATHER",
+          "CYCLE",
+          "RANDOM",
+          "BIPARTITE",
+          "STACK"
+        ],
+        "index": [
+          "FAN-OUT",
+          "FAN-IN",
+          "GATHER-SCATTER",
+          "SCATTER-GATHER",
+          "CYCLE",
+          "RANDOM",
+          "BIPARTITE",
+          "STACK"
+        ],
+        "data": [
+          [
+            36,
+            3,
+            12,
+            6,
+            1,
+            0,
+            0,
+            6
+          ],
+          [
+            11,
+            17,
+            15,
+            9,
+            2,
+            1,
+            0,
+            1
+          ],
+          [
+            40,
+            12,
+            15,
+            17,
+            13,
+            5,
+            0,
+            15
+          ],
+          [
+            11,
+            17,
+            12,
+            13,
+            9,
+            3,
+            0,
+            13
+          ],
+          [
+            13,
+            6,
+            6,
+            4,
+            5,
+            2,
+            0,
+            6
+          ],
+          [
+            3,
+            10,
+            6,
+            4,
+            7,
+            1,
+            0,
+            4
+          ],
+          [
+            2,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      "rule_confusion": {
+        "columns": [
+          "FAN-OUT",
+          "FAN-IN",
+          "GATHER-SCATTER",
+          "SCATTER-GATHER",
+          "CYCLE",
+          "RANDOM",
+          "BIPARTITE",
+          "STACK"
+        ],
+        "index": [
+          "FAN-OUT",
+          "FAN-IN",
+          "GATHER-SCATTER",
+          "SCATTER-GATHER",
+          "CYCLE",
+          "RANDOM",
+          "BIPARTITE",
+          "STACK"
+        ],
+        "data": [
+          [
+            37,
+            6,
+            5,
+            3,
+            2,
+            10,
+            0,
+            1
+          ],
+          [
+            9,
+            23,
+            8,
+            7,
+            2,
+            5,
+            0,
+            2
+          ],
+          [
+            42,
+            13,
+            10,
+            9,
+            6,
+            23,
+            0,
+            14
+          ],
+          [
+            7,
+            25,
+            5,
+            6,
+            3,
+            23,
+            0,
+            9
+          ],
+          [
+            14,
+            4,
+            4,
+            3,
+            2,
+            11,
+            0,
+            4
+          ],
+          [
+            3,
+            11,
+            4,
+            3,
+            1,
+            5,
+            0,
+            8
+          ],
+          [
+            1,
+            0,
+            1,
+            0,
+            0,
+            2,
+            0,
+            1
+          ],
+          [
+            1,
+            0,
+            1,
+            0,
+            1,
+            1,
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    "whole": {
+      "n_matched_rings": 433,
+      "n_seeds": 5,
+      "head": {
+        "point": 0.5935334872979214,
+        "lo": 0.5473441108545035,
+        "hi": 0.6397228637413395,
+        "n": 433
+      },
+      "rule": {
+        "point": 0.5473441108545035,
+        "lo": 0.49884526558891457,
+        "hi": 0.5912817551963048,
+        "n": 433
+      },
+      "head_macro_f1": 0.46480040581193444,
+      "rule_macro_f1": 0.403747206924728,
+      "per_class": {
+        "FAN-OUT": {
+          "n": 68,
+          "head_recall": 0.8529411764705882,
+          "rule_recall": 0.9264705882352942
+        },
+        "FAN-IN": {
+          "n": 61,
+          "head_recall": 0.6557377049180327,
+          "rule_recall": 0.9672131147540983
+        },
+        "GATHER-SCATTER": {
+          "n": 133,
+          "head_recall": 0.5037593984962406,
+          "rule_recall": 0.45112781954887216
+        },
+        "SCATTER-GATHER": {
+          "n": 77,
+          "head_recall": 0.7012987012987013,
+          "rule_recall": 0.5064935064935064
+        },
+        "CYCLE": {
+          "n": 44,
+          "head_recall": 0.5909090909090909,
+          "rule_recall": 0.20454545454545456
+        },
+        "RANDOM": {
+          "n": 41,
+          "head_recall": 0.1951219512195122,
+          "rule_recall": 0.17073170731707318
+        },
+        "BIPARTITE": {
+          "n": 5,
+          "head_recall": 0.0,
+          "rule_recall": 0.0
+        },
+        "STACK": {
+          "n": 4,
+          "head_recall": 1.0,
+          "rule_recall": 0.0
+        }
+      },
+      "head_confusion": {
+        "columns": [
+          "FAN-OUT",
+          "FAN-IN",
+          "GATHER-SCATTER",
+          "SCATTER-GATHER",
+          "CYCLE",
+          "RANDOM",
+          "BIPARTITE",
+          "STACK"
+        ],
+        "index": [
+          "FAN-OUT",
+          "FAN-IN",
+          "GATHER-SCATTER",
+          "SCATTER-GATHER",
+          "CYCLE",
+          "RANDOM",
+          "BIPARTITE",
+          "STACK"
+        ],
+        "data": [
+          [
+            58,
+            1,
+            1,
+            6,
+            0,
+            0,
+            0,
+            2
+          ],
+          [
+            1,
+            40,
+            19,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            47,
+            8,
+            67,
+            8,
+            0,
+            0,
+            0,
+            3
+          ],
+          [
+            6,
+            13,
+            2,
+            54,
+            2,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            2,
+            3,
+            0,
+            26,
+            3,
+            0,
+            9
+          ],
+          [
+            0,
+            1,
+            2,
+            0,
+            25,
+            8,
+            0,
+            5
+          ],
+          [
+            2,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            4
+          ]
+        ]
+      },
+      "rule_confusion": {
+        "columns": [
+          "FAN-OUT",
+          "FAN-IN",
+          "GATHER-SCATTER",
+          "SCATTER-GATHER",
+          "CYCLE",
+          "RANDOM",
+          "BIPARTITE",
+          "STACK"
+        ],
+        "index": [
+          "FAN-OUT",
+          "FAN-IN",
+          "GATHER-SCATTER",
+          "SCATTER-GATHER",
+          "CYCLE",
+          "RANDOM",
+          "BIPARTITE",
+          "STACK"
+        ],
+        "data": [
+          [
+            63,
+            0,
+            0,
+            0,
+            0,
+            5,
+            0,
+            0
+          ],
+          [
+            0,
+            59,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0
+          ],
+          [
+            41,
+            5,
+            60,
+            1,
+            4,
+            22,
+            0,
+            0
+          ],
+          [
+            4,
+            18,
+            0,
+            39,
+            5,
+            11,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            9,
+            11,
+            0,
+            23
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            7,
+            0,
+            34
+          ],
+          [
+            0,
+            0,
+            2,
+            0,
+            2,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            4,
+            0,
+            0
+          ]
+        ]
+      }
+    }
+  },
+  "n_matched_rings_total": 401,
+  "per_seed": [
+    {
+      "seed": 1,
+      "n_matched": 81.0,
+      "head_accuracy": 0.1851851852,
+      "rule_accuracy": 0.1234567901
+    },
+    {
+      "seed": 2,
+      "n_matched": 81.0,
+      "head_accuracy": 0.1728395062,
+      "rule_accuracy": 0.1728395062
+    },
+    {
+      "seed": 3,
+      "n_matched": 77.0,
+      "head_accuracy": 0.1558441558,
+      "rule_accuracy": 0.1688311688
+    },
+    {
+      "seed": 4,
+      "n_matched": 89.0,
+      "head_accuracy": 0.2696629213,
+      "rule_accuracy": 0.2808988764
+    },
+    {
+      "seed": 5,
+      "n_matched": 73.0,
+      "head_accuracy": 0.3150684932,
+      "rule_accuracy": 0.2876712329
+    }
+  ],
+  "pooled": {
+    "head_accuracy": 0.2194513715710723,
+    "head_accuracy_ci": [
+      0.18204488778054864,
+      0.2593516209476309
+    ],
+    "rule_accuracy": 0.20698254364089774,
+    "rule_accuracy_ci": [
+      0.16957605985037408,
+      0.2494389027431421
+    ],
+    "head_macro_f1": 0.15539050075706393,
+    "rule_macro_f1": 0.14286760043804864
+  },
+  "per_class": {
+    "FAN-OUT": {
+      "n": 64,
+      "head_recall": 0.5625,
+      "rule_recall": 0.578125
+    },
+    "FAN-IN": {
+      "n": 56,
+      "head_recall": 0.30357142857142855,
+      "rule_recall": 0.4107142857142857
+    },
+    "GATHER-SCATTER": {
+      "n": 117,
+      "head_recall": 0.1282051282051282,
+      "rule_recall": 0.08547008547008547
+    },
+    "SCATTER-GATHER": {
+      "n": 78,
+      "head_recall": 0.16666666666666666,
+      "rule_recall": 0.07692307692307693
+    },
+    "CYCLE": {
+      "n": 42,
+      "head_recall": 0.11904761904761904,
+      "rule_recall": 0.047619047619047616
+    },
+    "RANDOM": {
+      "n": 35,
+      "head_recall": 0.02857142857142857,
+      "rule_recall": 0.14285714285714285
+    },
+    "BIPARTITE": {
+      "n": 5,
+      "head_recall": 0.0,
+      "rule_recall": 0.0
+    },
+    "STACK": {
+      "n": 4,
+      "head_recall": 0.25,
+      "rule_recall": 0.0
+    }
+  },
+  "head_confusion": {
+    "columns": [
+      "FAN-OUT",
+      "FAN-IN",
+      "GATHER-SCATTER",
+      "SCATTER-GATHER",
+      "CYCLE",
+      "RANDOM",
+      "BIPARTITE",
+      "STACK"
+    ],
+    "index": [
+      "FAN-OUT",
+      "FAN-IN",
+      "GATHER-SCATTER",
+      "SCATTER-GATHER",
+      "CYCLE",
+      "RANDOM",
+      "BIPARTITE",
+      "STACK"
+    ],
+    "data": [
+      [
+        36,
+        3,
+        12,
+        6,
+        1,
+        0,
+        0,
+        6
+      ],
+      [
+        11,
+        17,
+        15,
+        9,
+        2,
+        1,
+        0,
+        1
+      ],
+      [
+        40,
+        12,
+        15,
+        17,
+        13,
+        5,
+        0,
+        15
+      ],
+      [
+        11,
+        17,
+        12,
+        13,
+        9,
+        3,
+        0,
+        13
+      ],
+      [
+        13,
+        6,
+        6,
+        4,
+        5,
+        2,
+        0,
+        6
+      ],
+      [
+        3,
+        10,
+        6,
+        4,
+        7,
+        1,
+        0,
+        4
+      ],
+      [
+        2,
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1
+      ]
+    ]
+  },
+  "rule_confusion": {
+    "columns": [
+      "FAN-OUT",
+      "FAN-IN",
+      "GATHER-SCATTER",
+      "SCATTER-GATHER",
+      "CYCLE",
+      "RANDOM",
+      "BIPARTITE",
+      "STACK"
+    ],
+    "index": [
+      "FAN-OUT",
+      "FAN-IN",
+      "GATHER-SCATTER",
+      "SCATTER-GATHER",
+      "CYCLE",
+      "RANDOM",
+      "BIPARTITE",
+      "STACK"
+    ],
+    "data": [
+      [
+        37,
+        6,
+        5,
+        3,
+        2,
+        10,
+        0,
+        1
+      ],
+      [
+        9,
+        23,
+        8,
+        7,
+        2,
+        5,
+        0,
+        2
+      ],
+      [
+        42,
+        13,
+        10,
+        9,
+        6,
+        23,
+        0,
+        14
+      ],
+      [
+        7,
+        25,
+        5,
+        6,
+        3,
+        23,
+        0,
+        9
+      ],
+      [
+        14,
+        4,
+        4,
+        3,
+        2,
+        11,
+        0,
+        4
+      ],
+      [
+        3,
+        11,
+        4,
+        3,
+        1,
+        5,
+        0,
+        8
+      ],
+      [
+        1,
+        0,
+        1,
+        0,
+        0,
+        2,
+        0,
+        1
+      ],
+      [
+        1,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        0
+      ]
+    ]
+  },
+  "head_dir": "experiments/R5_typing/head_w2",
+  "head_selection_on_val": {
+    "rule": 0.43859649122807015,
+    "head": 0.5,
+    "head_w2": 0.5087719298245614
+  },
+  "head_training_cv": {
+    "n_rings": 398,
+    "cv_accuracy": 0.557626582278481,
+    "oof_accuracy": 0.5577889447236181,
+    "oof_macro_f1": 0.533517866202757,
+    "rule_accuracy": 0.41959798994974873,
+    "rule_macro_f1": 0.41973078979580963,
+    "class_counts": {
+      "GATHER-SCATTER": 76,
+      "STACK": 75,
+      "FAN-OUT": 55,
+      "SCATTER-GATHER": 51,
+      "FAN-IN": 49,
+      "CYCLE": 39,
+      "RANDOM": 28,
+      "BIPARTITE": 25
+    }
+  },
+  "out": "E:\\JSJ\\Ring-Shield\\results\\tables\\r5_typing.csv"
+}

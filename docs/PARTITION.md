@@ -81,8 +81,10 @@ Clustering over the included edges of a component with w = logit(p) on the share
 
 Both are deterministic (`tests/test_partition.py`). Each cluster → one `Ring` (`full.py`):
 members = endpoints of its included edges, `seed_edges` / `expanded_edges`, `member_edges` =
-every edge among the members inside [start, end], `confidence` over the seeds,
-`conservation_closure`; rings of a partition may share a hub account.
+every edge among the members inside [start, end]; rings of a partition may share a hub account.
+Since Step 8 the ring also carries the roles, the contract `conservation_closure` (NaN for the
+5–6 rings per seed with no source or sink — `docs/TYPING.md`), `confidence` = mean
+`score_calibrated` over the seed edges × that closure, `expanded_edge_probs` and the topology.
 
 ## 7.3 baselines — same expanded subgraph for all (`ringshield/aggregators/full.py`)
 

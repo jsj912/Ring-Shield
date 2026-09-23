@@ -1,0 +1,369 @@
+"""Account roles inside a ring and a cheap re-grouping call for the XAI layer (Step 8.1).
+
+    roles = account_roles(ring, scored_edges)
+    # {account_id: {"role": "mule", "inflow": 9990.0, "outflow": 9980.0, "hold_time_s": 7200.0,
+    #               "closure": 0.999, "n_in": 1, "n_out": 1}}
+
+    out = rerun_ring(subgraph_edges, "full", affinity=aff, cut=0.5, min_size=3)
+    # {"confidence": 0.83, "n_rings": 2, "largest_ring_edges": [1001, 1002, 1005]}
+
+Both are the functions promised to the XAI layer (`docs/CLI.md` section 6).
+
+`account_roles(ring, scored_edges)` sums the flows of the ring's edges inside
+[start_time, end_time] per account, with amounts **deduplicated** on
+(from_id, to_id, timestamp, amount) -- AMLworld repeats a few transactions and a duplicate
+would double one side of a balance. Roles and thresholds come from `configs/roles.yaml`
+(tau_role 0.25, hold 72 h), the same values the Step 7 pair features use. `edges="included"`
+(default) scores the ring's seed + expanded edges -- what the aggregator actually used;
+`edges="member"` scores every member edge instead.
+
+`rerun_ring(subgraph_edges, aggregator_id)` re-runs **only the grouping stage** on the edges
+given, never the expansion and never a read of the full graph: for `cc` it is connected
+components plus the size filter, for `full` it is the pair affinity plus average linkage at the
+val-chosen cut. `confidence` follows the contract: mean `score_calibrated` over the group's seed
+edges x its conservation closure.
+
+For leave-one-out the XAI layer should build a `RingRerunner` once per ring and call
+`.without(edge_id)` per member edge: the index, the GFP / embedding context and the amount
+percentile are then computed once for the whole ring instead of once per call (a 30-edge ring:
+~34 ms per call standalone, ~8 ms through the cache), and every call sees the same feature
+scaling, as the aggregator did when it built the ring.
+
+The result carries **`features_degraded`**: True when the `full` grouping ran without the GFP
+table or without embeddings, so `cos_gfp` / `cos_emb` were zero / NaN rather than the values the
+rings were built with. Leave-one-out weights computed on a degraded feature set are not
+comparable with the shipped rings -- pass `gfp=` and `emb=` (slices restricted to the ring are
+enough) to get `features_degraded: False`.
+"""
+from __future__ import annotations
+
+import math
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+ROLES_YAML = REPO_ROOT / "configs" / "roles.yaml"
+ROLES = ("source", "sink", "mule", "holder", "peripheral")
+_CFG: dict | None = None
+
+
+def load_roles_config(path: Path = ROLES_YAML) -> dict:
+    global _CFG
+    if _CFG is None or path != ROLES_YAML:
+        cfg = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+        assert tuple(cfg["roles"]) == ROLES, cfg["roles"]
+        if path == ROLES_YAML:
+            _CFG = cfg
+        return cfg
+    return _CFG
+
+
+def dedup_edges(df: pd.DataFrame, amount_col: str | None = None) -> pd.DataFrame:
+    """Drop repeated transactions on (from_id, to_id, timestamp, amount)."""
+    amount_col = amount_col or ("amount_received" if "amount_received" in df.columns else "amount")
+    return df[~df.duplicated(["from_id", "to_id", "timestamp", amount_col])]
+
+
+def _hold_times(ins: np.ndarray, outs: np.ndarray) -> float:
+    """Median over inflows of the wait to the first outflow at or after it (NaN if none)."""
+    if len(ins) == 0 or len(outs) == 0:
+        return math.nan
+    ins, outs = np.sort(ins), np.sort(outs)
+    j = np.searchsorted(outs, ins, side="left")
+    ok = j < len(outs)
+    if not ok.any():
+        return math.nan
+    return float(np.median(outs[j[ok]] - ins[ok]))
+
+
+def next_outflow_gaps(acc_in: np.ndarray, ts_in: np.ndarray, acc_out: np.ndarray, ts_out: np.ndarray):
+    """For every inflow, the wait to the first outflow at or after it AT THE SAME account (NaN if
+    none). Vectorised through the composite key account * 2**32 + timestamp, as in
+    ringshield/expand/index.py -- the per-account python loop it replaces dominated rerun_ring."""
+    if len(acc_in) == 0 or len(acc_out) == 0:
+        return np.full(len(acc_in), np.nan)
+    shift = np.int64(1) << np.int64(32)
+    order = np.argsort(acc_out.astype(np.int64) * shift + ts_out, kind="stable")
+    ao, to = acc_out[order], ts_out[order]
+    keys = ao.astype(np.int64) * shift + to
+    j = np.searchsorted(keys, acc_in.astype(np.int64) * shift + ts_in, side="left")
+    ok = (j < len(keys))
+    gaps = np.full(len(acc_in), np.nan)
+    if ok.any():
+        jj = j[ok]
+        same = ao[jj] == acc_in[ok]
+        idx = np.flatnonzero(ok)[same]
+        gaps[idx] = to[jj[same]] - ts_in[idx]
+    return gaps
+
+
+def flows_of(edges: pd.DataFrame, amount_col: str | None = None) -> pd.DataFrame:
+    """Per account: inflow / outflow sums and counts, closure and hold time over `edges`."""
+    amount_col = amount_col or ("amount_received" if "amount_received" in edges.columns else "amount")
+    e = dedup_edges(edges, amount_col)
+    cols = ["account", "inflow", "outflow", "n_in", "n_out", "closure", "hold_time_s"]
+    if len(e) == 0:
+        return pd.DataFrame(columns=cols)
+    f = e["from_id"].to_numpy(np.int64)
+    t = e["to_id"].to_numpy(np.int64)
+    ts = e["timestamp"].to_numpy(np.int64)
+    amt = e[amount_col].to_numpy(float)
+    accounts, inv = np.unique(np.concatenate([f, t]), return_inverse=True)
+    n = len(accounts)
+    fi, ti = inv[:len(f)], inv[len(f):]
+    out_sum = np.bincount(fi, weights=amt, minlength=n)
+    in_sum = np.bincount(ti, weights=amt, minlength=n)
+    out_cnt = np.bincount(fi, minlength=n)
+    in_cnt = np.bincount(ti, minlength=n)
+    hi = np.maximum(in_sum, out_sum)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        closure = np.where(hi > 0, np.minimum(in_sum, out_sum) / np.where(hi > 0, hi, 1.0), 0.0)
+    gaps = next_outflow_gaps(ti, ts, fi, ts)
+    hold = np.full(n, np.nan)
+    ok = ~np.isnan(gaps)
+    if ok.any():
+        hold_by = pd.Series(gaps[ok]).groupby(ti[ok]).median()
+        hold[hold_by.index.to_numpy()] = hold_by.to_numpy()
+    return pd.DataFrame({"account": accounts, "inflow": in_sum, "outflow": out_sum, "n_in": in_cnt, "n_out": out_cnt,
+                         "closure": closure, "hold_time_s": hold}, columns=cols)
+
+
+def role_of(inflow: float, outflow: float, closure: float, hold_time_s: float, cfg: dict) -> str:
+    tau, hold = float(cfg["tau_role"]), float(cfg["hold_seconds"])
+    if outflow <= 0:
+        return "sink"
+    if inflow <= 0:
+        return "source"
+    if closure >= 1 - tau:
+        return "mule" if (not math.isnan(hold_time_s) and hold_time_s <= hold) else "holder"
+    if inflow / outflow < tau:
+        return "source"
+    if outflow / inflow < tau:
+        return "sink"
+    return "peripheral"
+
+
+def ring_edges_frame(ring, scored_edges: pd.DataFrame, edges: str = "included") -> pd.DataFrame:
+    """The ring's edges inside its window, as rows of `scored_edges`."""
+    assert edges in ("included", "member"), edges
+    ids = (list(ring.seed_edges) + list(ring.expanded_edges)) if edges == "included" else list(ring.member_edges)
+    se = scored_edges.set_index("edge_id") if scored_edges.index.name != "edge_id" else scored_edges
+    sub = se.loc[[e for e in ids if e in se.index]].reset_index()
+    return sub[(sub["timestamp"] >= ring.start_time) & (sub["timestamp"] <= ring.end_time)]
+
+
+def account_roles(ring, scored_edges: pd.DataFrame, *, edges: str = "included", config: dict | None = None) -> dict[int, dict]:
+    """{account: {role, inflow, outflow, hold_time_s, closure, n_in, n_out}} for the ring."""
+    cfg = config or load_roles_config()
+    f = flows_of(ring_edges_frame(ring, scored_edges, edges))
+    out = {}
+    for r in f.itertuples(index=False):
+        out[int(r.account)] = {"role": role_of(r.inflow, r.outflow, r.closure, r.hold_time_s, cfg),
+                               "inflow": float(r.inflow), "outflow": float(r.outflow), "hold_time_s": float(r.hold_time_s),
+                               "closure": float(r.closure), "n_in": int(r.n_in), "n_out": int(r.n_out)}
+    return out
+
+
+def role_arrays(roles: dict[int, dict], config: dict | None = None) -> dict[str, list[int]]:
+    """The rings contract's source_accounts / sink_accounts / mule_accounts."""
+    cfg = config or load_roles_config()
+    return {col: sorted(a for a, d in roles.items() if d["role"] in set(members))
+            for col, members in cfg["contract_arrays"].items()}
+
+
+def conservation_closure(roles: dict[int, dict]) -> float:
+    """Ring-level closure (contract): 1 - |sum inflow at sinks - sum outflow at sources| /
+    max(sum inflow, sum outflow), clipped to [0, 1]; NaN when the ring has no source or no sink.
+
+    NaN means "this ring has no distinguishable source or sink" -- every account both sends and
+    receives, which is what a closed CYCLE looks like. It does NOT mean "nothing is conserved".
+    Callers that render a percentage (the XAI narrative's {closure_pct} slot) must branch on NaN
+    rather than coerce it: 5-6 rings per detector seed are in this state, and showing 0 % would
+    zero the stated confidence of exactly the most ring-like rings. `ring_confidence` drops the
+    closure factor for them instead (docs/TYPING.md, "Rings without a closure")."""
+    sinks = [d for d in roles.values() if d["role"] == "sink"]
+    sources = [d for d in roles.values() if d["role"] == "source"]
+    if not sinks or not sources:
+        return math.nan
+    in_at_sinks = sum(d["inflow"] for d in sinks)
+    out_at_sources = sum(d["outflow"] for d in sources)
+    hi = max(in_at_sinks, out_at_sources)
+    if hi <= 0:
+        return math.nan
+    return float(min(max(1.0 - abs(in_at_sinks - out_at_sources) / hi, 0.0), 1.0))
+
+
+ROLE_CODES = {"source": 0, "sink": 1, "mule": 2, "holder": 3, "peripheral": 4}
+
+
+def roles_from_flows(in_sum: np.ndarray, out_sum: np.ndarray, hold: np.ndarray, cfg: dict) -> np.ndarray:
+    """Vectorised `role_of` over arrays -> ROLE_CODES values (same rules, same order)."""
+    tau, hold_s = float(cfg["tau_role"]), float(cfg["hold_seconds"])
+    hi = np.maximum(in_sum, out_sum)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        closure = np.where(hi > 0, np.minimum(in_sum, out_sum) / np.where(hi > 0, hi, 1.0), 0.0)
+        ratio_in = np.where(out_sum > 0, in_sum / np.where(out_sum > 0, out_sum, 1.0), np.inf)
+        ratio_out = np.where(in_sum > 0, out_sum / np.where(in_sum > 0, in_sum, 1.0), np.inf)
+    code = np.full(len(in_sum), ROLE_CODES["peripheral"], dtype=np.int64)
+    balanced = (in_sum > 0) & (out_sum > 0) & (closure >= 1 - tau)
+    code[balanced] = np.where(~np.isnan(hold[balanced]) & (hold[balanced] <= hold_s), ROLE_CODES["mule"], ROLE_CODES["holder"])
+    rest = ~balanced
+    code[rest & (ratio_in < tau)] = ROLE_CODES["source"]
+    code[rest & (ratio_out < tau)] = ROLE_CODES["sink"]
+    code[in_sum <= 0] = ROLE_CODES["source"]
+    code[out_sum <= 0] = ROLE_CODES["sink"]
+    return code
+
+
+def closure_from_positions(idx, pos: np.ndarray, cfg: dict) -> float:
+    """Contract conservation closure of the edges at index positions `pos`, without pandas."""
+    if len(pos) == 0:
+        return math.nan
+    f, t, amt, ts = idx.from_dense[pos], idx.to_dense[pos], idx.amount[pos], idx.ts[pos]
+    accounts, inv = np.unique(np.concatenate([f, t]), return_inverse=True)
+    fi, ti = inv[:len(f)], inv[len(f):]
+    n = len(accounts)
+    out_sum = np.bincount(fi, weights=amt, minlength=n)
+    in_sum = np.bincount(ti, weights=amt, minlength=n)
+    gaps = next_outflow_gaps(ti, ts, fi, ts)
+    hold = np.full(n, np.nan)
+    ok = ~np.isnan(gaps)
+    if ok.any():
+        by = pd.Series(gaps[ok]).groupby(ti[ok]).median()
+        hold[by.index.to_numpy()] = by.to_numpy()
+    code = roles_from_flows(in_sum, out_sum, hold, cfg)
+    sinks, sources = code == ROLE_CODES["sink"], code == ROLE_CODES["source"]
+    if not sinks.any() or not sources.any():
+        return math.nan
+    a, b = float(in_sum[sinks].sum()), float(out_sum[sources].sum())
+    hi = max(a, b)
+    return math.nan if hi <= 0 else float(min(max(1.0 - abs(a - b) / hi, 0.0), 1.0))
+
+
+def ring_confidence(mean_seed_score: float, closure: float) -> float:
+    """Contract: mean score_calibrated over the seed edges x conservation_closure. When the closure
+    is NaN (no source or no sink) the factor is dropped rather than poisoning the column; those
+    rings are counted in the run log (`n_rings_closure_nan`)."""
+    if closure is None or (isinstance(closure, float) and math.isnan(closure)):
+        return float(mean_seed_score)
+    return float(mean_seed_score * closure)
+
+
+# --------------------------------------------------------------------------------- rerun_ring
+class RingRerunner:
+    """Re-run the grouping stage of one ring many times (leave-one-out) without rebuilding its index.
+
+        rr = RingRerunner(ring_edges, "full", affinity=aff, cut=0.5, min_size=3, gfp=gfp, emb=emb)
+        base = rr.run()                       # the ring as it stands
+        loo = {e: rr.without(e) for e in ring_edges["edge_id"]}
+
+    The index, the GFP / embedding context and the amount percentile are built once over the whole
+    ring, so every call scores the same feature scaling (the aggregator's) and costs a fraction of
+    a standalone `rerun_ring`. Deterministic."""
+
+    def __init__(self, subgraph_edges: pd.DataFrame, aggregator_id: str = "full", *, affinity=None, cut: float = 0.5,
+                 min_size: int = 3, threshold: float = 0.5, method: str = "average", gfp: pd.DataFrame | None = None,
+                 emb=None):
+        from ringshield.expand.features import FeatureContext
+        from ringshield.expand.index import SplitIndex
+        if aggregator_id not in ("cc", "full"):
+            raise ValueError(f"rerun_ring: unknown aggregator {aggregator_id!r} (cc | full)")
+        if aggregator_id == "full" and affinity is None:
+            raise ValueError("rerun_ring('full') needs the trained affinity")
+        df = subgraph_edges.reset_index(drop=True)
+        if "score_calibrated" not in df.columns:
+            df = df.assign(score_calibrated=df["score_raw"])
+        if "is_seed" not in df.columns:
+            df = df.assign(is_seed=True)
+        df = df.sort_values("edge_id").reset_index(drop=True)
+        self.aggregator_id, self.affinity, self.cut, self.min_size = aggregator_id, affinity, float(cut), int(min_size)
+        self.threshold, self.method = float(threshold), method
+        self.idx = SplitIndex.build(df)
+        self.ctx = FeatureContext.build(df, gfp=gfp, emb=emb, index=self.idx)
+        self.is_seed = df["is_seed"].to_numpy(bool)
+        self.score = df["score_calibrated"].to_numpy(float)
+        self.cfg = load_roles_config()
+        self.features_degraded = bool(aggregator_id == "full" and (gfp is None or emb is None))
+
+    def run(self, edge_ids=None) -> dict:
+        """Group the given edges (default: all of them) and summarise the largest group."""
+        pos = (np.arange(self.idx.n_edges) if edge_ids is None else self.idx.pos_of(np.asarray(sorted(edge_ids), dtype=np.int64)))
+        return self._group(pos)
+
+    def without(self, edge_id: int) -> dict:
+        """Leave-one-out: the ring without `edge_id`."""
+        keep = self.idx.edge_id[self.idx.edge_id != int(edge_id)]
+        return self.run(keep)
+
+    def _group(self, pos: np.ndarray) -> dict:
+        from ringshield.partition.affinity import cluster_average, cluster_pivot, reattach_small
+        from ringshield.partition.pairs import components_of, pair_features
+        idx = self.idx
+        out = {"confidence": math.nan, "n_rings": 0, "largest_ring_edges": [], "features_degraded": self.features_degraded}
+        if len(pos) == 0:
+            return out
+        is_seed = self.is_seed[pos]
+        comp = components_of(idx, pos)
+        if self.aggregator_id == "cc":
+            labels = comp
+        else:
+            emb_of = None
+            if self.ctx.emb is not None:
+                def emb_of(pa, pb):
+                    return self.ctx.emb.get(idx.edge_id[pa]), self.ctx.emb.get(idx.edge_id[pb])
+            P = pair_features(idx, self.ctx.gfp, pos, is_seed, comp, emb_of=emb_of)
+            labels = np.full(len(pos), -1, dtype=np.int64)
+            local_of = {int(p): i for i, p in enumerate(pos.tolist())}
+            p_all = self.affinity.predict(P) if len(P) else np.zeros(0)
+            pc = P["component"].to_numpy() if len(P) else np.zeros(0, np.int64)
+            ia_all = idx.pos_of(P["edge_a"].to_numpy()) if len(P) else np.zeros(0, np.int64)
+            ib_all = idx.pos_of(P["edge_b"].to_numpy()) if len(P) else np.zeros(0, np.int64)
+            nxt = 0
+            for c in np.unique(comp):
+                m = np.flatnonzero(comp == c)
+                loc = {int(pos[i]): k for k, i in enumerate(m.tolist())}
+                sel = pc == c
+                ia = np.array([loc[int(x)] for x in ia_all[sel]], dtype=np.int64)
+                ib = np.array([loc[int(x)] for x in ib_all[sel]], dtype=np.int64)
+                p = p_all[sel]
+                lab = (cluster_pivot(len(m), ia, ib, p, threshold=self.threshold) if self.method == "pivot"
+                       else cluster_average(len(m), ia, ib, p, cut=self.cut))
+                ends = np.stack([idx.from_dense[pos[m]], idx.to_dense[pos[m]]], axis=1)
+                lab = reattach_small(lab, ia, ib, p, ends, self.min_size)
+                labels[m] = lab + nxt
+                nxt += int(lab.max()) + 1 if len(lab) else 0
+        groups = []
+        for lab in np.unique(labels[labels >= 0]):
+            m = np.flatnonzero(labels == lab)
+            gp = pos[m]
+            members = np.unique(np.concatenate([idx.from_dense[gp], idx.to_dense[gp]]))
+            if len(members) < self.min_size:
+                continue
+            seeds = gp[is_seed[m]]
+            if len(seeds) == 0:
+                continue
+            groups.append({"n_members": len(members), "edges": sorted(idx.edge_id[gp].tolist()),
+                           "confidence": ring_confidence(float(np.nanmean(self.score[seeds])),
+                                                         closure_from_positions(idx, gp, self.cfg))})
+        if not groups:
+            return out
+        big = max(groups, key=lambda g: (g["n_members"], -g["edges"][0]))
+        out.update({"confidence": float(big["confidence"]), "n_rings": len(groups), "largest_ring_edges": big["edges"]})
+        return out
+
+
+def rerun_ring(subgraph_edges: pd.DataFrame, aggregator_id: str = "full", *, affinity=None, ctx=None,
+               cut: float = 0.5, min_size: int = 3, threshold: float = 0.5, method: str = "average",
+               gfp: pd.DataFrame | None = None, emb=None) -> dict:
+    """One-shot grouping of `subgraph_edges` (see the module docstring). For leave-one-out use
+    `RingRerunner`, which keeps the index and the feature context across calls.
+
+    Returns {"confidence", "n_rings", "largest_ring_edges", "features_degraded"}; `confidence` is
+    the contract's (mean score_calibrated over the group's seed edges x its conservation closure)
+    of the largest group, NaN when no group survives `min_size`."""
+    rr = RingRerunner(subgraph_edges, aggregator_id, affinity=affinity, cut=cut, min_size=min_size,
+                      threshold=threshold, method=method, gfp=gfp, emb=emb)
+    return rr.run()

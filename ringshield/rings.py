@@ -37,6 +37,7 @@ class Ring:
     member_edges: list[int]
     seed_edges: list[int]
     expanded_edges: list[int]
+    expanded_edge_probs: list[float]
     n_edges: int
     start_time: int
     end_time: int
@@ -68,7 +69,7 @@ class Ring:
             ring_id=ring_id, tenant_id=int(tenant_id), aggregator_id=aggregator_id,
             members=members, n_members=len(members),
             member_edges=[int(e) for e in member_edges], seed_edges=[int(e) for e in seed_edges],
-            expanded_edges=[], n_edges=int(n_edges),
+            expanded_edges=[], expanded_edge_probs=[], n_edges=int(n_edges),
             start_time=int(start_time), end_time=int(end_time),
             duration_hours=(int(end_time) - int(start_time)) / 3600.0,
             confidence=float(confidence), max_edge_prob=float(max_edge_prob), density=float(density),

@@ -72,20 +72,21 @@ Read by `evaluation/edge_metrics.py`; never joined into a shipped file.
 | 5 | `n_members` | int64 | len(members) |
 | 6 | `member_edges` | list<int64> | edge_ids with from_id AND to_id in members and timestamp in [start_time, end_time] |
 | 7 | `seed_edges` | list<int64> | member_edges with is_seed |
-| 8 | `expanded_edges` | list<int64> | [] until Step 6-8 |
-| 9 | `n_edges` | int64 | edges the aggregator used to form the ring |
-| 10 | `start_time` | int64 | min timestamp of member_edges, loader basis |
-| 11 | `end_time` | int64 | max timestamp of the aggregator's ring edges, loader basis |
-| 12 | `duration_hours` | float64 | (end_time - start_time) / 3600 |
-| 13 | `confidence` | float64 | aggregator confidence |
-| 14 | `max_edge_prob` | float64 | max score among the aggregator's ring edges |
-| 15 | `density` | float64 | n_edges / (n_members * (n_members - 1)) |
-| 16 | `conservation_closure` | float64 | NaN until Step 6-8 |
-| 17 | `topology_type` | string | one of TOPOLOGY_TYPES or 'UNKNOWN' |
-| 18 | `topology_probs` | list<float64> | 8 probabilities in TOPOLOGY_TYPES order; uniform until Step 8 |
-| 19 | `source_accounts` | list<int64> | [] until Step 8 |
-| 20 | `sink_accounts` | list<int64> | [] until Step 8 |
-| 21 | `mule_accounts` | list<int64> | [] until Step 8 |
+| 8 | `expanded_edges` | list<int64> | member_edges the expansion policy added around the seeds (Step 6); [] for the cc aggregator |
+| 9 | `expanded_edge_probs` | list<float64> | the expansion policy's probability for each edge of expanded_edges, same order and length (Step 8); [] when nothing was expanded. The XAI layer needs it because an expanded edge's own detector score is low by definition |
+| 10 | `n_edges` | int64 | edges the aggregator used to form the ring |
+| 11 | `start_time` | int64 | min timestamp of member_edges, loader basis |
+| 12 | `end_time` | int64 | max timestamp of the aggregator's ring edges, loader basis |
+| 13 | `duration_hours` | float64 | (end_time - start_time) / 3600 |
+| 14 | `confidence` | float64 | mean score_calibrated over seed_edges x conservation_closure (Step 8 definition). When conservation_closure is NaN (no source or no sink) the closure factor is dropped and confidence is the mean alone; the run log counts those rings (n_rings_closure_nan) |
+| 15 | `max_edge_prob` | float64 | max score among the aggregator's ring edges |
+| 16 | `density` | float64 | n_edges / (n_members * (n_members - 1)) |
+| 17 | `conservation_closure` | float64 | 1 - |sum of inflow at the ring's sinks - sum of outflow at its sources| / max(those two sums), clipped to [0, 1], over the ring's seed + expanded edges with amounts deduplicated on (from_id, to_id, timestamp, amount_received). NaN when the ring has no source or no sink (roles per configs/roles.yaml) |
+| 18 | `topology_type` | string | one of TOPOLOGY_TYPES or 'UNKNOWN' |
+| 19 | `topology_probs` | list<float64> | 8 probabilities in TOPOLOGY_TYPES order, summing to 1 (Step 8 typing head; uniform with topology_type 'UNKNOWN' when no head is attached) |
+| 20 | `source_accounts` | list<int64> | members whose role is 'source' (configs/roles.yaml: no inflow, or inflow / outflow < tau_role 0.25, over the ring's deduplicated flows) |
+| 21 | `sink_accounts` | list<int64> | members whose role is 'sink' (no outflow, or outflow / inflow < tau_role) |
+| 22 | `mule_accounts` | list<int64> | members whose role is 'mule' (both flows, closure >= 1 - tau_role, passed on within 72 h) or 'holder' (same but held longer); ringshield.roles.account_roles returns the two separately |
 
 ## Time basis
 

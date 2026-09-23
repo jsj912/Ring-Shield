@@ -1,0 +1,28 @@
+# Account roles inside a ring (Step 8.1, ringshield/roles.py). Read by the typing features, the
+# rings contract's source/sink/mule arrays and the XAI layer's account_roles().
+#
+# Flows are summed over the ring's edges inside [start_time, end_time] with amounts DEDUPLICATED
+# on (from_id, to_id, timestamp, amount_received): AMLworld repeats a handful of transactions and
+# a duplicate would double one side of an account's balance.
+#
+#   closure(account) = min(inflow, outflow) / max(inflow, outflow)          (0 when one side is 0)
+#   hold_time_s      = median over the account's inflows of (first outflow at or after it - it);
+#                      NaN when the account has no inflow or no outflow, or no outflow follows
+#
+# role:
+#   source      no inflow, or inflow / outflow < tau_role      (money enters the ring here)
+#   sink        no outflow, or outflow / inflow < tau_role     (money leaves the ring here)
+#   mule        both flows, closure >= 1 - tau_role, hold_time_s <= hold_seconds (passes it on)
+#   holder      both flows, closure >= 1 - tau_role, but held longer than hold_seconds
+#   peripheral  both flows, unbalanced with neither side dominant (closure < 1 - tau_role and
+#               both ratios >= tau_role) -- usually an account the ring shares with licit traffic
+#
+# tau_role and hold_seconds are the Step 7 pair-feature values (docs/PARTITION.md 7.1), kept
+# identical so the role a pair feature sees and the role the contract reports are the same.
+tau_role: 0.25
+hold_seconds: 259200        # 72 h
+roles: [source, sink, mule, holder, peripheral]
+contract_arrays:            # which roles fill the rings contract's account arrays
+  source_accounts: [source]
+  sink_accounts: [sink]
+  mule_accounts: [mule, holder]

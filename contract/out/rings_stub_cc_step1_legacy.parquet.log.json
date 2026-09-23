@@ -1,6 +1,6 @@
 {
-  "created_utc": "2026-09-16T11:22:07+00:00",
-  "git_commit": "fe15cdda284e3e41ef5d3b6f87e50845e3ea02a8",
+  "created_utc": "2026-09-22T14:40:16+00:00",
+  "git_commit": "d4217353ec33ab99714b61b6fc8078f5f17a1c76",
   "aggregator_id": "cc",
   "seed": 1,
   "dry_run": false,
@@ -26,6 +26,7 @@
     "member_edges",
     "seed_edges",
     "expanded_edges",
+    "expanded_edge_probs",
     "n_edges",
     "start_time",
     "end_time",
@@ -40,5 +41,5 @@
     "sink_accounts",
     "mule_accounts"
   ],
-  "out_path": "E:\\JSJ\\Ring-Shield\\contract\\out\\rings_stub_cc.parquet"
+  "out_path": "contract\\out\\rings_stub_cc_step1_legacy.parquet"
 }

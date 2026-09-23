@@ -88,23 +88,33 @@ def account_roles(idx: SplitIndex, inc_pos: np.ndarray, comp: np.ndarray) -> pd.
     ev = pd.DataFrame({"comp": np.concatenate([comp, comp]), "acc": np.concatenate([f, t]),
                        "other": np.concatenate([t, f]), "ts": np.concatenate([ts, ts]), "amt": np.concatenate([amt, amt]),
                        "is_out": np.concatenate([np.ones(len(f), bool), np.zeros(len(f), bool)])})
-    g = ev.groupby(["comp", "acc"], sort=True)
-    out = pd.DataFrame({"in_sum": g.apply(lambda d: d.loc[~d["is_out"], "amt"].sum(), include_groups=False),
-                        "out_sum": g.apply(lambda d: d.loc[d["is_out"], "amt"].sum(), include_groups=False),
-                        "n_included": g.size(), "n_counterparties": g["other"].nunique()})
-    held = []
-    for (c, a), d in g:
-        ins = np.sort(d.loc[~d["is_out"], "ts"].to_numpy())
-        outs = np.sort(d.loc[d["is_out"], "ts"].to_numpy())
-        ok = False
-        if len(ins) and len(outs):
-            j = np.searchsorted(outs, ins, side="left")          # first outflow at or after each inflow
-            ok = bool(np.any((j < len(outs)) & (outs[np.minimum(j, len(outs) - 1)] - ins <= HOLD_S)))
-        held.append(ok)
-    out["held"] = held
-    hi = np.maximum(out["in_sum"], out["out_sum"]).to_numpy()
-    out["closure"] = np.where(hi > 0, np.minimum(out["in_sum"], out["out_sum"]) / np.where(hi > 0, hi, 1), 0.0)
-    i, o = out["in_sum"].to_numpy(), out["out_sum"].to_numpy()
+    # numpy aggregation over the (component, account) groups: the equivalent groupby.agg on these
+    # tiny frames cost more than everything else in rerun_ring's 50 ms budget
+    from ringshield.roles import next_outflow_gaps
+    comp_a = ev["comp"].to_numpy(np.int64)
+    acc_a = ev["acc"].to_numpy(np.int64)
+    other_a = ev["other"].to_numpy(np.int64)
+    ts_all = ev["ts"].to_numpy(np.int64)
+    amt_a = ev["amt"].to_numpy(float)
+    is_out = ev["is_out"].to_numpy().astype(bool)
+    span_acc = int(acc_a.max()) + 2 if len(acc_a) else 2
+    grp = comp_a * span_acc + acc_a
+    keys, gidx = np.unique(grp, return_inverse=True)
+    n_groups = len(keys)
+    in_sum = np.bincount(gidx, weights=np.where(is_out, 0.0, amt_a), minlength=n_groups)
+    out_sum = np.bincount(gidx, weights=np.where(is_out, amt_a, 0.0), minlength=n_groups)
+    n_included = np.bincount(gidx, minlength=n_groups)
+    pair_keys = np.unique(gidx.astype(np.int64) * (int(other_a.max()) + 2 if len(other_a) else 2) + other_a)
+    n_counterparties = np.bincount(pair_keys // (int(other_a.max()) + 2 if len(other_a) else 2), minlength=n_groups)
+    # held: some inflow is followed by an outflow at the same (component, account) within HOLD_S
+    gaps = next_outflow_gaps(grp[~is_out], ts_all[~is_out], grp[is_out], ts_all[is_out])
+    held_groups = np.unique(grp[~is_out][(~np.isnan(gaps)) & (np.nan_to_num(gaps, nan=np.inf) <= HOLD_S)])
+    out = pd.DataFrame({"in_sum": in_sum, "out_sum": out_sum, "n_included": n_included,
+                        "n_counterparties": n_counterparties, "held": np.isin(keys, held_groups)},
+                       index=pd.MultiIndex.from_arrays([keys // span_acc, keys % span_acc], names=["comp", "acc"]))
+    hi = np.maximum(in_sum, out_sum)
+    out["closure"] = np.where(hi > 0, np.minimum(in_sum, out_sum) / np.where(hi > 0, hi, 1), 0.0)
+    i, o = in_sum, out_sum
     with np.errstate(divide="ignore", invalid="ignore"):
         in_over_out = np.where(o > 0, i / np.where(o > 0, o, 1), np.inf)
         out_over_in = np.where(i > 0, o / np.where(i > 0, i, 1), np.inf)
@@ -114,10 +124,14 @@ def account_roles(idx: SplitIndex, inc_pos: np.ndarray, comp: np.ndarray) -> pd.
     role = np.where(mule, "mule", np.where(source, "source", np.where(sink, "sink", "other")))
     out["role"] = role
     # window degree: stream events at the account inside the component's included time span
-    span = pd.DataFrame({"comp": comp, "ts": ts}).groupby("comp")["ts"].agg(["min", "max"])
+    n_comp = int(comp.max()) + 1 if len(comp) else 0
+    lo_ts = np.full(n_comp, np.iinfo(np.int64).max, dtype=np.int64)
+    hi_ts = np.full(n_comp, np.iinfo(np.int64).min, dtype=np.int64)
+    np.minimum.at(lo_ts, comp, ts)
+    np.maximum.at(hi_ts, comp, ts)
     comps = out.index.get_level_values(0).to_numpy()
     accs = out.index.get_level_values(1).to_numpy()
-    lo, hi_ = idx.window(accs, span["min"].to_numpy()[comps], span["max"].to_numpy()[comps])
+    lo, hi_ = idx.window(accs, lo_ts[comps], hi_ts[comps])
     out["degree_window"] = (hi_ - lo)
     return out
 
@@ -160,33 +174,31 @@ def pair_features(idx: SplitIndex, gfp: np.ndarray, inc_pos: np.ndarray, is_seed
     out_a, out_b, acc_rows = np.concatenate(out_a), np.concatenate(out_b), np.concatenate(acc_rows)
     acc = ev_acc[acc_rows]
     cmp = ev_comp[acc_rows]
-    X = pd.DataFrame({"component": cmp, "edge_a": idx.edge_id[inc_pos[ia]], "edge_b": idx.edge_id[inc_pos[ib]],
-                      "shared_account": idx.acc_uniq[acc]})
-    X["time_gap_s"] = ts[ib] - ts[ia]
+    gap = ts[ib] - ts[ia]
     hi = np.maximum(amt[ia], amt[ib])
-    X["amount_ratio"] = np.where(hi > 0, np.minimum(amt[ia], amt[ib]) / np.where(hi > 0, hi, 1), 0.0)
-    X["dir_in_out"] = ((out_a == 0) & (out_b == 1)).astype(np.int64)
-    X["dir_out_out"] = ((out_a == 1) & (out_b == 1)).astype(np.int64)
-    X["dir_in_in"] = ((out_a == 0) & (out_b == 0)).astype(np.int64)
-    X["dir_out_in"] = ((out_a == 1) & (out_b == 0)).astype(np.int64)
+    ratio = np.where(hi > 0, np.minimum(amt[ia], amt[ib]) / np.where(hi > 0, hi, 1), 0.0)
     emb = emb_of(inc_pos[ia], inc_pos[ib]) if emb_of is not None else None
-    X["cos_emb"] = _cos_rows(*emb) if emb is not None else np.nan
     g = np.log1p(gfp[inc_pos].astype(np.float64))
-    X["cos_gfp"] = _cos_rows(g[ia], g[ib])
     sa, sb = is_seed[ia].astype(bool), is_seed[ib].astype(bool)
-    X["kind_seed_seed"] = (sa & sb).astype(np.int64)
-    X["kind_seed_exp"] = (sa ^ sb).astype(np.int64)
-    X["kind_exp_exp"] = (~sa & ~sb).astype(np.int64)
     r = roles.loc[list(zip(cmp.tolist(), acc.tolist()))]
-    for name in ("source", "sink", "mule", "other"):
-        X[f"role_{name}"] = (r["role"].to_numpy() == name).astype(np.int64)
-    X["acc_closure"] = r["closure"].to_numpy()
-    X["acc_n_included"] = r["n_included"].to_numpy(np.int64)
-    X["acc_n_counterparties"] = r["n_counterparties"].to_numpy(np.int64)
-    X["acc_log_degree_window"] = np.log1p(r["degree_window"].to_numpy(float))
-    X["on_chain"] = ((out_a == 0) & (out_b == 1) & (X["time_gap_s"].to_numpy() >= 0) & (X["time_gap_s"].to_numpy() <= HOLD_S)
-                     & (X["amount_ratio"].to_numpy() >= 1 - TAU_ROLE)).astype(np.int64)
+    role_col = r["role"].to_numpy()
+    cols = {"component": cmp, "edge_a": idx.edge_id[inc_pos[ia]], "edge_b": idx.edge_id[inc_pos[ib]],
+            "shared_account": idx.acc_uniq[acc],
+            "time_gap_s": gap, "amount_ratio": ratio,
+            "dir_in_out": ((out_a == 0) & (out_b == 1)).astype(np.int64),
+            "dir_out_out": ((out_a == 1) & (out_b == 1)).astype(np.int64),
+            "dir_in_in": ((out_a == 0) & (out_b == 0)).astype(np.int64),
+            "dir_out_in": ((out_a == 1) & (out_b == 0)).astype(np.int64),
+            "cos_emb": _cos_rows(*emb) if emb is not None else np.full(len(ia), np.nan),
+            "cos_gfp": _cos_rows(g[ia], g[ib]),
+            "kind_seed_seed": (sa & sb).astype(np.int64), "kind_seed_exp": (sa ^ sb).astype(np.int64),
+            "kind_exp_exp": (~sa & ~sb).astype(np.int64),
+            **{f"role_{name}": (role_col == name).astype(np.int64) for name in ("source", "sink", "mule", "other")},
+            "acc_closure": r["closure"].to_numpy(), "acc_n_included": r["n_included"].to_numpy(np.int64),
+            "acc_n_counterparties": r["n_counterparties"].to_numpy(np.int64),
+            "acc_log_degree_window": np.log1p(r["degree_window"].to_numpy(float)),
+            "on_chain": ((out_a == 0) & (out_b == 1) & (gap >= 0) & (gap <= HOLD_S) & (ratio >= 1 - TAU_ROLE)).astype(np.int64)}
     if ring_id is not None:
         ra, rb = ring_id[ia], ring_id[ib]
-        X["label"] = ((ra > 0) & (ra == rb)).astype(np.int64)
-    return X.reset_index(drop=True)
+        cols["label"] = ((ra > 0) & (ra == rb)).astype(np.int64)
+    return pd.DataFrame(cols, columns=list(cols))

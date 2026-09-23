@@ -1,0 +1,20 @@
+{
+  "n_rings_built": 272,
+  "n_kept": 187,
+  "n_dropped_no_truth_overlap": 85,
+  "cut": 0.5,
+  "min_size": 3,
+  "class_counts": {
+    "STACK": 48,
+    "GATHER-SCATTER": 37,
+    "FAN-IN": 26,
+    "FAN-OUT": 25,
+    "SCATTER-GATHER": 19,
+    "CYCLE": 18,
+    "RANDOM": 11,
+    "BIPARTITE": 3
+  },
+  "mean_jaccard_to_truth": 0.5353668449197861,
+  "included": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\included_train.parquet",
+  "affinity": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\affinity"
+}

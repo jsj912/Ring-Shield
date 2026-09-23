@@ -7,8 +7,9 @@ Score directories (<model>_scores) are ignored. One row per model: mean +/- std 
 seeds of the PRIMARY block's ring precision / recall / F1, Ring-Recall>=3, member coverage and
 mean Jaccard, the per-pattern recalls, seed-edge precision and illicit recall in the primary
 window, the chosen val cell (mode over seeds), and the tail / whole F1 for reference. Rows are
-tagged with feature_set / reportable from the runs' metrics.json. Confidence intervals: 'CIs
-pending Step 9' (the ci column says so; the bootstrap over seeds lands in Step 9).
+tagged with feature_set / reportable from the runs' metrics.json. Since Step 9 each row also
+carries the bootstrap CIs of its ring metrics and the quiet-member recall with its CI, read from
+`results/tables/r9_ring_ci.csv` and `r9_quiet_members.csv` (`step9_lookup` below).
 """
 from __future__ import annotations
 
@@ -25,6 +26,7 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PRIMARY_METRICS = ["ring_precision", "ring_recall", "ring_f1", "ring_recall_ge3", "member_coverage", "mean_jaccard"]
 PATTERNS = ["FAN-OUT", "FAN-IN", "GATHER-SCATTER", "SCATTER-GATHER", "CYCLE", "RANDOM", "BIPARTITE", "STACK"]
+MODEL_TO_METHOD = {"gine_causal": "b0"}      # the r2 row name -> the Step 9 method name
 
 
 def load_runs(root: Path) -> dict[str, list[dict]]:
@@ -37,6 +39,35 @@ def load_runs(root: Path) -> dict[str, list[dict]]:
         j["_seed_dir"] = p.parent.name
         runs.setdefault(model, []).append(j)
     return runs
+
+
+# --------------------------------------------------------------------------- Step 9 companions
+QUIET_TABLE = REPO_ROOT / "results" / "tables" / "r9_quiet_members.csv"
+CI_TABLE = REPO_ROOT / "results" / "tables" / "r9_ring_ci.csv"
+
+
+def step9_lookup(method: str, window: str = "primary") -> dict:
+    """Quiet-member recall and the bootstrap CI of this row, from the Step 9 tables.
+
+    Returns {} when Step 9 has not been run yet -- the column then says so explicitly rather than
+    carrying a 'pending' marker that survives into the paper."""
+    out = {}
+    if QUIET_TABLE.exists():
+        q = pd.read_csv(QUIET_TABLE)
+        r = q[(q["method"] == method) & (q["window"] == window) & (q["pattern"] == "ALL")]
+        if len(r):
+            out.update({"quiet_member_recall": float(r["quiet_member_recall"].iloc[0]),
+                        "quiet_member_recall_lo": float(r["ci_lo"].iloc[0]),
+                        "quiet_member_recall_hi": float(r["ci_hi"].iloc[0])})
+    if CI_TABLE.exists():
+        c = pd.read_csv(CI_TABLE)
+        r = c[(c["method"] == method) & (c["window"] == window)]
+        if len(r):
+            for m in ("ring_precision", "ring_recall", "ring_f1", "member_coverage", "ring_recall_ge3"):
+                out[f"{m}_lo"] = float(r[f"{m}_lo"].iloc[0])
+                out[f"{m}_hi"] = float(r[f"{m}_hi"].iloc[0])
+            out["ci"] = "bootstrap over truth rings (1,000 resamples), evaluation/ring_stats.py"
+    return out or {"ci": "Step 9 tables not generated (run evaluation/step9_tables.py)"}
 
 
 def _ms(values):
@@ -78,7 +109,7 @@ def row_for(model: str, runs: list[dict]) -> dict:
     row["jaccard07_f1_mean"] = _ms([b["jaccard_sweep"].get("0.7", {}).get("ring_f1") for b in blk])[0]
     row["appendix_strict_f1_mean"] = _ms([b["appendix"]["strict"]["ring_f1"] for b in blk])[0]
     row["appendix_majority_f1_mean"] = _ms([b["appendix"]["majority"]["ring_f1"] for b in blk])[0]
-    row["ci"] = "CIs pending Step 9"
+    row.update(step9_lookup(MODEL_TO_METHOD.get(model, model)))
     return row
 
 
@@ -99,7 +130,9 @@ def main(argv=None):
     df.to_csv(args.out, index=False)
     meta = {"created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "root": str(args.root),
             "models": {m: [r["_seed_dir"] for r in rs] for m, rs in runs.items()},
-            "primary_window": rows[0]["window"], "note": "CIs pending Step 9"}
+            "primary_window": rows[0]["window"],
+            "note": "CIs and quiet-member recall come from the Step 9 companions "
+                    "(results/tables/r2_ci.csv, r9_quiet_members.csv)"}
     args.out.with_suffix(".log.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     pd.set_option("display.width", 220)
     show = ["model", "n_seeds", "feature_set", "reportable", "chosen_seed_frac_pct", "chosen_min_size", "ring_precision_mean",
