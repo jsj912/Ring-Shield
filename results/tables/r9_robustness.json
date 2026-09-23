@@ -1,0 +1,69 @@
+{
+  "created_utc": "2026-09-23T04:59:35+00:00",
+  "git_commit": "763c60730a906a394de899b92c990eff121497f3",
+  "purpose": "robustness check only -- k* stays the val-chosen 0.1 % (configs/threshold_rule.yaml)",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "seed_fracs": [
+    0.05,
+    0.15
+  ],
+  "window": "primary",
+  "fixed_from_val": "policy, delta_t, p_min (R3 per seed) and the linkage cut (R4 per seed)",
+  "summary": [
+    {
+      "('method', '')": "full",
+      "('seed_frac_pct', '')": 0.05,
+      "('ring_f1', 'mean')": 0.4500992321,
+      "('ring_f1', 'std')": 0.0662259559,
+      "('quiet_member_recall', 'mean')": 0.1397313881,
+      "('quiet_member_recall', 'std')": 0.0412902405,
+      "('added_member_precision', 'mean')": 0.9702894953,
+      "('added_member_precision', 'std')": 0.0154865567,
+      "('n_seed_edges', 'mean')": 432.0,
+      "('n_seed_edges', 'std')": 0.0
+    },
+    {
+      "('method', '')": "full",
+      "('seed_frac_pct', '')": 0.15,
+      "('ring_f1', 'mean')": 0.6060868301,
+      "('ring_f1', 'std')": 0.0327458907,
+      "('quiet_member_recall', 'mean')": 0.2321598123,
+      "('quiet_member_recall', 'std')": 0.0149180143,
+      "('added_member_precision', 'mean')": 0.7818688608,
+      "('added_member_precision', 'std')": 0.0690116979,
+      "('n_seed_edges', 'mean')": 1296.0,
+      "('n_seed_edges', 'std')": 0.0
+    },
+    {
+      "('method', '')": "proposed",
+      "('seed_frac_pct', '')": 0.05,
+      "('ring_f1', 'mean')": 0.4327763018,
+      "('ring_f1', 'std')": 0.0687218111,
+      "('quiet_member_recall', 'mean')": 0.1397313881,
+      "('quiet_member_recall', 'std')": 0.0412902405,
+      "('added_member_precision', 'mean')": 0.9702894953,
+      "('added_member_precision', 'std')": 0.0154865567,
+      "('n_seed_edges', 'mean')": 432.0,
+      "('n_seed_edges', 'std')": 0.0
+    },
+    {
+      "('method', '')": "proposed",
+      "('seed_frac_pct', '')": 0.15,
+      "('ring_f1', 'mean')": 0.5933078626,
+      "('ring_f1', 'std')": 0.0441207541,
+      "('quiet_member_recall', 'mean')": 0.2349603813,
+      "('quiet_member_recall', 'std')": 0.0202067352,
+      "('added_member_precision', 'mean')": 0.7825925152,
+      "('added_member_precision', 'std')": 0.068711595,
+      "('n_seed_edges', 'mean')": 1296.0,
+      "('n_seed_edges', 'std')": 0.0
+    }
+  ],
+  "seconds": 637.9
+}
