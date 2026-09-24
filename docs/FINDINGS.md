@@ -16,7 +16,7 @@ indicators, 10,000 permutations, Holm-corrected across the five pre-registered c
 |---|---|---|---|---|---|
 | **A1** | **Seed-adjacent expansion recovers ring members the detector never fires on.** Quiet-member recall rises from 0.5 % to 21 %. | B0 **0.0054** [0.000, 0.015] → proposed **0.2098** [0.142, 0.290]; full 0.2026 [0.136, 0.284] | proposed vs B0, quiet accounts per ring Δ **+0.359** [+0.236, +0.510] | **0.0005** | `results/tables/r9_quiet_members.csv`, `r9_ring_ci.csv`, `r9_significance.csv` |
 | **A2** | The same comparison is significant on whole-ring matching, not only on accounts. | Δ matched rate **+0.062** [+0.036, +0.092] (28 of 174 rings differ) | proposed vs B0 | **0.0005** | `r9_significance.csv` |
-| **A3** | Ring-F1 improves from B0 to the shipped pipeline, and the intervals overlap. | B0 **0.521** [0.429, 0.607] → full **0.589** [0.502, 0.675] | — | see A6 | `r9_ring_ci.csv`, `r4_partition.csv` |
+| **A3** | Ring-F1 improves from B0 to the shipped pipeline, **but this end-to-end gain must never be claimed as significant**: the chain is significant at one link (expansion, A1/A2) and directionally positive elsewhere, and the intervals overlap. | B0 **0.521** [0.429, 0.607] → full **0.589** [0.502, 0.675] | — | not tested as a chain; see A6, B3, B4 | `r9_ring_ci.csv`, `r4_partition.csv` |
 | **A4** | The detector itself is strong at the edge level and the ring stage is what is hard. | edge F1 **0.495 ± 0.027**, AP/prevalence 405, AUC 0.965 (primary) | R1 causal, trailing features, 5 seeds | — | `results/tables/r1_edge_metrics.csv` |
 | **A5** | What the learned policy buys is the **purity** of what it adds. | added-member precision **0.926** [0.899, 0.951] vs B1b **0.518** [0.484, 0.550]; 6 vs 86 false edges per seed | proposed vs B1b on added edges | — | `results/figures/r9_quiet_vs_precision.csv`, `r3_expansion.csv` |
 | **A6** | Ring-level metrics have wide intervals on 174 rings: only one of five pre-registered comparisons survives Holm. | see the table in §B | five comparisons | — | `r9_significance.csv` |
@@ -57,12 +57,23 @@ number in the report must carry its window label.**
 | D2 | B1b (rule) | 0.555 [0.470, 0.632] | **0.552** [0.475, 0.634] | 0.2229 [0.163, 0.299] | **0.2523** [0.192, 0.319] |
 | D3 | proposed (policy) | 0.582 [0.490, 0.668] | **0.577** [0.490, 0.667] | 0.2098 [0.142, 0.290] | **0.2366** [0.171, 0.306] |
 | D4 | full (expand + partition) | 0.589 [0.502, 0.675] | **0.587** [0.499, 0.674] | 0.2026 [0.136, 0.284] | **0.2269** [0.165, 0.291] |
-| D5 | typing (head) | 0.219 [0.182, 0.259] | **0.594** [0.547, 0.640] | — | — |
 
-Ring-F1 is stable across the two windows (±0.01 for every method except B0, which loses 0.05);
-quiet-member recall is 2–5 points *higher* on the longer window; typing is the one metric that
-changes character. The tail's 59 % base rate (C1) inflates *edge*-level numbers, not these
-ring-level ones.
+Ring-F1 is stable across the two windows (±0.01 for every method except B0, which loses 0.05)
+and quiet-member recall is 2–5 points *higher* on the longer window. The tail's 59 % base rate
+(C1) inflates *edge*-level numbers, not these ring-level ones.
+
+### D6. Typing — a different unit, reported separately
+
+Typing accuracy is a per-ring **classification** rate over matched rings, not a ring-F1, so it
+does not belong in the table above; it is the one metric whose character changes with the window
+(C3). CIs are bootstrap over matched rings.
+
+| window | matched rings | head accuracy [CI] | rule accuracy [CI] |
+|---|---|---|---|
+| primary (days 8–9) | 401 | 0.219 [0.182, 0.259] | 0.207 [0.170, 0.249] |
+| **whole (days 8–17)** | 433 | **0.594** [0.547, 0.640] | 0.547 [0.499, 0.591] |
+
+Source: `results/tables/r5_typing_ci.csv`, `docs/TYPING.md`.
 
 ## E. Robustness — does the quiet-member result depend on k\*?
 
@@ -80,14 +91,20 @@ every other parameter unchanged.
 | E6 | 0.15 % | full | 0.606 ± 0.033 | 0.232 ± 0.015 | 0.782 ± 0.069 |
 
 **The quiet-member result does not depend on the operating point.** At every k the expansion
-recovers 14–24 % of quiet members where B0 recovers 0.5 %, so A1 holds throughout; what k moves
-is the familiar trade — a tighter cut adds fewer, purer edges (0.05 %: precision 0.97, recall
-0.14) and a looser one adds more, dirtier ones (0.15 %: 0.78 / 0.24). Ring-F1 is *higher* at
-0.15 % (0.606 vs 0.589) than at the shipped k\*, which was chosen on validation ring-F1 in Step 3c;
-that gap is inside the seed spread (±0.033) and **k\* is not changed** — re-choosing it on a
-test-window number is exactly what this project does not do. Numbers here are mean ± std over
-five seeds (no bootstrap: this is a robustness check, not a headline row). Source:
-`results/tables/r9_robustness.csv`, `evaluation/r9_robustness.py`.
+recovers 14–24 % of quiet members where B0 recovers 0.5 %, so A1 holds throughout, and the
+recall / purity knob is **monotone**: 0.05 % adds few, pure edges (precision 0.970, quiet recall
+0.140), 0.15 % adds many, dirtier ones (0.783 / 0.235), with the shipped k\* in the middle
+(0.926 / 0.210). That monotonicity is the claim, not any single point estimate.
+
+**E7 — the validation-selected operating point is not the test-optimal one, and the difference is
+inside seed noise.** Ring-F1 at 0.15 % is 0.606 ± 0.033 (`full`) against 0.589 [0.502, 0.675] at
+the shipped 0.1 %; the gap of 0.017 is well inside the ±0.033 seed spread and inside the
+bootstrap interval. **k\* is not changed**: it was chosen on validation ring-F1 in Step 3c, and
+re-choosing it on a test-window number is exactly what this project does not do. We state the
+difference rather than tune it away.
+
+Numbers in E1–E6 are mean ± std over five seeds (no bootstrap: this is a robustness check, not a
+headline row). Source: `results/tables/r9_robustness.csv`, `evaluation/r9_robustness.py`.
 
 ## F. What the report should claim, in order
 
