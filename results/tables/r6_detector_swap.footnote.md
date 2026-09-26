@@ -48,8 +48,8 @@ Decomposed against the full class breakdown, **6.4 of those 9.2 newly reached ri
 matches** and 2.8 stay partially covered; the net matched count rises only 80.2 → 83.6 because MEGA
 separately loses ~3.0 matches among rings below `min_size`. Among touched-but-unmatched rings,
 over-merging grows (9.6 → 14.4) while under-coverage nearly vanishes (2.4 → 0.4): the residual loss is
-a partition problem, not a reach problem. See `FINDINGS.md` B11. See `FINDINGS.md` B8 — the 19 % untouched
-figure is a property of the detector, not of the dataset.
+a partition problem, not a reach problem. See `FINDINGS.md` B11, and B8 for why the 19 % untouched
+figure is a property of the detector rather than of the dataset.
 
 ## Two cautions about reading this table
 
