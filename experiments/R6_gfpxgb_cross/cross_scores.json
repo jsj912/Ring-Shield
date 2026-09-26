@@ -1,0 +1,159 @@
+{
+  "created_utc": "2026-09-24T18:16:37+00:00",
+  "git_commit": "b1a28204ba6ddd11ce9883a1e53a443242a530f2",
+  "step": "10.2 (R6 detector swap)",
+  "detector": "gfpxgb",
+  "xgboost_seed": 1,
+  "params": {
+    "objective": "binary:logistic",
+    "eval_metric": "aucpr",
+    "tree_method": "hist",
+    "device": "cpu",
+    "max_depth": 12,
+    "learning_rate": 0.060940535383840054,
+    "scale_pos_weight": 1520.556239246705,
+    "subsample": 0.7998599207043823,
+    "colsample_bytree": 0.6181474277059628,
+    "min_child_weight": 20,
+    "gamma": 3.1500934149790636,
+    "reg_alpha": 0.00021867463749492656,
+    "reg_lambda": 0.00019286951588141392
+  },
+  "num_round": 724,
+  "features": [
+    "Amount Sent",
+    "Sent Currency",
+    "Amount Received",
+    "Received Currency",
+    "Payment Format",
+    "hour_of_day",
+    "day_of_week",
+    "fan_out",
+    "fan_in",
+    "deg_out_src",
+    "deg_in_src",
+    "deg_out_dst",
+    "deg_in_dst",
+    "scatter_gather",
+    "gather_scatter",
+    "temporal_cycle",
+    "cycle_length"
+  ],
+  "n_rows": 3248921,
+  "n_folds": 5,
+  "assertion": {
+    "rule": "day(edge) not in train_days[fold(edge)] for every row; one row per train edge",
+    "violations": 0,
+    "passed": true
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "held_out_days": [
+        0
+      ],
+      "train_days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "n_held_out": 1114921,
+      "n_train": 2134000,
+      "held_out": {
+        "average_precision": 0.006868852858971982,
+        "f1_at_0.5": 0.023255813953488372
+      },
+      "seconds": 132.2
+    },
+    {
+      "fold": 1,
+      "held_out_days": [
+        1
+      ],
+      "train_days": [
+        0,
+        2,
+        3,
+        4,
+        5
+      ],
+      "n_held_out": 754449,
+      "n_train": 2494472,
+      "held_out": {
+        "average_precision": 0.057917321355669384,
+        "f1_at_0.5": 0.11296296296296296
+      },
+      "seconds": 162.2
+    },
+    {
+      "fold": 2,
+      "held_out_days": [
+        2,
+        3
+      ],
+      "train_days": [
+        0,
+        1,
+        4,
+        5
+      ],
+      "n_held_out": 414812,
+      "n_train": 2834109,
+      "held_out": {
+        "average_precision": 0.20814264867797133,
+        "f1_at_0.5": 0.2603613177470776
+      },
+      "seconds": 168.2
+    },
+    {
+      "fold": 3,
+      "held_out_days": [
+        4
+      ],
+      "train_days": [
+        0,
+        1,
+        2,
+        3,
+        5
+      ],
+      "n_held_out": 482650,
+      "n_train": 2766271,
+      "held_out": {
+        "average_precision": 0.36630358003719093,
+        "f1_at_0.5": 0.2919975565058033
+      },
+      "seconds": 173.0
+    },
+    {
+      "fold": 4,
+      "held_out_days": [
+        5
+      ],
+      "train_days": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "n_held_out": 482089,
+      "n_train": 2766832,
+      "held_out": {
+        "average_precision": 0.3808428661464366,
+        "f1_at_0.5": 0.3446969696969697
+      },
+      "seconds": 181.5
+    }
+  ],
+  "fold_source": "ringshield/expand/cross_score.py::fold_assignment (the same day partition the gine fold models used)",
+  "columns_not_available": {
+    "dead_region": "always False -- the dead region is a property of the GNN head's constant outputs; the policy variant for this detector drops that feature group",
+    "score_calibrated": "NaN -- fold models are on their own scale and the policy does not use it (Step 6 amendment a)"
+  },
+  "val_test_scores": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\gfpxgb_scores",
+  "out": "E:\\JSJ\\Ring-Shield\\experiments\\R6_gfpxgb_cross\\cross_scores_train.parquet",
+  "seconds": 823.1
+}

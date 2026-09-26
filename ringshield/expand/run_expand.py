@@ -120,9 +120,10 @@ def main(argv=None):
             df = df.sample(frac=DRY_RUN_FRAC, random_state=S).sort_values("edge_id").reset_index(drop=True)
         se[split] = df
         emb = args.r1_dir / f"embeddings_{split}_seed{S}.parquet"
+        ckpt = args.r1_dir / f"model_best_seed{S}.pt"          # absent for a non-GNN detector (gfpxgb)
         ctx[split] = build_context(df, gfp_parquet=pdir / f"amlworld_gfp_features_{split}.parquet",
                                    embeddings_parquet=emb if emb.exists() else None,
-                                   checkpoint=args.r1_dir / f"model_best_seed{S}.pt")
+                                   checkpoint=ckpt if ckpt.exists() else None)
         ring_id_of[split] = pd.read_parquet(pdir / f"amlworld_{split}.parquet", columns=["EdgeID", "ring_id"]).set_index("EdgeID")["ring_id"]
         print(f"[run_expand] {split}: {len(df):,} edges, dead-region {ctx[split].meta['n_dead_region']:,}, "
               f"embeddings {'yes' if emb.exists() else 'NO'}")

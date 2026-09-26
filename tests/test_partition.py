@@ -9,12 +9,14 @@ rings with Jaccard 1.0 against {x1..x4, H} and {y1..y4, H}, plain components (B2
 """
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -240,3 +242,21 @@ def test_cli_export_and_run_full(tmp_path):
     for ring in rings:
         assert ring.aggregator_id == "full" and ring.ring_id.startswith("full-gine_causal-1-") and ring.n_members >= 3
         assert set(ring.seed_edges) <= ids and set(ring.expanded_edges) <= ids and set(ring.seed_edges) <= set(ring.member_edges)
+
+
+def test_full_runs_without_a_detector_checkpoint(tmp_path):
+    """A detector with no model_best_seed<S>.pt (gfpxgb is XGBoost) must still build a context:
+    dead_region is simply empty instead of raising. Guards run_partition.py / run_expand.py."""
+    r1 = REPO_ROOT / "experiments" / "R1_gine_causal"
+    if not (r1 / "scores_test_seed1.parquet").exists():
+        pytest.skip("R1 scores not on disk")
+    fake = tmp_path / "no_checkpoint"
+    fake.mkdir()
+    for split in ("val", "test"):
+        shutil.copy2(r1 / f"scores_{split}_seed1.parquet", fake / f"scores_{split}_seed1.parquet")
+    assert not (fake / "model_best_seed1.pt").exists()
+    from ringshield.partition import run_partition
+    run_partition.main(["--seed", "1", "--method", "average", "--r1-dir", str(fake),
+                        "--out", str(tmp_path / "run"), "--dry-run"])
+    cfg = yaml.safe_load((tmp_path / "run" / "config.yaml").read_text(encoding="utf-8"))
+    assert cfg["dry_run"] is True

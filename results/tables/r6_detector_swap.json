@@ -1,0 +1,469 @@
+{
+  "created_utc": "2026-09-26T09:53:29+00:00",
+  "git_commit": "b1a28204ba6ddd11ce9883a1e53a443242a530f2",
+  "step": "10.3 (R6 detector swap)",
+  "window": "primary",
+  "window_bounds": [
+    691210,
+    864009
+  ],
+  "scope": "test_visible",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "n_truth_rings": 174,
+  "n_bootstrap": 1000,
+  "n_permutations": 10000,
+  "edge_f1_rule": "threshold tuned on the val split over 400 quantiles of the val scores, applied to test",
+  "class_b_definition": "truth rings with >= 3 visible members that no prediction's included edges touch (evaluation/unmatched_rings.py::classify, klass b_untouched)",
+  "comparability_note": "policy CV AUC-PR values are NOT comparable across detectors -- each policy is scored on the candidate set its own detector generates (docs/EXPANSION.md)",
+  "pre_registered_alternative_explanation": {
+    "written": "before the table existed",
+    "rule": "if mega/full beats gine_causal/full on ring_f1 by more than the seed spread (ring_f1_seed_std), the first explanation to test is that MEGA's seeds are spread more evenly across rings at the same budget, not that MEGA is better for rings",
+    "decided_by": [
+      "matched_per_seed_edge",
+      "seeds_per_touched_ring_gini",
+      "seeds_per_touched_ring_mean",
+      "seed_edges_off_ring_share"
+    ],
+    "even_spread_signature": "lower seeds_per_touched_ring_gini at equal rings_touched_by_seeds",
+    "genuine_reach_signature": "higher rings_touched_by_seeds at unchanged gini"
+  },
+  "provenance": {
+    "gine_causal/b0": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\gine_causal",
+      "scores_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal",
+      "policy": "R3 policy_proposed (70 features)",
+      "affinity": "R4 affinity (20 features)",
+      "sampling": "ours_causal (models/causal_loader.py)",
+      "chosen_per_seed": [
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.5693
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.5303
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.5618
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.563
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.5221
+        }
+      ],
+      "class_b_per_seed": [
+        42,
+        44,
+        41,
+        34,
+        40
+      ],
+      "added_member_precision_per_seed": [
+        "0/0",
+        "0/0",
+        "0/0",
+        "0/0",
+        "0/0"
+      ]
+    },
+    "gine_causal/full": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\runs\\average",
+      "scores_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal",
+      "policy": "R3 policy_proposed (70 features)",
+      "affinity": "R4 affinity (20 features)",
+      "sampling": "ours_causal (models/causal_loader.py)",
+      "chosen_per_seed": [
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.6138
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.577
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.6048
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.6048
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.5632
+        }
+      ],
+      "class_b_per_seed": [
+        36,
+        37,
+        32,
+        28,
+        33
+      ],
+      "added_member_precision_per_seed": [
+        "68/74",
+        "81/87",
+        "71/75",
+        "76/82",
+        "78/86"
+      ]
+    },
+    "mega/b0": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R6_b0\\mega",
+      "scores_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R6_mega",
+      "policy": "R3 policy_proposed, unchanged (embedding cosines computed in MEGA's 192-dim space)",
+      "affinity": "R4 affinity, unchanged",
+      "sampling": "ours_causal (models/causal_loader.py)",
+      "chosen_per_seed": [
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.5404
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.5217
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.5507
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.5634
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.5435
+        }
+      ],
+      "class_b_per_seed": [
+        29,
+        35,
+        40,
+        43,
+        30
+      ],
+      "added_member_precision_per_seed": [
+        "0/0",
+        "0/0",
+        "0/0",
+        "0/0",
+        "0/0"
+      ]
+    },
+    "mega/full": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R6_full\\mega",
+      "scores_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R6_mega",
+      "policy": "R3 policy_proposed, unchanged (embedding cosines computed in MEGA's 192-dim space)",
+      "affinity": "R4 affinity, unchanged",
+      "sampling": "ours_causal (models/causal_loader.py)",
+      "chosen_per_seed": [
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.5338
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.5574
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.5636
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.5762
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.5789
+        }
+      ],
+      "class_b_per_seed": [
+        21,
+        24,
+        28,
+        24,
+        23
+      ],
+      "added_member_precision_per_seed": [
+        "83/98",
+        "91/97",
+        "92/97",
+        "86/89",
+        "70/72"
+      ]
+    },
+    "mega_noembed/full": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R6_full\\mega_noembed",
+      "scores_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R6_mega",
+      "policy": "R3 policy_no_embedding",
+      "affinity": "R4 affinity_no_embedding",
+      "sampling": "ours_causal (models/causal_loader.py)",
+      "chosen_per_seed": [
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.3,
+          "val_ring_f1": 0.503
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.5201
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.5467
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.3,
+          "val_ring_f1": 0.5595
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.538
+        }
+      ],
+      "class_b_per_seed": [
+        21,
+        25,
+        30,
+        28,
+        25
+      ],
+      "added_member_precision_per_seed": [
+        "70/103",
+        "72/80",
+        "76/85",
+        "66/67",
+        "57/60"
+      ]
+    },
+    "gfpxgb/b0": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\gfpxgb",
+      "scores_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\gfpxgb_scores",
+      "policy": "R6 policy_gfpxgb (own cross-scores, embedding group dropped)",
+      "affinity": "R6 affinity_gfpxgb (own pairs, embedding group dropped)",
+      "sampling": "n/a (no graph sampling; trailing GFP features)",
+      "chosen_per_seed": [
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.391
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.3792
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.3488
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.3792
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "max_gap_hours": null,
+          "val_ring_f1": 0.3824
+        }
+      ],
+      "class_b_per_seed": [
+        52,
+        55,
+        56,
+        53,
+        57
+      ],
+      "added_member_precision_per_seed": [
+        "0/0",
+        "0/0",
+        "0/0",
+        "0/0",
+        "0/0"
+      ]
+    },
+    "gfpxgb/full": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R6_full\\gfpxgb",
+      "scores_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\gfpxgb_scores",
+      "policy": "R6 policy_gfpxgb (own cross-scores, embedding group dropped)",
+      "affinity": "R6 affinity_gfpxgb (own pairs, embedding group dropped)",
+      "sampling": "n/a (no graph sampling; trailing GFP features)",
+      "chosen_per_seed": [
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.311
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.3252
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.3024
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 48.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.3,
+          "val_ring_f1": 0.3077
+        },
+        {
+          "seed_frac_pct": 0.1,
+          "min_size": 3,
+          "delta_t_h": 24.0,
+          "p_min": 0.7,
+          "method": "average",
+          "cut": 0.5,
+          "val_ring_f1": 0.32
+        }
+      ],
+      "class_b_per_seed": [
+        37,
+        43,
+        41,
+        36,
+        41
+      ],
+      "added_member_precision_per_seed": [
+        "122/511",
+        "109/465",
+        "125/437",
+        "159/513",
+        "114/493"
+      ]
+    }
+  }
+}

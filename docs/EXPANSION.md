@@ -161,6 +161,8 @@ state 0.14, GFP 0.12, conservation 0.07, embedding 0.03, direction and reach 0.0
 | drop embedding | 0.834 ± 0.056 | 0.782–0.907 | 1 | 225 | n_anchors 0.21, gfp_scatter_gather 0.20, score_quantile 0.18 |
 | hop-1 rows only | 0.869 ± 0.038 | 0.830–0.911 | √ | 238 | gfp_scatter_gather 0.44, score_quantile 0.27 |
 
+**These AUC-PRs compare policies, not detectors.** Step 10 (R6) trains a second policy on gfpxgb's own cross-scored train split (`experiments/R6_gfpxgb_expand/policy_gfpxgb`, embedding group dropped) and it reaches **0.924 ± 0.023** — higher than the 0.833 above. That is *not* evidence of a better policy. Each policy is scored on the candidate set its own detector generates: a different detector seeds different edges, so the rows, the positive rate and the difficulty of the ranking problem all change. Only rows within one column of the table above (same candidate set, features varied) are comparable to each other. The number that compares detectors is the ring-level one in `results/tables/r6_detector_swap.csv`.
+
 **Inference** (`ringshield/aggregators/expand.py`): per seed component (connected component of
 the thresholded edges, any size) — candidates within the *seed* window
 [min seed time − Δt, max seed time + Δt], features, p = policy; add the argmax if p ≥ p_min;

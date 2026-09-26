@@ -1,0 +1,101 @@
+experiment: training_set.parquet
+step: 6.3 expansion training set
+created_utc: '2026-09-24T18:20:23+00:00'
+git_commit: b1a28204ba6ddd11ce9883a1e53a443242a530f2
+cross_scores: experiments\R6_gfpxgb_cross
+out: experiments\R6_gfpxgb_cross\training_set.parquet
+delta_t_h: 72.0
+max_hops: 2
+seed_frac_pct: null
+ring_gt: null
+no_embed: true
+dry_run: false
+params:
+  delta_t_h: 72.0
+  max_hops: 2
+  seed_frac_pct: 0.1
+  seed_frac_source: experiments\R2_b0\gine_causal\seed1\config.yaml (chosen on val)
+  cut: strict, quantile within the edge's fold
+  membership: train parquet ring_id == test_visible on the train window
+feature_columns:
+- hop
+- gap_to_anchor_s
+- abs_gap_to_anchor_s
+- after_anchor
+- abs_gap_via_s
+- gap_to_nearest_seed_s
+- nearest_seed_before
+- n_anchors
+- n_included
+- log_amount
+- amount_below_p25
+- inc_in_sum
+- inc_out_sum
+- inc_in_cnt
+- inc_out_cnt
+- closure_before
+- closure_after
+- delta_closure
+- hold_time_s
+- cand_is_inflow
+- pair_in_out
+- pair_out_out
+- pair_in_in
+- pair_out_in
+- far_is_member
+- reach_1hop
+- reach_2hop
+- reach_count
+- far_24h_in_cnt
+- far_24h_out_cnt
+- far_24h_in_sum
+- far_24h_out_sum
+- far_24h_uniq_in
+- far_24h_uniq_out
+- far_24h_low_frac
+- far_72h_in_cnt
+- far_72h_out_cnt
+- far_72h_in_sum
+- far_72h_out_sum
+- far_72h_uniq_in
+- far_72h_uniq_out
+- far_72h_low_frac
+- shared_24h_in_cnt
+- shared_24h_out_cnt
+- shared_24h_in_sum
+- shared_24h_out_sum
+- shared_24h_uniq_in
+- shared_24h_uniq_out
+- shared_24h_low_frac
+- shared_72h_in_cnt
+- shared_72h_out_cnt
+- shared_72h_in_sum
+- shared_72h_out_sum
+- shared_72h_uniq_in
+- shared_72h_uniq_out
+- shared_72h_low_frac
+- cos_mean_included
+- cos_anchor
+- score_quantile
+- dead_region
+- gfp_fan_out
+- gfp_fan_in
+- gfp_deg_out_src
+- gfp_deg_in_src
+- gfp_deg_out_dst
+- gfp_deg_in_dst
+- gfp_scatter_gather
+- gfp_gather_scatter
+- gfp_temporal_cycle
+- gfp_cycle_length
+gfp_cols:
+- fan_out
+- fan_in
+- deg_out_src
+- deg_in_src
+- deg_out_dst
+- deg_in_dst
+- scatter_gather
+- gather_scatter
+- temporal_cycle
+- cycle_length

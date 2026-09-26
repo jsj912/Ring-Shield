@@ -1,0 +1,321 @@
+experiment: seed4
+step: 4 (R2 baselines through B0)
+created_utc: '2026-09-25T12:11:31+00:00'
+git_commit: b1a28204ba6ddd11ce9883a1e53a443242a530f2
+aggregator: cc
+aggregator_fn: ringshield.aggregators.cc.aggregate_cc
+scores_val: experiments\R6_mega\scores_val_seed4.parquet
+scores_test: experiments\R6_mega\scores_test_seed4.parquet
+labels_dir: E:\JSJ\Ring-Shield\contract\out
+ring_gt: E:\JSJ\Ring-Shield\data\processed\amlworld_ring_ground_truth.parquet
+scope: test_visible
+choose_on: val
+model_id: mega
+seed: 4
+feature_set: trailing_closescycle
+reportable: true
+selection_column: score_raw
+confidence_column: score_calibrated
+calibrated: true
+score_column_note: 'seeds are selected by a strict quantile cut on score_raw; isotonic
+  calibration is monotone but collapses the score to ~100-150 tie levels, so cutting
+  the calibrated score would drop a slice of the intended seeds at the boundary (gfpxgb:
+  264/960 at 0.1%). Calibrated scores feed confidence / max_edge_prob, XAI weights
+  and the expansion policy, not selection'
+threshold_rule: E:\JSJ\Ring-Shield\configs\threshold_rule.yaml
+objective: ring_f1
+match_threshold: 0.5
+jaccard_sweep:
+- 0.3
+- 0.7
+grid:
+  seed_frac_pct:
+  - 0.05
+  - 0.1
+  - 0.15
+  - 0.2
+  - 0.3
+  - 0.5
+  - 0.75
+  - 1.0
+  min_size:
+  - 2
+  - 3
+grid_results_val:
+- seed_frac_pct: 0.05
+  min_size: 2
+  n_rings: 184
+  ring_precision: 0.4946
+  ring_recall: 0.5796
+  ring_f1: 0.5337
+  member_coverage: 0.8753
+  n_matched: 91
+  val_q: 0.9835367229879047
+  val_n_seeds: 483
+  val_n_on_boundary: 0
+  test_q: 0.9999498369693756
+  test_n_seeds: 432
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.05
+  min_size: 3
+  n_rings: 82
+  ring_precision: 0.7927
+  ring_recall: 0.414
+  ring_f1: 0.5439
+  member_coverage: 0.8972
+  n_matched: 65
+  val_q: 0.9835367229879047
+  val_n_seeds: 483
+  val_n_on_boundary: 0
+  test_q: 0.9999498369693756
+  test_n_seeds: 432
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.1
+  min_size: 2
+  n_rings: 467
+  ring_precision: 0.2206
+  ring_recall: 0.6561
+  ring_f1: 0.3301
+  member_coverage: 0.955
+  n_matched: 103
+  val_q: 0.37256216728687286
+  val_n_seeds: 966
+  val_n_on_boundary: 0
+  test_q: 0.997564918875697
+  test_n_seeds: 864
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.1
+  min_size: 3
+  n_rings: 127
+  ring_precision: 0.6299
+  ring_recall: 0.5096
+  ring_f1: 0.5634
+  member_coverage: 0.9629
+  n_matched: 80
+  val_q: 0.37256216728687286
+  val_n_seeds: 966
+  val_n_on_boundary: 0
+  test_q: 0.997564918875697
+  test_n_seeds: 864
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.15
+  min_size: 2
+  n_rings: 879
+  ring_precision: 0.1183
+  ring_recall: 0.6624
+  ring_f1: 0.2008
+  member_coverage: 0.9652
+  n_matched: 104
+  val_q: 0.22860308919846725
+  val_n_seeds: 1449
+  val_n_on_boundary: 0
+  test_q: 0.8818662884830643
+  test_n_seeds: 1296
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.15
+  min_size: 3
+  n_rings: 150
+  ring_precision: 0.5467
+  ring_recall: 0.5223
+  ring_f1: 0.5342
+  member_coverage: 0.968
+  n_matched: 82
+  val_q: 0.22860308919846725
+  val_n_seeds: 1449
+  val_n_on_boundary: 0
+  test_q: 0.8818662884830643
+  test_n_seeds: 1296
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.2
+  min_size: 2
+  n_rings: 1266
+  ring_precision: 0.0829
+  ring_recall: 0.6688
+  ring_f1: 0.1476
+  member_coverage: 0.9703
+  n_matched: 105
+  val_q: 0.17784749579429998
+  val_n_seeds: 1932
+  val_n_on_boundary: 0
+  test_q: 0.5072984310389026
+  test_n_seeds: 1728
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.2
+  min_size: 3
+  n_rings: 184
+  ring_precision: 0.4511
+  ring_recall: 0.5287
+  ring_f1: 0.4868
+  member_coverage: 0.9744
+  n_matched: 83
+  val_q: 0.17784749579429998
+  val_n_seeds: 1932
+  val_n_on_boundary: 0
+  test_q: 0.5072984310389026
+  test_n_seeds: 1728
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.3
+  min_size: 2
+  n_rings: 2097
+  ring_precision: 0.0505
+  ring_recall: 0.6752
+  ring_f1: 0.0941
+  member_coverage: 0.9729
+  n_matched: 106
+  val_q: 0.1381308209300038
+  val_n_seeds: 2897
+  val_n_on_boundary: 0
+  test_q: 0.315738119602203
+  test_n_seeds: 2592
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.3
+  min_size: 3
+  n_rings: 251
+  ring_precision: 0.3267
+  ring_recall: 0.5223
+  ring_f1: 0.402
+  member_coverage: 0.9772
+  n_matched: 82
+  val_q: 0.1381308209300038
+  val_n_seeds: 2897
+  val_n_on_boundary: 0
+  test_q: 0.315738119602203
+  test_n_seeds: 2592
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.5
+  min_size: 2
+  n_rings: 3549
+  ring_precision: 0.0301
+  ring_recall: 0.6815
+  ring_f1: 0.0577
+  member_coverage: 0.9797
+  n_matched: 107
+  val_q: 0.10042723610997203
+  val_n_seeds: 4828
+  val_n_on_boundary: 0
+  test_q: 0.2023094511777163
+  test_n_seeds: 4320
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.5
+  min_size: 3
+  n_rings: 537
+  ring_precision: 0.1564
+  ring_recall: 0.535
+  ring_f1: 0.2421
+  member_coverage: 0.9861
+  n_matched: 84
+  val_q: 0.10042723610997203
+  val_n_seeds: 4828
+  val_n_on_boundary: 0
+  test_q: 0.2023094511777163
+  test_n_seeds: 4320
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.75
+  min_size: 2
+  n_rings: 4460
+  ring_precision: 0.024
+  ring_recall: 0.6815
+  ring_f1: 0.0464
+  member_coverage: 0.9797
+  n_matched: 107
+  val_q: 0.08118667259812357
+  val_n_seeds: 7242
+  val_n_on_boundary: 0
+  test_q: 0.14967718500644003
+  test_n_seeds: 6480
+  test_n_on_boundary: 0
+- seed_frac_pct: 0.75
+  min_size: 3
+  n_rings: 1452
+  ring_precision: 0.0579
+  ring_recall: 0.535
+  ring_f1: 0.1044
+  member_coverage: 0.9861
+  n_matched: 84
+  val_q: 0.08118667259812357
+  val_n_seeds: 7242
+  val_n_on_boundary: 0
+  test_q: 0.14967718500644003
+  test_n_seeds: 6480
+  test_n_on_boundary: 0
+- seed_frac_pct: 1.0
+  min_size: 2
+  n_rings: 4917
+  ring_precision: 0.0216
+  ring_recall: 0.6752
+  ring_f1: 0.0418
+  member_coverage: 0.9795
+  n_matched: 106
+  val_q: 0.0699886344373227
+  val_n_seeds: 9656
+  val_n_on_boundary: 0
+  test_q: 0.12470862753689294
+  test_n_seeds: 8639
+  test_n_on_boundary: 0
+- seed_frac_pct: 1.0
+  min_size: 3
+  n_rings: 2044
+  ring_precision: 0.0406
+  ring_recall: 0.5287
+  ring_f1: 0.0754
+  member_coverage: 0.9859
+  n_matched: 83
+  val_q: 0.0699886344373227
+  val_n_seeds: 9656
+  val_n_on_boundary: 0
+  test_q: 0.12470862753689294
+  test_n_seeds: 8639
+  test_n_on_boundary: 0
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  max_gap_hours: null
+  val_ring_f1: 0.5634
+scope_windows:
+  val:
+  - 518410
+  - 691150
+  test:
+  - 691210
+  - 1527490
+dry_run: false
+eval_window: E:\JSJ\Ring-Shield\configs\eval_window.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 6
+    - 7
+    bounds:
+    - 518410
+    - 691209
+  primary:
+    name: primary
+    split: test
+    days:
+    - 8
+    - 9
+    bounds:
+    - 691210
+    - 864009
+  tail:
+    name: tail
+    split: test
+    days:
+    - 10
+    - 17
+    bounds:
+    - 864010
+    - 1555209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 8
+    - 17
+    bounds:
+    - 691210
+    - 1555209
+primary_block: primary
+n_val_truth_rings: 157

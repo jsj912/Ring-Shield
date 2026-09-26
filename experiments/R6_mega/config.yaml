@@ -1,0 +1,97 @@
+experiment: R6_mega
+step: 10 (R6 detector swap)
+model_id: mega
+model: MEGA-GNN / MultiMPNN (MEGA-GIN)
+created_utc: '2026-09-25T12:02:14+00:00'
+git_commit: b1a28204ba6ddd11ce9883a1e53a443242a530f2
+upstream:
+  repo: https://github.com/hcagri/MEGA-GNN
+  commit: ef60a7155460755513b52bd52995dbee5045a1f7
+  license: Apache-2.0
+  model_code_edited: false
+  shims:
+  - ports_cpp (pure python; unused -- their AML command has no --ports)
+  - negative_sampling (stub; link-prediction task only)
+params:
+  lr: 0.003213266113989207
+  n_hidden: 64
+  n_mlp_layers: 1
+  n_gnn_layers: 2
+  loss: ce
+  w_ce1: 1.0000182882773443
+  w_ce2: 6.275014431494497
+  norm_method: z_normalize
+  dropout: 0.00983468338330501
+  final_dropout: 0.10527690625126304
+flags:
+  model: gin
+  task: edge_class
+  emlps: true
+  reverse_mp: true
+  ego: true
+  flatten_edges: true
+  edge_agg_type: gin
+  node_agg_type: sum
+  ports: false
+  ports_batch: false
+  tds: false
+  reverse_mp_lp: false
+  adamm_hetero: false
+seeds:
+- 1
+- 2
+- 3
+- 4
+- 5
+epochs: 80
+patience: 20
+batch_size: 8192
+num_neighbors:
+- 100
+- 100
+causal_sampling: true
+loader_route: ours_fallback
+loader_window_s: 1800
+deviations_from_upstream:
+- early stopping on val minority-F1 (patience 20, R1's rule) inside their published
+  80-epoch budget, instead of a fixed 80
+- our causal loader (models/causal_loader.py) in place of their LinkNeighborLoader
+  call -- same loader class, temporal guarantee added
+- simp_edge_batch recomputed per batch after the causal filter (equivalent grouping)
+- seeds 1-5 from configs/seeds.yaml instead of their single seed
+data:
+  source: data/raw/formatted_transactions.csv (the file our own detector reads)
+  split: their get_data, asserted identical to amlworld_{train,val,test}.parquet
+  label_informed_preprocessing: false
+calibration: models/calibrate.py --scores-dir <out-dir> (isotonic, fit on val only)
+summary:
+- seed: 1
+  best_val_f1: 0.5724828676858197
+  best_epoch: 26
+  epochs_run: 46
+  mean_epoch_time_s: 237.6
+- seed: 2
+  best_val_f1: 0.5642042637580565
+  best_epoch: 16
+  epochs_run: 36
+  mean_epoch_time_s: 235.8
+- seed: 3
+  best_val_f1: 0.6060279870828849
+  best_epoch: 27
+  epochs_run: 47
+  mean_epoch_time_s: 236.0
+- seed: 4
+  best_val_f1: 0.6518678938819708
+  best_epoch: 62
+  epochs_run: 80
+  mean_epoch_time_s: 234.2
+- seed: 5
+  best_val_f1: 0.6222486615110053
+  best_epoch: 39
+  epochs_run: 59
+  mean_epoch_time_s: 233.6
+seconds: 64804.299999999996
+run_note: run in two invocations -- seed 1 first (11,336 s) as a correctness check,
+  then seeds 2-5 (53,468 s); this config.yaml was rebuilt from metrics_seed<S>.json
+  so it covers all five. Seed 4 reached the 80-epoch cap; the others early-stopped
+  at 36-59.
