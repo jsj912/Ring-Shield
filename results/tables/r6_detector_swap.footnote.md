@@ -44,8 +44,11 @@ result.
 
 **4. class (b) is where the detectors actually differ**, and it is the one column that moves:
 33.2 → **24.0** untouched rings when MEGA replaces our detector, against combined SDs of ~3.1.
-Matched rings rise only 80.2 → 83.6, so roughly two thirds of the newly reached rings land in the
-partially-covered classes rather than becoming matches. See `FINDINGS.md` B8 — the 19 % untouched
+Decomposed against the full class breakdown, **6.4 of those 9.2 newly reached rings (70 %) become
+matches** and 2.8 stay partially covered; the net matched count rises only 80.2 → 83.6 because MEGA
+separately loses ~3.0 matches among rings below `min_size`. Among touched-but-unmatched rings,
+over-merging grows (9.6 → 14.4) while under-coverage nearly vanishes (2.4 → 0.4): the residual loss is
+a partition problem, not a reach problem. See `FINDINGS.md` B11. See `FINDINGS.md` B8 — the 19 % untouched
 figure is a property of the detector, not of the dataset.
 
 ## Two cautions about reading this table
@@ -62,7 +65,9 @@ adding **2,419 edges at 0.260 precision**, against MEGA's 453 at 0.932 — five 
 a quarter of the accuracy, with runs producing up to 153 rings and clusters of 53 members. Half
 its seed edges (`seed_edges_off_ring_share` 0.499) are not on a truth-ring edge at all, against
 0.214 for gine and 0.112 for MEGA. A weak detector's seeds chain through the expansion; the
-headline quiet-recall number for gfpxgb should not be quoted without the precision beside it.
+headline quiet-recall number for gfpxgb should not be quoted without the precision beside it. **This is the
+boundary condition on our own method: expansion amplifies a weak seed set rather than rescuing it** — the
+stage is only worth running on a detector whose seeds are mostly on-ring to begin with.
 
 ## Detector provenance
 
