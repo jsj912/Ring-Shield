@@ -62,6 +62,12 @@ def classify(rings: list[Ring], se: pd.DataFrame, truth: dict, patterns: dict, w
     matched = {m.truth_id for m in matches}
     ts = se.set_index("edge_id")["timestamp"]
     in_win = set(ts.index[window.mask(ts.values)].tolist())
+    # `restrict_rings` DROPS predictions with no member edge inside the window, so positions in
+    # `pred` are not positions in `rings`. Rebuild the same filter to map one to the other; without
+    # this, `pred[i]` below reads a different prediction than the ring `touch[i]` describes.
+    kept = [i for i, r in enumerate(rings) if any(e in in_win for e in r.member_edges)]
+    assert len(kept) == len(pred), f"restriction map {len(kept)} != restricted predictions {len(pred)}"
+    pred_pos = {orig: j for j, orig in enumerate(kept)}
     touch = []                                   # accounts of each prediction's INCLUDED edges inside the window
     frm, to = se.set_index("edge_id")["from_id"], se.set_index("edge_id")["to_id"]
     for r in rings:
@@ -84,8 +90,9 @@ def classify(rings: list[Ring], se: pd.DataFrame, truth: dict, patterns: dict, w
         if not hits:
             rows.append({"ring_id": tid, "pattern_type": pat, "n_members": len(accs), "klass": "b_untouched", "best_jaccard": 0.0})
             continue
-        best_j = max((len(pred[i] & accs) / len(pred[i] | accs)) if i < len(pred) else 0.0 for i in hits)
-        over = any(len({t for a in pred[i] for t in tacc.get(a, set())} - {tid}) > 0 for i in hits if i < len(pred))
+        hit_pos = [pred_pos[i] for i in hits if i in pred_pos]
+        best_j = max((len(pred[j] & accs) / len(pred[j] | accs)) for j in hit_pos) if hit_pos else 0.0
+        over = any(len({t for a in pred[j] for t in tacc.get(a, set())} - {tid}) > 0 for j in hit_pos)
         rows.append({"ring_id": tid, "pattern_type": pat, "n_members": len(accs),
                      "klass": "c_over_merged" if over else "c_under_covered", "best_jaccard": round(best_j, 4)})
     return pd.DataFrame(rows)

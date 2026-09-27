@@ -40,6 +40,8 @@ from ringshield.expand.index import SplitIndex  # noqa: E402
 from ringshield.expand.make_training_set import fold_seed_mask  # noqa: E402
 from ringshield.expand.policy import LGB_PARAMS  # noqa: E402
 from ringshield.partition.pairs import PAIR_FEATURES, components_of, pair_features  # noqa: E402
+from ringshield.holdout import Holdout  # noqa: E402
+from ringshield.holdout import add_argument as _add_holdout_argument  # noqa: E402
 from ringshield.run_rings import _git_commit, write_environment  # noqa: E402
 from ringshield.scored_edges import build_scored_edges  # noqa: E402
 
@@ -78,6 +80,7 @@ def main(argv=None):
     ap.add_argument("--policy-json", type=Path, default=POLICY)
     ap.add_argument("--p-min", type=float, default=None, help="default: the R3 proposed seed-1 run's val-chosen p_min")
     ap.add_argument("--seed-frac-pct", type=float, default=0.1)
+    _add_holdout_argument(ap)
     ap.add_argument("--no-embed", action="store_true")
     args = ap.parse_args(argv)
     t_start = time.time()
@@ -92,6 +95,16 @@ def main(argv=None):
     seed_mask, fold_rows = fold_seed_mask(cross, args.seed_frac_pct)
     idx = SplitIndex.build(se)
     tr = pd.read_parquet(paths["processed_dir"] / "amlworld_train.parquet", columns=["EdgeID", "ring_id"]).set_index("EdgeID")["ring_id"]
+    # Step 11 (R7): a held-out ring's edges keep their place in the graph, the components and the
+    # candidate pool -- only their ring identity is withheld. Every PAIR touching such an edge is
+    # then DROPPED (below, after pair_features). Zeroing the ring id instead would label those pairs
+    # "different rings", which is the opposite of the truth and would actively teach the affinity
+    # to split the held-out pattern apart.
+    holdout = Holdout.load(getattr(args, "hold_out_pattern", None), processed_dir=paths["processed_dir"])
+    held_edges = holdout.edge_ids(("train",)) if holdout.is_active else set()
+    if holdout.is_active:
+        print(f"[pairs] HOLD-OUT {holdout.pattern}: {len(held_edges)} train member edges of "
+              f"{len(holdout.ring_ids)} rings; every pair touching one is dropped")
     gfp = pd.read_parquet(paths["processed_dir"] / "amlworld_gfp_features_train.parquet").set_index("EdgeID")
     gfp = gfp.reindex(idx.edge_id)[[c for c in gfp.columns]].to_numpy(np.float32)
     print(f"[pairs] train: {len(se):,} edges, seeds {int(seed_mask.sum()):,} (within-fold {args.seed_frac_pct} %)")
@@ -152,11 +165,20 @@ def main(argv=None):
     t0 = time.time()
     P = pair_features(idx, gfp, inc_pos, is_seed, comp, emb_of=emb_of, ring_id=ring_id)
     P["fold_a"] = fold_by_pos.loc[idx.pos_of(P["edge_a"].to_numpy())].to_numpy() if not args.no_embed else -1
+    n_dropped_pairs = 0
+    if holdout.is_active and held_edges:
+        held = np.fromiter(held_edges, dtype=np.int64, count=len(held_edges))
+        touches = (np.isin(P["edge_a"].to_numpy(np.int64), held) | np.isin(P["edge_b"].to_numpy(np.int64), held))
+        n_dropped_pairs = int(touches.sum())
+        P = P.loc[~touches].reset_index(drop=True)
+        print(f"[pairs] HOLD-OUT {holdout.pattern}: {n_dropped_pairs:,} pairs dropped "
+              f"({len(P):,} remain, {int(P['label'].sum()):,} positive)")
     P.to_parquet(args.out / "pairs_train.parquet", index=False)
     n, n_pos = len(P), int(P["label"].sum())
     comp_pairs = P.groupby("component")["label"].agg(["size", "sum", "mean"])
     roles = {r: int(P[f"role_{r}"].sum()) for r in ("source", "sink", "mule", "other")}
     stats = {"created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "git_commit": _git_commit(),
+             **holdout.summary(), "n_pairs_dropped_by_holdout": n_dropped_pairs,
              "inputs": {"cross_scores": str(xs), "training_set": str(args.training_set), "policy_json": str(args.policy_json), "p_min": p_min,
                         "seed_frac_pct": args.seed_frac_pct, "seeds_per_fold": fold_rows},
              "included": {"n": int(len(inc)), "n_seeds": int(is_seed.sum()), "n_expanded": int((~is_seed).sum()), "n_expanded_member": n_added_pos,

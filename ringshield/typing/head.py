@@ -33,6 +33,8 @@ from contract.schema import TOPOLOGY_TYPES  # noqa: E402
 from ringshield.typing.features import RING_FEATURES  # noqa: E402
 from ringshield.typing.rules import rule_type  # noqa: E402
 from ringshield.typing.truth_rings import truth_ring_rows  # noqa: E402
+from ringshield.holdout import Holdout  # noqa: E402
+from ringshield.holdout import add_argument as _add_holdout_argument  # noqa: E402
 
 LGB_PARAMS = {"objective": "multiclass", "num_class": len(TOPOLOGY_TYPES), "metric": "multi_logloss",
               "learning_rate": 0.05, "max_depth": 6, "num_leaves": 31, "min_child_samples": 5,
@@ -151,8 +153,20 @@ def main(argv=None):
     ap.add_argument("--recovered", type=Path, default=None,
                     help="optional parquet of recovered train rings (ring_id, pattern_type + RING_FEATURES) to add")
     ap.add_argument("--seed", type=int, default=1)
+    _add_holdout_argument(ap)
     args = ap.parse_args(argv)
     rows = truth_ring_rows("train", min_members=args.min_members, window_days=args.window_days)
+    # Step 11 (R7): the held-out pattern leaves the typing head's label set entirely. Note in the
+    # report that a classifier cannot emit a class it was never shown -- for typing, a held-out type
+    # is unrecoverable by construction, so its row measures the cost of the omission, not transfer.
+    holdout = Holdout.load(getattr(args, "hold_out_pattern", None))
+    if holdout.is_active:
+        n_before = len(rows)
+        rows = holdout.drop_rings(rows, "ring_id")
+        holdout.assert_absent(rows, ring_col="ring_id", where="typing head training rings")
+        assert (rows["pattern_type"] != holdout.pattern).all(), "held-out pattern still in the typing labels"
+        print(f"[typing] HOLD-OUT {holdout.pattern}: {n_before - len(rows)} training rings removed "
+              f"({len(rows)} remain, classes {sorted(rows['pattern_type'].unique())})")
     rows["source"] = "truth"
     if args.recovered and Path(args.recovered).exists():
         rec = pd.read_parquet(args.recovered)

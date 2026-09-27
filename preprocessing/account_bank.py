@@ -26,11 +26,34 @@ ACCOUNT_BANK_COLUMNS = ["account_id", "bank_code", "account_number"]
 DRY_RUN_FRAC = 0.01
 
 
-def load_paths(paths_yaml: Path = REPO_ROOT / "configs" / "paths.yaml") -> dict:
-    """configs/paths.yaml with path-valued entries resolved against the repo root."""
+NON_PATH_KEYS = {"dataset"}
+
+
+def load_paths(paths_yaml: Path | None = None) -> dict:
+    """configs/paths.yaml with path-valued entries resolved against the repo root.
+
+    Step 11 (R7): with no explicit file, `$RINGSHIELD_PATHS` selects the paths file, so a second
+    dataset runs the *same commands* against its own raw / processed directories instead of
+    overwriting the first one's. Unset (the default) means `configs/paths.yaml`, exactly as before.
+    """
+    if paths_yaml is None:
+        import os
+        env = os.environ.get("RINGSHIELD_PATHS")
+        paths_yaml = Path(env) if env else REPO_ROOT / "configs" / "paths.yaml"
+        if not Path(paths_yaml).is_absolute():
+            paths_yaml = REPO_ROOT / paths_yaml
     with open(paths_yaml) as f:
         cfg = yaml.safe_load(f)
-    return {k: (REPO_ROOT / v if isinstance(v, str) else v) for k, v in cfg.items()}
+    # `dataset` is a release NAME, not a path, so it must not be resolved against the repo root.
+    return {k: (REPO_ROOT / v if isinstance(v, str) and k not in NON_PATH_KEYS else v)
+            for k, v in cfg.items()}
+
+
+def raw_file(suffix: str, paths: dict | None = None) -> Path:
+    """<raw_dir>/<dataset><suffix>, e.g. raw_file("_Trans.csv"). `dataset` defaults to HI-Small,
+    so a paths file written before Step 11 resolves exactly as it always did."""
+    paths = paths or load_paths()
+    return paths["raw_dir"] / f"{paths.get('dataset', 'HI-Small')}{suffix}"
 
 
 def build_account_bank_map(raw_trans_csv: Path, accounts_csv: Path | None = None,
@@ -82,8 +105,8 @@ def load_account_bank_map(path: Path | None = None, *, raw_trans_csv: Path | Non
     paths = load_paths()
     path = Path(path) if path else paths["account_bank_map"]
     if not path.exists():
-        raw_trans_csv = Path(raw_trans_csv) if raw_trans_csv else paths["raw_dir"] / "HI-Small_Trans.csv"
-        accounts_csv = Path(accounts_csv) if accounts_csv else paths["raw_dir"] / "HI-Small_accounts.csv"
+        raw_trans_csv = Path(raw_trans_csv) if raw_trans_csv else raw_file("_Trans.csv", paths)
+        accounts_csv = Path(accounts_csv) if accounts_csv else raw_file("_accounts.csv", paths)
         amap = build_account_bank_map(raw_trans_csv, accounts_csv)
         path.parent.mkdir(parents=True, exist_ok=True)
         amap.to_parquet(path, index=False)
@@ -100,8 +123,8 @@ def bank_of_series(amap: pd.DataFrame) -> pd.Series:
 def main(argv=None):
     paths = load_paths()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--raw-trans-csv", type=Path, default=paths["raw_dir"] / "HI-Small_Trans.csv")
-    ap.add_argument("--accounts-csv", type=Path, default=paths["raw_dir"] / "HI-Small_accounts.csv")
+    ap.add_argument("--raw-trans-csv", type=Path, default=raw_file("_Trans.csv", paths))
+    ap.add_argument("--accounts-csv", type=Path, default=raw_file("_accounts.csv", paths))
     ap.add_argument("--out", type=Path, default=paths["account_bank_map"])
     ap.add_argument("--dry-run", action="store_true", help=f"first {DRY_RUN_FRAC:.0%} of raw rows")
     args = ap.parse_args(argv)

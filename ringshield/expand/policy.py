@@ -38,6 +38,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from ringshield.expand.features import FEATURE_COLUMNS, FEATURE_GROUPS  # noqa: E402
+from ringshield.holdout import Holdout  # noqa: E402
+from ringshield.holdout import add_argument as _add_holdout_argument  # noqa: E402
 
 KINDS = ("model", "rule", "rule_q")
 Q_MIN = 0.99
@@ -192,9 +194,13 @@ def main(argv=None):
     ap.add_argument("--drop-feature-group", choices=sorted(FEATURE_GROUPS), nargs="*", default=[])
     ap.add_argument("--hop1-only", action="store_true")
     ap.add_argument("--seed", type=int, default=1)
+    _add_holdout_argument(ap)
     ap.add_argument("--dry-run", action="store_true", help="5 %% of the rows (all positives kept); pipeline check")
     args = ap.parse_args(argv)
     ts = pd.read_parquet(args.training_set)
+    Holdout.load(getattr(args, "hold_out_pattern", None)).assert_absent(
+        ts, ring_col="ring_id", label_col="label", edge_col="candidate_edge_id",
+        where="expansion policy training set")
     if args.dry_run:
         ts = pd.concat([ts[ts["label"] == 1], ts[ts["label"] == 0].sample(frac=0.05, random_state=args.seed)])
     print(f"[policy] {len(ts):,} rows, {int(ts['label'].sum())} positives, {ts['ring_id'].nunique()} rings; "

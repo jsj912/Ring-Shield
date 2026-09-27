@@ -166,11 +166,13 @@ members but no included edge (seed or expanded) of any prediction touches one of
 **(c)** touched but Jaccard < 0.5, split into *over-merged* (the covering prediction also holds
 accounts of another truth ring) and *under-covered* (it does not). Mean per detector seed, 5 seeds:
 
+> **Corrected 2026-09-27.** The (c) split below was recomputed after a bug fix in `evaluation/unmatched_rings.py::classify`, which indexed the window-restricted prediction list with unrestricted indices (`restrict_rings` drops out-of-window predictions, 108 → 94 on a typical seed). Only the over-merged / under-covered **split** was affected; `matched`, (a) and (b) are computed without that lookup and are unchanged. Regression test: `tests/test_partition.py::test_classify_maps_restricted_prediction_indices`.
+
 | window | method | truth rings | matched | (a) < 3 members | (b) untouched | (c) over-merged | (c) under-covered |
 |---|---|---|---|---|---|---|---|
-| **primary** | B0 (cc) | 174 | 66.8 | 52.0 | 40.2 | 10.8 | 4.2 |
-| | B2 (expand, components) | 174 | 77.6 | 52.0 | 33.2 | 9.2 | 2.0 |
-| | **full** (expand + partition) | 174 | **80.2** | 48.6 | 33.2 | 9.6 | 2.4 |
+| **primary** | B0 (cc) | 174 | 66.8 | 52.0 | 40.2 | 5.0 | 10.0 |
+| | B2 (expand, components) | 174 | 77.6 | 52.0 | 33.2 | 5.2 | 6.0 |
+| | **full** (expand + partition) | 174 | **80.2** | 48.6 | 33.2 | 5.2 | 6.8 |
 | **val** | B0 (cc) | 157 | 72.4 | 42.6 | 23.2 | 11.8 | 7.0 |
 | | B2 | 157 | 78.6 | 42.6 | 15.0 | 11.8 | 9.0 |
 | | **full** | 157 | **86.2** | 39.6 | 15.0 | 7.2 | 9.0 |
@@ -182,9 +184,13 @@ ring from 2 to ≥ 3 visible members). **(b) is the next 19 %** and is a detecto
 rings have ≥ 3 members (mean 5.8, median 4, max 14 on primary) and *no* seed or expanded edge
 lands on any of their accounts. Expansion converts 7 rings per seed from (b) to matched; the
 partition converts none — by construction it only re-cuts what is already included. **(c) is
-12 per seed on primary**, of which the partition can only act on the over-merged 9.6, and it does:
-val over-merged falls 11.8 → 7.2 (−39 %). On primary the same step moves 9.2 → 9.6 (it splits
-some merges and creates others), which is the precision loss of check 3 in a second view.
+12 per seed on primary**, of which the partition can only act on the over-merged 5.2, and on val
+it does: val over-merged falls 11.8 → 7.2 (−39 %). On primary the same step leaves over-merging
+where it found it (B2 5.2 → full 5.2) and adds 0.8 under-covered rings (6.0 → 6.8) — it splits
+some merges and over-splits others, which is the precision loss of check 3 in a second view.
+Note that on the primary window under-coverage (6.8) is the *larger* half of (c), not the
+smaller: most touched-but-unmatched rings are partially covered rather than fused with a
+neighbour, and the partition cannot help those at all.
 
 Correction to the earlier decomposition in this file: the line "76 truth rings no prediction
 touches (median size 2)" mixed classes (a) and (b) — classes (a) and (b) together are 85 per seed
@@ -275,3 +281,124 @@ partitioning the plain seed components without expansion is worth **+0.015 ring-
 Artefacts: `experiments/R4_partition/{pairs_train.parquet,pairs_train.json,affinity/,runs/<method>/seed<S>/}`,
 `results/tables/r4_partition.csv`, `models/artifacts/full_gine_causal_seed1/` (export of the
 average seed-1 run; CLI `run --aggregator full --gfp … --embeddings …`). Tests: `tests/test_partition.py`.
+
+---
+
+## Pre-registration — the partition question, re-asked on a detector where the mechanism is common
+
+**Written 2026-09-27, before any MEGA partition run existed.**
+
+Step 7's partition null (`FINDINGS.md` B3: Δ matched rate +0.015 [−0.002, +0.036], p_holm 0.49)
+was measured on `gine_causal`, where the mechanism partitioning targets is rare: only ~4
+predictions per seed held more than one truth ring. Step 10's B11 shows that on MEGA the same
+residual class is **58 % more common** -- `c_over_merged` 5.2 → 8.2 per seed, while
+`c_under_covered` is flat (6.8 → 6.6). So a stronger detector's *extra* residual rings are
+specifically over-merges (+3.0) rather than partial coverage (−0.2), and over-merging is what the
+partition stage exists to undo. (Both figures are post-fix; see the correction note above.)
+
+So the honest current statement is not "partitioning does not help" but **"partitioning did not
+help on our shipped detector, where the mechanism it targets is rare"**. That is a testable
+distinction and it costs about an hour.
+
+### The test
+
+`mega/full` (expansion + average-linkage partition at the val-chosen cut) against `mega/b2`
+(the same expanded subgraph, no partition) -- the identical pair Step 7 pre-registered as
+`full_vs_b2`, so the two results are directly comparable. Five detector seeds, primary window,
+every L3 parameter val-chosen per seed as before.
+
+* **Primary:** paired sign-flip test on per-ring matched indicators, 10,000 permutations.
+* **Secondary, and necessary:** bootstrap CIs on **ring precision** and ring-F1. `FINDINGS.md`
+  section B's standing caveat applies — the paired test is blind to precision, and a partition
+  stage that splits over-merged predictions apart should move precision first. Reading only the
+  matched-indicator p-value here would be the exact mistake that caveat warns about.
+
+### The prediction
+
+**Partitioning helps more on MEGA than on gine_causal**: Δ(mega) > Δ(gine) = +0.015 on matched
+rate, and MEGA's ring-precision gain from partitioning exceeds gine's. The reasoning is mechanical
+rather than hopeful — 8.2 over-merged rings per seed is 58 % more raw material than 5.2.
+
+* **If it holds**, the project has a *conditional* method result — the partition stage pays off in
+  proportion to how much over-merging the detector produces — and an explanation for why Step 7
+  looked flat. B3 would be restated as conditional, not withdrawn.
+* **If it does not hold**, the Step 7 null is **stronger** for having been tested where the
+  mechanism lives, and is reported as such.
+
+Either way B3 keeps its number and its p-value; this adds a second row, it does not retract the
+first.
+
+### Result (2026-09-27)
+
+Five MEGA seeds, `mega/b2` run with the identical settings, paired sign-flip on matched indicators
+(10,000 permutations) and paired bootstrap over truth rings for the rate metrics. Holm across the
+two pre-registered comparisons.
+
+| detector | metric | `full` | `b2` | Δ [95 % CI] | p (raw) |
+|---|---|---|---|---|---|
+| gine_causal | matched rate | 0.4609 | 0.4460 | **+0.0149** [−0.0023, +0.0356] | 0.164 |
+| | ring precision | 0.8184 | 0.8382 | **−0.0198** [−0.0481, +0.0059] | 0.155 |
+| | ring-F1 | 0.5894 | 0.5819 | +0.0075 [−0.0128, +0.0251] | 0.472 |
+| **mega** | matched rate | 0.4805 | 0.4632 | **+0.0172** [+0.0057, +0.0322] | **0.0053** |
+| | ring precision | 0.8285 | 0.8431 | **−0.0145** [−0.0326, +0.0014] | 0.082 |
+| | ring-F1 | 0.6074 | 0.5976 | +0.0099 [−0.0031, +0.0207] | 0.139 |
+
+With Holm across the two, MEGA's matched-rate gain is **p_holm ≈ 0.011** — distinguishable from
+zero. Gine's is not.
+
+**Prediction 1 (Δ larger on MEGA): technically true, substantively not.** +0.0172 against +0.0149
+is a difference of 0.0023, far inside seed noise. What actually differs is the *interval*: MEGA's
+is [+0.0057, +0.0322] against gine's [−0.0023, +0.0356]. **The effect is the same size on both
+detectors; MEGA's estimate is less noisy, so the same effect clears significance.** Reporting this
+as "partitioning helps more on MEGA" would be wrong, and it is the reading the pre-registration
+invited.
+
+**Prediction 2 (ring-precision gain, larger on MEGA): failed.** Partitioning *costs* precision on
+both — −0.0198 on gine, −0.0145 on MEGA. The recall it buys is paid for in precision, which is why
+ring-F1 moves by less than a point on either and is significant on neither.
+
+**The mechanism prediction, which was the real question: confirmed.** Decomposing b2 → full:
+
+| | matched | (a) < 3 members | (b) untouched | (c) over-merged | (c) under-covered |
+|---|---|---|---|---|---|
+| gine b2 | 77.6 | 52.0 | 33.2 | **5.2** | 6.0 |
+| gine full | 80.2 | 48.6 | 33.2 | **5.2** | 6.8 |
+| mega b2 | 80.6 | 53.4 | 24.0 | **9.8** | 6.2 |
+| mega full | 83.6 | 51.6 | 24.0 | **8.2** | 6.6 |
+
+On MEGA, where over-merging is common at b2 (9.8/seed), the partition **removes 1.6 of them**. On
+gine, where it is rare (5.2), the partition removes **none** — its matched gain comes almost
+entirely from elsewhere, the (a) class falling 52.0 → 48.6 as re-cutting lets a sub-`min_size` ring
+match a fragment.
+
+So the stage does exactly what it was designed to do, **but only on a detector that produces the
+thing it fixes**, and on our shipped detector its aggregate benefit is a side effect rather than its
+design purpose. That is a sharper statement than either branch the pre-registration anticipated.
+
+### A limitation of the evaluation, not only of the method
+
+Part of the partition's benefit is an **interaction with `min_size` and the matching threshold**,
+not better attempt separation. On our detector the b2 → full matched gain arrives with the (a)
+class falling **52.0 → 48.6**: re-cutting produces *smaller* predictions, and a smaller prediction
+can clear Jaccard 0.5 against a small truth ring that a larger one missed. That is a legitimate
+match under this protocol — but a reader should know where the gain comes from.
+
+The τ sweep, which is already reported and was never tuned, measures exactly this. `full` minus
+`b2` on the primary window:
+
+| Jaccard τ | Δ ring recall | Δ ring precision | Δ ring-F1 |
+|---|---|---|---|
+| 0.3 | **+0.0241** | −0.0047 | **+0.0190** |
+| **0.5** (reported) | +0.0149 | −0.0198 | +0.0075 |
+| 0.7 | **+0.0011** | −0.0385 | **−0.0087** |
+
+**The gain is threshold-dependent and disappears as matching tightens.** At τ = 0.7, where a match
+demands genuine agreement between the predicted and true member sets, partitioning delivers
+**+0.001 recall** — nothing — and a **negative** F1 change, because the precision cost grows as the
+recall gain shrinks.
+
+The honest summary of the stage across both detectors: **it buys recall at a loose matching
+threshold and pays for it in precision at every threshold.** It removes over-merges where they
+exist (MEGA, 9.8 → 8.2) and produces smaller predictions everywhere, and the second effect is what
+carries its number on our shipped detector. Anyone quoting the +0.015 should quote the τ = 0.7 row
+beside it.

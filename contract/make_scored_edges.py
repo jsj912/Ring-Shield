@@ -47,7 +47,8 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from preprocessing.account_bank import bank_of_series, load_account_bank_map  # noqa: E402
+from preprocessing.account_bank import (bank_of_series, load_account_bank_map,  # noqa: E402,F401
+                                        load_paths, raw_file)
 from contract.schema import (  # noqa: E402
     LABELS_COLUMNS,
     LABELS_ORDER,
@@ -61,11 +62,10 @@ from contract.schema import (  # noqa: E402
 DRY_RUN_FRAC = 0.01
 
 
-def load_paths(paths_yaml: Path = REPO_ROOT / "configs" / "paths.yaml") -> dict:
-    """configs/paths.yaml with path-valued entries resolved against the repo root."""
-    with open(paths_yaml) as f:
-        cfg = yaml.safe_load(f)
-    return {k: (REPO_ROOT / v if isinstance(v, str) else v) for k, v in cfg.items()}
+# `load_paths` used to be defined here as a second copy, which meant the ten modules importing it
+# from this file did NOT honour $RINGSHIELD_PATHS and resolved the `dataset` key as a path. It is now
+# re-exported from the single definition in preprocessing/account_bank.py; the import site
+# `from contract.make_scored_edges import load_paths` still works unchanged. (Step 11, 2026-09-27)
 
 
 def git_commit() -> str:
@@ -109,7 +109,7 @@ def make_scored_edges(
     """
     preds_csv, test_parquet, accounts_csv, out_path = map(Path, (preds_csv, test_parquet, accounts_csv, out_path))
     paths = load_paths()
-    raw_trans_csv = Path(raw_trans_csv) if raw_trans_csv else paths["raw_dir"] / "HI-Small_Trans.csv"
+    raw_trans_csv = Path(raw_trans_csv) if raw_trans_csv else raw_file("_Trans.csv", paths)
     account_map_cache = Path(account_map_cache) if account_map_cache else paths["account_bank_map"]
     labels_path = Path(labels_path) if labels_path else out_path.parent / (
         "labels_test_dryrun.parquet" if dry_run else "labels_test.parquet")
@@ -250,8 +250,8 @@ def main(argv=None):
     ap.add_argument("--model-id", required=True, help="e.g. gine")
     ap.add_argument("--seed", type=int, required=True, help="seed the predictions were produced with")
     ap.add_argument("--test-parquet", type=Path, default=paths["processed_dir"] / "amlworld_test.parquet")
-    ap.add_argument("--accounts-csv", type=Path, default=paths["raw_dir"] / "HI-Small_accounts.csv")
-    ap.add_argument("--raw-trans-csv", type=Path, default=paths["raw_dir"] / "HI-Small_Trans.csv")
+    ap.add_argument("--accounts-csv", type=Path, default=raw_file("_accounts.csv", paths))
+    ap.add_argument("--raw-trans-csv", type=Path, default=raw_file("_Trans.csv", paths))
     ap.add_argument("--out", type=Path, default=None,
                     help="default contract/out/scored_edges_<model>_<seed>.parquet")
     ap.add_argument("--dry-run", action="store_true", help=f"process a {DRY_RUN_FRAC:.0%} sample of rows")

@@ -44,6 +44,8 @@ from torch_geometric.transforms import BaseTransform
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from models.causal_loader import ROUTE as LOADER_ROUTE, WINDOW_S, make_loader, seed_mask  # noqa: E402
+from ringshield.holdout import TRAINING_SPLITS, Holdout  # noqa: E402
+from ringshield.holdout import add_argument as _add_holdout_argument  # noqa: E402
 
 DRY_RUN_FRAC = 0.01
 
@@ -267,6 +269,16 @@ def load_data(raw_dir, data_dir, args):
         print(f"  DRY RUN: {len(df)} rows ({DRY_RUN_FRAC:.0%}, seed {seed}); node table kept at {max_n_id} ids")
     timestamps = torch.tensor(df["Timestamp"].values, dtype=torch.float32)
     y = torch.tensor(df["Is Laundering"].values, dtype=torch.long)
+
+    # Step 11 (R7): hold a whole pattern type out of TRAINING. Its edges keep their place in the
+    # graph and in the test labels; only the train+val labels are zeroed, so the detector is never
+    # taught the pattern it will be measured on. Default None -> nothing happens.
+    holdout = Holdout.load(getattr(args, "hold_out_pattern", None), processed_dir=data_dir)
+    if holdout.is_active:
+        n_before = int(y.sum())
+        y = holdout.relabel_licit(df["EdgeID"].values, y, splits=TRAINING_SPLITS)
+        print(f"  HOLD-OUT {holdout.pattern}: {n_before - int(y.sum())} train+val labels relabelled licit "
+              f"({holdout.summary()['n_held_out_rings']} rings); test labels and the graph untouched")
 
     print(f"  Illicit: {y.sum()}/{len(y)} = {y.float().mean()*100:.2f}%")
     print(f"  Nodes: {max_n_id}, Transactions: {len(df)}")
@@ -682,6 +694,7 @@ def main():
     parser.add_argument("--data-dir", type=Path, default=Path("data/processed"))
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
     parser.add_argument("--out-dir", type=Path, default=Path("experiments/E6_tgn"))
+    _add_holdout_argument(parser)
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=8192)
     parser.add_argument("--lr", type=float, default=0.006)
@@ -778,6 +791,7 @@ def main():
         "arch": args.arch,
         "git_commit": commit,
         "adaptations": adaptations,
+        **Holdout.load(getattr(args, "hold_out_pattern", None), processed_dir=args.data_dir).summary(),
         "dataset": "AMLworld HI-Small",
         "split": "60/20/20 day-based",
         "seeds": seeds_all,

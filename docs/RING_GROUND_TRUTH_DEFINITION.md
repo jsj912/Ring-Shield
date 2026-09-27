@@ -338,7 +338,9 @@ date (`full` = detector at 0.1 % + expansion + partition):
 | matched at Jaccard 0.5 | **80.2** | 86.2 |
 | **(a) fewer than 3 visible members** — undetectable under `min_size` 3 | **48.6 (28 %)** | 39.6 (25 %) |
 | **(b) ≥ 3 members, untouched by any seed or expanded edge** | **33.2 (19 %)** | 15.0 (10 %) |
-| (c) touched, Jaccard < 0.5: over-merged / under-covered | 9.6 / 2.4 | 7.2 / 9.0 |
+| (c) touched, Jaccard < 0.5: over-merged / under-covered | 5.2 / 6.8 | 7.2 / 9.0 |
+
+*(c) corrected 2026-09-27 — see the note in `docs/PARTITION.md`; matched, (a) and (b) are unaffected.*
 
 (a) is a property of the ground truth under `min_size` 3, not of a model: 1,359 of the 1,387
 (a)-rings counted across seeds have exactly 2 visible members and 28 have 1. With `min_size` 3

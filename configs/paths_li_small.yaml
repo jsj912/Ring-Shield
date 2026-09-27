@@ -1,0 +1,13 @@
+# LI-Small paths (Step 11 / R7, second dataset). Selected with
+#   RINGSHIELD_PATHS=configs/paths_li_small.yaml
+# so every script runs the SAME command against LI-Small's own directories. Nothing here is
+# shared with HI-Small: a run against this file cannot overwrite the first dataset's artefacts.
+dataset: LI-Small
+raw_dir: data/raw_li_small
+processed_dir: data/processed_li_small
+experiments_dir: experiments_li_small
+
+account_bank_map: data/processed_li_small/account_bank.parquet
+
+# Same constant as HI-Small: the legacy CSV basis offset. Recorded for the contract asserts.
+legacy_csv_time_offset_s: 10

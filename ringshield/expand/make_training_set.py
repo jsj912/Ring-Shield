@@ -57,6 +57,8 @@ from ringshield.expand.index import SplitIndex, set_index  # noqa: E402
 from ringshield.run_rings import write_environment  # noqa: E402
 from ringshield.scored_edges import build_scored_edges  # noqa: E402
 from ringshield.truth import load_ground_truth, split_window  # noqa: E402
+from ringshield.holdout import Holdout  # noqa: E402
+from ringshield.holdout import add_argument as _add_holdout_argument  # noqa: E402
 from ringshield.windows import load_windows  # noqa: E402
 
 DEFAULT_CROSS = REPO_ROOT / "experiments" / "R3_cross_scores"
@@ -100,6 +102,7 @@ def main(argv=None):
     ap.add_argument("--seed-frac-pct", type=float, default=None, help=f"default: chosen cell of {K_SOURCE.relative_to(REPO_ROOT)}")
     ap.add_argument("--ring-gt", type=Path, default=None)
     ap.add_argument("--no-embed", action="store_true", help="skip the embedding pass (cosine features NaN)")
+    _add_holdout_argument(ap)
     ap.add_argument("--dry-run", action="store_true", help="use the *_dryrun cross-scores (1 %% of train)")
     args = ap.parse_args(argv)
     t_start = time.time()
@@ -129,6 +132,16 @@ def main(argv=None):
     win = split_window(paths["processed_dir"] / "amlworld_train.parquet")
     days = load_windows()["val"].days_of(se["timestamp"].to_numpy())
     ring_of = tr.set_index("EdgeID")["ring_id"]
+    # Step 11 (R7): a held-out pattern leaves the ring-label set entirely -- no candidate row is
+    # generated for its rings and no edge of one can be a positive. The edges stay in `se`, so they
+    # remain available as candidates and as graph context; only their ring identity is withheld.
+    holdout = Holdout.load(getattr(args, "hold_out_pattern", None), processed_dir=paths["processed_dir"])
+    if holdout.is_active:
+        n_all = int((tr["ring_id"] > 0).sum())
+        tr = holdout.drop_rings(tr, "ring_id")
+        ring_of = tr.set_index("EdgeID")["ring_id"].reindex(ring_of.index).fillna(-1).astype("int64")
+        print(f"[training_set] HOLD-OUT {holdout.pattern}: {n_all - int((tr['ring_id'] > 0).sum())} member "
+              f"edges of {len(holdout.ring_ids)} rings removed from the ring-label set")
     members = tr[tr["ring_id"] > 0].groupby("ring_id")
     pattern_of = members["pattern_type"].first().to_dict()
     member_edges = members["EdgeID"].apply(lambda s: sorted(int(x) for x in s)).to_dict()
@@ -137,9 +150,13 @@ def main(argv=None):
         truth, _ = load_ground_truth(ring_gt, *win, "test_visible", verbose=False)
         full = pd.read_parquet(paths["processed_dir"] / "amlworld_train.parquet", columns=["ring_id", "from_id", "to_id"])
         acc = {rid: set(g["from_id"]) | set(g["to_id"]) for rid, g in full[full["ring_id"] > 0].groupby("ring_id")}
+        if holdout.is_active:            # the held-out rings are gone from BOTH sides of the check
+            acc = {r: a for r, a in acc.items() if int(r) not in holdout.ring_ids}
+            truth = {r: a for r, a in truth.items() if int(r) not in holdout.ring_ids}
         assert set(acc) == set(truth), (len(acc), len(truth))
         assert all(acc[r] == truth[r] for r in truth), "train parquet ring_id != test_visible ground truth on the train window"
-        print(f"[training_set] membership check: {len(truth)} train-visible rings, parquet ring_id == test_visible truth")
+        print(f"[training_set] membership check: {len(truth)} train-visible rings, parquet ring_id == test_visible truth"
+              + (f" (excluding {len(holdout.ring_ids)} held-out {holdout.pattern} rings)" if holdout.is_active else ""))
     cross = cross.set_index("edge_id").reindex(se["edge_id"]).reset_index()
     seed_mask, fold_rows = fold_seed_mask(cross, k_pct)
     se["is_seed"] = seed_mask
@@ -237,6 +254,8 @@ def main(argv=None):
     n_day0, n_day0_pos = int(day0.sum()), int(X.loc[day0, "label"].sum())
     X = X[~day0].reset_index(drop=True)
     X = X[META_COLUMNS + KEY_COLUMNS + FEATURE_COLUMNS]
+    holdout.assert_absent(X, ring_col="ring_id", label_col="label", edge_col="candidate_edge_id",
+                          where="expansion training set")
     out_path = args.out / f"training_set{tag}.parquet"
     X.to_parquet(out_path, index=False)
 

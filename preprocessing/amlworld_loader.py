@@ -263,7 +263,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
     parser.add_argument("--out-dir", type=Path, default=Path("data/processed"))
-    parser.add_argument("--patterns", type=Path, default=Path("data/raw/HI-Small_Patterns.txt"))
+    parser.add_argument("--dataset", default="HI-Small",
+                        help="AMLworld release name: <raw-dir>/<dataset>_Trans.csv and, unless --patterns is given, <raw-dir>/<dataset>_Patterns.txt (Step 11)")
+    parser.add_argument("--patterns", type=Path, default=None,
+                        help="default <raw-dir>/<dataset>_Patterns.txt")
     parser.add_argument("--account-bank", type=Path, default=None,
                         help="account_id -> bank_code parquet; default configs/paths.yaml account_bank_map "
                              "(built from the raw Trans CSV on first use)")
@@ -297,7 +300,11 @@ def main():
 
     # --- Parse pattern ground truth ---
     print("Parsing pattern ground truth...")
-    raw_trans_path = args.raw_dir / "HI-Small_Trans.csv"
+    raw_trans_path = args.raw_dir / f"{args.dataset}_Trans.csv"
+    if args.patterns is None:
+        args.patterns = args.raw_dir / f"{args.dataset}_Patterns.txt"
+    assert raw_trans_path.exists(), raw_trans_path
+    assert args.patterns.exists(), args.patterns
     account_map, first_ts = rebuild_account_map(raw_trans_path)
     df_rings = parse_patterns(args.patterns, account_map, first_ts)
 

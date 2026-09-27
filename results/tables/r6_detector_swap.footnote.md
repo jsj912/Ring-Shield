@@ -47,8 +47,10 @@ result.
 Decomposed against the full class breakdown, **6.4 of those 9.2 newly reached rings (70 %) become
 matches** and 2.8 stay partially covered; the net matched count rises only 80.2 → 83.6 because MEGA
 separately loses ~3.0 matches among rings below `min_size`. Among touched-but-unmatched rings,
-over-merging grows (9.6 → 14.4) while under-coverage nearly vanishes (2.4 → 0.4): the residual loss is
-a partition problem, not a reach problem. See `FINDINGS.md` B11, and B8 for why the 19 % untouched
+over-merging grows **5.2 → 8.2** (+58 %) while under-coverage is flat (6.8 → 6.6), so the extra
+residual rings are specifically over-merges: a partition problem, not a reach problem. (The (c) split is
+post-fix — `classify` indexed the window-restricted prediction list with unrestricted indices until
+2026-09-27; matched / (a) / (b) were never affected.) See `FINDINGS.md` B11, and B8 for why the 19 % untouched
 figure is a property of the detector rather than of the dataset.
 
 ## Two cautions about reading this table

@@ -1,0 +1,84 @@
+{
+  "created_utc": "2026-09-27T15:38:26+00:00",
+  "window": "primary",
+  "scope": "test_visible",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "definition": "truth rings classified c_under_covered: touched, best Jaccard < 0.5, and no covering prediction holds a second truth ring",
+  "decomposition": "coverage = |pred & truth| / |truth|; purity = |pred & truth| / |pred|",
+  "summary": {
+    "gine_b2": {
+      "ring_instances": 30,
+      "per_seed": 6.0,
+      "median_truth_members": 15.5,
+      "median_pred_members": 3.0,
+      "median_coverage": 0.1765,
+      "median_purity": 1.0,
+      "median_jaccard": 0.1765,
+      "median_gap_to_bar": 0.3235,
+      "share_clean_subset_purity_1": 1.0,
+      "share_within_0.10_of_bar": 0.1667,
+      "share_within_0.20_of_bar": 0.2667,
+      "median_seed_edges_on_ring": 4.0,
+      "rings_with_zero_seed_edges": 0,
+      "by_pattern": {
+        "BIPARTITE": 4,
+        "CYCLE": 2,
+        "GATHER-SCATTER": 6,
+        "RANDOM": 1,
+        "STACK": 17
+      }
+    },
+    "gine_full": {
+      "ring_instances": 34,
+      "per_seed": 6.8,
+      "median_truth_members": 14.0,
+      "median_pred_members": 3.0,
+      "median_coverage": 0.1765,
+      "median_purity": 1.0,
+      "median_jaccard": 0.1765,
+      "median_gap_to_bar": 0.3235,
+      "share_clean_subset_purity_1": 1.0,
+      "share_within_0.10_of_bar": 0.2647,
+      "share_within_0.20_of_bar": 0.3529,
+      "median_seed_edges_on_ring": 4.0,
+      "rings_with_zero_seed_edges": 0,
+      "by_pattern": {
+        "BIPARTITE": 4,
+        "CYCLE": 4,
+        "GATHER-SCATTER": 8,
+        "RANDOM": 1,
+        "STACK": 17
+      }
+    },
+    "mega_full": {
+      "ring_instances": 33,
+      "per_seed": 6.6,
+      "median_truth_members": 14.0,
+      "median_pred_members": 3.0,
+      "median_coverage": 0.1765,
+      "median_purity": 1.0,
+      "median_jaccard": 0.1765,
+      "median_gap_to_bar": 0.3235,
+      "share_clean_subset_purity_1": 0.9091,
+      "share_within_0.10_of_bar": 0.0909,
+      "share_within_0.20_of_bar": 0.1818,
+      "median_seed_edges_on_ring": 4.0,
+      "rings_with_zero_seed_edges": 0,
+      "by_pattern": {
+        "BIPARTITE": 4,
+        "CYCLE": 2,
+        "FAN-IN": 1,
+        "FAN-OUT": 1,
+        "GATHER-SCATTER": 1,
+        "RANDOM": 1,
+        "STACK": 23
+      }
+    }
+  }
+}

@@ -71,6 +71,10 @@ def args_from_run_config(run_dir: Path, *, dry_run: bool, dry_run_seed: int) -> 
         dropout=float(cfg.get("dropout", 0.01)), final_dropout=float(cfg.get("final_dropout", 0.1)),
         dry_run=dry_run, dry_run_seed=dry_run_seed,
         window_s=int(cfg.get("loader_window_s") or WINDOW_S),
+        # Step 11 (R7): a run trained with a held-out pattern carries it in its config, so every
+        # stage that rebuilds that run's data (cross-scoring, re-scoring) inherits the same holdout
+        # instead of silently training on labels the detector never saw.
+        hold_out_pattern=cfg.get("hold_out_pattern"),
     )
     for name, flag in ADAPTATION_FLAGS.items():
         setattr(a, flag, name in cfg.get("adaptations", []))

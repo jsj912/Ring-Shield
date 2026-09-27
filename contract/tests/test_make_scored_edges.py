@@ -30,8 +30,8 @@ PATHS = load_paths()
 ACCOUNT_MAP = PATHS["account_bank_map"]
 PREDS_CSV = REPO_ROOT / "experiments" / "E6_tgn" / "predictions_with_ids.csv"
 TEST_PARQUET = PATHS["processed_dir"] / "amlworld_test.parquet"
-ACCOUNTS_CSV = PATHS["raw_dir"] / "HI-Small_accounts.csv"
-RAW_TRANS_CSV = PATHS["raw_dir"] / "HI-Small_Trans.csv"
+ACCOUNTS_CSV = PATHS["raw_dir"] / f"{PATHS.get('dataset', 'HI-Small')}_accounts.csv"
+RAW_TRANS_CSV = PATHS["raw_dir"] / f"{PATHS.get('dataset', 'HI-Small')}_Trans.csv"
 MODEL_ID, SEED = "gine", 1
 
 pytestmark = pytest.mark.skipif(

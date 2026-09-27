@@ -12,11 +12,17 @@ from datetime import datetime
 import pandas as pd
 
 if len(sys.argv) < 2:
-    print("Usage: python format_kaggle_files.py <path/to/HI-Small_Trans.csv>")
+    print("Usage: python format_kaggle_files.py <path/to/*_Trans.csv> [out.csv]")
+    print("  Default output: formatted_transactions.csv NEXT TO the input file.")
+    print("  Pass an explicit output path for a second dataset, or it will overwrite the first.")
     sys.exit(1)
 
 in_path = sys.argv[1]
-out_path = os.path.join(os.path.dirname(in_path), "formatted_transactions.csv")
+# Step 11: an explicit output path. The default is unchanged (next to the input), but two
+# datasets in the same raw directory would otherwise write the same file.
+out_path = sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.path.dirname(in_path),
+                                                              "formatted_transactions.csv")
+os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
 
 print(f"Reading {in_path} ...")
 raw = pd.read_csv(in_path)

@@ -278,3 +278,104 @@ negatives (7.2 k at hop 1). 146 of the 157 rings have Jaccard ≥ 0.5 between th
 accounts and their truth accounts, so the B0 recall loss on val is mostly chaining and
 `min_size`, not missing members. The train split (weaker fold models, 30 epochs on 80 % of the
 days) will have more quiet members; see the results block.
+
+---
+
+## Pre-registration — 11d, chain-mode expansion
+
+**Written 2026-09-27, before any chain-mode code existed.** It targets the loss measured in
+`FINDINGS.md` **B12**, not a guessed one.
+
+### What B12 says the problem is
+
+Under-coverage is the largest touched-but-unmatched class on the primary window (6.8 rings/seed
+against 5.2 over-merged), and the partition stage cannot act on it. Every instance is a **clean
+subset** — purity 1.000 on 34 of 34 — with median coverage **0.176**: a median 3 accounts recovered
+from a 14-member ring, 4 seed edges already on it. **Half the instances are STACK** (5 distinct
+rings, median 17 members), the pattern whose B0 per-pattern recall is 0.05.
+
+A STACK is a chain. Greedy expansion adds one adjacent edge at a time and stops at the `p_min`
+floor or the closure condition, so clearing Jaccard 0.5 on a 17-link chain needs roughly nine
+successive additions and the policy halts long before that. The method does not fabricate
+membership; it stops early.
+
+### The change
+
+On an included edge whose shared account is a **clean pass-through** — inflow ≈ outflow within the
+existing role tolerance, and one dominant counterparty on each side — the greedy step may continue
+*along that account* even when the candidate's policy probability falls below `p_min`, subject to:
+
+* a **depth cap** `d ∈ {3, 5, 8}` consecutive relaxed steps;
+* a **relaxed floor** `p_chain < p_min`, swept on validation;
+* the existing Δt window and closure stop, unchanged.
+
+`d` and `p_chain` are chosen on **validation ring-F1** per seed, as every other L3 parameter is.
+Nothing is chosen on test.
+
+### The prediction
+
+1. **STACK per-pattern recall improves** over `full`, and the **under-covered count falls** below
+   6.8/seed — this is the loss the change targets and the only place it should act.
+2. **Added-member precision falls** from 0.93, because relaxing a floor admits weaker edges. A fall
+   to ~0.85 would be an acceptable trade for a real STACK gain; below ~0.75 the change is buying
+   recall with noise and should be rejected on that basis alone.
+3. **Overall ring-F1 moves inside seed noise** (±0.037, the shipped pipeline's seed SD). Chain mode
+   helps a handful of large rings; 13 rings out of 174 cannot move the headline.
+
+### Instrumentation required before the run
+
+Chain mode has **two** mechanisms and they must not be confounded: the relaxed floor `p_chain`
+(admitting weaker candidates at all) and the depth cap `d` (allowing a *run* of them). If STACK
+recall improves, the first question is which one did it, so the run records **per ring**:
+
+* `chain_steps_taken` — how many relaxed steps were actually used;
+* `chain_depth_reached` — the longest consecutive relaxed run, and whether it hit the cap `d`;
+* `n_added_below_p_min` — additions that only the relaxed floor allowed;
+* `n_added_at_depth_ge_2` — additions that required a *continuation*, i.e. the depth mechanism.
+
+**The distinction:** if gains come with `chain_depth_reached` ≈ 1, the relaxed floor alone did the
+work and the depth cap is decoration — the honest description would be "a lower threshold on
+pass-through accounts", not "chain following". If the cap is frequently reached and additions at
+depth ≥ 2 carry the STACK gain, chain traversal is real. These are different claims and the
+distinction is reported whichever way it falls.
+
+### How it will be judged
+
+Reported against `full` on: ring-F1, quiet-member recall, added-member precision, the
+**under-covered count and its coverage/purity decomposition**, and per-pattern recall for STACK —
+with bootstrap CIs over truth rings and the paired test on matched indicators. Because prediction 3
+says the headline should not move, **ring-F1 is not the criterion**; the under-covered count and
+STACK recall are, and the precision floor is the veto.
+
+* **Succeeds** if STACK recall rises and under-coverage falls with added-member precision ≥ 0.85.
+* **Fails** if either is flat, or precision drops below 0.75.
+* Either outcome sharpens the ceiling statement: success gives a second method result aimed at a
+  measured loss; failure establishes that greedy expansion cannot traverse long chains **even when
+  the floor is relaxed**, which is a stronger claim than not having tried.
+
+### Outcome: 11d is not run as designed (2026-09-27)
+
+**The pre-registered diagnostic was run before the implementation, and it invalidated the design.**
+
+11d assumed the STACK loss was the policy declining later links of a chain. `FINDINGS.md` **B13**
+measured it instead of assuming it: **all 140 STACK missing member edges are disconnected from the
+recovered fragment inside the evaluation window** — not distant, unreachable. 24 of 26 sit *inside*
+the Δt window, so time is not the constraint either. A relaxed floor cannot admit a candidate that
+was never generated, and a depth cap cannot walk a path that does not exist. **Both of 11d's
+mechanisms are inapplicable to the pattern it was built for**, and its prediction 1 (STACK recall
+improves) would have failed for a reason that has nothing to do with chain mode.
+
+What the diagnostic *did* find is a smaller, real target: **GATHER-SCATTER's 31 missing edges all
+sit exactly one hop from the recovered fragment**, 74 % were generated as candidates, and they were
+declined by the policy. That is a genuine floor problem — about **19 % of the under-covered mass**,
+roughly 1.6 rings per seed, on rings small enough (median 6.5 members) that adding a few members can
+clear Jaccard 0.5.
+
+So the honest disposition: **11d as pre-registered is withdrawn, not attempted and failed.** A
+floor-relaxation experiment scoped to one-hop pass-through candidates on GATHER-SCATTER-like rings
+remains defensible, but it addresses a fifth of the class rather than the half the original design
+claimed, and that should be stated before anyone spends time on it.
+
+This is the fourth pre-registration in Step 11 whose first prediction did not survive contact with
+a measurement — and the first one where writing the diagnostic down in advance saved the
+implementation rather than merely making its failure legible.

@@ -1,0 +1,78 @@
+{
+  "mean_test_f1": 0.596736673810861,
+  "std_test_f1": 0.035716751369385645,
+  "mean_test_ap": 0.5635857435406695,
+  "std_test_ap": 0.0422087386985938,
+  "per_seed": [
+    {
+      "seed": 1,
+      "best_val_f1": 0.5519323671497585,
+      "best_epoch": 26,
+      "best_threshold": 0.4800000000000001,
+      "epochs_run": 46,
+      "mean_epoch_time_s": 253.7629160673722,
+      "test": {
+        "f1_minority": 0.5425131677953349,
+        "precision_minority": 0.6886341929321872,
+        "recall_minority": 0.4475481067659839,
+        "average_precision": 0.4919181600627692
+      }
+    },
+    {
+      "seed": 2,
+      "best_val_f1": 0.5464037122969838,
+      "best_epoch": 16,
+      "best_threshold": 0.6400000000000001,
+      "epochs_run": 36,
+      "mean_epoch_time_s": 265.07546133465235,
+      "test": {
+        "f1_minority": 0.5739703459637562,
+        "precision_minority": 0.6116573033707865,
+        "recall_minority": 0.5406579764121664,
+        "average_precision": 0.5630733092823176
+      }
+    },
+    {
+      "seed": 3,
+      "best_val_f1": 0.5638766519823789,
+      "best_epoch": 16,
+      "best_threshold": 0.45000000000000007,
+      "epochs_run": 36,
+      "mean_epoch_time_s": 248.22711067067252,
+      "test": {
+        "f1_minority": 0.6281047975501871,
+        "precision_minority": 0.6950301204819277,
+        "recall_minority": 0.5729360645561763,
+        "average_precision": 0.6136628377964964
+      }
+    },
+    {
+      "seed": 4,
+      "best_val_f1": 0.5568039950062422,
+      "best_epoch": 26,
+      "best_threshold": 0.39000000000000007,
+      "epochs_run": 46,
+      "mean_epoch_time_s": 252.52051726631495,
+      "test": {
+        "f1_minority": 0.5983896940418679,
+        "precision_minority": 0.6218206157965194,
+        "recall_minority": 0.5766604593420236,
+        "average_precision": 0.5520606907148317
+      }
+    },
+    {
+      "seed": 5,
+      "best_val_f1": 0.5764966740576497,
+      "best_epoch": 20,
+      "best_threshold": 0.7400000000000002,
+      "epochs_run": 40,
+      "mean_epoch_time_s": 252.0090438246727,
+      "test": {
+        "f1_minority": 0.6407053637031594,
+        "precision_minority": 0.7848784878487849,
+        "recall_minority": 0.5412787088764742,
+        "average_precision": 0.5972137198469325
+      }
+    }
+  ]
+}

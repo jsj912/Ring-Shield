@@ -1,4 +1,8 @@
 # Canonical data / output locations, relative to the repository root.
+# `dataset` names the AMLworld release: <raw_dir>/<dataset>_{Trans.csv,accounts.csv,
+# Patterns.txt}. Step 11 added it so a second release runs the same commands against
+# its own paths file ($RINGSHIELD_PATHS) instead of overwriting this one.
+dataset: HI-Small
 raw_dir: data/raw
 processed_dir: data/processed
 experiments_dir: experiments

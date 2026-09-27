@@ -260,3 +260,37 @@ def test_full_runs_without_a_detector_checkpoint(tmp_path):
                         "--out", str(tmp_path / "run"), "--dry-run"])
     cfg = yaml.safe_load((tmp_path / "run" / "config.yaml").read_text(encoding="utf-8"))
     assert cfg["dry_run"] is True
+
+
+def test_classify_maps_restricted_prediction_indices():
+    """restrict_rings DROPS out-of-window predictions, so positions in the restricted list are not
+    positions in `rings`. classify() must map between them; indexing the restricted list with a
+    full-list index silently reads a different prediction and corrupts the over-merged /
+    under-covered split (it did, until 2026-09-27)."""
+    from evaluation.step9_tables import read_rings_any
+    from evaluation.unmatched_rings import classify
+    from ringshield.evaluate import restrict_rings
+    from ringshield.scored_edges import build_scored_edges
+    from ringshield.truth import load_ground_truth
+    from ringshield.windows import load_windows
+    from contract.make_scored_edges import load_paths
+
+    run = REPO_ROOT / "experiments" / "R4_partition" / "runs" / "average" / "seed1" / "rings.parquet"
+    scores = REPO_ROOT / "experiments" / "R1_gine_causal" / "scores_test_seed1.parquet"
+    if not run.exists() or not scores.exists():
+        pytest.skip("R4 average run / R1 scores not on disk")
+    pdir = load_paths()["processed_dir"]
+    W = load_windows()["primary"]
+    truth, patterns = load_ground_truth(pdir / "amlworld_ring_ground_truth.parquet", *W.bounds,
+                                        "test_visible", verbose=False)
+    se = build_scored_edges(scores, "test", model_id="gine_causal", seed=1, processed_dir=pdir)
+    rings = read_rings_any(run)
+    pred = restrict_rings(rings, se, W)
+    assert len(pred) < len(rings), "fixture no longer exercises the mismatch"
+
+    kl = classify(rings, se, truth, patterns, W)
+    assert len(kl) == len(truth)
+    assert set(kl["klass"]) <= {"matched", "a_lt3_members", "b_untouched", "c_over_merged", "c_under_covered"}
+    # every c_* ring must have a real overlap with some restricted prediction
+    for _, row in kl[kl["klass"].str.startswith("c_")].iterrows():
+        assert 0.0 < row["best_jaccard"] < 0.5, f"ring {row['ring_id']}: best_jaccard {row['best_jaccard']}"

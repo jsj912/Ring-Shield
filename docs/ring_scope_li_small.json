@@ -1,0 +1,122 @@
+{
+  "created_utc": "2026-09-27T15:02:33+00:00",
+  "dataset": "LI-Small",
+  "note": "Scope and ceiling for LI-Small, on its own terms. NOT comparable to HI-Small's ring_scope.json as a single number -- different base rate, ring count and day structure. The HI-Small column is printed only so a reader compares like with like.",
+  "splits": {
+    "train": {
+      "edges": 4432934,
+      "illicit": 1993,
+      "illicit_ratio_pct": 0.04,
+      "rings": 75
+    },
+    "val": {
+      "edges": 1316442,
+      "illicit": 770,
+      "illicit_ratio_pct": 0.06,
+      "rings": 54
+    },
+    "test": {
+      "edges": 1174673,
+      "illicit": 802,
+      "illicit_ratio_pct": 0.07,
+      "rings": 56
+    }
+  },
+  "split_days": {
+    "train": "[0,6)",
+    "val": "[6,8)",
+    "test": "[8,17)",
+    "identical_to_hi_small": true
+  },
+  "scope": "test_visible",
+  "windows": {
+    "primary_days_8_9": {
+      "rings_in_scope": 55,
+      "rings_ge3_visible_members": 38,
+      "rings_lt3_visible_members": 17,
+      "median_visible_members": 4.0,
+      "hi_small_equivalent": {
+        "rings_in_scope": 174,
+        "rings_ge3": 114
+      }
+    },
+    "tail_days_10_17": {
+      "rings_in_scope": 24,
+      "rings_ge3_visible_members": 17,
+      "rings_lt3_visible_members": 7,
+      "median_visible_members": 5.5,
+      "hi_small_equivalent": {
+        "rings_in_scope": 109,
+        "rings_ge3": 84
+      }
+    },
+    "whole_days_8_17": {
+      "rings_in_scope": 56,
+      "rings_ge3_visible_members": 41,
+      "rings_lt3_visible_members": 15,
+      "median_visible_members": 5.5,
+      "hi_small_equivalent": {
+        "rings_in_scope": 183,
+        "rings_ge3": 132
+      }
+    }
+  },
+  "primary_pattern_mix": {
+    "BIPARTITE": 7,
+    "CYCLE": 8,
+    "FAN-IN": 4,
+    "FAN-OUT": 8,
+    "GATHER-SCATTER": 8,
+    "RANDOM": 7,
+    "SCATTER-GATHER": 8,
+    "STACK": 5
+  },
+  "tail_pathology": {
+    "reproduces": true,
+    "per_day_test_base_rate_pct": {
+      "8": 0.041,
+      "9": 0.106,
+      "10": 61.039,
+      "11": 56.25,
+      "12": 60.417,
+      "13": 58.065,
+      "14": 66.667,
+      "15": 71.429,
+      "16": 66.667
+    },
+    "hi_small_per_day_test_base_rate_pct": {
+      "8": 0.079,
+      "9": 0.212,
+      "10": 58.586,
+      "11": 60.498,
+      "12": 57.609,
+      "13": 57.851,
+      "14": 60.87,
+      "15": 56.522,
+      "16": 65.217,
+      "17": 72.727
+    },
+    "reading": "LI-Small's test tail collapses exactly as HI-Small's does: days 10+ hold 3-77 edges each at a 56-71 % base rate, against 0.04-0.11 % on days 8-9. The primary window is therefore defined the same way (days 8-9) and the tail reported separately, for the same reason and with the same rule."
+  },
+  "ceiling_primary": {
+    "rings_ge3_of_in_scope": "38 / 55",
+    "max_ring_recall_at_min_size_3": 0.6909,
+    "hi_small_equivalent": 0.6552
+  },
+  "decision": {
+    "rule": "docs/GENERALISATION.md pre-registration: if too few rings survive scope and min_size for a CI to separate anything, report feasibility + scope only.",
+    "primary_window_matchable_rings": 38,
+    "threshold_agreed": 40,
+    "outcome": "STOP after the scope/tail analysis. Neither the L3 grid NOR B0 is run on LI-Small.",
+    "reason": "38 matchable rings in the primary window (against HI-Small's 114) cannot separate B0 from full at any effect size this pipeline produces; a bootstrap over 38 rings has a half-width wider than the whole B0->full gain measured on HI-Small. Running the grid would produce a number, not evidence.",
+    "revised_utc": "2026-09-27T16:02:32+00:00",
+    "revision_note": "Originally 'stop at B0 + scope/tail'. Revised on the same reasoning taken one step further: B0 on LI-Small would require training its detector (~20 h for 5 seeds at 6.9 M edges) to produce a ring-level number over 38 matchable rings that nobody should interpret. The scope, tail and day-0 results are the reportable outcome and none of them need a detector. The compute goes to 11d (chain-mode expansion) and the MEGA partition test, both of which target measured losses on a dataset with enough rings to resolve them.",
+    "what_is_reported": [
+      "the pipeline runs unchanged on a second release via one environment variable",
+      "LI-Small scope table and ceiling on its own terms",
+      "the tail collapse reproduces (FINDINGS C1 becomes generator-level)",
+      "the day-0 warm-up reproduces to within 0.3 points (FINDINGS C8)"
+    ],
+    "what_is_not_reported": "any LI-Small method number; if one is ever produced it is labelled illustrative and given no CI-based claim."
+  }
+}

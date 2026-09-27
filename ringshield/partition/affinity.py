@@ -43,6 +43,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from ringshield.partition.pairs import FEATURE_GROUPS, PAIR_FEATURES  # noqa: E402
+from ringshield.holdout import Holdout  # noqa: E402
+from ringshield.holdout import add_argument as _add_holdout_argument  # noqa: E402
 
 LGB_PARAMS = {"objective": "binary", "metric": "average_precision", "learning_rate": 0.05, "max_depth": 6,
               "num_leaves": 31, "min_child_samples": 20, "feature_fraction": 0.8, "bagging_fraction": 1.0,
@@ -250,8 +252,14 @@ def main(argv=None):
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--drop-feature-group", choices=sorted(FEATURE_GROUPS), nargs="*", default=[])
     ap.add_argument("--seed", type=int, default=1)
+    _add_holdout_argument(ap)
     args = ap.parse_args(argv)
     P = pd.read_parquet(args.pairs)
+    _ho = Holdout.load(getattr(args, "hold_out_pattern", None))
+    if _ho.is_active:
+        _held = _ho.edge_ids(("train",))
+        _bad = int(P["edge_a"].isin(_held).sum() + P["edge_b"].isin(_held).sum())
+        assert _bad == 0, f"affinity pairs: {_bad} endpoints are held-out {_ho.pattern} edges"
     print(f"[affinity] {len(P):,} pairs, {int(P['label'].sum()):,} positive, {P['component'].nunique()} components; drop {args.drop_feature_group or 'nothing'}")
     aff = train_affinity(P, drop_groups=tuple(args.drop_feature_group), seed=args.seed)
     aff.meta.update({"pairs": str(args.pairs)})

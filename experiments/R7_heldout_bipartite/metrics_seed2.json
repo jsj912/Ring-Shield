@@ -1,0 +1,15 @@
+{
+  "seed": 2,
+  "best_val_f1": 0.5464037122969838,
+  "best_epoch": 16,
+  "best_threshold": 0.6400000000000001,
+  "test": {
+    "f1_minority": 0.5739703459637562,
+    "precision_minority": 0.6116573033707865,
+    "recall_minority": 0.5406579764121664,
+    "average_precision": 0.5630733092823176
+  },
+  "n_params": 148812,
+  "epochs_run": 36,
+  "mean_epoch_time_s": 265.07546133465235
+}

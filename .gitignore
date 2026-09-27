@@ -96,3 +96,7 @@ external/
 # experiments/R6_mega/config.yaml; re-clone it rather than committing a nested repo.
 # third_party/shims/ IS ours and is committed.
 third_party/mega_gnn/
+
+data/raw*/
+data/processed*/
+experiments_li_small/

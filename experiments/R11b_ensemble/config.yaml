@@ -1,0 +1,99 @@
+experiment: R11b_ensemble
+step: 11b (ensembled seed selection)
+created_utc: '2026-09-27T17:58:14+00:00'
+git_commit: 257ac03b384601cb0d04fa0cb63326af68dd0f92
+model_id: ensemble
+detectors:
+  gine_causal: E:\JSJ\Ring-Shield\experiments\R1_gine_causal
+  mega: E:\JSJ\Ring-Shield\experiments\R6_mega
+rule: ensemble_score(e) = 1 - min_d(rank_d(e)/N); the standard strict quantile cut
+  on score_raw at the val-chosen k* then applies unchanged
+budget: UNCHANGED at k* = 0.1 % -- the ensemble selects the same NUMBER of seed edges
+  as either detector alone, so the comparison against a single detector is like for
+  like
+motivation: 'FINDINGS C7: two detectors'' touched-ring sets union to 150.8/174 (86.7
+  %) against ~74 % each, measured post hoc; this tests whether that union is reachable
+  as a method'
+caveat: the ensemble score is a rank statistic, not a calibrated probability; score_calibrated
+  is absent and downstream confidence falls back to score_raw
+per_run:
+- seed: 1
+  split: val
+  n_edges: 965524
+  n_seeds_at_k: 966
+  from_each:
+    gine_causal: 774
+    mega: 784
+  in_both_top_k: 592
+- seed: 1
+  split: test
+  n_edges: 863900
+  n_seeds_at_k: 864
+  from_each:
+    gine_causal: 681
+    mega: 667
+  in_both_top_k: 484
+- seed: 2
+  split: val
+  n_edges: 965524
+  n_seeds_at_k: 966
+  from_each:
+    gine_causal: 771
+    mega: 768
+  in_both_top_k: 573
+- seed: 2
+  split: test
+  n_edges: 863900
+  n_seeds_at_k: 864
+  from_each:
+    gine_causal: 695
+    mega: 705
+  in_both_top_k: 536
+- seed: 3
+  split: val
+  n_edges: 965524
+  n_seeds_at_k: 966
+  from_each:
+    gine_causal: 805
+    mega: 809
+  in_both_top_k: 648
+- seed: 3
+  split: test
+  n_edges: 863900
+  n_seeds_at_k: 864
+  from_each:
+    gine_causal: 715
+    mega: 706
+  in_both_top_k: 557
+- seed: 4
+  split: val
+  n_edges: 965524
+  n_seeds_at_k: 966
+  from_each:
+    gine_causal: 813
+    mega: 815
+  in_both_top_k: 662
+- seed: 4
+  split: test
+  n_edges: 863900
+  n_seeds_at_k: 864
+  from_each:
+    gine_causal: 652
+    mega: 709
+  in_both_top_k: 497
+- seed: 5
+  split: val
+  n_edges: 965524
+  n_seeds_at_k: 965
+  from_each:
+    gine_causal: 758
+    mega: 767
+  in_both_top_k: 560
+- seed: 5
+  split: test
+  n_edges: 863900
+  n_seeds_at_k: 863
+  from_each:
+    gine_causal: 622
+    mega: 680
+  in_both_top_k: 439
