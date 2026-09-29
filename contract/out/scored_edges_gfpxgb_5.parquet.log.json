@@ -1,0 +1,46 @@
+{
+  "created_utc": "2026-09-28T17:34:24+00:00",
+  "git_commit": "18965292febf2e5876f3a92d04ee42eab18fa6e0",
+  "model_id": "gfpxgb",
+  "seed": 5,
+  "split": "test",
+  "dry_run": false,
+  "inputs": {
+    "scores_parquet": "experiments\\R2_b0\\gfpxgb_scores\\scores_test_seed5.parquet",
+    "split_parquet": "amlworld_test.parquet",
+    "threshold_rule": "configs/threshold_rule.yaml",
+    "k_source": "experiments\\R2_b0\\gfpxgb\\seed5\\config.yaml (chosen on val)"
+  },
+  "seed_rule": {
+    "seed_frac_pct": 0.1,
+    "cut": "strict (score_raw > q)",
+    "q": 0.9592641640305601,
+    "quantile_scope": "this split",
+    "n_on_boundary": 0
+  },
+  "n_rows_out": 863900,
+  "n_nan_score_raw": 0,
+  "n_nan_score_calibrated": 0,
+  "n_is_seed": 864,
+  "calibrated": true,
+  "columns": [
+    "edge_id",
+    "tenant_id",
+    "from_id",
+    "to_id",
+    "from_bank",
+    "to_bank",
+    "timestamp",
+    "amount_sent",
+    "amount_received",
+    "currency_sent",
+    "currency_received",
+    "payment_format",
+    "score_raw",
+    "score_calibrated",
+    "is_seed",
+    "model_id",
+    "seed"
+  ],
+  "out_path": "contract\\out\\scored_edges_gfpxgb_5.parquet"
+}

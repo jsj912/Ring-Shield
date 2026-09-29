@@ -12,39 +12,69 @@ validation split only.
 
 ## What is implemented
 
-Everything below exists in the repo and has been run at least once on this workstation.
-Numbers are the ones written in the corresponding `experiments/<ID>/metrics.json`.
+Everything below exists in the repo and has been run on this workstation (RTX A5000). **Every
+number in `results/` recomputes from an `experiments/<run>/metrics.json`** — `evaluation/audit_tables.py`
+checks 18 headline rows mechanically and currently reports *18 traceable, 0 mismatched*.
 
-| Component | File | Output folder | Status |
+Claims live in one place: **`docs/FINDINGS.md`** (A: what the pipeline achieves, B: what it does
+not, C: measurement findings about the dataset). Commands live in **`docs/REPRODUCE.md`**.
+Traps live in **`docs/PITFALLS.md`**.
+
+### Pipeline
+
+| Layer | What it does | Entry point | Output |
 |---|---|---|---|
-| AMLworld loader (raw CSV → train/val/test Parquet, day-based split, ring ground truth) | `preprocessing/amlworld_loader.py` | `data/processed/` | done |
-| Per-edge GFP motif features (fan-in/out, cycles, scatter-gather, degree) | `graph/motif_features.py` | `data/processed/amlworld_gfp_features_*.parquet` | done |
-| Tabular baselines (LogReg / RF / XGBoost) | `baselines/*_aml.py` | `experiments/E5a_*` | done |
-| GFP + XGBoost with Optuna search | `baselines/gfp_xgboost_aml.py` | `experiments/E5b_gfp_xgboost` | done — test F1 0.534 |
-| Multi-GINe edge classifier (edge-MLPs, ports, time deltas, reverse MP, ego IDs, GFP) | `models/tgn.py` | `experiments/E6_tgn` | done — test F1 0.599 ± 0.009 over seeds {1, 42, 123}; numbers pre-date the Step 3a seed-mask fix (841 test edges were never scored) and non-causal sampling |
-| Split scoring from a checkpoint (any split, causal or not, optional head-input embeddings) | `models/score.py` | `experiments/<run>/scores_<split>_seed<S>.parquet`, `embeddings_*.parquet` | done — replaces `score_test_set.py` |
-| Ring aggregation from scored edges | `models/ring_aggregator.py` | `experiments/legacy_E7_test_tuned` | runs, but its thresholds were tuned on the test set — **not reported** |
-| Ring metrics (precision / recall / F1, member coverage, Jaccard) | `evaluation/ring_metrics.py` | — | done |
-| `scored_edges` contract parquet (17 cols, no labels) + internal `labels_test.parquet` | `contract/make_scored_edges.py` | `contract/out/scored_edges_gine_1.parquet`, `contract/out/labels_test.parquet` (+ `.log.json`) | done |
-| `rings` contract parquet, connected-components baseline from the legacy E7 CSV | `contract/make_rings_stub.py` | `contract/out/rings_stub_cc.parquet` (+ `.log.json`) | done — stub; real rings in Steps 6-8 |
-| Column contract (single source of truth; generates `contract/README.md`) | `contract/schema.py` | — | done |
-| Raw-data hash manifest (pins the `edge_id` numbering) | `scripts/data_manifest.py` | `docs/data_manifest.json` | done |
-| account_id → bank_code table (loader key rule, validated vs accounts.csv) | `preprocessing/account_bank.py` | `data/processed/account_bank.parquet` | done — 515,088 accounts, 30,470 banks |
-| `from_bank`/`to_bank` on the three split Parquets and the ring ground truth (emitted by the loader) | `preprocessing/amlworld_loader.py` | `data/processed/amlworld_*.parquet` | done |
-| Ring scope per policy (test_visible primary; strict / majority appendix), <3-member and boundary counts, evidence ceiling | `preprocessing/ring_scope.py` | `docs/ring_scope.json`, `docs/RING_GROUND_TRUTH_DEFINITION.md` | done — 183 test / 157 val rings (test_visible) |
-| Stable `edge_id` numbering (mergesort) + old→new id map for positional artefacts | `scripts/format_kaggle_files.py`, `scripts/remap_edge_ids.py` | `data/raw/formatted_transactions.csv`, `data/processed/edge_id_remap.parquet` | done — 99.7% of ids moved, splits/rings/scope unchanged |
-| Shared mini-batch loader: every seed scored exactly once, id column stripped, optional causal sampling (30-min window fallback; PyG native route needs pyg-lib) | `models/causal_loader.py` (used by `models/tgn.py`, `models/score.py`) | — | done |
-| **R1**: Multi-GINe v2 retrained with causal sampling, 5 seeds (configs/seeds.yaml) | `models/tgn.py --causal` | `experiments/R1_gine_causal` | done — test F1 0.611 ± 0.026, AP 0.563 ± 0.039 (mean ± sd over 5 seeds) |
-| Leak row: E6 checkpoints re-scored non-causally with the fixed seed mask | `models/score.py --non-causal` | `experiments/R1_gine_noncausal` | done — test F1 0.590 ± 0.007, AP 0.594 ± 0.047 (3 seeds) |
-| Edge metrics (F1 @ val threshold, AP, MCC, AUC, P@k; seed bootstrap CI) | `evaluation/edge_metrics.py`, `contract/make_labels.py` | `experiments/R1_*/metrics.json`, `results/tables/r1_edge_metrics.csv` | done |
+| L0 preprocessing | raw CSV → splits, ring ground truth, GFP motif features; stable `edge_id` by mergesort, hash-pinned | `scripts/format_kaggle_files.py`, `preprocessing/amlworld_loader.py`, `graph/motif_features.py` | `data/processed/` |
+| L1 detector | Multi-GINe edge classifier, causal neighbour sampling, 5 seeds | `models/tgn.py --causal` | `experiments/R1_gine_causal` |
+| L1 scoring / calibration | split scoring + head-input embeddings; isotonic fitted on val only | `models/score.py`, `models/calibrate.py` | `scores_*.parquet`, `calibrator_seed*.pkl` |
+| L2 seeds | strict quantile cut at the val-chosen k\* (0.1 % / `min_size` 3) | `configs/threshold_rule.yaml` | — |
+| L3a expansion | candidate generation + LightGBM policy trained on **cross-scored** train data | `ringshield/expand/` | `experiments/R3_expansion` |
+| L3b partition | shared-account pair affinity + average linkage | `ringshield/partition/` | `experiments/R4_partition` |
+| L3c roles / typing | account roles, ring confidence, topology head, leave-one-out XAI | `ringshield/roles.py`, `ringshield/typing/` | `experiments/R5_typing` |
+| Contract | `scored_edges` and `rings` v1 parquets for the platform side | `contract/` | `contract/out/` |
+| CLI | `run` / `train` / `eval` / `export-model` | `python -m ringshield` | `docs/CLI.md` |
 
-Not implemented (removed in Step 1 because they were stubs or dead ends): the Elliptic
-pipeline, EvolveGCN, GATv2, rule engine, cascade pipeline, explainability, ablations,
-latency benchmark. See `docs/PROGRESS.md` for the step-by-step log.
+### Experiments behind the reported tables
 
-Seeds for every future run come from `configs/seeds.yaml` (`[1, 2, 3, 4, 5]`); paths
-from `configs/paths.yaml`. The E5b/E6 runs above pre-date that rule and used the seeds
-recorded in their own `config.yaml`.
+| ID | What | Result |
+|---|---|---|
+| **R1** | detector, 5 seeds, causal | test edge F1 0.5967 ± 0.070 |
+| **R2** | B0 ring baseline, 3 detectors | gine 0.521 ± 0.045, gfpxgb 0.344, density 0.014 |
+| **R3** | expansion: policy vs rule baselines vs ablations | proposed 0.582; **quiet-member recall 0.005 → 0.21** |
+| **R4** | partition: 5 methods + CSGM | full 0.589; the stage is **not** significant on this detector |
+| **R5** | roles and topology typing | head 0.219 on the primary window, 0.594 on `whole` |
+| **R6** | detector swap: MEGA-GNN and GFP-XGBoost | **+9.4 edge-F1 points buys 0.000 ring-F1** |
+| **R7** | held-out pattern types (3 arms) + LI-Small | transfer holds on CYCLE at undiminished precision |
+| **R9** | statistics: bootstrap CIs, permutation tests, Holm | every table carries an interval |
+| **R11b/c** | seed-budget reallocation (ensemble, per-account) | allocation is **not** the binding constraint |
+
+### Headline findings
+
+1. **Edge F1 is not a proxy for ring recovery.** MEGA-GNN beats our detector by 9.4 edge-F1 points
+   and produces the same rings (0.5208 vs 0.5213). The two disagree on *which* edges to seed
+   (Jaccard 0.415) and agree on how many rings a 0.1 % budget reaches (128.8 vs 129.6 of 174).
+2. **Expansion recovers quiet members** — 0.5 % → 21 % — but a two-line rule matches it; the learned
+   policy buys *purity* (0.926 vs 0.518 added-member precision), not recall.
+3. **The ceiling is structural.** 28 % of rings are below `min_size`, 19 % are untouched by any
+   detector edge, and **80.7 %** of the largest residual class is in a piece of the ring that is
+   *disconnected inside the evaluation window* — 99.6 % for STACK even across the whole test split.
+4. **Both ends of the AMLworld timeline are generator artefacts**, reproduced in two releases: day 0
+   holds ~34 % of training edges at 10× density, and the test tail collapses to a ~60 % base rate on
+   ≤ 0.13 % of edges.
+
+### Deliberately not done
+
+* **Step 12 (structuring stress test)** — premise weakened by findings B13/B15; see `docs/REPRODUCE.md`.
+* **LI-Small method numbers** — 38 matchable rings cannot separate any method; its scope, tail and
+  day-0 analyses are the reported result.
+* **`rings_full` for mega / gfpxgb** — the contract builder is pinned to the shipped detector and
+  asserts it reproduces the R4 run. Those detectors are research comparisons under
+  `experiments/R6_full/`, not contract deliveries.
+* Elliptic, EvolveGCN, GATv2, the escalation cascade, attention-based XAI — out of scope (Step 1).
+
+Seeds come from `configs/seeds.yaml` (`[1, 2, 3, 4, 5]`), paths from `configs/paths.yaml`
+(`$RINGSHIELD_PATHS` selects a per-dataset file). Pre-R1 runs used the seeds in their own
+`config.yaml`.
 
 ## Reproduction (steps completed so far)
 
