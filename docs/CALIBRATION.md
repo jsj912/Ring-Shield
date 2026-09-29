@@ -46,6 +46,9 @@ quantile for test, within the `--edge-subset` when one is given) — a quantile,
 absolute cut-off. Grid k ∈ {0.05, 0.10, 0.15, 0.20, 0.30, 0.50, 0.75, 1.00} % with
 min_size ∈ {2, 3} jointly; **k\* = argmax validation Ring-F1 under B0** (`test_visible`, Jaccard
 0.5), ties → smaller k then larger min_size, chosen per scorer seed and written to the run's
+
+> **`min_size` 2 was available at every step and never chosen by a working detector.** Across the **158** runs on disk that record a val-chosen cell, 153 chose `min_size` 3 and **5 chose 2 — all five are the density baseline**, at `seed_frac` 1.0 with val ring-F1 **0.0276** (its B0 test ring-F1 is 0.014; it scores below chance because illicit edges are *less* dense than licit hubs). So the precise statement is: `min_size` 2 was in the validation grid at every step and was never chosen by any detector that produces usable rings; the only selections come from a baseline that fails at every cell. Changing `min_size` now on the strength of a test-window number would be choosing on test.
+
 `config.yaml` before the test run. Step 4 exists, so k\* is the Ring-F1 argmax, not the edge-F1
 stand-in — the config is not provisional. Two refinements to the 3c wording, recorded in the
 yaml with their reasons: the cut is **strict** (`>` not `≥`; ties are edges the model cannot

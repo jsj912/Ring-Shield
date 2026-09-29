@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-POLICIES = ("test_visible", "strict", "majority", "start")
+POLICIES = ("test_visible", "strict", "majority", "start", "full_membership")
 
 
 def load_ground_truth(path: Path, t_min: float, t_max: float, policy: str, *, verbose: bool = True):
@@ -26,6 +26,12 @@ def load_ground_truth(path: Path, t_min: float, t_max: float, policy: str, *, ve
         strict       -- every transaction inside [t_min, t_max]; full members
         majority     -- more than half its transactions inside; full members
         start        -- its earliest transaction inside; full members
+        full_membership -- Step 14 item 4, SENSITIVITY ONLY, never the headline: the same in-scope
+                        rule as test_visible (>= 1 transaction in the window) but the scored member
+                        set is ALL of the ring's accounts across the dataset. It keeps long patterns
+                        intact instead of letting the window fragment them, at the cost of scoring a
+                        method against members it had no way to observe. The gap between the two
+                        rows is the size of the convention's effect (docs/paper/evaluation_protocol.md).
     """
     gt = pd.read_parquet(path)
     for col in ("ring_id", "from_id", "to_id", "timestamp_int"):
@@ -38,7 +44,7 @@ def load_ground_truth(path: Path, t_min: float, t_max: float, policy: str, *, ve
 
     grp = gt.groupby("ring_id")
     frac = grp["_in"].mean()
-    if policy == "test_visible":
+    if policy in ("test_visible", "full_membership"):
         keep = frac[frac > 0].index
     elif policy == "strict":
         keep = frac[frac == 1.0].index

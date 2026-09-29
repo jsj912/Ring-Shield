@@ -1,0 +1,72 @@
+{
+  "created_utc": "2026-09-29T12:47:29+00:00",
+  "control_disconnected_in_window": {
+    "n": 216,
+    "disconnected": 176,
+    "share": 0.8148148148148148
+  },
+  "null_rate": 0.0,
+  "max_hops": 2,
+  "by_pattern": {
+    "BIPARTITE": {
+      "n_missing": 24,
+      "reached": 0,
+      "share": 0.0,
+      "bridge_edges": 0,
+      "bridge_same_ring": 0,
+      "share_bridge_same_ring": null,
+      "median_hops": null,
+      "median_reach_back_h": null
+    },
+    "CYCLE": {
+      "n_missing": 19,
+      "reached": 7,
+      "share": 0.3684210526315789,
+      "bridge_edges": 1,
+      "bridge_same_ring": 1,
+      "share_bridge_same_ring": 1.0,
+      "median_hops": 1.0,
+      "median_reach_back_h": 25.466666666666665
+    },
+    "GATHER-SCATTER": {
+      "n_missing": 31,
+      "reached": 19,
+      "share": 0.6129032258064516,
+      "bridge_edges": 2,
+      "bridge_same_ring": 2,
+      "share_bridge_same_ring": 1.0,
+      "median_hops": 1.0,
+      "median_reach_back_h": 19.983333333333334
+    },
+    "RANDOM": {
+      "n_missing": 2,
+      "reached": 1,
+      "share": 0.5,
+      "bridge_edges": 0,
+      "bridge_same_ring": 0,
+      "share_bridge_same_ring": null,
+      "median_hops": 1.0,
+      "median_reach_back_h": 8.25
+    },
+    "STACK": {
+      "n_missing": 140,
+      "reached": 0,
+      "share": 0.0,
+      "bridge_edges": 0,
+      "bridge_same_ring": 0,
+      "share_bridge_same_ring": null,
+      "median_hops": null,
+      "median_reach_back_h": null
+    }
+  },
+  "hop_sweep": {
+    "2": 0.125,
+    "3": 0.16666666666666666
+  },
+  "class_b": {
+    "n_rings": 49,
+    "n_missing": 2071,
+    "reached": 139,
+    "share": 0.06711733462095607
+  }
+}

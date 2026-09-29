@@ -288,6 +288,27 @@ rather than declined by policy — **99.6 % of STACK's missing members still dis
 full ten-day test period**. Every one of those is a property of observing a multi-day process
 through a windowed, split-bounded, set-overlap metric.
 
+**We measured the size of the choice.** Re-scoring the same shipped runs under both policies, no
+model re-run and no parameter re-chosen:
+
+| detector / method | `test_visible` (reported) | `full_membership` | gap |
+|---|---|---|---|
+| gine B0 | 0.5213 | 0.1437 | **−0.378** |
+| gine B1b | 0.5553 | 0.2073 | −0.348 |
+| gine proposed | 0.5819 | 0.2297 | −0.352 |
+| gine **full** | **0.5894** | 0.2428 | **−0.347** |
+| mega B0 | 0.5208 | 0.1595 | −0.361 |
+| mega **full** | **0.6074** | 0.2252 | **−0.382** |
+
+The in-scope ring count is unchanged at 174 — only the member sets grow, median 4 → 11 accounts.
+**The convention is worth 0.35–0.38 ring-F1; the entire expansion-plus-partition method is worth
+0.068.** A reader comparing a ring-level number across two papers that took different sides of this
+choice is comparing the choice, not the methods.
+
+What survives is the **ordering**: b0 < b1b < proposed < full under both policies and both
+detectors, with member coverage falling 0.944 → 0.728 consistently. Within-paper method comparisons
+are robust to the convention; absolute cross-paper numbers are not.
+
 We have not found this trade-off posed in the ring-level AML literature, and we think it should be:
 a ring-level result is not interpretable without stating which side of it the authors took.
 
