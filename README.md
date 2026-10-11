@@ -31,7 +31,7 @@ Traps live in **`docs/PITFALLS.md`**.
 | L3a expansion | candidate generation + LightGBM policy trained on **cross-scored** train data | `ringshield/expand/` | `experiments/R3_expansion` |
 | L3b partition | shared-account pair affinity + average linkage | `ringshield/partition/` | `experiments/R4_partition` |
 | L3c roles / typing | account roles (source / sink / mule / holder / peripheral), ring confidence, topology head | `ringshield/roles.py`, `ringshield/typing/` | `experiments/R5_typing` |
-| **L3d explainability** | **roles**, **flow** (`conservation_closure`, what enters a ring vs what leaves), and **leave-one-out** (`rerun_ring` / `RingRerunner`: drop an edge, re-run the aggregator, report how the ring changes) — **p95 25 ms** per call. All of it ships *inside* the rings v1 contract (`source_accounts`, `sink_accounts`, `mule_accounts`, `conservation_closure`, `topology_type`, `topology_probs`, `expanded_edge_probs`), so an analyst gets the explanation with the ring | `ringshield/roles.py`, `contract/schema.py` | `contract/out/rings_full_*.parquet` |
+| **L4 explainability** | **L4 explains rings, not edges.** Edge weights combine the calibrated score, leave-one-out ring contribution via `rerun_ring`, and flow share; account weights and roles come from conservation; feature weights are SHAP on GFP+XGBoost over the seed edges; narratives are fixed templates whose every number traces to a stored value. **No attention weights, no language model.** Its measured claims are explanation fidelity@k (k = 3, 5, 10) against ground-truth ring edges versus random and score-only controls with bootstrap CIs; typology and role accuracy on matched rings; p95 latency under 2 s; and a 30-explanation internal review with Fleiss' κ, labelled internal rather than an analyst study. **Until those results exist the claims are defined but not yet measured.** | `explainability/` (branch `explainability-l4`) | `results/xai/`, `contract/out/xai/` |
 | Contract | `scored_edges` and `rings` v1 parquets for the platform side | `contract/` | `contract/out/` |
 | CLI | `run` / `train` / `eval` / `export-model` | `python -m ringshield` | `docs/CLI.md` |
 
@@ -72,7 +72,7 @@ Traps live in **`docs/PITFALLS.md`**.
   asserts it reproduces the R4 run. Those detectors are research comparisons under
   `experiments/R6_full/`, not contract deliveries.
 * **SHAP over the expansion policy** — specified in the roadmap's XAI layer, not built. Leave-one-out answers the analyst's actual question ("what happens to this ring if this transaction is not real?") at 25 ms, whereas SHAP would explain a per-candidate probability the analyst never sees. That is a reframing of the scope, not a completion of it, and it is stated here rather than glossed.
-* **The XAI layer carries no measured claim.** There is no analyst study and no faithfulness metric, so it appears in `docs/FINDINGS.md` nowhere: it is a delivered capability, not a validated explanation. The contract fields should not be read as evidence.
+* **The XAI layer's claims are defined but not yet measured** (see the L4 row). There is no analyst study and no faithfulness metric, so it appears in `docs/FINDINGS.md` nowhere: it is a delivered capability, not a validated explanation. The contract fields should not be read as evidence.
 * Elliptic, EvolveGCN, GATv2, the escalation cascade, attention-based XAI — out of scope (Step 1).
 
 Seeds come from `configs/seeds.yaml` (`[1, 2, 3, 4, 5]`), paths from `configs/paths.yaml`

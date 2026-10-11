@@ -1,12 +1,12 @@
 {
-  "created_utc": "2026-09-22T14:40:16+00:00",
-  "git_commit": "d4217353ec33ab99714b61b6fc8078f5f17a1c76",
+  "created_utc": "2026-10-11T12:00:01+00:00",
+  "git_commit": "ec766275fcff9ffbd65e1225bd36d5c69dff15cb",
   "aggregator_id": "cc",
   "seed": 1,
   "dry_run": false,
   "dry_run_frac": null,
   "inputs": {
-    "e7_csv": "experiments\\legacy_E7_test_tuned\\rings_gine.csv",
+    "e7_csv": "E:\\JSJ\\Ring-Shield\\experiments\\legacy_E7_test_tuned\\rings_gine.csv",
     "scored_edges": "contract\\out\\scored_edges_gine_1.parquet",
     "account_map": "E:\\JSJ\\Ring-Shield\\data\\processed\\account_bank.parquet"
   },
@@ -39,7 +39,29 @@
     "topology_probs",
     "source_accounts",
     "sink_accounts",
-    "mule_accounts"
+    "mule_accounts",
+    "conservation_closure_ccy",
+    "n_accounts_ccy_undefined",
+    "source_accounts_ccy",
+    "sink_accounts_ccy",
+    "mule_accounts_ccy",
+    "undetermined_accounts_ccy",
+    "n_roles_changed_ccy",
+    "n_currencies"
   ],
+  "contract_version": "rings.parquet v2",
+  "currency_v2": {
+    "n_rings": 178,
+    "n_accounts_undetermined_ccy": 140,
+    "n_rings_with_undetermined": 61,
+    "n_roles_changed_ccy_total": 146,
+    "n_rings_roles_unchanged": 113,
+    "conservation_closure_ccy": {
+      "n_nan": 25,
+      "mean_non_nan": 0.789515109788807
+    },
+    "currency_mode": "partitioned (v2 fields only; v1 fields remain raw cross-currency sums)",
+    "ccy_min_two_sided_share": 0.5
+  },
   "out_path": "contract\\out\\rings_stub_cc_step1_legacy.parquet"
 }

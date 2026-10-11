@@ -100,3 +100,7 @@ third_party/mega_gnn/
 data/raw*/
 data/processed*/
 experiments_li_small/
+
+# Worktree convenience only: machine-absolute paths pointing at the primary checkout's
+# data/ and experiments/ (both gitignored, so a worktree has neither). Create your own.
+configs/paths_main.yaml

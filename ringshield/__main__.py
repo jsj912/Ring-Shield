@@ -28,11 +28,12 @@ import pyarrow.parquet as pq
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from contract.schema import RINGS_ORDER, SCORED_EDGES_ORDER  # noqa: E402
+from contract.schema import RINGS_SCHEMA_VERSION, RINGS_ORDER, SCORED_EDGES_ORDER  # noqa: E402
 from ringshield.aggregators.cc import SELECT_COL, aggregate_cc, threshold_for_pct  # noqa: E402
 from ringshield.evaluate import restrict_rings, ring_metrics_full  # noqa: E402
 from ringshield.model_dir import AGGREGATORS, _git_commit, from_run_dir, read_model  # noqa: E402
 from ringshield.rings import Ring, read_rings_parquet, write_rings_parquet  # noqa: E402
+from ringshield.roles import fill_currency_fields  # noqa: E402
 from ringshield.truth import POLICIES, load_ground_truth  # noqa: E402
 from ringshield.windows import load_windows  # noqa: E402
 
@@ -169,8 +170,13 @@ def cmd_run(a) -> int:
         d["tenant_id"] = _tenant_of_earliest_seed(r, se_idx)
         out_rings.append(Ring(**{c: d[c] for c in RINGS_ORDER}))
     out = Path(a.out)
+    # Schema v2: the `*_ccy` fields are computed here, not left at their defaults. A rings file
+    # stamped version 2 whose currency fields are empty is worse than a v1 file, because a reader
+    # cannot tell "no currency effect" from "never computed".
+    ccy = fill_currency_fields(out_rings, se)
     write_rings_parquet(out_rings, out)
     log = {"created_utc": _now(), "git_commit": _git_commit(), "command": "run", "scores": str(a.scores),
+           "contract_version": f"rings.parquet v{RINGS_SCHEMA_VERSION}", "currency_v2": ccy,
            "edge_subset": str(a.edge_subset) if a.edge_subset else None, "n_edges_in_file": n_in,
            "n_edge_subset_ids": subset_n, "n_edges_used": int(len(se)), "n_scored": int(se[SELECT_COL].notna().sum()),
            "model_dir": str(a.model_dir), "model": {k: model.get(k) for k in ("model_id", "seed", "aggregator", "version", "feature_set")},

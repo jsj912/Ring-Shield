@@ -1,8 +1,22 @@
 {
-  "created_utc": "2026-09-22T14:40:18+00:00",
-  "git_commit": "d4217353ec33ab99714b61b6fc8078f5f17a1c76",
+  "created_utc": "2026-10-11T11:59:13+00:00",
+  "git_commit": "ec766275fcff9ffbd65e1225bd36d5c69dff15cb",
   "command": "run",
   "scores": "contract/out/scored_edges_gine_causal_1.parquet",
+  "contract_version": "rings.parquet v2",
+  "currency_v2": {
+    "n_rings": 98,
+    "n_accounts_undetermined_ccy": 96,
+    "n_rings_with_undetermined": 47,
+    "n_roles_changed_ccy_total": 96,
+    "n_rings_roles_unchanged": 51,
+    "conservation_closure_ccy": {
+      "n_nan": 4,
+      "mean_non_nan": 0.7571438972060289
+    },
+    "currency_mode": "partitioned (v2 fields only; v1 fields remain raw cross-currency sums)",
+    "ccy_min_two_sided_share": 0.5
+  },
   "edge_subset": null,
   "n_edges_in_file": 863900,
   "n_edge_subset_ids": null,

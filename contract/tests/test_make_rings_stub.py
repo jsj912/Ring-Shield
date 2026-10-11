@@ -19,20 +19,32 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from contract.make_rings_stub import DRY_RUN_FRAC, RINGS_PA_SCHEMA, main, make_rings_stub  # noqa: E402
+from contract.make_rings_stub import DRY_RUN_FRAC, main, make_rings_stub  # noqa: E402
+from ringshield.rings import RINGS_PA_SCHEMA  # noqa: E402  (its one home; the stub module no longer copies it)
 from contract.make_scored_edges import load_paths  # noqa: E402
-from contract.schema import E7_RING_CSV_COLUMNS, RINGS_ORDER, TOPOLOGY_TYPES  # noqa: E402
+from contract.schema import (E7_RING_CSV_COLUMNS, RINGS_NAN_OK, RINGS_ORDER,  # noqa: E402
+                             TOPOLOGY_TYPES)
 
 PATHS = load_paths()
 
 
 def tables_equal(a, b) -> bool:
-    """pyarrow Table.equals treats NaN != NaN; conservation_closure is all-NaN by design."""
+    """pyarrow Table.equals treats NaN != NaN, and the contract permits NaN in RINGS_NAN_OK.
+
+    Those columns are compared as "NaN in the same places, equal elsewhere" and excluded from the
+    arrow comparison. The list comes from the contract rather than being named here: this function
+    used to hardcode `conservation_closure`, and schema v2's `conservation_closure_ccy` then made
+    two identical files compare unequal.
+    """
     if not a.schema.equals(b.schema):
         return False
-    nan_a = a.column("conservation_closure").to_pandas().isna().all()
-    nan_b = b.column("conservation_closure").to_pandas().isna().all()
-    return nan_a and nan_b and a.drop_columns(["conservation_closure"]).equals(b.drop_columns(["conservation_closure"]))
+    for col in RINGS_NAN_OK:
+        x = a.column(col).to_pandas()
+        y = b.column(col).to_pandas()
+        if not (x.isna() == y.isna()).all() or not (x.fillna(0) == y.fillna(0)).all():
+            return False
+    drop = list(RINGS_NAN_OK)
+    return a.drop_columns(drop).equals(b.drop_columns(drop))
 
 
 E7_CSV = REPO_ROOT / "experiments" / "legacy_E7_test_tuned" / "rings_gine.csv"

@@ -26,3 +26,17 @@ contract_arrays:            # which roles fill the rings contract's account arra
   source_accounts: [source]
   sink_accounts: [sink]
   mule_accounts: [mule, holder]
+
+# ---- currency-aware assignment (schema v2, Step 14) -----------------------------------------
+#   undetermined  the account's inflow and outflow currencies do not overlap, or the currencies
+#                 that DO appear on both sides carry less than ccy_min_two_sided_share of each
+#                 side's flow. Balance cannot be checked without an exchange rate, so the role is
+#                 withheld. This is NOT 'peripheral': absence of same-currency evidence is not
+#                 evidence of imbalance. Whether such an account is a mule depends on the rate.
+roles_ccy: [source, sink, mule, holder, peripheral, undetermined]
+ccy_min_two_sided_share: 0.5   # fixed by construction, not swept and not chosen on any split
+contract_arrays_ccy:
+  source_accounts_ccy: [source]
+  sink_accounts_ccy: [sink]
+  mule_accounts_ccy: [mule, holder]
+  undetermined_accounts_ccy: [undetermined]

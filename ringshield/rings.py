@@ -16,7 +16,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from contract.schema import RINGS_COLUMNS, RINGS_ORDER, TOPOLOGY_TYPES
+from contract.schema import RINGS_COLUMNS, RINGS_ORDER, RINGS_SCHEMA_VERSION, TOPOLOGY_TYPES
 
 _PA_TYPES = {
     "int64": pa.int64(), "float64": pa.float64(), "string": pa.string(), "bool": pa.bool_(),
@@ -51,6 +51,18 @@ class Ring:
     source_accounts: list[int]
     sink_accounts: list[int]
     mule_accounts: list[int]
+    # ---- schema v2 (Step 14): currency-aware companions of the four fields above ---------------
+    # Defaulted so that every v1 construction site keeps working unchanged: a ring built without
+    # them is a ring whose currency-partitioned view was not computed, which reads as NaN / empty
+    # rather than as zero. `conservation_closure` and `confidence` above stay RAW cross-currency.
+    conservation_closure_ccy: float = math.nan
+    n_accounts_ccy_undefined: int = 0
+    source_accounts_ccy: list[int] = field(default_factory=list)
+    sink_accounts_ccy: list[int] = field(default_factory=list)
+    mule_accounts_ccy: list[int] = field(default_factory=list)
+    undetermined_accounts_ccy: list[int] = field(default_factory=list)
+    n_roles_changed_ccy: int = 0
+    n_currencies: int = 0
 
     def to_dict(self) -> dict:
         return {c: getattr(self, c) for c in RINGS_ORDER}
@@ -89,11 +101,43 @@ def rings_to_dataframe(rings: list[Ring]) -> pd.DataFrame:
     return pd.DataFrame([r.to_dict() for r in rings], columns=RINGS_ORDER)
 
 
+def finish_contract_ids(rings: list["Ring"], scored_edges, *, aggregator_id: str, model_id: str, seed: int) -> None:
+    """Apply the Step 5 contract rules for `ring_id` and `tenant_id`, in place.
+
+    ring_id   f"{aggregator}-{model_id}-{seed}-{idx}"
+    tenant_id the sender bank (from_bank) of the ring's earliest seed edge, ties -> smallest edge_id
+
+    Shared by `contract/make_rings_full.py` and the validation-rings path so the two cannot drift
+    (they produced the same strings by copy before this existed)."""
+    se = scored_edges.set_index("edge_id") if scored_edges.index.name != "edge_id" else scored_edges
+    ts, bank = se["timestamp"], se["from_bank"]
+    for i, r in enumerate(rings):
+        r.ring_id = f"{aggregator_id}-{model_id}-{seed}-{i}"
+        if r.seed_edges:
+            first = min(r.seed_edges, key=lambda e: (int(ts.loc[e]), e))
+            r.tenant_id = int(bank.loc[first])
+
+
 def write_rings_parquet(rings: list[Ring], path: Path) -> Path:
+    """Write the rings table, stamping the contract schema version into the parquet metadata.
+
+    A v1 file carries no `rings_schema_version` key; a v2 file carries b"2". Readers that need to
+    tell the two apart should check the metadata rather than the column list -- a v1 file read
+    through a v2 code path otherwise just looks like a file with columns missing.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(rings_to_table(rings), path)
+    table = rings_to_table(rings)
+    meta = dict(table.schema.metadata or {})
+    meta[b"rings_schema_version"] = str(RINGS_SCHEMA_VERSION).encode()
+    pq.write_table(table.replace_schema_metadata(meta), path)
     return path
+
+
+def rings_schema_version(path: Path) -> int:
+    """The contract schema version a rings parquet was written with (1 when the key is absent)."""
+    meta = pq.read_schema(path).metadata or {}
+    return int(meta.get(b"rings_schema_version", b"1"))
 
 
 def read_rings_parquet(path: Path) -> list[Ring]:
