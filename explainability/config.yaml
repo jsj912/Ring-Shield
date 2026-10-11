@@ -1,0 +1,68 @@
+# L4 explainability layer -- constants owned by this layer (XR-37: no magic numbers in code).
+#
+# Anything the research side already defines is NOT copied here; it is read from the research
+# config named under `research_configs`, so the two can never drift apart:
+#   match threshold (Jaccard 0.5) and scope (test_visible) -> configs/threshold_rule.yaml
+#   evaluation windows (primary = test days 8-9)           -> configs/eval_window.yaml
+#   role constants (tau_role 0.25, hold 72 h)              -> configs/roles.yaml
+#
+# Paths are relative to the repository root.
+
+explainer_version: "0.2.0-week2"  # recorded in every explanation's provenance (XR-32)
+experiment_id: "XAI-W1"          # fidelity runs; own prefix, never R9 / R11 (those IDs are taken in this repo)
+explanations_experiment_id: "XAI-W2"
+
+research_configs:
+  threshold_rule: configs/threshold_rule.yaml
+  eval_window: configs/eval_window.yaml
+  roles: configs/roles.yaml
+
+inputs:
+  scored_edges: contract/out/scored_edges_gine_causal_{seed}.parquet
+  rings: contract/out/rings_full_gine_causal_{seed}.parquet
+  truth: data/processed/amlworld_ring_ground_truth.parquet
+  split_parquet: data/processed/amlworld_test.parquet
+  seeds: [1, 2, 3, 4, 5]
+
+# Research-side artefacts needed for NON-degraded leave-one-out reruns (Week 2). The rerun must see
+# the same GFP features, embeddings and affinity model the rings were built with.
+research_inputs:
+  gfp: data/processed/amlworld_gfp_features_test.parquet
+  embeddings: experiments/R1_gine_causal/embeddings_test_seed{seed}.parquet
+  affinity_dir: experiments/R4_partition/affinity                          # one model, shared by all seeds
+  partition_config: experiments/R4_partition/runs/average/seed{seed}/config.yaml   # val-chosen cut / min_size / method
+  # for a `cc` rings file (the stub) min_size is read from "<rings file>.log.json" -> params.min_size
+
+output_dir: results/xai
+output_name: fidelity_week1_seed{seed}.json
+explanations_name: explanations_week2_seed{seed}.parquet
+disagreement_name: roles_disagreement_seed{seed}.csv
+
+evaluation:
+  window: primary                # name from configs/eval_window.yaml
+  k: [3, 5, 10]                  # fidelity@k
+  random_shuffles: 20            # random-ranking control, averaged per ring
+  random_seed: 20260921          # fixed so the random control is reproducible
+  bootstrap_resamples: 1000      # used from Week 4 (confidence intervals)
+  ci: 0.95
+
+# Used from Week 2 onwards; recorded now so every constant has one home.
+edge_weights:
+  mixing_default: {alpha: 0.4, beta: 0.4, gamma: 0.2}   # w_score, w_loo, w_flow
+  grid_step: 0.1
+  lambda_split: 0.5
+  loo_edges: included            # leave-one-out over seed + expanded edges (verified: reproduces 108/108 shipped rings)
+                                 # other member edges: w_loo = 0 and split = 0 (the grouping never used them)
+  loo_nan_policy: full_loss      # ring disappears without the edge (confidence NaN) -> drop = c0
+  mixing_sum_tolerance: 1.0e-9   # alpha + beta + gamma must equal 1
+
+account_weights:
+  score_share: 0.5               # weight of the "sum of w_total on its edges / max" term
+  degree_share: 0.5              # weight of the "deg_in_ring / deg_background" term
+
+amounts:
+  currency_policy: raw           # PROVISIONAL: raw sums across currencies, as the shipped roles/closure do; to be decided with Joan
+  flow_amount_column: amount_received
+
+contract_checks:
+  topology_probs_sum_tolerance: 1.0e-6
