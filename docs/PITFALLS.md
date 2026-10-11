@@ -46,6 +46,52 @@ a paths file becomes a `Path`. `dataset: LI-Small` silently became
 
 ---
 
+### 3b. Raw cross-currency sums reached the per-account roles, and everything downstream of them
+
+AMLworld amounts carry a currency code. No single transaction is cross-currency, but **55.2 % of
+test rings span more than one currency** (up to 8) and median amounts differ by **~140x** between
+codes (7,918 for code 11 against 1,100,155 for code 6). `ringshield/roles.py` summed amounts
+**across** currencies, so `closure = min(in, out) / max(in, out)` compared mismatched units
+wherever an account's inflow and outflow currencies differed.
+
+**What it reached.** Every consumer of the per-account roles:
+
+* the **typing head's role-count features** (`ringshield/typing/features.py`),
+* the **XAI layer's account roles** (`explainability/` calls `account_roles` as authoritative),
+* the **expansion policy's conservation feature group** (`closure_before`, `closure_after`,
+  `delta_closure`),
+* the rings contract's `source_accounts` / `sink_accounts` / `mule_accounts`.
+
+**On both v2 and v3.** The HI-Medium work on `jsj-v3` uses the same `roles.py`, so its
+`R3_expansion` runs and anything derived from them carry the same raw-sum convention. A v3 run that
+adopts schema v2 gets the corrected fields; one that does not should pin the raw convention
+explicitly rather than leave it implicit.
+
+**What it did NOT reach.** The ring-level `conservation_closure` in the contract is essentially
+unaffected — median absolute difference **0.0000**, and only **2 of 102** rings differ by more than
+0.1 — because it sums inflow at *sinks* and outflow at *sources*, which are one-sided by definition.
+`confidence`, which multiplies by that closure, is likewise unaffected. The initial framing of this
+defect as "closure is broken for half its inputs" was wrong and is corrected here.
+
+**Scale of the role effect**, 4,280 ring-accounts over 5 shipped `full` seeds: **575 (13.4 %)**
+change role under currency partitioning, of which **571 become `undetermined`** and only **4** are
+genuine reclassifications. Per ring, `n_roles_changed_ccy` is median 0, max 15, and 317 of 560
+ring-instances are unaffected.
+
+**The trap inside the fix.** Partitioned flows cannot show that an account with disjoint in/out
+currencies is *not* a mule — only that same-currency evidence does not support the label. An
+implementation that lets a NaN closure fall through `role_of` lands those accounts on `peripheral`,
+which asserts an imbalance the evidence does not establish. The first version of this fix did
+exactly that and reported "257 accounts are not mules"; the correct statement is **"253 mule labels
+are not supported by same-currency evidence; whether they are mules depends on the exchange rate"**.
+Hence the sixth role, `undetermined`, and `undetermined_accounts_ccy` in schema v2.
+
+**And the rate cannot be recovered from the data.** Of 393,544 unlabelled accounts with exactly one
+currency on each side, **99.99 % use the same currency on both** — only 50 are cross-currency
+pass-throughs and just 1 has >= 3 edges per side. There is no background population to estimate an
+FX rate from (`results/tables/fx_stability.json`), so an `undetermined` account stays undetermined.
+(2026-10-11)
+
 ## Evaluation correctness
 
 ### 4. `restrict_rings` drops predictions, so its indices are not the caller's indices

@@ -41,14 +41,19 @@ from contract.make_scored_edges import load_paths  # noqa: E402
 from evaluation.ring_metrics import evaluate_rings  # noqa: E402
 from ringshield.aggregators.cc import SELECT_COL, score_column, seed_mask_for_pct  # noqa: E402
 from ringshield.aggregators.expand import expand_all  # noqa: E402
-from ringshield.aggregators.full import METHODS, component_pairs, included_from_trajectories, partition_labels, rings_from_edge_clusters  # noqa: E402
+from ringshield.aggregators.full import (METHODS, component_pairs, expansion_probs,  # noqa: E402
+                                         included_from_trajectories, partition_labels,
+                                         rings_from_edge_clusters)
 from ringshield.evaluate import evaluate_blocks, ring_metrics_full  # noqa: E402
 from ringshield.expand.context import build_context  # noqa: E402
 from ringshield.expand.policy import Policy  # noqa: E402
 from ringshield.expand.run_expand import R1_DIR, expansion_vs_truth  # noqa: E402
 from ringshield.partition.affinity import Affinity  # noqa: E402
 from ringshield.partition.pairs import components_of  # noqa: E402
-from ringshield.rings import write_rings_parquet  # noqa: E402
+from contract.schema import RINGS_SCHEMA_VERSION  # noqa: E402
+from ringshield.rings import finish_contract_ids, write_rings_parquet  # noqa: E402
+from ringshield.roles import fill_currency_fields  # noqa: E402
+from ringshield.typing.head import TypingHead  # noqa: E402
 from ringshield.run_rings import _git_commit, seed_edge_precision, write_environment  # noqa: E402
 from ringshield.scored_edges import build_scored_edges  # noqa: E402
 from ringshield.truth import POLICIES, load_ground_truth, split_window  # noqa: E402
@@ -75,6 +80,13 @@ def main(argv=None):
     ap.add_argument("--labels-dir", type=Path, default=REPO_ROOT / "contract" / "out")
     ap.add_argument("--eval-window", type=Path, default=EVAL_WINDOW_YAML)
     ap.add_argument("--cluster-seed", type=int, default=0)
+    ap.add_argument("--head-dir", type=Path, default=None,
+                    help="typing head for --save-val-rings (default experiments/R5_typing/head)")
+    ap.add_argument("--save-val-rings", action="store_true",
+                    help="also write rings_val.parquet for the CHOSEN cell with every contract "
+                         "field filled (schema v2). Validation rings are built during the grid "
+                         "search and were previously discarded; XR-05 needs them to put a "
+                         "bootstrap interval on a val-chosen comparison.")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
@@ -172,6 +184,42 @@ def main(argv=None):
         blocks[name]["expansion"] = expansion_vs_truth(rings, b0_rings, se["test"], ring_id_of["test"], truth_w, w)
         blocks[name]["n_rings_gt100_in_window"] = int(sum(1 for r in rings if r.n_members > 100))
     val_rings = rings_for("val", cell)
+    val_rings_out = None
+    if args.save_val_rings:
+        # Rebuild the SAME chosen cell with the fields the grid search does not need -- expansion
+        # probabilities, the typing head, the contract ids -- then the schema-v2 currency fields.
+        # Membership must be untouched by that, which is asserted against the very rings the val
+        # metrics were computed from rather than assumed.
+        head_v = None
+        head_dir = args.head_dir or (REPO_ROOT / "experiments" / "R5_typing" / "head")
+        try:
+            head_v = TypingHead.load(head_dir)
+        except Exception as e:                      # a missing head must not lose the rings
+            print(f"[run_partition] val rings: no typing head at {head_dir} ({e}); topology stays UNKNOWN")
+        mask_v, inc_pos_v, is_seed_v, comp_v = inc["val"]
+        lab_v = partition_labels(ctx["val"], inc_pos_v, is_seed_v, comp_v, method=method, pairs=pairs["val"],
+                                 seed=args.cluster_seed, min_members=min_size, **cell)
+        full_v = rings_from_edge_clusters(se["val"], ctx["val"].idx, inc_pos_v, is_seed_v, lab_v, min_size,
+                                          aggregator_id="full", probs=expansion_probs(trajs["val"], p_min),
+                                          head=head_v)
+        assert [r.member_set for r in full_v] == [r.member_set for r in val_rings], (
+            f"val rings: filling the contract fields changed membership "
+            f"({len(full_v)} vs {len(val_rings)} rings)")
+        finish_contract_ids(full_v, se["val"], aggregator_id="full", model_id=args.model_id, seed=S)
+        ccy_v = fill_currency_fields(full_v, se["val"])
+        val_rings_out = args.out / "rings_val.parquet"
+        write_rings_parquet(full_v, val_rings_out)
+        Path(str(val_rings_out) + ".log.json").write_text(json.dumps(
+            {"created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+             "contract_version": f"rings.parquet v{RINGS_SCHEMA_VERSION}", "split": "val",
+             "window": windows["val"], "detector_seed": S, "aggregator": "full", "method": method,
+             "chosen_cell": chosen, "model_id": args.model_id, "n_rings": len(full_v),
+             "typing_head": str(head_dir) if head_v is not None else None,
+             "membership_matches_val_grid_rings": True, "currency_v2": ccy_v,
+             "note": "the chosen cell only; the grid's other cells are not materialised"},
+            indent=2), encoding="utf-8")
+        print(f"[run_partition] val rings -> {val_rings_out} ({len(full_v)} rings, membership asserted "
+              f"identical to the val grid's)")
     metrics = {"experiment": args.out.name, "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "git_commit": _git_commit(),
                "aggregator": "full", "method": method, "detector_seed": S, "scope": args.scope, "chosen": chosen, "feature_set": "trailing_closescycle",
                "reportable": True, "selection_column": SELECT_COL, "confidence_column": score_column(se["test"]),

@@ -87,6 +87,14 @@ Read by `evaluation/edge_metrics.py`; never joined into a shipped file.
 | 20 | `source_accounts` | list<int64> | members whose role is 'source' (configs/roles.yaml: no inflow, or inflow / outflow < tau_role 0.25, over the ring's deduplicated flows) |
 | 21 | `sink_accounts` | list<int64> | members whose role is 'sink' (no outflow, or outflow / inflow < tau_role) |
 | 22 | `mule_accounts` | list<int64> | members whose role is 'mule' (both flows, closure >= 1 - tau_role, passed on within 72 h) or 'holder' (same but held longer); ringshield.roles.account_roles returns the two separately |
+| 23 | `conservation_closure_ccy` | float64 | ring-level closure computed per currency and summed over currencies that appear on BOTH sides of an account; NaN when no currency does, which is ~52 % of ring-accounts. `conservation_closure` (v1) remains the RAW cross-currency ratio and is what `confidence` uses |
+| 24 | `n_accounts_ccy_undefined` | int64 | ring accounts whose inflow and outflow currency sets are disjoint, so no per-currency closure exists for them; the denominator behind conservation_closure_ccy |
+| 25 | `source_accounts_ccy` | list<int64> | source accounts under currency-partitioned flows (opt-in roles); the v1 `source_accounts` stays raw-sum |
+| 26 | `sink_accounts_ccy` | list<int64> | sink accounts under currency-partitioned flows |
+| 27 | `mule_accounts_ccy` | list<int64> | mule accounts under currency-partitioned flows |
+| 28 | `undetermined_accounts_ccy` | list<int64> | accounts whose role CANNOT be decided from same-currency evidence: their inflow and outflow currencies do not overlap, or the overlap carries too little flow to judge. Not 'peripheral' -- whether they are mules depends on the exchange rate. Render explicitly; never collapse into another role |
+| 29 | `n_roles_changed_ccy` | int64 | accounts whose role differs between the raw and the currency-aware assignment; the size of the disagreement, visible without recomputing either |
+| 30 | `n_currencies` | int64 | distinct currency codes on the ring's member edges (1 = the raw and currency-partitioned definitions coincide) |
 
 ## Time basis
 

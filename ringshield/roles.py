@@ -131,6 +131,90 @@ def flows_of(edges: pd.DataFrame, amount_col: str | None = None) -> pd.DataFrame
                          "closure": closure, "hold_time_s": hold}, columns=cols)
 
 
+CURRENCY_MODES = ("raw", "partitioned")
+# Fixed by construction and deliberately not swept: an account must spend at least this
+# share of BOTH its inflow and its outflow in currencies present on both sides before a
+# same-currency balance is treated as decisive. Below it the role is `undetermined`.
+CCY_MIN_TWO_SIDED_SHARE = 0.5
+CURRENCY_COLS = ("currency_received", "received_currency", "Received Currency", "currency_sent")
+
+
+def _currency_column(edges: pd.DataFrame) -> str | None:
+    for c in CURRENCY_COLS:
+        if c in edges.columns:
+            return c
+    return None
+
+
+def flows_by_currency(edges: pd.DataFrame, amount_col: str | None = None) -> pd.DataFrame:
+    """Per (account, currency): inflow / outflow sums and counts.
+
+    Why this exists (Step 14). AMLworld amounts carry a currency code, no single edge is
+    cross-currency, but **55.2 % of test rings span more than one** and **51.9 % of the
+    ring-accounts a closure is computed on have DISJOINT in/out currency sets**. Median amounts
+    differ by ~140x between codes, so `inflow / outflow` over raw sums is arithmetic on mismatched
+    units for about half the accounts it is applied to. This splits the flows so a ratio is only
+    ever taken within one currency.
+    """
+    amount_col = amount_col or ("amount_received" if "amount_received" in edges.columns else "amount")
+    cur = _currency_column(edges)
+    e = dedup_edges(edges, amount_col)
+    cols = ["account", "currency", "inflow", "outflow", "n_in", "n_out"]
+    if len(e) == 0 or cur is None:
+        return pd.DataFrame(columns=cols)
+    inn = pd.DataFrame({"account": e["to_id"].to_numpy(np.int64), "currency": e[cur].to_numpy(),
+                        "amt": e[amount_col].to_numpy(float)})
+    out = pd.DataFrame({"account": e["from_id"].to_numpy(np.int64), "currency": e[cur].to_numpy(),
+                        "amt": e[amount_col].to_numpy(float)})
+    gi = inn.groupby(["account", "currency"])["amt"].agg(["sum", "size"])
+    go = out.groupby(["account", "currency"])["amt"].agg(["sum", "size"])
+    j = gi.join(go, how="outer", lsuffix="_in", rsuffix="_out").fillna(0.0)
+    j = j.reset_index().rename(columns={"sum_in": "inflow", "sum_out": "outflow",
+                                        "size_in": "n_in", "size_out": "n_out"})
+    j["n_in"] = j["n_in"].astype(np.int64)
+    j["n_out"] = j["n_out"].astype(np.int64)
+    return j[cols]
+
+
+def flows_partitioned(edges: pd.DataFrame, amount_col: str | None = None) -> pd.DataFrame:
+    """`flows_of`'s columns, but closure is computed per currency and pooled over the currencies
+    that appear on BOTH sides of the account. `closure` is NaN when no currency does -- the account
+    received in one set of currencies and paid out in a disjoint set, and no ratio is meaningful.
+    `inflow` / `outflow` remain the raw totals, for continuity with the v1 fields."""
+    base = flows_of(edges, amount_col)
+    per = flows_by_currency(edges, amount_col)
+    cols = list(base.columns) + ["n_currencies", "ccy_undefined"]
+    # note: flows_partitioned returns cols + ["ccy_undetermined"]
+    if base.empty:
+        return pd.DataFrame(columns=cols + ["ccy_undetermined"])
+    if per.empty:                       # no currency column: fall back to raw, and say so
+        base = base.assign(n_currencies=0, ccy_undefined=False, ccy_undetermined=False)
+        return base[cols + ["ccy_undetermined"]]
+    both = per[(per["inflow"] > 0) & (per["outflow"] > 0)].copy()
+    # Vectorised on purpose: a groupby-apply returns a (0, n) frame rather than an empty Series
+    # when no account has a two-sided currency, and the caller then maps a frame onto a column.
+    both["_lo"] = np.minimum(both["inflow"].to_numpy(float), both["outflow"].to_numpy(float))
+    both["_hi"] = np.maximum(both["inflow"].to_numpy(float), both["outflow"].to_numpy(float))
+    g = both.groupby("account")[["_lo", "_hi"]].sum()
+    closure = g["_lo"] / g["_hi"].replace(0.0, np.nan) if len(g) else pd.Series(dtype=float)
+    ncur = per.groupby("account")["currency"].nunique()
+    out = base.copy()
+    out["closure"] = out["account"].map(closure)
+    out["n_currencies"] = out["account"].map(ncur).fillna(0).astype(np.int64)
+    # `undetermined`: no currency appears on both sides, OR the ones that do carry less than
+    # ccy_min_two_sided_share of each side's flow. Either way the balance cannot be checked without
+    # an exchange rate, so the role is WITHHELD rather than guessed.
+    two_in = both.groupby("account")["inflow"].sum()
+    two_out = both.groupby("account")["outflow"].sum()
+    share_in = out["account"].map(two_in).fillna(0.0) / out["inflow"].replace(0.0, np.nan)
+    share_out = out["account"].map(two_out).fillna(0.0) / out["outflow"].replace(0.0, np.nan)
+    thin = (share_in.fillna(0.0) < CCY_MIN_TWO_SIDED_SHARE) | (share_out.fillna(0.0) < CCY_MIN_TWO_SIDED_SHARE)
+    two_sided = (out["n_in"] > 0) & (out["n_out"] > 0)
+    out["ccy_undefined"] = out["closure"].isna() & two_sided
+    out["ccy_undetermined"] = two_sided & (out["closure"].isna() | thin)
+    return out[cols + ["ccy_undetermined"]]
+
+
 def role_of(inflow: float, outflow: float, closure: float, hold_time_s: float, cfg: dict) -> str:
     tau, hold = float(cfg["tau_role"]), float(cfg["hold_seconds"])
     if outflow <= 0:
@@ -155,23 +239,61 @@ def ring_edges_frame(ring, scored_edges: pd.DataFrame, edges: str = "included") 
     return sub[(sub["timestamp"] >= ring.start_time) & (sub["timestamp"] <= ring.end_time)]
 
 
-def account_roles(ring, scored_edges: pd.DataFrame, *, edges: str = "included", config: dict | None = None) -> dict[int, dict]:
-    """{account: {role, inflow, outflow, hold_time_s, closure, n_in, n_out}} for the ring."""
+def account_roles(ring, scored_edges: pd.DataFrame, *, edges: str = "included",
+                  config: dict | None = None, currency: str = "raw") -> dict[int, dict]:
+    """{account: {role, inflow, outflow, hold_time_s, closure, n_in, n_out}} for the ring.
+
+    `currency` (Step 14) selects the flow convention and **defaults to the shipped one**:
+
+        "raw"          sums amounts across currency codes, as every artefact up to Step 13 does.
+                       Byte-identical to the previous behaviour. This is what `conservation_closure`
+                       and `confidence` in the rings contract are computed from, and what
+                       `explainability/` treats as authoritative (`currency_policy: raw`).
+        "partitioned"  compares inflow with outflow only within a currency; an account whose in and
+                       out currency sets are disjoint gets closure NaN and is counted in
+                       `n_accounts_ccy_undefined`. Feeds the v2 `*_ccy` contract fields.
+
+    The default is deliberately *not* the more correct option: changing it would silently move
+    every shipped closure, confidence and role array, and the downstream XAI layer compares against
+    this function's output. The correction ships beside the original, not in place of it.
+    """
+    assert currency in CURRENCY_MODES, f"currency must be one of {CURRENCY_MODES}, got {currency!r}"
     cfg = config or load_roles_config()
-    f = flows_of(ring_edges_frame(ring, scored_edges, edges))
+    frame = ring_edges_frame(ring, scored_edges, edges)
+    f = flows_of(frame) if currency == "raw" else flows_partitioned(frame)
     out = {}
     for r in f.itertuples(index=False):
-        out[int(r.account)] = {"role": role_of(r.inflow, r.outflow, r.closure, r.hold_time_s, cfg),
-                               "inflow": float(r.inflow), "outflow": float(r.outflow), "hold_time_s": float(r.hold_time_s),
-                               "closure": float(r.closure), "n_in": int(r.n_in), "n_out": int(r.n_out)}
+        closure = float(r.closure)
+        # role_of() reads closure >= 1 - tau as a mule/holder; an undefined closure must not be
+        # allowed to masquerade as 0.0 (which would read as a source or sink), so it stays NaN and
+        # role_of falls through on the inflow/outflow ratio alone.
+        undet = currency == "partitioned" and bool(getattr(r, "ccy_undetermined", False))
+        # An undetermined account must NOT fall through to role_of: a NaN closure there would be
+        # read as "unbalanced" and land on peripheral / source / sink, which asserts something the
+        # evidence does not support.
+        role = "undetermined" if undet else role_of(r.inflow, r.outflow, closure, r.hold_time_s, cfg)
+        rec = {"role": role,
+               "inflow": float(r.inflow), "outflow": float(r.outflow), "hold_time_s": float(r.hold_time_s),
+               "closure": closure, "n_in": int(r.n_in), "n_out": int(r.n_out)}
+        if currency == "partitioned":
+            rec["n_currencies"] = int(getattr(r, "n_currencies", 0))
+            rec["ccy_undefined"] = bool(getattr(r, "ccy_undefined", False))
+            rec["ccy_undetermined"] = undet
+        out[int(r.account)] = rec
     return out
 
 
-def role_arrays(roles: dict[int, dict], config: dict | None = None) -> dict[str, list[int]]:
-    """The rings contract's source_accounts / sink_accounts / mule_accounts."""
+def role_arrays(roles: dict[int, dict], config: dict | None = None, *, currency: str = "raw") -> dict[str, list[int]]:
+    """The rings contract's account arrays.
+
+    `currency="raw"` fills the v1 trio (source_accounts / sink_accounts / mule_accounts).
+    `currency="partitioned"` fills the v2 `*_ccy` quartet, including
+    `undetermined_accounts_ccy` -- which exists so that an account whose balance cannot be checked
+    is reported as such instead of being absorbed into another role."""
     cfg = config or load_roles_config()
+    key = "contract_arrays" if currency == "raw" else "contract_arrays_ccy"
     return {col: sorted(a for a, d in roles.items() if d["role"] in set(members))
-            for col, members in cfg["contract_arrays"].items()}
+            for col, members in cfg[key].items()}
 
 
 def conservation_closure(roles: dict[int, dict]) -> float:
@@ -194,6 +316,51 @@ def conservation_closure(roles: dict[int, dict]) -> float:
     if hi <= 0:
         return math.nan
     return float(min(max(1.0 - abs(in_at_sinks - out_at_sources) / hi, 0.0), 1.0))
+
+
+def fill_currency_fields(rings, scored_edges: pd.DataFrame, *, edges: str = "included",
+                         config: dict | None = None) -> dict:
+    """Fill the schema-v2 `*_ccy` fields on every ring, in place. Returns a summary for the log.
+
+    The single place the currency-aware view is computed, so `contract/make_rings_full.py` and the
+    validation-rings path cannot drift. The v1 fields (`conservation_closure`, `confidence`,
+    `source_accounts`, `sink_accounts`, `mule_accounts`) are **not touched** -- they stay raw-sum by
+    design, and `n_roles_changed_ccy` records how far the two assignments disagree so the size of
+    that disagreement is visible in the artefact rather than only in a document.
+
+    `scored_edges` already carries `currency_received` (contract column), so no join is needed; if
+    the column is absent every ring gets the v1-equivalent empty/NaN values and `n_currencies` 0.
+    """
+    cfg = config or load_roles_config()
+    n_undet = n_changed = n_rings_undet = 0
+    closures = []
+    for r in rings:
+        raw = account_roles(r, scored_edges, edges=edges, config=cfg, currency="raw")
+        ccy = account_roles(r, scored_edges, edges=edges, config=cfg, currency="partitioned")
+        arrays = role_arrays(ccy, cfg, currency="partitioned")
+        r.source_accounts_ccy = arrays["source_accounts_ccy"]
+        r.sink_accounts_ccy = arrays["sink_accounts_ccy"]
+        r.mule_accounts_ccy = arrays["mule_accounts_ccy"]
+        r.undetermined_accounts_ccy = arrays["undetermined_accounts_ccy"]
+        r.conservation_closure_ccy = conservation_closure(ccy)
+        r.n_accounts_ccy_undefined = int(sum(1 for d in ccy.values() if d.get("ccy_undefined")))
+        r.n_roles_changed_ccy = int(sum(1 for a in raw if raw[a]["role"] != ccy.get(a, {}).get("role")))
+        r.n_currencies = int(max((d.get("n_currencies", 0) for d in ccy.values()), default=0))
+        n_undet += len(r.undetermined_accounts_ccy)
+        n_rings_undet += bool(r.undetermined_accounts_ccy)
+        n_changed += r.n_roles_changed_ccy
+        closures.append(r.conservation_closure_ccy)
+    arr = np.array(closures, dtype=float) if closures else np.zeros(0)
+    return {"n_rings": len(rings),
+            "n_accounts_undetermined_ccy": n_undet,
+            "n_rings_with_undetermined": n_rings_undet,
+            "n_roles_changed_ccy_total": n_changed,
+            "n_rings_roles_unchanged": int(sum(1 for r in rings if r.n_roles_changed_ccy == 0)),
+            "conservation_closure_ccy": {
+                "n_nan": int(np.isnan(arr).sum()) if len(arr) else 0,
+                "mean_non_nan": float(np.nanmean(arr)) if len(arr) and not np.isnan(arr).all() else None},
+            "currency_mode": "partitioned (v2 fields only; v1 fields remain raw cross-currency sums)",
+            "ccy_min_two_sided_share": CCY_MIN_TWO_SIDED_SHARE}
 
 
 ROLE_CODES = {"source": 0, "sink": 1, "mule": 2, "holder": 3, "peripheral": 4}

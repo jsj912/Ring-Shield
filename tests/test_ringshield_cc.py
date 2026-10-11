@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import subprocess
+import math
 import sys
 from pathlib import Path
 
@@ -85,9 +86,13 @@ def test_parquet_roundtrip(tmp_path):
     p = write_rings_parquet(rings, tmp_path / "rings.parquet")
     assert pq.read_schema(p).equals(RINGS_PA_SCHEMA)
     back = read_rings_parquet(p)
-    assert [r.to_dict() for r in back] == [r.to_dict() for r in rings] or all(
-        (x.to_dict() | {"conservation_closure": 0}) == (y.to_dict() | {"conservation_closure": 0})
-        for x, y in zip(back, rings))
+    # NaN != NaN, so compare with every NaN float normalised to a sentinel rather than naming the
+    # NaN-valued fields one by one -- schema v2 added a second one (conservation_closure_ccy) and
+    # the old per-field workaround silently failed the moment it appeared.
+    def _norm(r):
+        return {k: ("<nan>" if isinstance(v, float) and math.isnan(v) else v) for k, v in r.to_dict().items()}
+
+    assert [_norm(x) for x in back] == [_norm(y) for y in rings]
     df = rings_to_dataframe(rings)
     assert list(df.columns) == RINGS_ORDER and len(df) == 2
     if STUB.exists():

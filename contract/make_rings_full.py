@@ -1,4 +1,9 @@
-"""rings.parquet **v1**: the `full` aggregator's rings with every contract field filled (Step 8.4).
+"""rings.parquet **v2**: the `full` aggregator's rings with every contract field filled.
+
+v1 was Step 8.4. v2 (Step 14) ADDS the currency-aware fields -- `conservation_closure_ccy`,
+the `*_accounts_ccy` quartet including `undetermined_accounts_ccy`, `n_roles_changed_ccy`,
+`n_accounts_ccy_undefined`, `n_currencies` -- and changes no v1 field: `conservation_closure`
+and `confidence` remain raw cross-currency sums. See docs/MIGRATION.md.
 
     python contract/make_rings_full.py --seeds 1 2 3 4 5
 
@@ -29,7 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from contract.make_scored_edges import load_paths  # noqa: E402
-from contract.schema import RINGS_ORDER, TOPOLOGY_TYPES  # noqa: E402
+from contract.schema import RINGS_ORDER, RINGS_SCHEMA_VERSION, TOPOLOGY_TYPES  # noqa: E402
 from ringshield.aggregators.cc import SELECT_COL, seed_mask_for_pct  # noqa: E402
 from ringshield.aggregators.expand import expand_all  # noqa: E402
 from ringshield.aggregators.full import (component_pairs, expansion_probs, included_from_trajectories,  # noqa: E402
@@ -40,15 +45,20 @@ from ringshield.expand.policy import Policy  # noqa: E402
 from ringshield.partition.affinity import Affinity  # noqa: E402
 from ringshield.partition.pairs import components_of  # noqa: E402
 from ringshield.rings import write_rings_parquet  # noqa: E402
+from ringshield.roles import fill_currency_fields  # noqa: E402
 from ringshield.run_rings import _git_commit  # noqa: E402
 from ringshield.scored_edges import build_scored_edges  # noqa: E402
 from ringshield.typing.head import TypingHead  # noqa: E402
 from ringshield.windows import load_windows  # noqa: E402
 
-R1 = REPO_ROOT / "experiments" / "R1_gine_causal"
-R3 = REPO_ROOT / "experiments" / "R3_expansion"
-R4 = REPO_ROOT / "experiments" / "R4_partition"
-R5 = REPO_ROOT / "experiments" / "R5_typing"
+# Resolved through configs/paths.yaml (`experiments_dir`) rather than hardcoded to the checkout,
+# so a worktree or a second dataset can point at another tree with $RINGSHIELD_PATHS. Default is
+# unchanged: experiments_dir is `experiments` under the repo root.
+_EXP = load_paths()["experiments_dir"]
+R1 = _EXP / "R1_gine_causal"
+R3 = _EXP / "R3_expansion"
+R4 = _EXP / "R4_partition"
+R5 = _EXP / "R5_typing"
 HEAD_DIR = [str(R5 / "head")]          # filled by main() with the val-chosen head, recorded in every log
 
 
@@ -76,6 +86,9 @@ def build_for_seed(S: int, *, head, policy, affinity, out_dir: Path, scope: str 
         r.ring_id = f"full-gine_causal-{S}-{i}"
         first = min(r.seed_edges, key=lambda e: (int(se.set_index('edge_id').loc[e, 'timestamp']), e))
         r.tenant_id = int(se.set_index("edge_id").loc[first, "from_bank"])
+    # schema v2: the currency-aware companions. v1 fields (closure, confidence, role arrays) are
+    # left exactly as rings_from_edge_clusters produced them -- raw cross-currency sums.
+    ccy = fill_currency_fields(rings, se)
     out = out_dir / f"rings_full_gine_causal_{S}.parquet"
     write_rings_parquet(rings, out)
 
@@ -89,7 +102,7 @@ def build_for_seed(S: int, *, head, policy, affinity, out_dir: Path, scope: str 
     probs_ok = all(len(r.expanded_edge_probs) == len(r.expanded_edges) for r in rings)
     topo = pd.Series([r.topology_type for r in rings]).value_counts().to_dict()
     log = {"created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "git_commit": _git_commit(),
-           "contract_version": "rings.parquet v1 (Step 8)", "detector_seed": S, "aggregator": "full",
+           "contract_version": f"rings.parquet v{RINGS_SCHEMA_VERSION} (v1 Step 8; v2 Step 14 currency fields)", "detector_seed": S, "aggregator": "full",
            "inputs": {"scores": str(R1 / f"scores_test_seed{S}.parquet"), "embeddings": str(R1 / f"embeddings_test_seed{S}.parquet"),
                       "policy": str(R3 / "policy_proposed"), "affinity": str(R4 / "affinity"), "typing_head": str(HEAD_DIR[0]),
                       "roles_config": "configs/roles.yaml"},
@@ -112,12 +125,13 @@ def build_for_seed(S: int, *, head, policy, affinity, out_dir: Path, scope: str 
                       "confidence": {"min": float(min(r.confidence for r in rings)), "max": float(max(r.confidence for r in rings)),
                                      "mean": float(np.mean([r.confidence for r in rings]))},
                       "conservation_closure": {"n_nan": int(sum(1 for r in rings if math.isnan(r.conservation_closure))),
-                                               "mean_non_nan": float(np.nanmean([r.conservation_closure for r in rings]))}},
+                                               "mean_non_nan": float(np.nanmean([r.conservation_closure for r in rings]))},
+                      "currency_v2": ccy},
            "primary_window": {m: prim[m] for m in ("n_predicted", "n_truth", "n_matched", "ring_precision", "ring_recall", "ring_f1",
                                                    "mean_jaccard", "member_coverage", "ring_recall_ge3")},
            "reproduces_r4_average_run": same, "seconds": round(time.time() - t0, 1), "out": str(out)}
     Path(str(out) + ".log.json").write_text(json.dumps(log, indent=2), encoding="utf-8")
-    print(f"[rings v1] seed {S}: {len(rings)} rings | P {prim['ring_precision']:.4f} R {prim['ring_recall']:.4f} F1 {prim['ring_f1']:.4f} "
+    print(f"[rings v{RINGS_SCHEMA_VERSION}] seed {S}: {len(rings)} rings | P {prim['ring_precision']:.4f} R {prim['ring_recall']:.4f} F1 {prim['ring_f1']:.4f} "
           f"(reproduces R4 average: {all(same.values())}) | expanded {log['fields']['n_expanded_edges']} with probs | "
           f"closure NaN {log['fields']['conservation_closure']['n_nan']} | topology {topo} | {log['seconds']}s -> {out.name}")
     return log
@@ -132,7 +146,7 @@ def main(argv=None):
     ap.add_argument("--out-dir", type=Path, default=REPO_ROOT / "contract" / "out")
     args = ap.parse_args(argv)
     head_dir = args.head_dir or (REPO_ROOT / json.loads((R5 / "chosen_head.json").read_text(encoding="utf-8"))["chosen_dir"])
-    print(f"[rings v1] typing head: {head_dir}")
+    print(f"[rings v{RINGS_SCHEMA_VERSION}] typing head: {head_dir}")
     head = TypingHead.load(head_dir)
     HEAD_DIR[0] = str(head_dir)
     policy = Policy.load(args.policy_dir)
@@ -140,7 +154,7 @@ def main(argv=None):
     args.out_dir.mkdir(parents=True, exist_ok=True)
     logs = [build_for_seed(S, head=head, policy=policy, affinity=affinity, out_dir=args.out_dir) for S in args.seeds]
     f1 = [l["primary_window"]["ring_f1"] for l in logs]
-    print(f"[rings v1] {len(logs)} files; primary ring-F1 {np.mean(f1):.4f} +/- {np.std(f1, ddof=1):.4f} "
+    print(f"[rings v{RINGS_SCHEMA_VERSION}] {len(logs)} files; primary ring-F1 {np.mean(f1):.4f} +/- {np.std(f1, ddof=1):.4f} "
           f"(R4 'average' row: 0.589 +/- 0.037)")
 
 

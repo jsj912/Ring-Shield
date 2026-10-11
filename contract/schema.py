@@ -50,6 +50,12 @@ LABELS_COLUMNS = {
 TOPOLOGY_TYPES = ["FAN-OUT", "FAN-IN", "GATHER-SCATTER", "SCATTER-GATHER",
                   "CYCLE", "RANDOM", "BIPARTITE", "STACK"]  # AMLworld pattern names, 8 classes
 
+# Contract schema version of the rings table. v1 = Step 8 (the first full rings contract);
+# v2 = Step 14, which ADDS the currency-aware fields below without changing any v1 field's meaning.
+# Written into the parquet key-value metadata by ringshield.rings.write_rings_parquet so a reader
+# can tell the two apart without inspecting the column list.
+RINGS_SCHEMA_VERSION = 2
+
 RINGS_COLUMNS = {
     "ring_id": ("string", "f'{aggregator}-{model_id}-{seed}-{idx}' (Step 5 CLI rule, e.g. 'cc-gine_causal-1-0'; the Step 1 stub used f'{aggregator_id}-{ring_idx}')"),
     "tenant_id": ("int64", "sender bank (from_bank) of the ring's earliest seed edge, ties -> smallest edge_id (Step 5 rule; the Step 1 stub used the most common bank among members). The platform derives the full set of banks with a member itself"),
@@ -73,7 +79,34 @@ RINGS_COLUMNS = {
     "source_accounts": ("list<int64>", "members whose role is 'source' (configs/roles.yaml: no inflow, or inflow / outflow < tau_role 0.25, over the ring's deduplicated flows)"),
     "sink_accounts": ("list<int64>", "members whose role is 'sink' (no outflow, or outflow / inflow < tau_role)"),
     "mule_accounts": ("list<int64>", "members whose role is 'mule' (both flows, closure >= 1 - tau_role, passed on within 72 h) or 'holder' (same but held longer); ringshield.roles.account_roles returns the two separately"),
-}
+
+    # ---- schema v2 (Step 14, currency correction) ---------------------------------------------
+    # AMLworld amounts carry a currency code and 55.2 % of test rings span more than one currency;
+    # 51.9 % of the ring-accounts a closure is computed on have DISJOINT in/out currency sets, so a
+    # raw cross-currency ratio is arithmetic on mismatched units. The v1 fields keep their raw-sum
+    # definition so existing artefacts and downstream consumers are unchanged; these carry the
+    # currency-partitioned values beside them. See docs/PITFALLS.md and docs/MIGRATION.md.
+    "conservation_closure_ccy": ("float64", "ring-level closure computed per currency and summed over currencies "
+                                 "that appear on BOTH sides of an account; NaN when no currency does, which is "
+                                 "~52 % of ring-accounts. `conservation_closure` (v1) remains the RAW "
+                                 "cross-currency ratio and is what `confidence` uses"),
+    "n_accounts_ccy_undefined": ("int64", "ring accounts whose inflow and outflow currency sets are disjoint, so "
+                                 "no per-currency closure exists for them; the denominator behind "
+                                 "conservation_closure_ccy"),
+    "source_accounts_ccy": ("list<int64>", "source accounts under currency-partitioned flows (opt-in roles); the "
+                            "v1 `source_accounts` stays raw-sum"),
+    "sink_accounts_ccy": ("list<int64>", "sink accounts under currency-partitioned flows"),
+    "mule_accounts_ccy": ("list<int64>", "mule accounts under currency-partitioned flows"),
+    "undetermined_accounts_ccy": ("list<int64>", "accounts whose role CANNOT be decided from "
+                                  "same-currency evidence: their inflow and outflow currencies do not "
+                                  "overlap, or the overlap carries too little flow to judge. Not "
+                                  "'peripheral' -- whether they are mules depends on the exchange rate. "
+                                  "Render explicitly; never collapse into another role"),
+    "n_roles_changed_ccy": ("int64", "accounts whose role differs between the raw and the "
+                            "currency-aware assignment; the size of the disagreement, visible without "
+                            "recomputing either"),
+    "n_currencies": ("int64", "distinct currency codes on the ring's member edges (1 = the raw and "
+                     "currency-partitioned definitions coincide)"),}
 
 SCORED_EDGES_ORDER = list(SCORED_EDGES_COLUMNS)
 LABELS_ORDER = list(LABELS_COLUMNS)

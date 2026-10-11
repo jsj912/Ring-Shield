@@ -1,7 +1,7 @@
 {
-  "created_utc": "2026-09-22T18:22:08+00:00",
-  "git_commit": "d4217353ec33ab99714b61b6fc8078f5f17a1c76",
-  "contract_version": "rings.parquet v1 (Step 8)",
+  "created_utc": "2026-10-11T06:07:11+00:00",
+  "git_commit": "003401baef8629686dbebf90b838729b821f923e",
+  "contract_version": "rings.parquet v2 (v1 Step 8; v2 Step 14 currency fields)",
   "detector_seed": 5,
   "aggregator": "full",
   "inputs": {
@@ -9,7 +9,7 @@
     "embeddings": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal\\embeddings_test_seed5.parquet",
     "policy": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\policy_proposed",
     "affinity": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\affinity",
-    "typing_head": "E:\\JSJ\\Ring-Shield\\experiments\\R5_typing\\head_w2",
+    "typing_head": "E:\\JSJ\\RS-ccy-valrings\\experiments\\R5_typing\\head_w2",
     "roles_config": "configs/roles.yaml"
   },
   "params": {
@@ -44,7 +44,15 @@
     "topology_probs",
     "source_accounts",
     "sink_accounts",
-    "mule_accounts"
+    "mule_accounts",
+    "conservation_closure_ccy",
+    "n_accounts_ccy_undefined",
+    "source_accounts_ccy",
+    "sink_accounts_ccy",
+    "mule_accounts_ccy",
+    "undetermined_accounts_ccy",
+    "n_roles_changed_ccy",
+    "n_currencies"
   ],
   "fields": {
     "n_seed_edges": 561,
@@ -79,6 +87,19 @@
     "conservation_closure": {
       "n_nan": 5,
       "mean_non_nan": 0.9096381929008766
+    },
+    "currency_v2": {
+      "n_rings": 107,
+      "n_accounts_undetermined_ccy": 103,
+      "n_rings_with_undetermined": 42,
+      "n_roles_changed_ccy_total": 105,
+      "n_rings_roles_unchanged": 65,
+      "conservation_closure_ccy": {
+        "n_nan": 6,
+        "mean_non_nan": 0.7611995639609443
+      },
+      "currency_mode": "partitioned (v2 fields only; v1 fields remain raw cross-currency sums)",
+      "ccy_min_two_sided_share": 0.5
     }
   },
   "primary_window": {
@@ -99,6 +120,6 @@
     "mean_jaccard": true,
     "member_coverage": true
   },
-  "seconds": 83.4,
-  "out": "E:\\JSJ\\Ring-Shield\\contract\\out\\rings_full_gine_causal_5.parquet"
+  "seconds": 84.1,
+  "out": "E:\\JSJ\\RS-ccy-valrings\\contract\\out\\rings_full_gine_causal_5.parquet"
 }
