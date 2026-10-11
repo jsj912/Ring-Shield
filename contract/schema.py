@@ -118,6 +118,58 @@ def pandas_dtypes(spec: dict) -> dict:
     return {c: t for c, (t, _) in spec.items() if not t.startswith("list<")}
 
 
+# The only float columns the contract permits to be NaN; both column docs say when and why.
+# Every other float field has a real value in every shipped ring, so a NaN default there would
+# hand a consumer a missing number dressed as a measured one.
+RINGS_NAN_OK = ("conservation_closure", "conservation_closure_ccy")
+
+
+def ring_record(**overrides) -> dict:
+    """One rings-contract row as a dict: every column of RINGS_COLUMNS present, correctly typed.
+
+    Defaults are the empty-but-valid values, not placeholders:
+
+        int64            0            counts and ids
+        float64          0.0          except RINGS_NAN_OK, which default to NaN
+        string           ""           except topology_type, which is "UNKNOWN"
+        list<int64>      []           members, member_edges, the role arrays, ...
+        list<float64>    []           except topology_probs, which is uniform over TOPOLOGY_TYPES
+                                      so that a bare record is already a valid distribution
+
+    Why this exists: the type of a rings column cannot be recovered from an absent value. Building
+    a frame as `pd.DataFrame(rows, columns=RINGS_ORDER)` with rows that omit a column gives that
+    column all-NaN float64, which passes a column-NAME check and fails a type check -- and the
+    failure surfaces as the wrong diagnosis. Every producer of a rings row should start here, so a
+    future schema version reaches them all at once.
+
+    An override key that is not a contract column is refused, because a silently ignored typo is
+    how a column ends up at its default in a shipped file.
+    """
+    unknown = sorted(k for k in overrides if k not in RINGS_COLUMNS)
+    if unknown:
+        raise KeyError(f"not rings-contract columns: {unknown}; "
+                       f"did you mean one of {sorted(RINGS_COLUMNS)}?")
+    rec: dict = {}
+    for col, (typ, _) in RINGS_COLUMNS.items():
+        if typ == "int64":
+            rec[col] = 0
+        elif typ == "float64":
+            rec[col] = float("nan") if col in RINGS_NAN_OK else 0.0
+        elif typ == "string":
+            rec[col] = "UNKNOWN" if col == "topology_type" else ""
+        elif typ == "bool":
+            rec[col] = False
+        elif typ == "list<int64>":
+            rec[col] = []
+        elif typ == "list<float64>":
+            rec[col] = ([1.0 / len(TOPOLOGY_TYPES)] * len(TOPOLOGY_TYPES)
+                        if col == "topology_probs" else [])
+        else:                                     # pragma: no cover - a new contract type
+            raise AssertionError(f"ring_record: no default for contract type {typ!r} ({col})")
+    rec.update(overrides)
+    return rec
+
+
 # --------------------------------------------------------------------------- #
 # inputs we depend on
 # --------------------------------------------------------------------------- #

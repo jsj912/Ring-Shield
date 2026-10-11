@@ -27,8 +27,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -37,18 +35,19 @@ from contract.make_scored_edges import load_paths, write_log  # noqa: E402
 from preprocessing.account_bank import bank_of_series, load_account_bank_map  # noqa: E402
 from contract.schema import (  # noqa: E402
     E7_RING_CSV_COLUMNS,
-    RINGS_COLUMNS,
     RINGS_ORDER,
+    RINGS_SCHEMA_VERSION,
     TOPOLOGY_TYPES,
+    ring_record,
 )
+from ringshield.rings import Ring, write_rings_parquet  # noqa: E402
+from ringshield.roles import fill_currency_fields  # noqa: E402
 
 DRY_RUN_FRAC = 0.01
 
-_PA_TYPES = {
-    "int64": pa.int64(), "float64": pa.float64(), "string": pa.string(), "bool": pa.bool_(),
-    "list<int64>": pa.list_(pa.int64()), "list<float64>": pa.list_(pa.float64()),
-}
-RINGS_PA_SCHEMA = pa.schema([(c, _PA_TYPES[t]) for c, (t, _) in RINGS_COLUMNS.items()])
+# The arrow schema used to be rebuilt here from RINGS_COLUMNS. It is now written through
+# ringshield.rings.write_rings_parquet, which owns the one RINGS_PA_SCHEMA and stamps the schema
+# version; a second copy of the same derivation is the duplication that let load_paths drift.
 
 
 def _mode_smallest(values: np.ndarray) -> int:
@@ -88,7 +87,11 @@ def make_rings_stub(
     e7["end_time"] = e7["end_time"].astype("int64") + offset
 
     # 2. member / seed edges from scored_edges (loader basis) ------------------
-    se = pd.read_parquet(scored_edges_parquet, columns=["edge_id", "from_id", "to_id", "timestamp", "is_seed"])
+    # amount_received + currency_received are needed by the schema-v2 currency fields; the five
+    # columns this used to read are not enough to compute a per-currency role.
+    se = pd.read_parquet(scored_edges_parquet, columns=[
+        "edge_id", "from_id", "to_id", "timestamp", "is_seed",
+        "amount_received", "currency_received", "score_calibrated"])
     edge_id = se["edge_id"].values
     from_id = se["from_id"].values
     to_id = se["to_id"].values
@@ -111,7 +114,7 @@ def make_rings_stub(
             f"ring {r.ring_idx}: start_time {r.start_time} != min member_edges timestamp {t_min}")
         banks = bank_of.reindex(members)
         assert not banks.isna().any(), f"ring {r.ring_idx}: member without a bank: {members[banks.isna().values]}"
-        rows.append({
+        rows.append(ring_record(**{
             "ring_id": f"{aggregator_id}-{r.ring_idx}",
             "tenant_id": _mode_smallest(banks.values.astype(np.int64)),
             "aggregator_id": aggregator_id,
@@ -134,12 +137,13 @@ def make_rings_stub(
             "source_accounts": [],
             "sink_accounts": [],
             "mule_accounts": [],
-        })
+        }))
 
-    # 5. write with an explicit schema so empty lists keep their element type ----
-    table = pa.Table.from_pylist([{c: row[c] for c in RINGS_ORDER} for row in rows], schema=RINGS_PA_SCHEMA)
+    # 5. schema v2: compute the currency fields, then write through the one stamping writer ----
+    rings = [Ring(**row) for row in rows]
+    ccy = fill_currency_fields(rings, se)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(table, out_path)
+    write_rings_parquet(rings, out_path)       # stamps rings_schema_version in the parquet metadata
 
     log = {
         "aggregator_id": aggregator_id,
@@ -156,6 +160,8 @@ def make_rings_stub(
         "n_seed_edges_total": int(sum(len(r["seed_edges"]) for r in rows)),
         "min_members": int(min(r["n_members"] for r in rows)),
         "columns": RINGS_ORDER,
+        "contract_version": f"rings.parquet v{RINGS_SCHEMA_VERSION}",
+        "currency_v2": ccy,
         "out_path": str(out_path),
     }
     write_log(out_path, log)
