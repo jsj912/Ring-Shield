@@ -104,7 +104,12 @@ def read_rings_any(path: Path) -> list[Ring]:
     rows = pq.read_table(path).to_pylist()
     default = {"expanded_edges": [], "expanded_edge_probs": [], "conservation_closure": float("nan"),
                "topology_type": "UNKNOWN", "topology_probs": [1.0 / len(TOPOLOGY_TYPES)] * len(TOPOLOGY_TYPES),
-               "source_accounts": [], "sink_accounts": [], "mule_accounts": []}
+               "source_accounts": [], "sink_accounts": [], "mule_accounts": [],
+               # schema v2 (Step 14): a v1 file simply has no currency-partitioned view, which reads
+               # as NaN / empty / 0 -- never as a computed zero.
+               "conservation_closure_ccy": float("nan"), "n_accounts_ccy_undefined": 0,
+               "source_accounts_ccy": [], "sink_accounts_ccy": [], "mule_accounts_ccy": [],
+               "undetermined_accounts_ccy": [], "n_roles_changed_ccy": 0, "n_currencies": 0}
     out = []
     for row in rows:
         vals = {}

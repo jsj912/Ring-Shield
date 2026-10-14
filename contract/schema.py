@@ -50,6 +50,12 @@ LABELS_COLUMNS = {
 TOPOLOGY_TYPES = ["FAN-OUT", "FAN-IN", "GATHER-SCATTER", "SCATTER-GATHER",
                   "CYCLE", "RANDOM", "BIPARTITE", "STACK"]  # AMLworld pattern names, 8 classes
 
+# Contract schema version of the rings table. v1 = Step 8 (the first full rings contract);
+# v2 = Step 14, which ADDS the currency-aware fields below without changing any v1 field's meaning.
+# Written into the parquet key-value metadata by ringshield.rings.write_rings_parquet so a reader
+# can tell the two apart without inspecting the column list.
+RINGS_SCHEMA_VERSION = 2
+
 RINGS_COLUMNS = {
     "ring_id": ("string", "f'{aggregator}-{model_id}-{seed}-{idx}' (Step 5 CLI rule, e.g. 'cc-gine_causal-1-0'; the Step 1 stub used f'{aggregator_id}-{ring_idx}')"),
     "tenant_id": ("int64", "sender bank (from_bank) of the ring's earliest seed edge, ties -> smallest edge_id (Step 5 rule; the Step 1 stub used the most common bank among members). The platform derives the full set of banks with a member itself"),
@@ -73,7 +79,34 @@ RINGS_COLUMNS = {
     "source_accounts": ("list<int64>", "members whose role is 'source' (configs/roles.yaml: no inflow, or inflow / outflow < tau_role 0.25, over the ring's deduplicated flows)"),
     "sink_accounts": ("list<int64>", "members whose role is 'sink' (no outflow, or outflow / inflow < tau_role)"),
     "mule_accounts": ("list<int64>", "members whose role is 'mule' (both flows, closure >= 1 - tau_role, passed on within 72 h) or 'holder' (same but held longer); ringshield.roles.account_roles returns the two separately"),
-}
+
+    # ---- schema v2 (Step 14, currency correction) ---------------------------------------------
+    # AMLworld amounts carry a currency code and 55.2 % of test rings span more than one currency;
+    # 51.9 % of the ring-accounts a closure is computed on have DISJOINT in/out currency sets, so a
+    # raw cross-currency ratio is arithmetic on mismatched units. The v1 fields keep their raw-sum
+    # definition so existing artefacts and downstream consumers are unchanged; these carry the
+    # currency-partitioned values beside them. See docs/PITFALLS.md and docs/MIGRATION.md.
+    "conservation_closure_ccy": ("float64", "ring-level closure computed per currency and summed over currencies "
+                                 "that appear on BOTH sides of an account; NaN when no currency does, which is "
+                                 "~52 % of ring-accounts. `conservation_closure` (v1) remains the RAW "
+                                 "cross-currency ratio and is what `confidence` uses"),
+    "n_accounts_ccy_undefined": ("int64", "ring accounts whose inflow and outflow currency sets are disjoint, so "
+                                 "no per-currency closure exists for them; the denominator behind "
+                                 "conservation_closure_ccy"),
+    "source_accounts_ccy": ("list<int64>", "source accounts under currency-partitioned flows (opt-in roles); the "
+                            "v1 `source_accounts` stays raw-sum"),
+    "sink_accounts_ccy": ("list<int64>", "sink accounts under currency-partitioned flows"),
+    "mule_accounts_ccy": ("list<int64>", "mule accounts under currency-partitioned flows"),
+    "undetermined_accounts_ccy": ("list<int64>", "accounts whose role CANNOT be decided from "
+                                  "same-currency evidence: their inflow and outflow currencies do not "
+                                  "overlap, or the overlap carries too little flow to judge. Not "
+                                  "'peripheral' -- whether they are mules depends on the exchange rate. "
+                                  "Render explicitly; never collapse into another role"),
+    "n_roles_changed_ccy": ("int64", "accounts whose role differs between the raw and the "
+                            "currency-aware assignment; the size of the disagreement, visible without "
+                            "recomputing either"),
+    "n_currencies": ("int64", "distinct currency codes on the ring's member edges (1 = the raw and "
+                     "currency-partitioned definitions coincide)"),}
 
 SCORED_EDGES_ORDER = list(SCORED_EDGES_COLUMNS)
 LABELS_ORDER = list(LABELS_COLUMNS)
@@ -83,6 +116,58 @@ RINGS_ORDER = list(RINGS_COLUMNS)
 def pandas_dtypes(spec: dict) -> dict:
     """dtype map usable with DataFrame.astype (list columns are left to pyarrow)."""
     return {c: t for c, (t, _) in spec.items() if not t.startswith("list<")}
+
+
+# The only float columns the contract permits to be NaN; both column docs say when and why.
+# Every other float field has a real value in every shipped ring, so a NaN default there would
+# hand a consumer a missing number dressed as a measured one.
+RINGS_NAN_OK = ("conservation_closure", "conservation_closure_ccy")
+
+
+def ring_record(**overrides) -> dict:
+    """One rings-contract row as a dict: every column of RINGS_COLUMNS present, correctly typed.
+
+    Defaults are the empty-but-valid values, not placeholders:
+
+        int64            0            counts and ids
+        float64          0.0          except RINGS_NAN_OK, which default to NaN
+        string           ""           except topology_type, which is "UNKNOWN"
+        list<int64>      []           members, member_edges, the role arrays, ...
+        list<float64>    []           except topology_probs, which is uniform over TOPOLOGY_TYPES
+                                      so that a bare record is already a valid distribution
+
+    Why this exists: the type of a rings column cannot be recovered from an absent value. Building
+    a frame as `pd.DataFrame(rows, columns=RINGS_ORDER)` with rows that omit a column gives that
+    column all-NaN float64, which passes a column-NAME check and fails a type check -- and the
+    failure surfaces as the wrong diagnosis. Every producer of a rings row should start here, so a
+    future schema version reaches them all at once.
+
+    An override key that is not a contract column is refused, because a silently ignored typo is
+    how a column ends up at its default in a shipped file.
+    """
+    unknown = sorted(k for k in overrides if k not in RINGS_COLUMNS)
+    if unknown:
+        raise KeyError(f"not rings-contract columns: {unknown}; "
+                       f"did you mean one of {sorted(RINGS_COLUMNS)}?")
+    rec: dict = {}
+    for col, (typ, _) in RINGS_COLUMNS.items():
+        if typ == "int64":
+            rec[col] = 0
+        elif typ == "float64":
+            rec[col] = float("nan") if col in RINGS_NAN_OK else 0.0
+        elif typ == "string":
+            rec[col] = "UNKNOWN" if col == "topology_type" else ""
+        elif typ == "bool":
+            rec[col] = False
+        elif typ == "list<int64>":
+            rec[col] = []
+        elif typ == "list<float64>":
+            rec[col] = ([1.0 / len(TOPOLOGY_TYPES)] * len(TOPOLOGY_TYPES)
+                        if col == "topology_probs" else [])
+        else:                                     # pragma: no cover - a new contract type
+            raise AssertionError(f"ring_record: no default for contract type {typ!r} ({col})")
+    rec.update(overrides)
+    return rec
 
 
 # --------------------------------------------------------------------------- #
