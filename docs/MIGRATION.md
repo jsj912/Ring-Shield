@@ -1,6 +1,6 @@
 # MIGRATION — rings contract v1 → v2 (currency-aware fields, validation rings)
 
-For the XAI teammate on `explainability-l4`. Read the four **Action required** boxes; the rest is
+For the XAI teammate on `explainability-l4`. Read the five **Action required** boxes; the rest is
 background.
 
 Branch: `contract-ccy-valrings`, cut from `v2`. Nothing on `jsj-v3` or `explainability-l4` was
@@ -10,11 +10,33 @@ touched.
 
 ## 1. What changed, in one paragraph
 
-AMLworld amounts carry a currency code. No single transaction is cross-currency, but **55.2 % of
-test rings span more than one currency** and median amounts differ by **~140×** between codes. The
-shipped roles and closure sum amounts **across** currencies, so for a meaningful share of accounts
-they compare mismatched units. Schema **v2** adds a currency-partitioned view **beside** the
-existing fields. **No v1 field changed meaning or value.**
+AMLworld amounts carry a currency code. **55.2 % of test rings span more than one currency** and
+median amounts differ by **~140×** between codes. The shipped roles and closure sum amounts
+**across** currencies, so for a meaningful share of accounts they compare mismatched units. Schema
+**v2** adds a currency-partitioned view **beside** the existing fields. **No v1 field changed
+meaning or value.**
+
+> ### Correction, 2026-10-14 — thank you
+>
+> This section used to say *"No single transaction is cross-currency"*, and section 5 used to say
+> there is no exchange table and no recoverable rate. **Both were wrong, and your measurement is
+> what caught them.** 13,627 test edges (1.58 %) have `Sent Currency != Received Currency` with a
+> real amount on each side; the generator's rates are fixed and recoverable directly from those
+> rows. Neither claim had ever been measured before it was written down — it went into a docstring
+> and was copied from there into four files and two commit messages. The record is
+> `docs/PITFALLS.md` entry 3c.
+>
+> What follows from it:
+>
+> * The rates are now in **`contract/fx_rates.json`** with **`docs/FX_RATES.md`** — train split
+>   only, no label filter, round trip and triangle closing to 3e-5.
+> * **`currency="partitioned"` is superseded by `currency="converted"`** (section 3). The v2
+>   `*_ccy` columns are kept exactly as published and nothing was regenerated, but prefer the
+>   converted roles.
+> * **XR-02 is reinstated** (section 5), met through `fx_rates.json` rather than a table the
+>   dataset never shipped.
+> * Everything published still stands: `currency="raw"` is byte-identical, and the HI-Small
+>   results and the pinned HI-Medium v3 run are untouched.
 
 ## 2. Action required — your validator will reject v1 files
 
@@ -51,30 +73,47 @@ Two things to do:
 If you would rather not take the column change yet, pin `contract/schema.py` to the merge-base and
 merge the rest; nothing else in this branch depends on the new columns.
 
-## 3. Action required — use the `_ccy` roles, and render `undetermined` explicitly
+## 3. Action required — use the currency-aware roles (`converted`), and render `undetermined` explicitly
 
 `account_roles` is unchanged by default. `currency="raw"` is byte-identical to today, verified
 across all 108 rings of seed 1, so **`research_roles`, your `roles_disagreement_*.csv` and
 `currency_policy: raw` all stay valid**.
 
-For narratives, switch to the currency-aware assignment:
+For narratives, switch to the currency-aware assignment. **Use `converted`, not `partitioned`:**
 
 ```python
-roles = account_roles(ring, scored_edges, edges="included", currency="partitioned")
-arrays = role_arrays(roles, currency="partitioned")   # includes undetermined_accounts_ccy
+roles  = account_roles(ring, scored_edges, edges="included", currency="converted")
+arrays = role_arrays(roles)          # the v1 array names: converted is the corrected same quantity
 ```
 
-**There is a sixth role: `undetermined`.** An account gets it when its inflow and outflow
-currencies do not overlap, or when the currencies on both sides carry less than
-`ccy_min_two_sided_share` (0.5) of each side's flow. It is **not** `peripheral`, and the
-distinction is the whole point:
+`converted` books the sender's leg from `amount_sent` / `currency_sent` and the receiver's from
+`amount_received` / `currency_received`, converts both to currency 0 with `contract/fx_rates.json`,
+then applies the ordinary role rule. It needs no new columns and there is **no schema bump**.
 
-> Partitioned flows cannot show that such an account is *not* a mule — only that same-currency
-> evidence does not support the label. Whether it is a mule depends on the exchange rate.
+**`partitioned` is superseded** and kept only because the published v2 columns were computed with
+it. It withholds a verdict wherever it cannot compare within one currency, which is the right
+instinct under the false premise that no rate exists — and far too often now that one does:
 
-**Render it explicitly.** Something like *"currency changes inside this account; balance cannot be
-checked"*. Never collapse it into `peripheral`, `source` or `sink` — each of those asserts a flow
-imbalance the evidence does not establish.
+| | `partitioned` | `converted` |
+|---|---:|---:|
+| ring-accounts whose role changes vs `raw` | 575 (13.4 %) | **285 (6.7 %)** |
+| left `undetermined` | 571 (13.3 %) | **3 (0.07 %)** |
+
+Of `partitioned`'s 571 withholdings, **568 resolve under `converted` — 492 of them (86 %) to
+`mule`**, 41 to peripheral, 17 to source, 14 to holder, 7 to sink.
+
+**There is a sixth role: `undetermined`.** Under `converted` an account gets it only when it
+touches a currency with **no usable rate** — in practice currency code **1**, whose amounts are so
+small that 2-decimal recording cannot pin its rate. That is **3 accounts of 4,280**, in one ring.
+
+**Still render it explicitly** where it does occur: *"this account converts into a currency whose
+rate cannot be recovered; the balance cannot be checked"*. Never collapse it into `peripheral`,
+`source` or `sink` — each asserts a flow imbalance the evidence does not establish. But it is now
+a rare edge case rather than a label on 13 % of accounts.
+
+Under the superseded `partitioned` mode the same role fired whenever in and out currencies did not
+overlap, on the reasoning that *"whether it is a mule depends on the exchange rate"*. The rate is
+now known, so that sentence is no longer a reason to withhold — it is a reason to convert.
 
 Measured across 4,280 ring-accounts, 5 seeds (shipped `full` runs):
 
@@ -87,9 +126,14 @@ Measured across 4,280 ring-accounts, 5 seeds (shipped `full` runs):
 | holder → **undetermined** | 4 |
 | mule → peripheral | 4 |
 
-**575 of 4,280 (13.4 %) change, and 571 of those become `undetermined`.** Only 4 accounts are
-actually contradicted by same-currency evidence. So the honest statement is *"253 mule labels are
-not supported by same-currency evidence"*, not *"253 accounts are not mules"*.
+**575 of 4,280 (13.4 %) change, and 571 of those become `undetermined`** — under the superseded
+`partitioned` mode. The statement that went with that table was *"253 mule labels are not supported
+by same-currency evidence"*.
+
+**That is now resolved rather than hedged.** With the rate applied, those mule labels **are**
+supported: 86 % of `partitioned`'s withheld accounts come back `mule` under `converted`. The
+table above is kept because it describes the published v2 columns, not because it is the best
+available answer.
 
 Per ring, `n_roles_changed_ccy` gives the size of the disagreement directly: **median 0, max 15,
 and 317 of 560 ring-instances are entirely unaffected**. The disagreement is concentrated, not
@@ -105,19 +149,24 @@ currency_policy: raw   # PROVISIONAL: raw sums across currencies, as the shipped
 
 It is no longer provisional — it now selects between two *shipped* conventions:
 
-| | `raw` (v1) | `partitioned` (v2) |
+| | `raw` (v1) | `partitioned` (v2, superseded) |
 |---|---|---|
 | fields | `source/sink/mule_accounts`, `conservation_closure`, `confidence` | `*_accounts_ccy`, `undetermined_accounts_ccy`, `conservation_closure_ccy` |
 | sums amounts across currencies | yes | no |
 | withholds a role when it cannot judge | no | yes (`undetermined`) |
 | recommended for narratives | no | **yes** |
 
-The ring-level `conservation_closure` is **essentially unaffected** by the choice — median |Δ|
-0.0000, and only **2 of 102** rings differ by more than 0.1 — because it reads sources and sinks,
-which are one-sided by definition. It is the **per-account roles** that move. So if you only use
-closure, `raw` is fine; if you use roles, use `partitioned`.
+Ring-level `conservation_closure` is **essentially unaffected** by the `raw` / `partitioned`
+choice — median |Δ| 0.0000, only **2 of 102** rings differ by more than 0.1 — because it reads
+sources and sinks, which are one-sided by definition.
 
-## 5. Action required — `w_flow` must be a within-currency share
+**It is not unaffected by `converted`.** Median |Δ| is still 0.0000, but **87 of 525 rings differ
+by more than 0.1, worst 0.97**, because `converted` also repairs the leg-booking defect
+(`PITFALLS.md` 3d) and not just the units. The shipped `conservation_closure` and `confidence` are
+left as published; this is the note that they would move. So: if you only use closure, `raw` is
+what every published number uses; if you use **roles**, use **`converted`**.
+
+## 5. Action required — `w_flow` must not mix currency codes (XR-02 reinstated)
 
 `edge_weights.py::w_flow` divides each edge's amount by the total over the ring's member edges,
 summed **raw across currencies**:
@@ -132,29 +181,47 @@ code 6), one edge in a high-magnitude currency takes almost the whole share of a
 ring, and the other members round towards zero. That is not a flow share; it is a currency
 artefact. **55.2 % of test rings span more than one currency**, so it is not a corner case.
 
-**The rule: `w_flow` is a within-currency share.** Each edge's amount divided by the total of the
-**same-currency** member edges of that ring, with the existing duplicate-payment rule unchanged
-(same from, to, timestamp, amount counted once in the total; every copy keeps the same share). A
-single-currency ring is unaffected, so nothing in your hand-computed tests moves.
+**The rule: `w_flow` must not mix currency codes.** Preferred form — convert each member edge to
+currency 0 with `contract/fx_rates.json` and take the ordinary share of the ring's converted total.
+Fallback, for a ring touching currency 1 (no usable rate) — the **within-currency** share: each
+edge's amount divided by the total of the same-currency member edges. Either way the existing
+duplicate-payment rule is unchanged (same from, to, timestamp, amount counted once in the total;
+every copy keeps the same share), and a single-currency ring is unaffected, so nothing in your
+hand-computed tests moves.
 
-**`w_flow` therefore no longer sums to 1 over a ring — it sums to 1 per currency**, so a ring with
-three currencies has three unit totals. `w_total = alpha*w_score + beta*w_loo + gamma*w_flow` stays
+**Under the converted form `w_flow` sums to 1 over the ring**, as it did before. Under the
+within-currency fallback it **sums to 1 per currency**, so a ring with three currencies has three
+unit totals. `w_total = alpha*w_score + beta*w_loo + gamma*w_flow` stays
 well defined per edge, but any assertion that `w_flow` sums to 1 over the ring, or any narrative
 sentence of the form "this edge carries X % of the ring's money", needs the currency named: *"X %
 of the ring's money in currency C"*.
 
-### XR-02's exchange-table normalisation is withdrawn
+### XR-02 is REINSTATED, via `contract/fx_rates.json`
 
-XR-02 said to normalise amounts with the dataset's exchange table. **There is no exchange table in
-AMLworld.** It is not merely unpublished — it is not recoverable from the data either: of 393,544
-unlabelled accounts with exactly one currency on each side, **99.99 % use the same currency on
-both**, leaving 50 cross-currency pass-throughs and just 1 with >= 3 edges per side
-(`results/tables/fx_stability.json`). There is no background population to estimate a rate from.
+> **Corrected 2026-10-14.** This section said XR-02 was withdrawn because *"there is no exchange
+> table in AMLworld"* and no rate was recoverable. **Both were wrong**, and your measurement caught
+> it. The rate is recorded on each cross-currency transaction, and the generator's rates are fixed.
+> The earlier reasoning rested on `evaluation/fx_stability.py`, which asked an *account*-level
+> question (how many accounts convert) and got the right answer to it — then had that answer
+> generalised into a claim about *edges*, which does not follow. `PITFALLS.md` 3c.
 
-So the requirement cannot be met as written and is **withdrawn**, not deferred. The within-currency
-share is the replacement, and it is the same discipline as the `undetermined` role in section 3:
-where no rate exists, compare only within a currency and say so, rather than converting with a
-number nobody has.
+**XR-02 stands, and can be met.** Normalise with `contract/fx_rates.json`:
+
+```python
+from ringshield.roles import load_fx_rates
+fx = load_fx_rates()["rate_to_ccy0"]           # {currency: rate to currency 0}
+value = amount * fx[currency]                  # None for currency 1: withhold, do not guess
+```
+
+Rates come from the train split only, with no label filter, and close under inversion and
+composition to 3e-5 (`docs/FX_RATES.md`). **Currency 1 has no usable rate** — its amounts are too
+small for 2-decimal recording to pin one — so an amount in currency 1 cannot be normalised and the
+edge must be reported as unconvertible rather than converted at a guess.
+
+**So `w_flow` has two correct forms, and converting is the better one:** normalise every member
+edge to currency 0 and take the ordinary share of the ring's total. Then `w_flow` sums to 1 over
+the ring again, and *"this edge carries X % of the ring's money"* is true without qualification.
+Fall back to the within-currency share only for a ring touching currency 1.
 
 ## 6. Action required - apply `docs/xai_fixtures.patch`
 
@@ -202,7 +269,55 @@ rings: 2 violation(s):
 Any other repair that silences the dtype errors would have turned this test green without that
 check ever running. Worth knowing if you decide to fix it differently.
 
-## 7. New: validation rings
+## 7. Action required - drop currency conversions from evidence edges and `w_flow`
+
+`member_edges` is **every** edge among the ring's member accounts inside its span, not only the
+edges the aggregator used. The biggest category of extra traffic is currency conversion, and
+AMLworld records a conversion as a **self-loop**: one account, `from_id == to_id`,
+`currency_sent != currency_received`, a real amount on each side.
+
+| edge set | edges | cross-currency |
+|---|---:|---:|
+| `member_edges` | 7,520 | **2,912 (38.7 %)**, in 489 of 560 rings |
+| `seed_edges` + `expanded_edges` | 4,316 | 33 (0.76 %) |
+
+**Not one of them is laundering: 0 of 72,170 across all three splits**, and 0 of the 1,611
+laundering test edges is a conversion. Truth rings contain none at all.
+
+So in any ring you render, roughly two edges in five are a conversion that is provably not
+laundering. The filter needs no labels and no schema change:
+
+```python
+conv = se["currency_sent"] != se["currency_received"]      # 96.95 % also have from_id == to_id
+evidence = [e for e in ring.member_edges if not conv_by_edge_id[e]]
+```
+
+**Two places to apply it:**
+
+* **Evidence edges.** A conversion is an artefact of how the dataset represents an exchange rather
+  than a transfer between parties. Ranking it as evidence spends an explanation slot on an edge
+  that cannot be laundering.
+* **`w_flow`.** A self-loop moves no money *between* accounts, so including it in the ring's total
+  dilutes every real edge's share. Drop conversions from the denominator and from the ranking.
+
+This also simplifies section 5: with conversions excluded, far fewer rings are mixed-currency in
+the edges you actually use, so the converted `w_flow` is the natural form and the within-currency
+fallback becomes rare.
+
+For the ring-level statement, use the new helper rather than recomputing:
+
+```python
+from ringshield.roles import ring_conservation_converted
+c = ring_conservation_converted(ring, scored_edges)
+# c["closure"], c["in_at_sinks"], c["out_at_sources"] -- all in currency 0, c["currency"] == 0
+# c["unconvertible"] is True if the ring touches currency 1: say the total is partial
+```
+
+It uses the contract's closure definition unchanged, on converted flows, and returns the two totals
+so a narrative can quote them. They are **not** comparable with the contract's
+`conservation_closure`, which stays the raw cross-currency ratio and is what `confidence` uses.
+
+## 8. New: validation rings
 
 `run_partition.py --save-val-rings` writes `rings_val.parquet` (+ `.log.json`) for the **chosen
 cell only**, with every contract field filled at v2. Validation rings were previously built during
@@ -212,7 +327,7 @@ Produced for `gine_causal`, 5 seeds, under `experiments_valrings/average/seed{1.
 asserts the written rings' member sets are **identical to the rings the validation metrics came
 from**, so the file is the same object the grid chose on, not a re-derivation.
 
-## 8. Merge expectations
+## 9. Merge expectations
 
 **No file of yours conflicts.** `explainability-l4` vs `v2` is 35 files, 10,777 insertions, 0
 deletions — purely additive, and it touches none of the files changed here (`contract/schema.py`,
@@ -229,8 +344,21 @@ Files to look at after merging:
 | `explainability/config.yaml` | `currency_policy` is a real choice; `partitioned` recommended for roles |
 | your narrative templates | need an `undetermined` branch |
 
-## 9. Not in this branch
+## 10. What converts, and what still does not
 
-Implied FX rates are **estimated and reported only** (`results/tables/fx_stability.*`), never
-applied. Until they are shown stable across days and across releases, an `undetermined` account
-stays undetermined; nothing converts amounts.
+**Corrected 2026-10-14.** This section used to say FX rates were report-only and that nothing
+converts amounts. The rates are now recovered, checked and shipped:
+
+* `contract/fx_rates.json` + `docs/FX_RATES.md` — the generator's fixed rates to currency 0, from
+  the train split with no label filter, closing under inversion and composition to 3e-5.
+* `account_roles(..., currency="converted")` applies them. It is **opt-in**: `raw` remains the
+  default and every published number still comes from `raw`.
+* `results/tables/fx_stability.*` is **superseded** and carries a `SUPERSEDED` block saying why.
+
+**What still does not convert:** currency **1**. Its amounts are too small for 2-decimal recording
+to pin a rate, so it is listed in `fx_rates.json` under `unconvertible` with
+`rate_to_ccy0: null`. An account touching it is reported `undetermined` — 3 of 4,280 across the
+five shipped seeds. A consumer must withhold there, never guess.
+
+**Nothing was regenerated.** The v2 `*_ccy` columns, the rings files, the HI-Small results and the
+pinned HI-Medium v3 run are all exactly as published.
