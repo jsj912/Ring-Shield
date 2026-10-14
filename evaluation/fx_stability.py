@@ -1,4 +1,25 @@
-"""Implied FX rates from unlabelled pass-through accounts — REPORT ONLY, nothing ships from it.
+"""Implied FX rates from unlabelled pass-through accounts — SUPERSEDED, kept for the record.
+
+    *** Use `contract/make_fx_rates.py` instead. ***
+
+SUPERSEDED 2026-10-14. This script asked an ACCOUNT-level question — how many accounts receive in
+one currency and pay out in another — and answered it correctly: 50 of 393,544. The conclusion
+drawn from that answer, "no exchange rate is recoverable from the data", does NOT follow and is
+withdrawn.
+
+The rate is recorded on the EDGE. 13,627 test edges (1.58 %) carry
+`Sent Currency != Received Currency` with a real amount on each side, so each one states a rate
+directly, and 96.95 % of them are self-loops — one account converting. The generator's rates are
+fixed: round trip and triangle close to 3e-5. `contract/make_fx_rates.py` recovers them into
+`contract/fx_rates.json`; see `docs/FX_RATES.md` and `docs/PITFALLS.md` entry 3c. Found by the XAI
+teammate's measurement.
+
+Nothing below is wrong as a measurement of what it measures. It is kept so the error is traceable,
+and because "a null that cannot discriminate is not a null" applies to a denominator too: the
+population it searched was the wrong population.
+
+Original header follows.
+
 
     python evaluation/fx_stability.py
     python evaluation/fx_stability.py --dataset-b data/processed_hi_medium

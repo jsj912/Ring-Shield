@@ -48,11 +48,16 @@ a paths file becomes a `Path`. `dataset: LI-Small` silently became
 
 ### 3b. Raw cross-currency sums reached the per-account roles, and everything downstream of them
 
-AMLworld amounts carry a currency code. No single transaction is cross-currency, but **55.2 % of
-test rings span more than one currency** (up to 8) and median amounts differ by **~140x** between
-codes (7,918 for code 11 against 1,100,155 for code 6). `ringshield/roles.py` summed amounts
-**across** currencies, so `closure = min(in, out) / max(in, out)` compared mismatched units
-wherever an account's inflow and outflow currencies differed.
+AMLworld amounts carry a currency code. **55.2 % of test rings span more than one currency** (up to
+8) and median amounts differ by **~140x** between codes (7,918 for code 11 against 1,100,155 for
+code 6). `ringshield/roles.py` summed amounts **across** currencies, so
+`closure = min(in, out) / max(in, out)` compared mismatched units wherever an account's inflow and
+outflow currencies differed.
+
+> **Corrected 2026-10-14.** This entry originally opened "No single transaction is cross-currency".
+> That is **false** and the correction is entry **3c** below. Two numbers here are also wrong and
+> are struck through where they appear. The defect described in this entry is real; its proposed
+> remedy (`partitioned`) is superseded by `converted`.
 
 **What it reached.** Every consumer of the per-account roles:
 
@@ -75,7 +80,8 @@ defect as "closure is broken for half its inputs" was wrong and is corrected her
 
 **Scale of the role effect**, 4,280 ring-accounts over 5 shipped `full` seeds: **575 (13.4 %)**
 change role under currency partitioning, of which **571 become `undetermined`** and only **4** are
-genuine reclassifications. Per ring, `n_roles_changed_ccy` is median 0, max 15, and 317 of 560
+genuine reclassifications. Under `converted` (entry 3c) only **285 (6.7 %)** change and just
+**3** stay undetermined. Per ring, `n_roles_changed_ccy` is median 0, max 15, and 317 of 560
 ring-instances are unaffected.
 
 **The trap inside the fix.** Partitioned flows cannot show that an account with disjoint in/out
@@ -86,11 +92,112 @@ exactly that and reported "257 accounts are not mules"; the correct statement is
 are not supported by same-currency evidence; whether they are mules depends on the exchange rate"**.
 Hence the sixth role, `undetermined`, and `undetermined_accounts_ccy` in schema v2.
 
-**And the rate cannot be recovered from the data.** Of 393,544 unlabelled accounts with exactly one
-currency on each side, **99.99 % use the same currency on both** — only 50 are cross-currency
-pass-throughs and just 1 has >= 3 edges per side. There is no background population to estimate an
-FX rate from (`results/tables/fx_stability.json`), so an `undetermined` account stays undetermined.
-(2026-10-11)
+**~~And the rate cannot be recovered from the data.~~** ~~Of 393,544 unlabelled accounts with
+exactly one currency on each side, 99.99 % use the same currency on both.~~ **This conclusion is
+withdrawn.** The measurement behind it was correct but answered the wrong question: it looked for
+accounts that convert, when the dataset records each conversion **on the edge**, with an amount and
+a currency on both sides. The rates are recoverable, fixed, and now in `contract/fx_rates.json`.
+See entry 3c. (2026-10-11, corrected 2026-10-14)
+
+### 3c. A premise written into a docstring, then built on: "no edge is cross-currency"
+
+**Found by the XAI teammate, 2026-10-14.** The schema-v2 currency work rested on two claims:
+
+1. *"No single transaction is cross-currency."*
+2. *"No exchange rate is recoverable from the data."*
+
+Both are false.
+
+| split | rows | `Sent Currency != Received Currency` |
+|---|---:|---:|
+| train | 3,248,921 | 43,097 (1.33 %) |
+| val | 965,524 | 15,446 (1.60 %) |
+| test | 863,900 | **13,627 (1.58 %)** |
+
+Every one of those rows carries a real amount on **both** sides, so each one *states* a rate. The
+generator uses **fixed** rates: per currency pair the relative IQR is ~1e-6, round trip closes to
+3e-5 and the triangle identity holds on 541 of 541 observed triples. They are now recovered into
+`contract/fx_rates.json` (`contract/make_fx_rates.py`, train split, no label filter) and documented
+in `docs/FX_RATES.md`. **96.95 % of cross-currency edges are self-loops** — one account converting
+currency, which is what an exchange looks like in this dataset.
+
+**How it got in, which is the part worth keeping.** Neither claim was ever measured.
+No script or test in this repository has ever compared the two currency columns on an edge. The
+sentence was written into the `flows_by_currency` docstring, and from there it was copied into
+`docs/MIGRATION.md`, `docs/PITFALLS.md`, `contract/schema.py` and `contract/README.md`, and
+asserted in two commit messages. A premise in a docstring reads exactly like a measured fact three
+files later, and nothing in the project's own discipline caught it: pre-registration guards the
+*predictions*, not the *premises*.
+
+**It also sent one real measurement after the wrong question.**
+`evaluation/fx_stability.py` correctly established that only 50 of 393,544 accounts are
+single-currency-in / single-currency-out with the two differing. That is an *account*-level
+question. The rate lives on the *edge*. The account-level answer was then generalised into "no rate
+is recoverable", which does not follow — and the conclusion shaped a design decision (the
+`undetermined` role) and a withdrawn requirement (XR-02).
+
+**What it cost, and what it did not.** `account_roles(..., currency="converted")` now does the
+thing XR-02 asked for. On 4,280 ring-accounts over the 5 shipped seeds it leaves **3**
+undetermined, against `partitioned`'s **571** — it resolves **568 of 571 (99.5 %)**, and **86 % of
+them are mules**. So the honest statement is the opposite of the one shipped: those mule labels
+*are* supported once the rate is applied. The one currency that stays unconvertible is **code 1**,
+whose amounts are too small for 2-dp recording to pin a rate; an account touching it is still
+withheld, which is the only place `undetermined` is now earned.
+
+**The published artefacts stand.** Nothing was retrained and nothing regenerated:
+`currency="raw"` is byte-identical, the HI-Small results and the pinned HI-Medium v3 run are
+unaffected, and the v2 `*_ccy` columns are kept as published with `partitioned` marked superseded.
+(2026-10-14)
+
+### 3d. The same premise was load-bearing in code: the sender's leg booked at the receiver's amount
+
+`flows_of` (v1, `roles.py:113`) builds one `amt` array from `amount_received` and feeds it to
+**both** `out_sum` and `in_sum`; `flows_by_currency` (v2) does the same with `currency_received`
+for both legs. A sender's outflow is therefore recorded at the **receiver's** amount and currency.
+On a cross-currency self-loop that is the worst case: the account's inflow and outflow are booked
+in one currency at one amount, which reads as a **perfectly balanced mule** — the strongest
+possible same-currency evidence, manufactured out of a currency conversion.
+
+**Measured reach, 5 shipped `full` seeds.** The booking is wrong wherever a cross-currency edge is
+in scope, but the roles are computed on *included* edges (seed + expanded), not all member edges:
+
+| edge set | edges | cross-currency |
+|---|---:|---:|
+| ring `member_edges` | 7,520 | 2,912 (**38.7 %**) |
+| ring **included** (seed + expanded) | 4,316 | 33 (**0.76 %**) |
+
+So the shipped `_ccy` values rest on 33 edges. Comparing the current booking against the correct
+one over all 4,280 ring-accounts: **4,253 have identical currency sets, 27 (0.63 %) differ, and in
+all 27 the disjoint-or-not verdict is unchanged.** No `undetermined` verdict on a published file
+comes from this defect. **The HI-Small results and the pinned HI-Medium v3 run stand.**
+
+Two things it does change:
+
+* **The 38.7 % figure is the one to watch.** Any consumer that computes over `member_edges` rather
+  than `included` meets the defect at 50x the rate. Which consumers do has not been audited.
+* **Ring-level closure is *not* "essentially unaffected"** under the corrected booking. Entry 3b
+  says median |delta| 0.0000 and 2 of 102 rings over 0.1 — true for `raw` vs `partitioned`. For
+  `raw` vs `converted` it is median 0.0000 but **87 of 525 rings differ by more than 0.1, max
+  0.97**. `conservation_closure` feeds `confidence`, a shipped contract field; it is left as
+  published, and this is the record that it would move.
+
+**`ringshield/expand/` uses the same booking and is deliberately left alone**: `index.py`,
+`features.py` and `context.py` contain **zero** occurrences of any currency column, and the
+conservation features (`closure_before`, `closure_after`, `delta_closure`) are built from
+`idx.amount` = `amount_received` on both legs. The policy saw the same features at training and at
+test, so it is internally consistent and no result depends on correcting it. `index.py:15` already
+documented the symptom without naming the cause: *"`amount_received` … equal to amount_sent for
+98.7 % of edges"* — the 1.3 % is exactly the cross-currency rate, written down in the repository
+before the premise that denied it. (2026-10-14)
+
+### 3e. Two pushed `v2` commit messages state the false claim
+
+`ec76627` and the `v2` merge `54c58f9` both assert "No single transaction is cross-currency" in
+their bodies, and `300d1c5` builds on it. They are **pushed**, so they cannot be edited without
+rewriting shared history, which is not worth doing for a message. A reader of `git log` on `v2`
+will meet the false claim with no correction attached to it. This entry is that correction, and
+`docs/MIGRATION.md` section 1 carries it too. If the claim is ever quoted from a commit message,
+quote this entry beside it. (2026-10-14)
 
 ## Evaluation correctness
 

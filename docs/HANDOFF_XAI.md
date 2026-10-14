@@ -18,6 +18,25 @@ Total: **Group A 908.40 KiB** across 19 files, **Group B 3.27 GiB** across 22 fi
 
 **Your suite passes on the merge: 116 passed, 0 failed.** See the last section for what that took.
 
+> ### Correction since the first version of this file, 2026-10-14
+>
+> **Your cross-currency measurement was right and ours was wrong.** `MIGRATION.md` used to claim no
+> AMLworld edge is cross-currency and no exchange rate was recoverable. 13,627 test edges (1.58 %)
+> are cross-currency with a real amount on each side, and the generator's rates are fixed. Neither
+> claim had ever been measured. Consequences for you:
+>
+> * **`contract/fx_rates.json`** and **`docs/FX_RATES.md`** are new - the rates to currency 0, from
+>   the train split, no label filter.
+> * **Use `currency="converted"`, not `"partitioned"`.** It leaves **3** of 4,280 ring-accounts
+>   undetermined instead of 571, and 86 % of the previously withheld accounts come back `mule`.
+> * **XR-02 is reinstated**, met through `fx_rates.json`. The `w_flow` guidance changed with it:
+>   convert and take the ordinary ring share, falling back to a within-currency share only for a
+>   ring touching currency 1.
+> * **Nothing was regenerated.** Every hash in this file is unchanged, `currency="raw"` is
+>   byte-identical, and the published results stand.
+>
+> Full record: `docs/PITFALLS.md` entries 3c, 3d and 3e.
+
 ---
 
 ## Group A - new or changed. These are in `xai_handoff.zip`.
@@ -126,12 +145,22 @@ Also in the zip, and not a data file:
   also read by `RingRerunner`. 575-601 MiB each, 2.79 GiB for the five: the bulk of Group B and the
   reason it is not in the zip.
 
-**Not listed, deliberately:** `experiments/R4_partition/affinity/` and
-`experiments/R4_partition/runs/average/seed{1..5}/config.yaml` are the other two
-`research_inputs`, and both are **tracked in git** - you get them from the merge, not from a zip.
-`embeddings_val_seed{1..5}.parquet` (595-639 MiB each) are **not** listed either: they are only
-needed if you run leave-one-out on the new val rings, which XR-05's bootstrap does not require. Ask
-if you want them hashed.
+### Group B, val side - also unchanged, hashes only
+
+Needed if you run leave-one-out on the new val rings. XR-05's bootstrap does not require them, so
+they are listed rather than sent (3.03 GiB across 6 files):
+
+| path | bytes | size | sha256 |
+|---|---:|---:|---|
+| `data/processed/amlworld_gfp_features_val.parquet` | 11,055,335 | 10.54 MiB | `926e392771b3b2ef3099c5527722cab57a51b24ef7a4655b6aef8beaf3c54d10` |
+| `experiments/R1_gine_causal/embeddings_val_seed1.parquet` | 654,713,691 | 624.38 MiB | `03a149c824813fd802beac6f35d669b55f477708981804160cf3a43c812008da` |
+| `experiments/R1_gine_causal/embeddings_val_seed2.parquet` | 669,797,707 | 638.77 MiB | `238a8ff74ac92ebce45c3815f9dc026bf9438498a3ee32852c12c97d5e2a610a` |
+| `experiments/R1_gine_causal/embeddings_val_seed3.parquet` | 630,289,627 | 601.09 MiB | `2b8e9dc4d93dc7c960eb94cbb7d1313f4a3b00c7d18d3a0dcf3574a7c1fae111` |
+| `experiments/R1_gine_causal/embeddings_val_seed4.parquet` | 665,650,252 | 634.81 MiB | `1fde031b64caf5d2b621f0f31ca118b4c99aef7e7351ce275d7add103ed57cd3` |
+| `experiments/R1_gine_causal/embeddings_val_seed5.parquet` | 623,421,732 | 594.54 MiB | `891b5d611f8a468cc573f276654715ad2c8ca30da10b8ba4ed1b52dce64462ed` |
+
+`experiments/R4_partition/affinity/` and `experiments/R4_partition/runs/average/seed{1..5}/config.yaml`
+are still not listed: both are **tracked in git**, so you get them from the merge.
 
 ---
 
