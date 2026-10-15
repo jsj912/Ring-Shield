@@ -6,9 +6,9 @@
     "scored_edges": "contract/out/scored_edges_gine_causal_1.parquet"
   },
   "latency_ms": {
-    "max": 2339.0,
-    "p50": 462.5,
-    "p95": 1192.4999999999993,
+    "max": 2987.0,
+    "p50": 530.0,
+    "p95": 1239.9499999999998,
     "rings_over_5000_ms": []
   },
   "mixing": {
@@ -32,8 +32,8 @@
     "n_narratives": 108,
     "n_rings_without_shap_edges": 0,
     "rings_with_clause": {
-      "banks": 85,
-      "banks_short": 14,
+      "banks": 42,
+      "banks_short": 57,
       "closure": 100,
       "cycle": 2,
       "evidence": 108,
@@ -45,13 +45,10 @@
       "head": 108,
       "money": 108,
       "no_closure": 8,
-      "roles_both": 26,
-      "roles_mule": 9,
-      "roles_sink": 1,
-      "roles_src": 2,
+      "roles_both": 4,
+      "roles_src": 1,
       "scatter_gather": 10,
-      "stack": 14,
-      "stack_hold": 1
+      "stack": 14
     },
     "templates": {
       "CYCLE": 10,
@@ -65,7 +62,7 @@
     "topology_source": "rings",
     "words": {
       "max": 90,
-      "p50": 87.0
+      "p50": 86.0
     }
   },
   "not_reproduced": [],

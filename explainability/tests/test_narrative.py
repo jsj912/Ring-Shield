@@ -3,14 +3,15 @@ from __future__ import annotations
 
 import json
 import math
+import re
 
 import pytest
 
 from contract.schema import TOPOLOGY_TYPES
 from explainability.contract_io import load_config, repo_path
 from explainability.feature_weights import load_feature_model, model_features
-from explainability.narrative import (CLAUSES, DROP_ORDER, NUMBER, build_narrative, duration, id_list, load_phrasing,
-                                      narrative_values, regenerate, sig, summary_json, word_count)
+from explainability.narrative import (CLAUSES, DROP_ORDER, NUMBER, build_narrative, duration, id_list, load_names,
+                                      load_phrasing, narrative_values, regenerate, sig, summary_json, word_count)
 from explainability.tests.fixtures import NARRATIVE_SHAPES, narrative_case
 
 CFG = load_config()
@@ -18,10 +19,11 @@ SETTINGS = CFG["narrative"]
 PHRASING = load_phrasing(repo_path(SETTINGS["phrasing"]))
 MAX_WORDS = int(SETTINGS["max_words"])
 RAW_NAMES = model_features(load_feature_model(CFG, 1)) + list(TOPOLOGY_TYPES) + ["UNKNOWN"]
+NAMES = load_names({k: repo_path(v) for k, v in SETTINGS["names"].items()})
 
 
 def narrate(kind, **kw):
-    return build_narrative(narrative_values(**narrative_case(kind, **kw)), PHRASING, SETTINGS)
+    return build_narrative(narrative_values(**narrative_case(kind, names=NAMES, **kw)), PHRASING, SETTINGS)
 
 
 def assert_clean(text: str):
@@ -31,6 +33,7 @@ def assert_clean(text: str):
         assert bad not in text, bad
     for raw in RAW_NAMES:
         assert raw not in text, raw
+    assert not re.search(r"currency \d", text), "a currency code instead of its name"
 
 
 # ----------------------------------------------------------------------------- W3-3 phrasing
@@ -57,9 +60,9 @@ def test_fan_out_narrative_by_hand():
     text, summary = narrate("FAN-OUT")
     assert text == ("Fan-out ring (most likely shape, p = 0.65): 4 accounts, 3 transactions over 6 h. "
                     "Account 1 paid 3 different accounts. Money starts at 1 and ends at 2, 3, 4. "
-                    "Total moved: 6,000 in currency 0. 96% of the money sent by the sources reached the sinks. "
+                    "Total moved: 6,000 (US Dollar). 96% of the money sent by the sources reached the sinks. "
                     "Strongest evidence: 1→2 (1,000, weight 0.90); 1→3 (2,000, weight 0.80); 1→4 (3,000, weight 0.70). "
-                    "Signals from a reference transaction-level model that raised suspicion: the payment method, two-hop "
+                    "Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop "
                     "scatter-gather paths; "
                     "that lowered it: the hour of the day.")
     assert summary["template"] == "FAN-OUT"
@@ -69,7 +72,7 @@ def test_stack_narrative_by_hand():
     text, _ = narrate("STACK", features=False)
     assert text == ("Layered chain ring (most likely shape, p = 0.65): 4 accounts, 3 transactions over 6 h. "
                     "Funds moved 3 hops from 1 to 4 through 2, 3. Each intermediary passed money on within a median "
-                    "of 5 h. Total moved: 6,000 in currency 0. 80% of the money sent by the sources reached the sinks. "
+                    "of 5 h. Total moved: 6,000 (US Dollar). 80% of the money sent by the sources reached the sinks. "
                     "Strongest evidence: 1→2 (1,000, weight 0.90); 2→3 (2,000, weight 0.80); 3→4 (3,000, weight 0.70).")
 
 
@@ -100,7 +103,7 @@ def test_a_shape_sentence_is_only_stated_when_the_transactions_show_it():
     """The type is a guess (typing accuracy 0.219); the shape sentence is a fact and must hold on the graph."""
     for kind, shape, absent in [("FAN-OUT", "CYCLE", "loop"), ("BIPARTITE", "FAN-OUT", "different accounts"),
                                 ("FAN-OUT", "GATHER-SCATTER", "gathered"), ("CYCLE", "STACK", "hops")]:
-        case = narrative_case(kind)
+        case = narrative_case(kind, names=NAMES)
         case["topology_type"] = shape
         text, _ = build_narrative(narrative_values(**case), PHRASING, SETTINGS)
         assert text.startswith(PHRASING["types"][shape]) and absent not in text, (kind, shape)
@@ -115,25 +118,25 @@ def test_undefined_closure_takes_the_no_closure_branch():
 
 def test_partial_currency_ring_says_so():
     text, _ = narrate("FAN-OUT", currencies={3: 1}, partial=True)
-    assert "Total moved: 3,000 in currency 0, partial: transactions in currency 1 have no exchange rate." in text
-    assert "1→4 (amount in currency 1, weight 0.70)" in text
+    assert "Total moved: 3,000 (US Dollar), partial: transactions in Bitcoin have no exchange rate." in text
+    assert "1→4 (amount in Bitcoin, weight 0.70)" in text
     assert_clean(text)
 
 
 def test_undetermined_accounts_are_named_never_called_peripheral():
-    case = narrative_case("FAN-OUT")
+    case = narrative_case("FAN-OUT", names=NAMES)
     case["account_weights"][3]["role"] = "undetermined"
     text, _ = build_narrative(narrative_values(**case), PHRASING, SETTINGS)
-    assert "Account 4 uses currency 1, which has no exchange rate, so its role cannot be checked." in text
+    assert "Account 4 uses Bitcoin, which has no exchange rate, so its role cannot be checked." in text
     case["account_weights"][2]["role"] = "undetermined"
     text, _ = build_narrative(narrative_values(**case), PHRASING, SETTINGS)
-    assert "Accounts 3, 4 use currency 1" in text and "peripheral" not in text
+    assert "Accounts 3, 4 use Bitcoin" in text and "peripheral" not in text
 
 
 def test_cross_bank_clause_only_when_banks_differ():
-    """XR-18: a ring across two banks names them; a one-bank ring has no bank clause."""
+    """XR-18: a ring across two banks names them (Joan's contract/bank_names.json); a one-bank ring has no bank clause."""
     two, _ = narrate("BIPARTITE", banks={3: 70, 4: 70})
-    assert "The accounts span 2 banks (1, 70)." in two
+    assert f"The accounts span 2 banks ({NAMES['bank'][1]}, {NAMES['bank'][70]})." in two
     one, _ = narrate("BIPARTITE")
     assert "bank" not in one
 
@@ -145,7 +148,7 @@ def test_missing_probability_or_features_drop_their_clauses():
 
 
 def test_a_large_ring_is_cut_to_90_words_by_the_drop_order():
-    case = narrative_case("GATHER-SCATTER", banks={2: 1000001, 3: 1000002, 4: 1000003, 5: 1000004})
+    case = narrative_case("GATHER-SCATTER", banks={2: 1000001, 3: 1000002, 4: 1000003, 5: 1000004}, names=NAMES)
     big = {a: 9_000_000 + a for a in range(1, 6)}                      # long account ids, as in the real data
     e = case["evidence"]                                                # the same frame as member_edges here
     e["from_id"], e["to_id"] = e["from_id"].map(big), e["to_id"].map(big)
@@ -163,7 +166,7 @@ def test_a_large_ring_is_cut_to_90_words_by_the_drop_order():
 def test_the_bank_list_shrinks_to_a_count_before_the_bank_clause_is_dropped():
     """XR-18 under the word limit: when the bank list does not fit, the bank COUNT is kept if that fits."""
     from explainability.tests.fixtures import NARRATIVE_FEATURES
-    case = narrative_case("GATHER-SCATTER", banks={2: 1000001, 3: 1000002, 4: 1000003, 5: 1000004})
+    case = narrative_case("GATHER-SCATTER", banks={2: 1000001, 3: 1000002, 4: 1000003, 5: 1000004}, names=NAMES)
     case["feature_weights"] = NARRATIVE_FEATURES[:3]
     big = {a: 9_000_000 + a for a in range(1, 6)}
     e = case["evidence"]
@@ -208,7 +211,32 @@ def test_a_tampered_summary_is_caught():
 @pytest.mark.parametrize("kind", [k for k in NARRATIVE_SHAPES if k != "UNKNOWN"])
 def test_swapping_the_topology_source_changes_only_p(kind):
     a, _ = narrate(kind)
-    case = narrative_case(kind, p=0.42)
+    case = narrative_case(kind, p=0.42, names=NAMES)
     case["type_source"] = "rule_scorer"
     b, _ = build_narrative(narrative_values(**case), PHRASING, SETTINGS)
     assert a.replace("p = 0.65", "p = 0.42") == b
+
+
+# ----------------------------------------------------------------------------- names (sync with v2 b35b233)
+def test_names_are_joans_maps():
+    """Currency 0 = US Dollar, the unconvertible currency 1 = Bitcoin, payment format 3 = ACH, 15 / 7 / 30,470 entries:
+    read from Joan's files, not typed here."""
+    assert NAMES["currency"][0] == "US Dollar" and NAMES["currency"][1] == "Bitcoin" and len(NAMES["currency"]) == 15
+    assert NAMES["payment_format"][3] == "ACH" and len(NAMES["payment_format"]) == 7
+    assert len(NAMES["bank"]) == 30470
+
+
+def test_bank_names_are_display_only_shared_names_get_their_id_and_unknown_ids_fall_back():
+    from explainability.narrative import format_slots
+    v = narrative_values(**narrative_case("BIPARTITE", banks={3: 70, 4: 70}, names=NAMES))
+    v["bank_names"] = ["Same Bank", "Same Bank"]
+    assert format_slots(v, PHRASING, SETTINGS)["bank_list"] == "Same Bank (1), Same Bank (70)"
+    w = narrative_values(**narrative_case("BIPARTITE", banks={3: 999999999, 4: 999999999}, names=NAMES))
+    assert w["bank_names"][-1] == "Bank 999999999"
+
+
+def test_code_valued_features_name_the_top_edges_value():
+    """'the payment method (ACH)': the name of the payment format of the feature's top edge."""
+    v = narrative_values(**narrative_case("FAN-OUT", names=NAMES))
+    pf = [f for f in v["top_features"] if f["feature"] == "Payment Format"][0]
+    assert pf["detail"] == "ACH" and all(f["detail"] is None for f in v["top_features"] if f["feature"] != "Payment Format")

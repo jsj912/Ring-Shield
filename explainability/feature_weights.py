@@ -14,19 +14,19 @@ Which model. The spec puts SHAP on GFP+XGBoost because its inputs have names, ev
 from the GNN. The retired 28-feature model is not used; the R2_b0 refit (17 features: 7 transaction fields
 and 10 trailing GFP graph features) is. Its feature list is read from the model file, never re-derived.
 
-Which rows. The model was trained on `amlworld_<split>.parquet` joined 1:1 on EdgeID with the trailing GFP
-parquet. Research's own loader (`baselines/gfp_xgboost_aml.load_split_for_refit`) cannot be imported here --
-its module imports optuna, which is not installed -- so the same join is done below, with the same
-assertions, and `verify_rows` proves it is the same input: the model's predictions on these rows equal the
-shipped scores exactly.
+Which rows. Research's own loader, `baselines/refit_data.load_split_for_refit` (moved out of the optuna module
+by Joan in v2 b35b233): `amlworld_<split>.parquet` joined 1:1 on EdgeID with the trailing GFP parquet, with her
+assertions. Weeks 3-4 used a copy of that join; the import replaces it and `verify_rows` still proves the rows
+are the model's input: its predictions on them equal the shipped scores exactly.
+
+The base value. shap 0.50 misreads XGBoost 3's stored base_score ("[5.422354E-1]"); the base is taken from
+XGBoost's own pred_contribs instead (Joan, docs/PITFALLS.md 3f; it differs per seed, 2.94-3.01, so nothing is
+hard-coded).
 """
 from __future__ import annotations
 
-import json
-
 import numpy as np
 import pandas as pd
-import pyarrow.parquet as pq
 import xgboost as xgb
 
 from explainability.contract_io import repo_path
@@ -48,34 +48,21 @@ def model_features(booster: xgb.Booster) -> list[str]:
     return list(booster.feature_names)
 
 
-def load_feature_rows(cfg: dict, booster: xgb.Booster, edge_ids, split_parquet: str | None = None,
-                      gfp_parquet: str | None = None) -> pd.DataFrame:
-    """The model's input rows for `edge_ids`, indexed by edge_id, columns in the model's order (float32)."""
+def load_feature_rows(cfg: dict, booster: xgb.Booster, edge_ids) -> pd.DataFrame:
+    """The model's input rows for `edge_ids`, indexed by edge_id, columns in the model's order (float32), from
+    research's loader. Refuses a loader whose feature list differs from the model file's."""
+    from baselines.refit_data import load_split_for_refit
+    fwc = cfg["feature_weights"]
+    df, X, _, cols = load_split_for_refit(repo_path(fwc["data_dir"]), fwc["split"])
     feats = model_features(booster)
-    split_path = repo_path(split_parquet or cfg["inputs"]["split_parquet"])
-    gfp_path = repo_path(gfp_parquet or cfg["research_inputs"]["gfp"])
-    meta = pq.ParquetFile(gfp_path).schema_arrow.metadata or {}
-    if b"gfp" not in meta or not json.loads(meta[b"gfp"]).get("trailing"):
-        raise ValueError(f"{gfp_path}: not the trailing GFP parquet the model was trained on (no 'gfp' metadata)")
-    gfp = pd.read_parquet(gfp_path)
-    split_cols = ["EdgeID"] + [c for c in feats if c not in gfp.columns]
-    df = pd.read_parquet(split_path, columns=split_cols)
-    if not (gfp["EdgeID"].is_unique and df["EdgeID"].is_unique and len(gfp) == len(df)):
-        raise ValueError(f"{gfp_path} and {split_path} are not one row per EdgeID each")
+    if list(cols) != feats:
+        raise ValueError(f"research's loader gives features {cols}, the model file says {feats}")
+    rows = pd.DataFrame(X, index=pd.Index(df["EdgeID"].to_numpy(np.int64), name="edge_id"), columns=feats)
     want = pd.Index(sorted(set(map(int, edge_ids))), dtype="int64")
-    df = df[df["EdgeID"].isin(want)].merge(gfp[gfp["EdgeID"].isin(want)], on="EdgeID", how="inner",
-                                           validate="one_to_one")
-    missing = want.difference(df["EdgeID"])
+    missing = want.difference(rows.index)
     if len(missing):
         raise ValueError(f"{len(missing)} edges have no feature row, e.g. {list(missing[:5])}")
-    absent = [c for c in feats if c not in df.columns]
-    if absent:
-        raise ValueError(f"model features missing from the data: {absent}")
-    rows = df.set_index("EdgeID").loc[want, feats].astype(np.float32)
-    rows.index.name = "edge_id"
-    if rows.isna().any().any():
-        raise ValueError("feature rows contain missing values")
-    return rows
+    return rows.loc[want]
 
 
 def verify_rows(booster: xgb.Booster, rows: pd.DataFrame, shipped_scores_path) -> float:

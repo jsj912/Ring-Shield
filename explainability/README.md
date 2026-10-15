@@ -14,7 +14,10 @@ fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Wee
 - **Week 4** is complete: `results/xai/fidelity.json` holds fidelity with 95 % confidence intervals, the two
   comparison rankings with paired tests, the expanded-edge measure (XR-23) and two findings. The verdict is
   **negative**: our ranking does not beat either comparison. Week 4 is described in **section 15**.
-- **235 tests pass, 0 skipped**: Joan's 116, 30 for the migration, 79 for Week 3, 10 for Week 4.
+- **Synced with Joan's `v2` at `b35b233`** (section 16): her feature loader, her code-to-name maps (currency 0 is
+  **US Dollar**, the unconvertible currency 1 is **Bitcoin**, payment format 3 is **ACH**, bank names), her roles fix.
+- **238 tests pass, 0 skipped, with no pandas warnings**: Joan's 116, 30 for the migration, 79 for Week 3,
+  10 for Week 4, 3 for the sync.
 - Every ring of all five detector seeds, plus the old stub file, has an explanation.
 
 This document is written so that someone with basic technical knowledge can understand what was built,
@@ -83,9 +86,9 @@ numbers anyone can check, and it **measures** how good those explanations are.
 | **Member edges** | Every transaction between the ring's accounts during the ring's time span (included edges plus any other payments between those accounts). |
 | **Conversion** | A transaction whose sent currency differs from its received currency: an account changing its own money. Never laundering. |
 | **Evidence edges** | The member edges we are allowed to rank: member edges **minus conversions** (policy `converted`). |
-| **Currency 0** | The common unit every amount is converted into (`fx_rates.json` "hub"). |
+| **Currency 0** | The common unit every amount is converted into (`fx_rates.json` "hub"). It is the **US Dollar** (Joan's `contract/currency_map.json`). |
 | **Exchange rate (rate_to_ccy0)** | How many units of currency 0 one unit of another currency is worth, e.g. currency 2 → 1.17178. Fixed for the whole dataset. |
-| **Partial** | A ring that touches currency 1 (no rate): its money total covers only the convertible transactions. |
+| **Partial** | A ring that touches currency 1 — **Bitcoin**, whose rate cannot be recovered (a typical amount like 0.13 BTC is recorded with only two decimals) — so its money total covers only the convertible transactions. |
 | **Truth ring** | A laundering group that really exists. The dataset has an answer key of 370. |
 | **Primary window** | Test days 8 and 9: where every headline number is measured. The **val window** is days 6–7 of the validation split. |
 | **Matching** | Deciding which predicted ring is which truth ring: Jaccard (shared accounts ÷ all accounts) ≥ 0.5, best pairs first, one-to-one. Joan's code. |
@@ -642,10 +645,13 @@ Run: `python -m pytest explainability/tests -q` (about 15 minutes).
 1. **Fidelity is saturated after the conversion filter** (section 8.3). This is the most important result
    of the migration.
 2. **XR-05 gave leave-one-out zero weight**, and the tuned mix does not beat the score on test.
-3. **Joan's message and her `MIGRATION.md` disagree** on currency-1 rings: within-currency fallback, or
+3. **(Resolved in v2 `b35b233`: `MIGRATION.md` now has the one rule we implemented.)** **Joan's message and her
+   `MIGRATION.md` disagreed** on currency-1 rings: within-currency fallback, or
    convertible-only plus a partial flag. We followed the message (convertible-only plus partial), which
    also matches her requested test.
-4. **A pandas deprecation warning from Joan's `ringshield/roles.py` (line ~278)** appears in some runs. It
+4. **(Resolved in v2 `b35b233`: Joan replaced `fillna` with `where`; roles byte-identical; our suite now runs with
+   pandas warnings as errors.)** **A pandas deprecation warning from Joan's `ringshield/roles.py` (line ~278)**
+   appeared in some runs. It
    is harmless, and outside our folders, so it is reported rather than edited.
 5. **One Week 1 fixture needed its "true" set to exclude conversions**, because its mixed-currency ring
    used cross-currency payments. Real truth rings never contain conversions (tested).
@@ -727,6 +733,10 @@ currency and payment-format name maps (banks keep "Bank <code>": AMLworld has no
 > - Saturation 343/395 reported as a ring-quality result; XR-05 resting on 89/431 discriminating val rings, grid
 >   span 0.025, LOO weight 0 -- stated plainly; nothing re-tuned.
 > - Caption changed to "Signals from a reference transaction-level model"; the 7-ring review is labelled a pilot.
+>
+> Synced with v2 `b35b233` -- thank you, items 2-7 above are resolved: `refit_data` imported (rows byte-identical to
+> my copy), roles fix confirmed (suite runs with pandas warnings as errors), narratives now say US Dollar / Bitcoin /
+> ACH and bank names (display only, shared names disambiguated by id). Weights and fidelity numbers unchanged.
 
 ---
 
@@ -822,15 +832,16 @@ The narrative is **a filled template, never free text; no language model is used
 | Bipartite | It splits into N separate sender-receiver pairs. |
 | Irregular (RANDOM), Unclassified | no shape sentence ("Unclassified" uses the head "Suspected ring: …") |
 
-Common clauses, in order: roles; undetermined accounts ("Account X uses currency 1, which has no exchange rate,
-so its role cannot be checked."); total moved (with a "partial" note for currency 1); closure %, or "Conservation
+Common clauses, in order: roles; undetermined accounts ("Account X uses Bitcoin, which has no exchange rate,
+so its role cannot be checked."); total moved ("Total moved: 433,000 (US Dollar)", with a "partial" note naming
+Bitcoin); closure %, or "Conservation
 cannot be measured: no account only sends or only receives."; strongest evidence; feature signals ("that raised
 suspicion: …; that lowered it: …"); banks.
 
 A real example (ring `full-gine_causal-1-4`, seed 1):
 
 > Fan-out ring (most likely shape, p = 0.92): 10 accounts, 9 transactions over 2.57 days. Account 513343 paid 9
-> different accounts. Total moved: 433,000 in currency 0. 100% of the money sent by the sources reached the
+> different accounts. Total moved: 433,000 (US Dollar). 100% of the money sent by the sources reached the
 > sinks. Strongest evidence: 513343→33859 (296,000, weight 0.87); 513343→178251 (59,200, weight 0.65);
 > 513343→142719 (18,100, weight 0.62). Signals from a reference transaction-level model that raised suspicion:
 > the payment method, two-hop scatter-gather paths; that lowered it: the sender paying many accounts. The accounts span 10 banks (8, 6625,
@@ -932,8 +943,9 @@ Then:
 4. **Feature signals** are split into "raised" and "lowered" suspicion. Since Week 4 (Joan) they are captioned
    **"Signals from a reference transaction-level model"**: they explain the GFP+XGBoost reference model, not
    the GNN that chose the seed edges. Never say they come "from the detector".
-5. **Codes, not names,** for currency, payment method and bank, until a lookup exists.
-6. **Our own 10-line feature loader** instead of installing optuna. It is proven identical by the exact
+5. **Names, not codes** (since the sync, section 16): currency, payment method and bank names from Joan's maps.
+6. **Joan's feature loader** (`baselines/refit_data.py`, since the sync). Until then our own 10-line copy, proven
+   identical by the exact
    score match.
 7. **New output names** (`explanations_week3_*`), so the migrated Week 2 files stay as the comparison reference.
 
@@ -1077,7 +1089,47 @@ in-window edges are truly in the ring (162 ring-instances).
 
 ### 15.7 Week 4 changes to Week 3 (asked by Joan)
 
-- **Caption:** feature signals now read "Signals from a reference transaction-level model …". All Week 3 files
+- **Caption:** feature signals now read "Signals from a reference transaction-level model …" (unchanged by the sync). All Week 3 files
   were regenerated; every narrative still rebuilds exactly and stays ≤ 90 words. The four extra words push the
   bank clause out of 44 rings (was 12) and the feature clause out of 5 (was 1).
 - **The 7-ring review file is labelled a PILOT.** The spec's 30-ring review with Fleiss' κ comes in Weeks 6–7.
+
+---
+
+## 16. Sync with Joan's `v2` (`b35b233`, merged into this branch as `b6f28c7`)
+
+Joan answered our open items. Her changes are all in her own folders; ours were only adapted to use them.
+
+| Joan's change | What we did | How we know nothing else moved |
+|---|---|---|
+| `MIGRATION.md`: one rule for the money share (convertible share + "partial") | nothing: it is what we built | — |
+| `ringshield/roles.py`: `fillna` → `where` (the pandas warning) | dropped `-W ignore::FutureWarning`; the suite runs with pandas warnings as **errors** | all 235 earlier tests passed on her merged code before we changed anything; the Week 2 byte-for-byte tests still pass |
+| `baselines/refit_data.py`: her feature loader, importable without optuna | `feature_weights.load_feature_rows` now imports it; our copy is gone | feature rows byte-identical (SHA-256) to our copy's on all 5 seeds; predictions still equal the shipped scores exactly |
+| `docs/PITFALLS.md` 3f: the shap base value | nothing: we already take it from XGBoost; her note confirms it (gap 2.78–2.84; the true base differs per seed) | — |
+| `contract/currency_map.json`, `payment_format_map.json`, `bank_names.json` | narratives use names (below), the pilot review shows currency names | weights, feature weights and every fidelity number unchanged (fingerprints before / after) |
+| Payment format explained | the report can say why "the payment method" dominates: **ACH** is 11 % of transactions but 83 % of laundering | — |
+
+**What the narratives say now:**
+- **Money:** "Total moved: 433,000 (US Dollar)." The currency name comes from the map; the brackets avoid
+  plural rules for 15 currency names.
+- **Bitcoin:** "partial: transactions in Bitcoin have no exchange rate"; "(amount in Bitcoin, weight 0.70)";
+  "Account X uses Bitcoin, which has no exchange rate, so its role cannot be checked."
+- **Code-valued features** name the value of the feature's top edge: "the payment method (ACH)", and likewise
+  for the two currency features.
+- **Banks:** "The accounts span 3 banks (Arbor Savings Bank, China Bank #14, UK Bank #33)".
+  - Names are display only: 30,470 bank ids share 20,053 names, so two banks of one ring with the same name
+    get their id in brackets.
+  - An id missing from the map would show as "Bank <id>" (none is missing).
+  - Names are longer than codes, so the list falls back to "The accounts span N banks." more often. Over the
+    560 rings of the five seeds: the bank list is shown in 219, the bank count in 295, and 46 lose the bank clause
+    to the 90-word limit (with codes it was 460 / 56 / 44). Every name stays visible in the pilot review file and
+    will be in the dashboard.
+- **Regeneration:** every name is stored in `evidence_summary`, so a narrative still rebuilds from its summary
+  alone. Provenance records the three map files.
+
+**New tests (3, in `test_narrative.py`):**
+- the maps are Joan's (US Dollar, Bitcoin, ACH; 15 / 7 / 30,470 entries);
+- shared bank names get their id, and an unknown id falls back to "Bank <id>";
+- a code-valued feature names its top edge's value.
+
+The clean-narrative check now also refuses any "currency <number>" text.

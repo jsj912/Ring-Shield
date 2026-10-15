@@ -44,7 +44,8 @@ from explainability.contract_io import (REPO_ROOT, load_config, load_research_co
 from explainability.edge_weights import EDGE_WEIGHT_COLUMNS, LooInputs, edge_weight_table, load_fx, load_loo_inputs, w_loo
 from explainability.feature_weights import (FeatureExplainer, load_feature_model, load_feature_rows, ring_feature_weights,
                                             verify_rows)
-from explainability.narrative import build_narrative, load_phrasing, narrative_values, summary_json, word_count
+from explainability.narrative import (build_narrative, load_names, load_phrasing, narrative_values, summary_json,
+                                      word_count)
 
 EDGE_STRUCT = pa.struct([("edge_id", pa.int64()), ("w_total", pa.float64()), ("w_score", pa.float64()),
                          ("w_loo", pa.float64()), ("w_flow", pa.float64())])
@@ -75,6 +76,7 @@ class ExplainContext:
     fx_sha256: str | None = None
     features: FeatureExplainer | None = None   # Week 3: SHAP; None = no feature weights / narrative
     phrasing: dict | None = None
+    names: dict | None = None                  # Joan's code -> name maps (currency, payment format, bank)
     topology_source: str = "rings"             # "rings" (shipped type) or "rule_scorer" (XR-19 check)
 
 
@@ -160,10 +162,11 @@ def explain_ring(ring, ctx: ExplainContext) -> tuple[dict, pd.DataFrame, dict]:
             edge_weights=edge_rows, account_weights=acc_rows, flow=flow,
             conservation=ring_conservation_converted(ring, se, edges="included", config=ctx.roles_cfg),
             closure_raw=float(ring.conservation_closure), feature_weights=feature_weights, fx=ctx.fx,
-            n_top_edges=int(nc["top_edges"]), n_top_features=int(nc["top_features"]))
+            n_top_edges=int(nc["top_edges"]), n_top_features=int(nc["top_features"]), names=ctx.names)
         narrative, summary = build_narrative(values, ctx.phrasing, nc)
         extra = {**extra, "n_shap_edges": len(shap_edges), "topology_source": ctx.topology_source,
-                 "feature_model": fwc["model"].format(seed=ctx.file_provenance["seed"])}
+                 "feature_model": fwc["model"].format(seed=ctx.file_provenance["seed"]),
+                 "name_maps": dict(nc["names"])}
     row = {"ring_id": ring.ring_id, "tenant_id": int(ring.tenant_id),
            "edge_weights": edge_rows, "account_weights": acc_rows,
            "feature_weights": feature_weights, "topology_type": ttype, "topology_prob": tprob,
@@ -218,6 +221,7 @@ def build_context(cfg: dict, scores: str, rings_path: str, policy: str | None = 
         if gap > 1e-6:
             raise ValueError(f"feature rows do not reproduce the shipped GFP+XGBoost scores (max gap {gap})")
         ctx.features, ctx.phrasing = FeatureExplainer(booster, rows), load_phrasing(repo_path(cfg["narrative"]["phrasing"]))
+        ctx.names = load_names({k: repo_path(v) for k, v in cfg["narrative"]["names"].items()})
         ctx.topology_source = topology_source or cfg["narrative"]["topology_source"]
     return ctx, rings
 
@@ -298,6 +302,7 @@ def review_samples(cfg: dict, seeds, out_path) -> dict:
     from explainability.match import match_in_window, matching_rule, window_from_config
     W, (thr, scope) = window_from_config(cfg), matching_rule(cfg)
     out_dir = repo_path(cfg["output_dir"])
+    names = load_names({k: repo_path(v) for k, v in cfg["narrative"]["names"].items()})
     cand = []
     for s in seeds:
         se = read_scored_edges(cfg["inputs"]["scored_edges"].format(seed=s))
@@ -329,7 +334,7 @@ def review_samples(cfg: dict, seeds, out_path) -> dict:
         for i, e in enumerate(r["edge_weights"][:5], start=1):
             x = sei.loc[e["edge_id"]]
             lines.append(f"| {i} | {int(x.from_id)}→{int(x.to_id)} (edge {e['edge_id']}) | {x.amount_received:,.2f} | "
-                         f"{int(x.currency_received)} | {e['w_total']:.3f} | {e['w_score']:.3f} | {e['w_loo']:.3f} | "
+                         f"{names['currency'].get(int(x.currency_received), int(x.currency_received))} | {e['w_total']:.3f} | {e['w_score']:.3f} | {e['w_loo']:.3f} | "
                          f"{e['w_flow']:.3f} |")
         roles = {}
         for a in r["account_weights"]:

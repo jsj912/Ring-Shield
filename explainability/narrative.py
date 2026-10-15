@@ -82,6 +82,31 @@ def load_phrasing(path) -> dict:
     return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
 
 
+def load_names(paths: dict) -> dict:
+    """Joan's code -> name maps (contract/, v2 b35b233): {"currency": {0: "US Dollar", ...}, "payment_format": {...},
+    "bank": {...}}. Display only: a bank name is not unique (30,470 ids share 20,053 names), never a join key."""
+    out = {}
+    for kind, path in paths.items():
+        d = json.loads(Path(path).read_text(encoding="utf-8"))
+        table = d.get("code_to_name") or d.get("id_to_name")
+        if not table:
+            raise ValueError(f"{path}: no code_to_name / id_to_name table")
+        out[kind] = {int(k): str(v) for k, v in table.items()}
+    return out
+
+
+# Model features whose value is a code: (scored_edges column of the feature's top edge, name map). Their phrase gets
+# the name of that edge's value, e.g. "the payment method (ACH)".
+CODE_FEATURES = {"Payment Format": ("payment_format", "payment_format"),
+                 "Sent Currency": ("currency_sent", "currency"),
+                 "Received Currency": ("currency_received", "currency")}
+
+
+def _name(names: dict | None, kind: str, code: int) -> str:
+    fallback = f"Bank {code}" if kind == "bank" else f"{kind.replace('_', ' ')} {code}"
+    return ((names or {}).get(kind) or {}).get(int(code), fallback)
+
+
 def shape_facts(edges: pd.DataFrame) -> dict:
     """Shape facts of the ring's evidence graph (distinct sender -> receiver pairs, self-loops left out).
 
@@ -122,14 +147,17 @@ def _by_weight(accounts: list[dict], roles: set[str]) -> list[int]:
 def narrative_values(*, topology_type: str, topology_prob: float | None, type_source: str, duration_s: float,
                      evidence: pd.DataFrame, member_edges: pd.DataFrame, edge_weights: list[dict],
                      account_weights: list[dict], flow: dict, conservation: dict, closure_raw: float | None,
-                     feature_weights: list[dict], fx: dict | None, n_top_edges: int, n_top_features: int) -> dict:
+                     feature_weights: list[dict], fx: dict | None, n_top_edges: int, n_top_features: int,
+                     names: dict | None = None) -> dict:
     """Every fact the narrative may state, as plain JSON-able values.
 
     evidence      the ring's evidence edges (member edges minus conversions) with from_id, to_id, amount_received,
                   currency_received; member_edges: all member edges with from_bank / to_bank (for the banks).
     edge_weights  the explanation's edge weights, already sorted by w_total (highest first).
     flow          {"total_ccy0", "partial"} from the converted w_flow; conservation: Joan's
-                  ring_conservation_converted (closure in currency 0, NaN = no source or no sink)."""
+                  ring_conservation_converted (closure in currency 0, NaN = no source or no sink).
+    names         Joan's code -> name maps (load_names); stored as names in the values, so a narrative can be
+                  regenerated without the map files."""
     def num(x):
         return None if x is None or (isinstance(x, float) and math.isnan(x)) else float(x)
 
@@ -141,7 +169,16 @@ def narrative_values(*, topology_type: str, topology_prob: float | None, type_so
         rate = rates.get(int(r["currency_received"]))
         top_edges.append({"edge_id": int(e["edge_id"]), "from_id": int(r["from_id"]), "to_id": int(r["to_id"]),
                           "amount_ccy0": None if rate is None else float(r["amount_received"]) * float(rate),
-                          "currency": int(r["currency_received"]), "w_total": float(e["w_total"])})
+                          "currency": int(r["currency_received"]),
+                          "currency_name": _name(names, "currency", int(r["currency_received"])),
+                          "w_total": float(e["w_total"])})
+    top_features = []
+    for f in feature_weights[:n_top_features]:
+        detail = None
+        if f["feature_name"] in CODE_FEATURES and int(f["top_edge_id"]) in ev.index:
+            col, kind = CODE_FEATURES[f["feature_name"]]
+            detail = _name(names, kind, int(ev.at[int(f["top_edge_id"]), col]))
+        top_features.append({"feature": f["feature_name"], "mean_shap": float(f["mean_shap"]), "detail": detail})
     holds = [a["hold_time_s"] for a in account_weights
              if a["role"] in ("mule", "holder") and a["hold_time_s"] is not None and not math.isnan(a["hold_time_s"])]
     bank_of = {}
@@ -150,10 +187,13 @@ def narrative_values(*, topology_type: str, topology_prob: float | None, type_so
         bank_of.setdefault(int(r.to_id), int(r.to_bank))
     members = [int(a["account_id"]) for a in account_weights]
     banks = sorted({bank_of[a] for a in members if a in bank_of})
+    hub = int((fx or {}).get("hub", 0))
+    unconv = sorted((fx or {}).get("unconvertible", []))
     return {
         "topology_type": topology_type, "p_type": num(topology_prob), "type_source": type_source,
         "n_members": len(account_weights), "n_edges": len(edge_weights), "duration_s": num(duration_s),
-        "currency_hub": int((fx or {}).get("hub", 0)), "currency_unconvertible": sorted((fx or {}).get("unconvertible", [])),
+        "currency_hub": hub, "currency_hub_name": _name(names, "currency", hub),
+        "currency_unconvertible": unconv, "currency_unconvertible_names": [_name(names, "currency", c) for c in unconv],
         "total_ccy0": num(flow.get("total_ccy0")), "flow_partial": bool(flow.get("partial", False)),
         "closure": num(conservation.get("closure")), "closure_partial": bool(conservation.get("unconvertible", False)),
         "closure_raw": num(closure_raw),
@@ -162,9 +202,8 @@ def narrative_values(*, topology_type: str, topology_prob: float | None, type_so
         "undetermined": _by_weight(account_weights, {"undetermined"}),
         "hold_median_s": float(np.median(holds)) if holds else None,
         "top_edges": top_edges,
-        "top_features": [{"feature": f["feature_name"], "mean_shap": float(f["mean_shap"])}
-                         for f in feature_weights[:n_top_features]],
-        "banks": banks,
+        "top_features": top_features,
+        "banks": banks, "bank_names": [_name(names, "bank", b) for b in banks],
         "shape": shape_facts(evidence),
     }
 
@@ -180,17 +219,23 @@ def format_slots(v: dict, phrasing: dict, s: dict) -> dict:
     def n(x):
         return None if x is None else str(int(x))
 
-    def amount(x, ccy):
-        return sig(x, sf) if x is not None else f"amount in currency {ccy}"
+    def amount(x, ccy_name):
+        return sig(x, sf) if x is not None else f"amount in {ccy_name}"
 
-    unconv = v["currency_unconvertible"]
+    def feature(f):
+        phrase = phrasing["features"][f["feature"]]
+        return f"{phrase} ({f['detail']})" if f.get("detail") else phrase
+
+    # banks by name; a name shared by two banks of this ring gets its id, so the list never repeats a name
+    dup = {n for n in v["bank_names"] if v["bank_names"].count(n) > 1}
+    bank_labels = [f"{n} ({b})" if n in dup else n for b, n in zip(v["banks"], v["bank_names"])]
     slots = {
         "type_name": phrasing["types"].get(v["topology_type"]) if v["topology_type"] != "UNKNOWN" else None,
         "p": None if v["p_type"] is None else f"{v['p_type']:.2f}",
         "n_members": n(v["n_members"]), "n_edges": n(v["n_edges"]),
         "window": duration(v["duration_s"], dfh, sf),
         "total": None if v["total_ccy0"] is None else sig(v["total_ccy0"], sf),
-        "ccy0": str(v["currency_hub"]), "ccy1": ", ".join(map(str, unconv)) or None,
+        "ccy0": v["currency_hub_name"], "ccy1": ", ".join(v["currency_unconvertible_names"]) or None,
         "partial": "yes" if v["flow_partial"] or v["closure_partial"] else None,
         "closure_pct": None if v["closure"] is None else str(int(round(v["closure"] * 100))),
         "no_closure": "yes" if v["closure"] is None else None,
@@ -205,12 +250,12 @@ def format_slots(v: dict, phrasing: dict, s: dict) -> dict:
         "depth": n(sh["depth"]) if (sh["depth"] or 0) >= 2 else None,
         "n_pairs": n(sh["n_pairs"]) if sh["n_pairs"] >= 2 else None,
         "loop": "yes" if sh["has_cycle"] else None,
-        "top_edges": "; ".join(f"{e['from_id']}→{e['to_id']} ({amount(e['amount_ccy0'], e['currency'])}, "
+        "top_edges": "; ".join(f"{e['from_id']}→{e['to_id']} ({amount(e['amount_ccy0'], e['currency_name'])}, "
                                f"weight {e['w_total']:.2f})" for e in v["top_edges"]) or None,
-        "features_up": ", ".join(phrasing["features"][f["feature"]] for f in v["top_features"] if f["mean_shap"] > 0) or None,
-        "features_down": ", ".join(phrasing["features"][f["feature"]] for f in v["top_features"] if f["mean_shap"] <= 0) or None,
+        "features_up": ", ".join(feature(f) for f in v["top_features"] if f["mean_shap"] > 0) or None,
+        "features_down": ", ".join(feature(f) for f in v["top_features"] if f["mean_shap"] <= 0) or None,
         "n_banks": str(len(v["banks"])) if len(v["banks"]) >= 2 else None,
-        "bank_list": id_list(v["banks"], lm) if len(v["banks"]) >= 2 else None,
+        "bank_list": id_list(bank_labels, lm) if len(v["banks"]) >= 2 else None,
     }
     return slots
 
@@ -234,10 +279,10 @@ CLAUSES = {
     "roles_src": ("Money starts at {src_list}.", ("no_sink",)),
     "roles_sink": ("Money ends at {sink_list}.", ("no_src",)),
     "roles_mule": ("Intermediaries: {mule_list}.", ()),
-    "undet_one": ("Account {undet_list} uses currency {ccy1}, which has no exchange rate, so its role cannot be checked.", ("undet_one",)),
-    "undet_many": ("Accounts {undet_list} use currency {ccy1}, which has no exchange rate, so their roles cannot be checked.", ("undet_many",)),
-    "money": ("Total moved: {total} in currency {ccy0}.", ("no_partial",)),
-    "money_partial": ("Total moved: {total} in currency {ccy0}, partial: transactions in currency {ccy1} have no exchange rate.", ("partial",)),
+    "undet_one": ("Account {undet_list} uses {ccy1}, which has no exchange rate, so its role cannot be checked.", ("undet_one",)),
+    "undet_many": ("Accounts {undet_list} use {ccy1}, which has no exchange rate, so their roles cannot be checked.", ("undet_many",)),
+    "money": ("Total moved: {total} ({ccy0}).", ("no_partial",)),
+    "money_partial": ("Total moved: {total} ({ccy0}), partial: transactions in {ccy1} have no exchange rate.", ("partial",)),
     "closure": ("{closure_pct}% of the money sent by the sources reached the sinks.", ()),
     "no_closure": ("Conservation cannot be measured: no account only sends or only receives.", ("no_closure",)),
     "evidence": ("Strongest evidence: {top_edges}.", ()),

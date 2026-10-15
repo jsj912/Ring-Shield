@@ -102,10 +102,12 @@ amounts:
 
 # Week 3, SHAP (spec 4.4, XR-13/14). The 17-feature GFP+XGBoost refit, NOT the retired 28-feature E5b model
 # (Reality Check 5.1). The model of the SAME seed as the detector is used. Its feature list is read from the model
-# file, never re-derived; the feature rows are inputs.split_parquet joined 1:1 on EdgeID with research_inputs.gfp.
+# file, never re-derived; the feature rows come from research's own loader (baselines/refit_data.py).
 feature_weights:
   model: experiments/R2_b0/gfpxgb_scores/model_seed{seed}.json
   shipped_scores: experiments/R2_b0/gfpxgb_scores/scores_test_seed{seed}.parquet   # used only to verify the rows
+  data_dir: data/processed       # baselines.refit_data.load_split_for_refit(data_dir, split): research's loader
+  split: test
   top_n: 10                      # features stored per ring
   edges: seed_minus_conversions  # SHAP over the ring's seed edges, conversions left out (they are never evidence)
   additivity_tolerance: 1.0e-3   # |base + sum(SHAP) - model margin| per edge (float32 model)
@@ -121,6 +123,10 @@ narrative:
   top_features: 3
   topology_source: rings         # rings = the shipped topology_type (the Step 8 typing head);
                                  # rule_scorer = ringshield.typing.rules (XR-19 swap test only)
+  names:                         # Joan's code -> name maps (v2 b35b233), display only; banks never a join key
+    currency: contract/currency_map.json          # 0 = US Dollar, 1 = Bitcoin (the unconvertible one), ...
+    payment_format: contract/payment_format_map.json
+    bank: contract/bank_names.json
 
 contract_checks:
   topology_probs_sum_tolerance: 1.0e-6

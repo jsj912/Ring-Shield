@@ -45,12 +45,14 @@ def test_rows_reproduce_the_shipped_scores_on_every_seed_edge(seed):
     assert verify_rows(booster, rows, CFG["feature_weights"]["shipped_scores"].format(seed=seed)) < 1e-7
 
 
-def test_a_missing_edge_or_a_non_trailing_gfp_file_is_refused():
+def test_rows_come_from_researchs_loader_and_a_missing_edge_is_refused():
+    """Since v2 b35b233 the rows come from baselines/refit_data.py (Joan's loader, importable without optuna);
+    its feature list must equal the model file's. Its own asserts refuse a non-trailing GFP file."""
+    from baselines import refit_data
     booster = load_feature_model(CFG, 1)
+    assert refit_data.REFIT_TABULAR + refit_data.GFP_COLS == model_features(booster)
     with pytest.raises(ValueError, match="no feature row"):
         load_feature_rows(CFG, booster, [-1])
-    with pytest.raises(ValueError, match="not the trailing GFP"):
-        load_feature_rows(CFG, booster, [0], gfp_parquet="data/processed/amlworld_gfp_features_test_legacy_forwardcycle.parquet")
 
 
 def test_shap_adds_up_to_the_model_output(seed1):

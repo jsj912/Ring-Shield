@@ -344,16 +344,18 @@ NARRATIVE_FEATURES = [{"feature_name": "Payment Format", "mean_shap": 2.5, "top_
 
 
 def narrative_case(kind: str, *, banks: dict | None = None, currencies: dict | None = None,
-                   partial: bool = False, p: float | None = 0.65, features: bool = True) -> dict:
+                   partial: bool = False, p: float | None = 0.65, features: bool = True, names: dict | None = None) -> dict:
     """Keyword arguments for `narrative.narrative_values` describing a tiny ring of one shape.
 
     Edge i (1-based, in the order listed) carries amount 1000 * i in currency 0 (or `currencies[i]`) and
     w_total 1 - i/10, so the strongest edge is the first one. Accounts weigh 1 / id (smaller id first).
-    The ring spans 6 hours; every account is at bank 1 unless `banks` says otherwise; mules held 5 h."""
+    The ring spans 6 hours; every account is at bank 1 unless `banks` says otherwise; mules held 5 h. Every payment
+    is ACH (payment format 3) and sent in the currency it is received in. `names`: the code -> name maps."""
     ttype, pairs, roles, closure = NARRATIVE_SHAPES[kind]
     currencies, banks = currencies or {}, banks or {}
     edges = pd.DataFrame([{"edge_id": i, "from_id": a, "to_id": b, "amount_received": 1000.0 * i,
-                           "currency_received": currencies.get(i, 0),
+                           "currency_received": currencies.get(i, 0), "currency_sent": currencies.get(i, 0),
+                           "payment_format": 3,
                            "from_bank": banks.get(a, 1), "to_bank": banks.get(b, 1)}
                           for i, (a, b) in enumerate(pairs, start=1)])
     rate = NARRATIVE_FX["rate_to_ccy0"]
@@ -368,7 +370,7 @@ def narrative_case(kind: str, *, banks: dict | None = None, currencies: dict | N
             "flow": {"total_ccy0": total, "partial": partial},
             "conservation": {"closure": closure, "unconvertible": partial}, "closure_raw": closure,
             "feature_weights": NARRATIVE_FEATURES if features else [], "fx": NARRATIVE_FX,
-            "n_top_edges": 3, "n_top_features": 3}
+            "n_top_edges": 3, "n_top_features": 3, "names": names}
 
 
 # ============================================================================= Week 4
