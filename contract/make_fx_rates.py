@@ -97,6 +97,14 @@ def consistency(m: dict[tuple[int, int], float], tol: float) -> dict:
             "worst_triangle_rel_err": max((t["rel_err"] for t in tri), default=0.0)}
 
 
+def currency_names() -> dict[int, str]:
+    """contract/currency_map.json if it has been generated, else {} -- labels only."""
+    f = REPO_ROOT / "contract" / "currency_map.json"
+    if not f.exists():
+        return {}
+    return {int(k): v for k, v in json.loads(f.read_text(encoding="utf-8"))["code_to_name"].items()}
+
+
 def rates_to_hub(t: pd.DataFrame, m: dict[tuple[int, int], float],
                  all_currencies: list[int]) -> dict[int, dict]:
     """rate_to_ccy0 per currency: direct pair if observed, else 1/inverse, else via one hop.
@@ -107,6 +115,7 @@ def rates_to_hub(t: pd.DataFrame, m: dict[tuple[int, int], float],
     """
     by_pair = {(int(r.cur_from), int(r.cur_to)): r for r in t.itertuples(index=False)}
     currencies = sorted(set(all_currencies) | {c for p in m for c in p} | {HUB})
+    names = currency_names()
     out: dict[int, dict] = {}
     for c in currencies:
         if c == HUB:
@@ -125,14 +134,20 @@ def rates_to_hub(t: pd.DataFrame, m: dict[tuple[int, int], float],
                 out[c] = {"rate_to_ccy0": None, "n": 0, "iqr_rel": None,
                           "source": "UNREACHABLE: no pair survives the precision floor",
                           "reason": ("this currency's amounts are too small for 2-dp recording to "
-                                     "pin the rate -- it is a high-magnitude unit, so a typical "
-                                     "amount rounds to a couple of decimal places and the implied "
-                                     "rate is quantisation noise. An amount in this currency "
-                                     "CANNOT be converted; a consumer must withhold, not guess.")}
+                                     "pin the rate -- one unit is worth thousands of the hub "
+                                     "currency, so a typical amount is a fraction with two "
+                                     "decimals and the implied rate is quantisation noise. "
+                                     "In HI-Small this is BITCOIN: a BTC amount such as 0.13 "
+                                     "carries ~4 % rounding error, which no amount floor can fix "
+                                     "because the data never records more decimals. An amount in "
+                                     "this currency CANNOT be converted; withhold, do not guess.")}
             else:
                 out[c] = {"rate_to_ccy0": m[(c, via)] * m[(via, HUB)],
                           "n": int(by_pair[(c, via)].n), "iqr_rel": float(by_pair[(c, via)].iqr_rel),
                           "source": f"via {via}: {c}->{via}->0"}
+    for c, d in out.items():
+        if c in names:
+            d["name"] = names[c]
     return out
 
 
@@ -259,9 +274,10 @@ def main(argv=None):
 
 def write_doc(path: Path, payload: dict, used: pd.DataFrame, chk: dict, a) -> None:
     rows = "\n".join(
-        f"| {c} | {d['rate_to_ccy0']:.6g} | {d['n'] if d['n'] is not None else '-'} | "
-        f"{d['iqr_rel']:.2e} | {d['source']} |" if d["rate_to_ccy0"] is not None else
-        f"| {c} | - | {d['n']} | - | {d['source']} |"
+        f"| {c} | {d.get('name', '?')} | {d['rate_to_ccy0']:.6g} | "
+        f"{d['n'] if d['n'] is not None else '-'} | {d['iqr_rel']:.2e} | {d['source']} |"
+        if d["rate_to_ccy0"] is not None else
+        f"| {c} | {d.get('name', '?')} | - | {d['n']} | - | {d['source']} |"
         for c, d in payload["rate_to_ccy0"].items())
     top = "\n".join(
         f"| {int(r.cur_from)} -> {int(r.cur_to)} | {int(r.n):,} | {r.median:.6g} | {r.iqr_rel:.2e} | {r.range_rel:.2e} |"
@@ -287,10 +303,14 @@ ever measured before it was written down. See `docs/PITFALLS.md` entry 3c.
 
 ## The rates, to currency {payload['hub_currency']}
 
-To convert: `amount_in_ccy0 = amount * rate_to_ccy0[currency]`.
+To convert: `amount_in_ccy0 = amount * rate_to_ccy0[currency]`. **Currency 0 is US Dollar** (`contract/currency_map.json`).
 
-| currency | rate to 0 | n | relative IQR | source |
-|---|---:|---:|---:|---|
+A sanity check that costs nothing and is worth stating: the recovered Euro rate is **1.1718 USD**
+and the Swiss Franc **1.0929** - plausible 2022 rates, which no fitting procedure was asked to
+produce. The one currency with no usable rate is **Bitcoin**.
+
+| currency | name | rate to 0 | n | relative IQR | source |
+|---|---|---:|---:|---:|---|
 {rows}
 
 ## The pairs they come from (top 15 by n)
@@ -301,6 +321,10 @@ To convert: `amount_in_ccy0 = amount * rate_to_ccy0[currency]`.
 
 ## Why these are constants, not estimates
 
+* **Bitcoin is the exception, and the reason is arithmetic, not missing data.** One BTC is
+  worth ~11,900 USD here, so a typical BTC amount is a fraction recorded to two decimals
+  (0.13), carrying ~4 % rounding error. No amount floor can fix that, because the data never
+  records more decimals. An amount in Bitcoin cannot be converted and is withheld.
 * **Spread.** The largest relative IQR over all {len(used)} used pairs is
   **{used['iqr_rel'].max():.2e}** - float noise on a fixed multiplier, not sampling spread.
 * **Round trip.** `rate(a->b) * rate(b->a) == 1` holds on

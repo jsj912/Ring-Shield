@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-10-14T17:41:49+00:00",
+  "created_utc": "2026-10-15T12:50:24+00:00",
   "purpose": "convert an AMLworld amount to currency 0: amount * rate_to_ccy0[currency]",
   "provenance": "recovered from the generator's own cross-currency transactions; the premise that no edge is cross-currency and no rate is recoverable was FALSE and was corrected by the XAI teammate's measurement, 2026-10-14",
   "split": "train",
@@ -51,92 +51,107 @@
       "rate_to_ccy0": 1.0,
       "n": null,
       "iqr_rel": 0.0,
-      "source": "hub"
+      "source": "hub",
+      "name": "US Dollar"
     },
     "1": {
       "rate_to_ccy0": null,
       "n": 0,
       "iqr_rel": null,
       "source": "UNREACHABLE: no pair survives the precision floor",
-      "reason": "this currency's amounts are too small for 2-dp recording to pin the rate -- it is a high-magnitude unit, so a typical amount rounds to a couple of decimal places and the implied rate is quantisation noise. An amount in this currency CANNOT be converted; a consumer must withhold, not guess."
+      "reason": "this currency's amounts are too small for 2-dp recording to pin the rate -- one unit is worth thousands of the hub currency, so a typical amount is a fraction with two decimals and the implied rate is quantisation noise. In HI-Small this is BITCOIN: a BTC amount such as 0.13 carries ~4 % rounding error, which no amount floor can fix because the data never records more decimals. An amount in this currency CANNOT be converted; withhold, do not guess.",
+      "name": "Bitcoin"
     },
     "2": {
       "rate_to_ccy0": 1.171783452340631,
       "n": 6027,
       "iqr_rel": 2.7312027404520322e-06,
-      "source": "direct 2->0"
+      "source": "direct 2->0",
+      "name": "Euro"
     },
     "3": {
       "rate_to_ccy0": 0.7078142296152534,
       "n": 63,
       "iqr_rel": 1.5743041966341508e-06,
-      "source": "direct 3->0"
+      "source": "direct 3->0",
+      "name": "Australian Dollar"
     },
     "4": {
       "rate_to_ccy0": 0.14930721398334432,
       "n": 2712,
       "iqr_rel": 7.134981123805906e-06,
-      "source": "direct 4->0"
+      "source": "direct 4->0",
+      "name": "Yuan"
     },
     "5": {
       "rate_to_ccy0": 0.013615817215022722,
       "n": 195,
       "iqr_rel": 1.7614405457273405e-05,
-      "source": "direct 5->0"
+      "source": "direct 5->0",
+      "name": "Rupee"
     },
     "6": {
       "rate_to_ccy0": 0.009487666813824899,
       "n": 221,
       "iqr_rel": 1.4422772180701893e-05,
-      "source": "direct 6->0"
+      "source": "direct 6->0",
+      "name": "Yen"
     },
     "7": {
       "rate_to_ccy0": 0.047296755824915916,
       "n": 108,
       "iqr_rel": 3.1425924552988515e-06,
-      "source": "direct 7->0"
+      "source": "direct 7->0",
+      "name": "Mexican Peso"
     },
     "8": {
       "rate_to_ccy0": 1.2916559034610202,
       "n": 986,
       "iqr_rel": 2.204277256603558e-06,
-      "source": "direct 8->0"
+      "source": "direct 8->0",
+      "name": "UK Pound"
     },
     "9": {
       "rate_to_ccy0": 0.012852806374049931,
       "n": 61,
       "iqr_rel": 9.172437388022917e-06,
-      "source": "direct 9->0"
+      "source": "direct 9->0",
+      "name": "Ruble"
     },
     "10": {
       "rate_to_ccy0": 0.7579776929842722,
       "n": 315,
       "iqr_rel": 3.3490014247394734e-06,
-      "source": "direct 10->0"
+      "source": "direct 10->0",
+      "name": "Canadian Dollar"
     },
     "11": {
       "rate_to_ccy0": 1.0928961748302577,
       "n": 119,
       "iqr_rel": 2.4900948559336456e-06,
-      "source": "direct 11->0"
+      "source": "direct 11->0",
+      "name": "Swiss Franc"
     },
     "12": {
       "rate_to_ccy0": 0.17710111356253116,
       "n": 38,
       "iqr_rel": 8.767526730509847e-06,
-      "source": "direct 12->0"
+      "source": "direct 12->0",
+      "name": "Brazil Real"
     },
     "13": {
       "rate_to_ccy0": 0.26658846778824696,
       "n": 33,
       "iqr_rel": 5.803290847713493e-07,
-      "source": "direct 13->0"
+      "source": "direct 13->0",
+      "name": "Saudi Riyal"
     },
     "14": {
       "rate_to_ccy0": 0.2961206601622338,
       "n": 19,
       "iqr_rel": 3.167583269418457e-06,
-      "source": "direct 14->0"
+      "source": "direct 14->0",
+      "name": "Shekel"
     }
   },
   "pairs": [

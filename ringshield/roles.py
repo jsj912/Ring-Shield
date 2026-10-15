@@ -242,8 +242,9 @@ def flows_converted(edges: pd.DataFrame, amount_col: str | None = None,
        rates (`contract/fx_rates.json`), so inflow and outflow are in one unit and the raw role
        rule applies unchanged.
 
-    An account touching a currency with no usable rate (currency 1: its amounts are too small for
-    2-dp recording to pin a rate) gets `closure` NaN and `ccy_unconvertible` True, and
+    An account touching a currency with no usable rate (in HI-Small that is Bitcoin, code 1: one
+    BTC is ~11,900 USD, so a typical amount is a two-decimal fraction and the implied rate is
+    rounding noise) gets `closure` NaN and `ccy_unconvertible` True, and
     `account_roles` reports it `undetermined`. Withholding, not guessing -- the same discipline the
     partitioned mode introduced, now needed for far fewer accounts.
     """
@@ -275,7 +276,13 @@ def flows_converted(edges: pd.DataFrame, amount_col: str | None = None,
     j = gi.join(go, how="outer")
     j[["inflow", "outflow"]] = j[["inflow", "outflow"]].fillna(0.0)
     j[["n_in", "n_out"]] = j[["n_in", "n_out"]].fillna(0).astype(np.int64)
-    j[["ok_in", "ok_out"]] = j[["ok_in", "ok_out"]].fillna(True).astype(bool)
+    # `where`, not `fillna`: the outer join gives an account present on only one side an
+    # OBJECT-dtype ok_in/ok_out (bool mixed with NaN), and filling an object column is what
+    # pandas 2.2 deprecates ("Downcasting object dtype arrays on .fillna ... is deprecated").
+    # The NaN means "no edges on that side", and `all()` over no edges is vacuously True, which
+    # is what the fill encoded. Verified identical on raw, partitioned and converted.
+    for c in ("ok_in", "ok_out"):
+        j[c] = j[c].where(j[c].notna(), True).astype(bool)
     bad = ~(j["ok_in"] & j["ok_out"])
 
     hi = np.maximum(j["inflow"].to_numpy(float), j["outflow"].to_numpy(float))

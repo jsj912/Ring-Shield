@@ -103,8 +103,9 @@ Of `partitioned`'s 571 withholdings, **568 resolve under `converted` — 492 of 
 `mule`**, 41 to peripheral, 17 to source, 14 to holder, 7 to sink.
 
 **There is a sixth role: `undetermined`.** Under `converted` an account gets it only when it
-touches a currency with **no usable rate** — in practice currency code **1**, whose amounts are so
-small that 2-decimal recording cannot pin its rate. That is **3 accounts of 4,280**, in one ring.
+touches a currency with **no usable rate** — in practice **Bitcoin** (code 1), whose amounts are
+so small that 2-decimal recording cannot pin its rate: one BTC is ~11,900 USD here, so a typical
+amount is a fraction like 0.13 carrying ~4 % rounding error. That is **3 accounts of 4,280**, in one ring.
 
 **Still render it explicitly** where it does occur: *"this account converts into a currency whose
 rate cannot be recovered; the balance cannot be checked"*. Never collapse it into `peripheral`,
@@ -166,7 +167,7 @@ by more than 0.1, worst 0.97**, because `converted` also repairs the leg-booking
 left as published; this is the note that they would move. So: if you only use closure, `raw` is
 what every published number uses; if you use **roles**, use **`converted`**.
 
-## 5. Action required — `w_flow` must not mix currency codes (XR-02 reinstated)
+## 5. Action required — `w_flow` is the share of the ring's convertible total (XR-02 reinstated)
 
 `edge_weights.py::w_flow` divides each edge's amount by the total over the ring's member edges,
 summed **raw across currencies**:
@@ -181,17 +182,30 @@ code 6), one edge in a high-magnitude currency takes almost the whole share of a
 ring, and the other members round towards zero. That is not a flow share; it is a currency
 artefact. **55.2 % of test rings span more than one currency**, so it is not a corner case.
 
-**The rule: `w_flow` must not mix currency codes.** Preferred form — convert each member edge to
-currency 0 with `contract/fx_rates.json` and take the ordinary share of the ring's converted total.
-Fallback, for a ring touching currency 1 (no usable rate) — the **within-currency** share: each
-edge's amount divided by the total of the same-currency member edges. Either way the existing
-duplicate-payment rule is unchanged (same from, to, timestamp, amount counted once in the total;
-every copy keeps the same share), and a single-currency ring is unaffected, so nothing in your
-hand-computed tests moves.
+**The rule: `w_flow` is the share of the ring's convertible total.** Convert each member edge to
+currency 0 with `contract/fx_rates.json`, over the **convertible, non-conversion** member edges,
+and take the ordinary share of that total. One rule, no second mode:
 
-**Under the converted form `w_flow` sums to 1 over the ring**, as it did before. Under the
-within-currency fallback it **sums to 1 per currency**, so a ring with three currencies has three
-unit totals. `w_total = alpha*w_score + beta*w_loo + gamma*w_flow` stays
+* **Exclude currency conversions** (`currency_sent != currency_received`) from both the numerator
+  and the denominator - section 7. A self-loop conversion moves no money between accounts.
+* **Exclude edges whose currency has no rate** (Bitcoin, code 1) from the total as well, and **flag the
+  ring partial**. `ring_conservation_converted(...)["unconvertible"]` is already True for such a
+  ring, so the flag is available without extra work.
+* The existing duplicate-payment rule is unchanged: same from, to, timestamp, amount counted once
+  in the total, every copy keeping the same share.
+
+A single-currency ring with no conversions is unaffected, so nothing in your hand-computed tests
+moves.
+
+**Why there is no within-currency fallback.** An earlier draft of this section said a ring touching
+Bitcoin should fall back to a per-currency share. That is withdrawn: it made `w_flow` mean two
+different things depending on the ring, so two explanations could not be compared, and it reported
+a confident-looking share computed on a subset without saying so. Excluding the unconvertible edges
+and marking the ring partial keeps one definition and states the gap.
+
+**`w_flow` sums to 1 over the edges it covers**, as it did before - the convertible,
+non-conversion member edges. On a ring flagged partial those are a subset of `member_edges`, so say
+so ("X % of the ring's traceable flow") rather than implying it is the whole ring. `w_total = alpha*w_score + beta*w_loo + gamma*w_flow` stays
 well defined per edge, but any assertion that `w_flow` sums to 1 over the ring, or any narrative
 sentence of the form "this edge carries X % of the ring's money", needs the currency named: *"X %
 of the ring's money in currency C"*.
@@ -210,18 +224,18 @@ of the ring's money in currency C"*.
 ```python
 from ringshield.roles import load_fx_rates
 fx = load_fx_rates()["rate_to_ccy0"]           # {currency: rate to currency 0}
-value = amount * fx[currency]                  # None for currency 1: withhold, do not guess
+value = amount * fx[currency]                  # None for Bitcoin (1): withhold, do not guess
 ```
 
 Rates come from the train split only, with no label filter, and close under inversion and
-composition to 3e-5 (`docs/FX_RATES.md`). **Currency 1 has no usable rate** — its amounts are too
-small for 2-decimal recording to pin one — so an amount in currency 1 cannot be normalised and the
+composition to 3e-5 (`docs/FX_RATES.md`). **Bitcoin (code 1) has no usable rate** — its amounts are too
+small for 2-decimal recording to pin one — so an amount in Bitcoin cannot be normalised and the
 edge must be reported as unconvertible rather than converted at a guess.
 
-**So `w_flow` has two correct forms, and converting is the better one:** normalise every member
-edge to currency 0 and take the ordinary share of the ring's total. Then `w_flow` sums to 1 over
-the ring again, and *"this edge carries X % of the ring's money"* is true without qualification.
-Fall back to the within-currency share only for a ring touching currency 1.
+**So `w_flow` has one correct form:** normalise every convertible, non-conversion member edge to
+currency 0 and take the ordinary share of that total. *"This edge carries X % of the ring's
+money"* is then true without qualification on a fully convertible ring, and *"X % of the ring's
+traceable flow"* on one flagged partial.
 
 ## 6. Action required - apply `docs/xai_fixtures.patch`
 
@@ -301,8 +315,8 @@ evidence = [e for e in ring.member_edges if not conv_by_edge_id[e]]
   dilutes every real edge's share. Drop conversions from the denominator and from the ranking.
 
 This also simplifies section 5: with conversions excluded, far fewer rings are mixed-currency in
-the edges you actually use, so the converted `w_flow` is the natural form and the within-currency
-fallback becomes rare.
+the edges you actually use, and almost none are flagged partial - so `w_flow` is the plain share of
+the ring's converted total in nearly every case.
 
 For the ring-level statement, use the new helper rather than recomputing:
 
@@ -310,14 +324,50 @@ For the ring-level statement, use the new helper rather than recomputing:
 from ringshield.roles import ring_conservation_converted
 c = ring_conservation_converted(ring, scored_edges)
 # c["closure"], c["in_at_sinks"], c["out_at_sources"] -- all in currency 0, c["currency"] == 0
-# c["unconvertible"] is True if the ring touches currency 1: say the total is partial
+# c["unconvertible"] is True if the ring touches Bitcoin: say the total is partial
 ```
 
 It uses the contract's closure definition unchanged, on converted flows, and returns the two totals
 so a narrative can quote them. They are **not** comparable with the contract's
 `conservation_closure`, which stays the raw cross-currency ratio and is what `confidence` uses.
 
-## 8. New: validation rings
+## 8. New: the integer codes can be decoded
+
+`currency_sent`, `currency_received` and `payment_format` are first-appearance integers from
+`scripts/format_kaggle_files.py`, which kept no record of the mapping.
+`contract/make_code_maps.py` reproduces the encoding and verifies it row-for-row against the
+processed parquets (5,078,345 rows, 0 mismatches) before writing:
+
+| file | contents |
+|---|---|
+| `contract/currency_map.json` | 15 currencies, both directions |
+| `contract/payment_format_map.json` | 7 payment formats, both directions |
+| `contract/bank_names.json` | 30,470 bank ids to names |
+
+**Currency 0 is `US Dollar`** - the first raw row's *receiving* currency, because the formatter
+assigns the receiving side before the payment side within each row. `rate_to_ccy0` in
+`contract/fx_rates.json` therefore converts to US Dollar, which is worth saying explicitly in a
+narrative rather than leaving as "currency 0".
+
+Payment formats, which you will want for the narrative text:
+
+| code | name |
+|---|---|
+| 0 | Reinvestment |
+| 1 | Cheque |
+| 2 | Credit Card |
+| 3 | ACH |
+| 4 | Cash |
+| 5 | Wire |
+| 6 | Bitcoin |
+
+**Bank names exist after all.** We previously said they did not. `<dataset>_accounts.csv` has
+`Bank Name` beside `Bank ID`, and `from_bank` / `to_bank` **are** that `Bank ID` -
+30,470 of 30,470 codes used in the splits resolve. So
+"Arbor Savings Bank" is available where a narrative currently prints a number. **A name is not a
+unique key** (30,470 ids, 20,053 distinct names): display only.
+
+## 9. New: validation rings
 
 `run_partition.py --save-val-rings` writes `rings_val.parquet` (+ `.log.json`) for the **chosen
 cell only**, with every contract field filled at v2. Validation rings were previously built during
@@ -327,7 +377,7 @@ Produced for `gine_causal`, 5 seeds, under `experiments_valrings/average/seed{1.
 asserts the written rings' member sets are **identical to the rings the validation metrics came
 from**, so the file is the same object the grid chose on, not a re-derivation.
 
-## 9. Merge expectations
+## 10. Merge expectations
 
 **No file of yours conflicts.** `explainability-l4` vs `v2` is 35 files, 10,777 insertions, 0
 deletions — purely additive, and it touches none of the files changed here (`contract/schema.py`,
@@ -344,7 +394,7 @@ Files to look at after merging:
 | `explainability/config.yaml` | `currency_policy` is a real choice; `partitioned` recommended for roles |
 | your narrative templates | need an `undetermined` branch |
 
-## 10. What converts, and what still does not
+## 11. What converts, and what still does not
 
 **Corrected 2026-10-14.** This section used to say FX rates were report-only and that nothing
 converts amounts. The rates are now recovered, checked and shipped:
@@ -355,7 +405,7 @@ converts amounts. The rates are now recovered, checked and shipped:
   default and every published number still comes from `raw`.
 * `results/tables/fx_stability.*` is **superseded** and carries a `SUPERSEDED` block saying why.
 
-**What still does not convert:** currency **1**. Its amounts are too small for 2-decimal recording
+**What still does not convert:** **Bitcoin** (code 1). Its amounts are too small for 2-decimal recording
 to pin a rate, so it is listed in `fx_rates.json` under `unconvertible` with
 `rate_to_ccy0: null`. An account touching it is reported `undetermined` — 3 of 4,280 across the
 five shipped seeds. A consumer must withhold there, never guess.

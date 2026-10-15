@@ -41,9 +41,9 @@ No ground truth in this file (PR-50).
 | 7 | `timestamp` | int64 | seconds since dataset start, loader basis (= amlworld_*.parquet Timestamp) |
 | 8 | `amount_sent` | float64 | 'Amount Sent' |
 | 9 | `amount_received` | float64 | 'Amount Received' |
-| 10 | `currency_sent` | int64 | loader integer encoding of 'Sent Currency' |
-| 11 | `currency_received` | int64 | loader integer encoding of 'Received Currency' |
-| 12 | `payment_format` | int64 | loader integer encoding of 'Payment Format' |
+| 10 | `currency_sent` | int64 | loader integer encoding of 'Sent Currency'; decode with contract/currency_map.json |
+| 11 | `currency_received` | int64 | loader integer encoding of 'Received Currency'; decode with contract/currency_map.json |
+| 12 | `payment_format` | int64 | loader integer encoding of 'Payment Format'; decode with contract/payment_format_map.json |
 | 13 | `score_raw` | float64 | model pred_prob; NaN when the model produced no score |
 | 14 | `score_calibrated` | float64 | isotonic calibration fit on the val split (models/calibrate.py, Step 3c); == score_raw for files written before calibration |
 | 15 | `is_seed` | bool | seed-fraction rule (configs/threshold_rule.yaml): score_raw > quantile(1 - k*/100) within the split, strict; Step 1 files used predicted_label == 1. False when score_raw is NaN |
@@ -142,6 +142,49 @@ model scripts re-based time to their own minimum, so `predictions_with_ids.csv` 
 E7 ring CSVs are `legacy_csv_time_offset_s` (10 s, `configs/paths.yaml`) lower; the
 contract scripts assert and add that offset. `models/score.py` (Step 3.3) writes
 loader-basis timestamps directly.
+
+## Decoding the integer codes
+
+`currency_sent`, `currency_received` and `payment_format` are integers assigned by
+`scripts/format_kaggle_files.py` in order of **first appearance** in the raw transactions file. The
+formatter kept no record of the mapping, so `contract/make_code_maps.py` reproduces the encoding
+and writes it out, asserting the result row-for-row against the processed parquets before it
+writes anything (5,078,345 rows, 0 mismatches on Timestamp, Sent Currency,
+Received Currency and Payment Format).
+
+* **`contract/currency_map.json`** - 15 currencies.
+* **`contract/payment_format_map.json`** - 7 payment formats.
+* **`contract/bank_names.json`** - 30,470 bank ids to names.
+
+**Currency 0 is `US Dollar`.** Not because it is the commonest, but because within each raw row
+the formatter assigns the *receiving* currency before the *payment* currency, so code 0 is the
+first row's **receiving** currency. The order carries no meaning beyond that.
+
+Currencies: 0 = US Dollar | 1 = Bitcoin | 2 = Euro | 3 = Australian Dollar | 4 = Yuan | 5 = Rupee | 6 = Yen | 7 = Mexican Peso | 8 = UK Pound | 9 = Ruble | 10 = Canadian Dollar | 11 = Swiss Franc | 12 = Brazil Real | 13 = Saudi Riyal | 14 = Shekel
+
+Payment formats:
+
+| code | name |
+|---|---|
+| 0 | Reinvestment |
+| 1 | Cheque |
+| 2 | Credit Card |
+| 3 | ACH |
+| 4 | Cash |
+| 5 | Wire |
+| 6 | Bitcoin |
+
+**The codes are not ordered by anything.** They are an artefact of row order in the raw file, so a
+numeric comparison on them (`payment_format < 3.5`) selects an arbitrary set of names. The shipped
+GFP+XGBoost baseline nevertheless feeds all three as `float32` features - see
+`baselines/refit_data.py` - which is recorded there rather than changed, because changing it would
+make the model incomparable with the published numbers.
+
+**Bank names do exist.** `<dataset>_accounts.csv` carries `Bank Name` beside `Bank ID`, and the
+contract's `from_bank` / `to_bank` **are** that `Bank ID`:
+30,470 of 30,470 bank codes used across the splits resolve
+to a name. A name is **not** a unique key - 30,470 ids share
+20,053 distinct names - so use it for display and never as a join key.
 
 ## Account -> bank map
 
