@@ -19,25 +19,29 @@ ever measured before it was written down. See `docs/PITFALLS.md` entry 3c.
 
 ## The rates, to currency 0
 
-To convert: `amount_in_ccy0 = amount * rate_to_ccy0[currency]`.
+To convert: `amount_in_ccy0 = amount * rate_to_ccy0[currency]`. **Currency 0 is US Dollar** (`contract/currency_map.json`).
 
-| currency | rate to 0 | n | relative IQR | source |
-|---|---:|---:|---:|---|
-| 0 | 1 | - | 0.00e+00 | hub |
-| 1 | - | 0 | - | UNREACHABLE: no pair survives the precision floor |
-| 2 | 1.17178 | 6027 | 2.73e-06 | direct 2->0 |
-| 3 | 0.707814 | 63 | 1.57e-06 | direct 3->0 |
-| 4 | 0.149307 | 2712 | 7.13e-06 | direct 4->0 |
-| 5 | 0.0136158 | 195 | 1.76e-05 | direct 5->0 |
-| 6 | 0.00948767 | 221 | 1.44e-05 | direct 6->0 |
-| 7 | 0.0472968 | 108 | 3.14e-06 | direct 7->0 |
-| 8 | 1.29166 | 986 | 2.20e-06 | direct 8->0 |
-| 9 | 0.0128528 | 61 | 9.17e-06 | direct 9->0 |
-| 10 | 0.757978 | 315 | 3.35e-06 | direct 10->0 |
-| 11 | 1.0929 | 119 | 2.49e-06 | direct 11->0 |
-| 12 | 0.177101 | 38 | 8.77e-06 | direct 12->0 |
-| 13 | 0.266588 | 33 | 5.80e-07 | direct 13->0 |
-| 14 | 0.296121 | 19 | 3.17e-06 | direct 14->0 |
+A sanity check that costs nothing and is worth stating: the recovered Euro rate is **1.1718 USD**
+and the Swiss Franc **1.0929** - plausible 2022 rates, which no fitting procedure was asked to
+produce. The one currency with no usable rate is **Bitcoin**.
+
+| currency | name | rate to 0 | n | relative IQR | source |
+|---|---|---:|---:|---:|---|
+| 0 | US Dollar | 1 | - | 0.00e+00 | hub |
+| 1 | Bitcoin | - | 0 | - | UNREACHABLE: no pair survives the precision floor |
+| 2 | Euro | 1.17178 | 6027 | 2.73e-06 | direct 2->0 |
+| 3 | Australian Dollar | 0.707814 | 63 | 1.57e-06 | direct 3->0 |
+| 4 | Yuan | 0.149307 | 2712 | 7.13e-06 | direct 4->0 |
+| 5 | Rupee | 0.0136158 | 195 | 1.76e-05 | direct 5->0 |
+| 6 | Yen | 0.00948767 | 221 | 1.44e-05 | direct 6->0 |
+| 7 | Mexican Peso | 0.0472968 | 108 | 3.14e-06 | direct 7->0 |
+| 8 | UK Pound | 1.29166 | 986 | 2.20e-06 | direct 8->0 |
+| 9 | Ruble | 0.0128528 | 61 | 9.17e-06 | direct 9->0 |
+| 10 | Canadian Dollar | 0.757978 | 315 | 3.35e-06 | direct 10->0 |
+| 11 | Swiss Franc | 1.0929 | 119 | 2.49e-06 | direct 11->0 |
+| 12 | Brazil Real | 0.177101 | 38 | 8.77e-06 | direct 12->0 |
+| 13 | Saudi Riyal | 0.266588 | 33 | 5.80e-07 | direct 13->0 |
+| 14 | Shekel | 0.296121 | 19 | 3.17e-06 | direct 14->0 |
 
 ## The pairs they come from (top 15 by n)
 
@@ -61,6 +65,10 @@ To convert: `amount_in_ccy0 = amount * rate_to_ccy0[currency]`.
 
 ## Why these are constants, not estimates
 
+* **Bitcoin is the exception, and the reason is arithmetic, not missing data.** One BTC is
+  worth ~11,900 USD here, so a typical BTC amount is a fraction recorded to two decimals
+  (0.13), carrying ~4 % rounding error. No amount floor can fix that, because the data never
+  records more decimals. An amount in Bitcoin cannot be converted and is withheld.
 * **Spread.** The largest relative IQR over all 104 used pairs is
   **4.96e-05** - float noise on a fixed multiplier, not sampling spread.
 * **Round trip.** `rate(a->b) * rate(b->a) == 1` holds on
@@ -80,32 +88,3 @@ fitted model.
 * **Rates are not swept, tuned or seeded.** There is nothing to choose.
 * **Conversion is opt-in.** `account_roles(..., currency="converted")` uses this table;
   `currency="raw"` is unchanged and remains what every shipped result was computed with.
-
-## Future candidates for v3 — NOT registered and NOT run
-
-Recorded here so they are traceable, and explicitly **not** pre-registered, not run, and not
-counted as findings. Neither has a prediction, a criterion or a veto attached; writing one is the
-first step if either is ever taken up. The canonical home for a registered version of these is
-`docs/V3_HIMEDIUM_PREREG.md`, which lives on the `jsj-v3` branch.
-
-**Lever 1 — give the detector the sent currency.** `models/tgn.py:286` passes
-`["Timestamp", "Amount Received", "Received Currency", "Payment Format"]`. It never sees
-`Sent Currency` or `Amount Sent`, so "this edge is a currency conversion" is not derivable from its
-input: the signal is invisible by construction, not by training. Conversions are 1.58 % of test
-edges and **0 of 72,170 are laundering across all three splits**, so the feature is a clean
-negative marker. Whether a detector that can see it does anything useful with such a rare,
-one-sided signal is unmeasured.
-
-**Lever 2 — converted conservation features for the expansion policy.** `ringshield/expand/`
-contains **zero** currency columns (`index.py`, `features.py`, `context.py`), and
-`closure_before` / `closure_after` / `delta_closure` are built from `amount_received` on both legs,
-so the policy's conservation group carries the same booking defect as the shipped roles
-(`docs/PITFALLS.md` 3d). The policy saw identical features at training and at test, so nothing
-published depends on correcting it — which is exactly why this is a candidate and not a fix.
-
-**A third observation, stronger than either, and also unregistered:** 38.7 % of predicted
-`member_edges` are conversions and none can be laundering, while truth rings contain none at all.
-That is a large label-free precision filter on member edges. It is documented in
-`contract/README.md` and `docs/MIGRATION.md` as guidance for the explainability layer, where it
-changes what is *rendered*; using it to change what the pipeline *predicts* would be a design
-change requiring its own pre-registration.

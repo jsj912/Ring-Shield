@@ -140,9 +140,11 @@ is recoverable", which does not follow — and the conclusion shaped a design de
 thing XR-02 asked for. On 4,280 ring-accounts over the 5 shipped seeds it leaves **3**
 undetermined, against `partitioned`'s **571** — it resolves **568 of 571 (99.5 %)**, and **86 % of
 them are mules**. So the honest statement is the opposite of the one shipped: those mule labels
-*are* supported once the rate is applied. The one currency that stays unconvertible is **code 1**,
-whose amounts are too small for 2-dp recording to pin a rate; an account touching it is still
-withheld, which is the only place `undetermined` is now earned.
+*are* supported once the rate is applied. The one currency that stays unconvertible is **Bitcoin**
+(code 1): one BTC is ~11,900 USD here, so a typical amount is a two-decimal fraction such as 0.13
+carrying ~4 % rounding error, which no amount floor can fix because the data records no more
+decimals. An account touching it is still withheld, which is the only place `undetermined` is now
+earned. (`contract/currency_map.json`, added 2026-10-15, makes this legible: the codes decode.)
 
 **The published artefacts stand.** Nothing was retrained and nothing regenerated:
 `currency="raw"` is byte-identical, the HI-Small results and the pinned HI-Medium v3 run are
@@ -198,6 +200,54 @@ rewriting shared history, which is not worth doing for a message. A reader of `g
 will meet the false claim with no correction attached to it. This entry is that correction, and
 `docs/MIGRATION.md` section 1 carries it too. If the claim is ever quoted from a commit message,
 quote this entry beside it. (2026-10-14)
+
+### 3f. shap's `expected_value` is wrong on an XGBoost 3 model: take the base from `pred_contribs`
+
+**Reported by the XAI teammate (Ruhani), 2026-10-15; the cause and the magnitude verified here.**
+
+XGBoost 3 writes `base_score` into the model JSON as a **bracketed string**, not a number:
+
+```json
+"learner_model_param": { "base_score": "[5.422354E-1]", ... }
+```
+
+Verified on all five `experiments/R2_b0/gfpxgb_scores/model_seed{1..5}.json`, written by xgboost
+3.4.1. `float("[5.422354E-1]")` raises, so a consumer that does not strip the brackets must either
+fail or substitute a default - and a silently substituted base is what makes
+`shap.TreeExplainer(...).expected_value` wrong. It is wrong by a *constant*, so every SHAP value
+still sums to the right total **difference** while the stated baseline, and therefore any absolute
+"expected output" in a narrative, is off.
+
+**The magnitude, measured on 20,000 test rows per model:**
+
+| seed | stored `base_score` | `logit(base_score)` | true base from `pred_contribs` | gap |
+|---|---|---:|---:|---:|
+| 1 | `[5.422354E-1]` | 0.16935 | 2.94483 | **2.77548** |
+| 2 | `[5.422354E-1]` | 0.16935 | 2.97404 | 2.80470 |
+| 3 | `[5.422354E-1]` | 0.16935 | 2.96475 | 2.79540 |
+| 4 | `[5.422354E-1]` | 0.16935 | 3.00587 | 2.83653 |
+| 5 | `[5.422354E-1]` | 0.16935 | 2.97260 | 2.80326 |
+
+Mean gap **2.80** log-odds, range 2.78-2.84, which corroborates the reported ~2.74. Note the true
+base is **not the same across seeds** (2.94-3.01), so there is no single constant to hard-code.
+
+**The fix: read the base from the model, not from its metadata.**
+
+```python
+contribs = booster.predict(xgb.DMatrix(X, feature_names=cols), pred_contribs=True)
+base = contribs[0, -1]          # the last column is the bias, and it is constant over rows
+shap_values = contribs[:, :-1]
+```
+
+`contribs.sum(axis=1) == booster.predict(..., output_margin=True)` is asserted to 1e-4 on all five
+models, so the bias column **is** the correct SHAP base by construction - it is whatever makes the
+decomposition add up, which is exactly what `expected_value` is supposed to be. Taking it from
+`pred_contribs` cannot disagree with the model, whereas parsing `base_score` can and does.
+
+**The general shape of this**, which is why it is in this file: a number that is *supposed* to be
+metadata about a model was trusted instead of being recomputed from the model's own output, and the
+error was a constant offset - the kind that leaves every relative comparison intact and only breaks
+the absolute statement. (2026-10-15)
 
 ## Evaluation correctness
 

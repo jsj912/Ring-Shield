@@ -1,0 +1,60 @@
+{
+  "created_utc": "2026-10-15T12:41:31+00:00",
+  "dataset": "HI-Small",
+  "source": "E:\\JSJ\\Ring-Shield\\data\\raw\\HI-Small_Trans.csv",
+  "encoder": "scripts/format_kaggle_files.py, reproduced and verified row-for-row against the processed parquets by contract/make_code_maps.py",
+  "verification": {
+    "n_rows": 5078345,
+    "Timestamp": {
+      "matching_rows": 5078345,
+      "mismatched": 0
+    },
+    "Sent Currency": {
+      "matching_rows": 5078345,
+      "mismatched": 0
+    },
+    "Received Currency": {
+      "matching_rows": 5078345,
+      "mismatched": 0
+    },
+    "Payment Format": {
+      "matching_rows": 5078345,
+      "mismatched": 0
+    }
+  },
+  "note": "code order is first appearance, and within each raw row the RECEIVING currency is assigned before the PAYMENT currency -- hence code 0 is the first row's receiving currency",
+  "code_to_name": {
+    "0": "US Dollar",
+    "1": "Bitcoin",
+    "2": "Euro",
+    "3": "Australian Dollar",
+    "4": "Yuan",
+    "5": "Rupee",
+    "6": "Yen",
+    "7": "Mexican Peso",
+    "8": "UK Pound",
+    "9": "Ruble",
+    "10": "Canadian Dollar",
+    "11": "Swiss Franc",
+    "12": "Brazil Real",
+    "13": "Saudi Riyal",
+    "14": "Shekel"
+  },
+  "name_to_code": {
+    "US Dollar": 0,
+    "Bitcoin": 1,
+    "Euro": 2,
+    "Australian Dollar": 3,
+    "Yuan": 4,
+    "Rupee": 5,
+    "Yen": 6,
+    "Mexican Peso": 7,
+    "UK Pound": 8,
+    "Ruble": 9,
+    "Canadian Dollar": 10,
+    "Swiss Franc": 11,
+    "Brazil Real": 12,
+    "Saudi Riyal": 13,
+    "Shekel": 14
+  }
+}

@@ -47,7 +47,7 @@ from sklearn.metrics import average_precision_score, f1_score
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from baselines.gfp_xgboost_aml import load_split_for_refit  # noqa: E402
+from baselines.refit_data import load_split_for_refit  # noqa: E402  (no optuna)
 from preprocessing.account_bank import load_paths  # noqa: E402
 from ringshield.expand.cross_score import days_of, fold_assignment  # noqa: E402
 
