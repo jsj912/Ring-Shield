@@ -59,7 +59,8 @@ def test_fan_out_narrative_by_hand():
                     "Account 1 paid 3 different accounts. Money starts at 1 and ends at 2, 3, 4. "
                     "Total moved: 6,000 in currency 0. 96% of the money sent by the sources reached the sinks. "
                     "Strongest evidence: 1→2 (1,000, weight 0.90); 1→3 (2,000, weight 0.80); 1→4 (3,000, weight 0.70). "
-                    "Feature-model signals that raised suspicion: the payment method, two-hop scatter-gather paths; "
+                    "Signals from a reference transaction-level model that raised suspicion: the payment method, two-hop "
+                    "scatter-gather paths; "
                     "that lowered it: the hour of the day.")
     assert summary["template"] == "FAN-OUT"
 
@@ -139,7 +140,7 @@ def test_cross_bank_clause_only_when_banks_differ():
 
 def test_missing_probability_or_features_drop_their_clauses():
     text, summary = narrate("FAN-OUT", p=None, features=False)
-    assert text.startswith("Suspected ring:") and "Feature-model" not in text
+    assert text.startswith("Suspected ring:") and "reference transaction-level model" not in text
     assert_clean(text)
 
 
@@ -163,13 +164,12 @@ def test_the_bank_list_shrinks_to_a_count_before_the_bank_clause_is_dropped():
     """XR-18 under the word limit: when the bank list does not fit, the bank COUNT is kept if that fits."""
     from explainability.tests.fixtures import NARRATIVE_FEATURES
     case = narrative_case("GATHER-SCATTER", banks={2: 1000001, 3: 1000002, 4: 1000003, 5: 1000004})
-    case["feature_weights"] = NARRATIVE_FEATURES[:1]
+    case["feature_weights"] = NARRATIVE_FEATURES[:3]
     big = {a: 9_000_000 + a for a in range(1, 6)}
     e = case["evidence"]
     e["from_id"], e["to_id"] = e["from_id"].map(big), e["to_id"].map(big)
     for a in case["account_weights"]:
         a["account_id"] = big[a["account_id"]]
-    case["account_weights"][1]["role"] = "undetermined"
     text, summary = build_narrative(narrative_values(**case), PHRASING, SETTINGS)
     assert "banks_short" in summary["clauses"] and "banks" not in summary["clauses"]
     assert text.endswith("The accounts span 5 banks.") and word_count(text) <= MAX_WORDS

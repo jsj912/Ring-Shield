@@ -1,6 +1,7 @@
 """XR-22 / XR-24 (Week 1): the fidelity metric, the score-only ranking, the random control, determinism."""
 from __future__ import annotations
 
+import json
 import math
 
 import pandas as pd
@@ -210,3 +211,89 @@ def test_xr05_choice_was_made_on_validation_only_and_is_what_the_config_uses():
                                          -r["alpha"], -r["beta"]))[0]
     assert d["chosen"] == {k: expect[k] for k in ("alpha", "beta", "gamma")}
     assert {k: float(v) for k, v in CFG["edge_weights"]["mixing_tuned"].items()} == d["chosen"]
+
+
+# ----------------------------------------------------------------------------- Week 4: fidelity.json
+def test_expanded_edge_fidelity_by_hand():
+    """XR-23 (Joan, Q3): (b) expanded recall@k, (c) the literal definition, (a) expanded precision."""
+    from explainability.evaluate import expanded_rows
+    case = fx.expanded_case()
+    se, rings = case["scored_edges"], case["rings"]
+    W = window_from_config(CFG)
+    res = match_in_window(rings, se, W, threshold=0.5, scope="test_visible", truth=case["truth_accounts"])
+    T = TruthEdges(edges=case["truth_edges"], accounts={})
+    (row,) = expanded_rows(se, rings, res, T, W, CFG, 0, {rings.iloc[0]["ring_id"]: case["order"]})
+    assert (row["n_expanded"], row["n_expanded_true"]) == (3, 2) and row["precision"] == pytest.approx(2 / 3)
+    assert (row["b_w_total@3"], row["b_score_only@3"], row["b_score_only@5"]) == (1.0, 0.5, 1.0)
+    assert row["c_defined"] and row["c_discriminates"]
+    assert all(row[f"c_{n}@{k}"] == 1.0 for n in ("w_total", "score_only") for k in (3, 5, 10))
+    assert 0 < row["b_random@3"] < 1
+
+
+def test_week4_block_aggregates_per_truth_ring_and_tests_six_comparisons():
+    """Unit = truth ring (mean over the seeds where matched); six paired comparisons, Holm over the six; the
+    k=5 verdict follows the intervals."""
+    import pandas as pd
+    from explainability.evaluate import _block
+    rows = []
+    for seed in (1, 2):
+        for t in range(40):
+            if seed == 2 and t >= 30:                                   # rings 30-39 matched in one seed only
+                continue
+            r = {"seed": seed, "truth_ring_id": t}
+            for k in (3, 5, 10):
+                r.update({f"w_total@{k}": 1.0, f"score_only@{k}": 1.0 if t % 2 else 0.5, f"random@{k}": 0.25})
+            rows.append(r)
+    blk = _block(pd.DataFrame(rows), "", CFG, "unit test")
+    assert blk["n_truth_rings"] == 40 and blk["truth_rings_by_n_seeds_matched"] == {1: 10, 2: 30}
+    f = blk["fidelity"]
+    assert f["score_only"]["5"]["point"] == pytest.approx(0.75) and f["w_total"]["5"]["point"] == 1.0
+    assert len(blk["comparisons"]) == 6 and all("p_holm" in c for c in blk["comparisons"].values())
+    c = blk["comparisons"]["w_total vs score_only @5"]
+    assert c["n_nonzero"] == 20 and c["mean_delta"] == pytest.approx(0.25)
+    assert blk["verdict_at_k5"]["random"] == "positive" and blk["overall"] in ("positive", "negative")
+
+
+def _fidelity_json():
+    p = repo_path(CFG["output_dir"]) / CFG["fidelity_week4_name"]
+    if not p.exists():
+        pytest.fail(f"{p} missing: run python -m explainability.evaluate --week4")
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def test_fidelity_json_point_estimates_match_the_per_seed_files_and_the_findings_are_read_not_typed():
+    """W4-2/W4-5: per-seed means equal the converted fidelity files; saturation and XR-05 strength agree with the
+    stored per-ring rows and the XR-05 choice file; every interval contains its point."""
+    rep = _fidelity_json()
+    n_inst = 0
+    for s, v in rep["per_seed"].items():
+        old = json.loads((repo_path(CFG["output_dir"]) / CFG["output_name_converted"].format(seed=s)).read_text())
+        for name in ("score_only", "random", "w_total"):
+            assert v["fidelity"][name] == old["fidelity"][name], (s, name)
+        n_inst += v["n_matched"]
+    sat = rep["findings"]["saturation"]
+    assert sat["n_matched_ring_instances"] == n_inst == 401
+    assert (sat["n_with_a_true_ranked_edge"], sat["n_only_true_edges"], sat["n_non_saturated"]) == (395, 343, 52)
+    h = rep["headline"]
+    assert sum(int(k) * v for k, v in h["truth_rings_by_n_seeds_matched"].items()) == h["n_ring_instances"] == 401
+    assert rep["secondary_non_saturated"]["n_ring_instances"] == 52
+    x5 = rep["findings"]["xr05_strength"]
+    choice = json.loads((repo_path(CFG["output_dir"]) / CFG["xr05_choice_name"]).read_text())
+    assert x5["leave_one_out_weight"] == choice["chosen"]["beta"] == 0.0
+    assert (x5["n_validation_ring_instances_that_can_discriminate"], x5["n_validation_ring_instances_matched"]) == (89, 431)
+    assert rep["xr23"]["c_literal"]["n_ring_instances_that_discriminate"] == 11
+    assert rep["evaluation"]["mixing_retuned_on_test"] is False
+    for blk in (h, rep["secondary_non_saturated"], rep["xr23"]["headline_b_expanded_recall"]):
+        for name, by_k in blk["fidelity"].items():
+            for k, ci in by_k.items():
+                assert ci["lo"] - 1e-12 <= ci["point"] <= ci["hi"] + 1e-12, (blk["label"], name, k)
+        for c in blk["comparisons"].values():
+            assert {"p_value", "p_holm", "n_nonzero", "delta_ci"} <= set(c)
+
+
+def test_fidelity_json_is_reproducible():
+    """Recomputing the report gives exactly the stored file (deterministic draws, current inputs)."""
+    from explainability.evaluate import week4_report
+    stored = _fidelity_json()
+    again = json.loads(json.dumps(week4_report(CFG, CFG["inputs"]["seeds"]), sort_keys=True))
+    assert again == stored

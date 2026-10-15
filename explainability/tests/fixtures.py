@@ -369,3 +369,22 @@ def narrative_case(kind: str, *, banks: dict | None = None, currencies: dict | N
             "conservation": {"closure": closure, "unconvertible": partial}, "closure_raw": closure,
             "feature_weights": NARRATIVE_FEATURES if features else [], "fx": NARRATIVE_FX,
             "n_top_edges": 3, "n_top_features": 3}
+
+
+# ============================================================================= Week 4
+def expanded_case() -> dict:
+    """XR-23 by hand. A chain A->B->C->D->E->F: flows 0, 1 are seeds; 2, 3, 4 were added by the expansion.
+    The truth ring is flows 0-3 (flow 4 is a wrong addition).
+        X (expanded, in window)      = {e2, e3, e4};  true expanded X & T = {e2, e3};  precision 2/3
+        our order (given)            = e2, e0, e3, e1, e4      -> (b) recall@3 = 2 / min(3, 2) = 1
+        score order (seeds first)    = e0, e1, e2, e3, e4      -> (b) recall@3 = 1 / 2 = 0.5;  @5 = 1
+        (c) rank X alone vs T's non-seed edges {e2, e3}: both orders put e2, e3 first -> 1 at every k;
+            it discriminates (2 of the 3 expanded edges are true)."""
+    b = _Builder()
+    a = b.accounts(6)
+    b.ring("chain", "STACK", [(a[i], a[i + 1], 100 - i) for i in range(5)], seeds=[0, 1],
+           expanded={2: 0.8, 3: 0.7, 4: 0.6})
+    se, rings = b.frames()
+    e = [int(x) for x in rings.iloc[0]["member_edges"]]
+    return {"scored_edges": se, "rings": rings, "truth_accounts": {777: set(a)}, "truth_edges": {777: set(e[:4])},
+            "order": [e[2], e[0], e[3], e[1], e[4]], "edges": e}

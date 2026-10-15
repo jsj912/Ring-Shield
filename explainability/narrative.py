@@ -241,9 +241,9 @@ CLAUSES = {
     "closure": ("{closure_pct}% of the money sent by the sources reached the sinks.", ()),
     "no_closure": ("Conservation cannot be measured: no account only sends or only receives.", ("no_closure",)),
     "evidence": ("Strongest evidence: {top_edges}.", ()),
-    "features_both": ("Feature-model signals that raised suspicion: {features_up}; that lowered it: {features_down}.", ()),
-    "features_up": ("Feature-model signals that raised suspicion: {features_up}.", ("no_down",)),
-    "features_down": ("Feature-model signals that lowered suspicion: {features_down}.", ("no_up",)),
+    "features_both": ("Signals from a reference transaction-level model that raised suspicion: {features_up}; that lowered it: {features_down}.", ()),
+    "features_up": ("Signals from a reference transaction-level model that raised suspicion: {features_up}.", ("no_down",)),
+    "features_down": ("Signals from a reference transaction-level model that lowered suspicion: {features_down}.", ("no_up",)),
     "banks": ("The accounts span {n_banks} banks ({bank_list}).", ()),
     "banks_short": ("The accounts span {n_banks} banks.", ()),     # only as the shorter stand-in for "banks"
 }

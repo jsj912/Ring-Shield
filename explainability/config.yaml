@@ -56,15 +56,19 @@ migration_report_name: migration_report_raw_vs_converted.json
 xr05_choice_name: xr05_mixing_choice.json        # validation-only choice of (alpha, beta, gamma)
 explanations_name_week3: explanations_week3_seed{seed}.parquet        # policy converted + SHAP + narrative
 disagreement_name_week3: roles_disagreement_week3_seed{seed}.csv
-narrative_samples_name: narrative_samples_week3.md   # one narrative per pattern type, for the team review
+narrative_samples_name: narrative_samples_week3.md   # one narrative per pattern type: a PILOT review (7 rings)
+fidelity_week4_name: fidelity.json                  # Week 4: the spec's fidelity.json (XR-22/23/24), pooled over seeds
 
 evaluation:
   window: primary                # name from configs/eval_window.yaml
   k: [3, 5, 10]                  # fidelity@k
   random_shuffles: 20            # random-ranking control, averaged per ring
   random_seed: 20260921          # fixed so the random control is reproducible
-  bootstrap_resamples: 1000      # used from Week 4 (confidence intervals)
+  bootstrap_resamples: 1000      # Week 4: percentile bootstrap over TRUTH rings (Joan, Q2)
   ci: 0.95
+  permutation_resamples: 10000   # Week 4: paired sign-flip test, as evaluation/ring_stats.paired_permutation
+  stats_seed: 20260921           # fixes every bootstrap / permutation draw
+  verdict_k: 5                   # spec 6.2: ours must beat both controls with non-overlapping CIs at k = 5
 
 # Used from Week 2 onwards; recorded now so every constant has one home.
 edge_weights:

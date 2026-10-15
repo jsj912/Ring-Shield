@@ -2,7 +2,7 @@
 
     python -m explainability.explain                         # all seeds, weights + SHAP + narrative -> results/xai/
     python -m explainability.explain --no-narrative          # weights only (the migrated Week 2 files)
-    python -m explainability.explain --samples               # the Week 3 review sample, one narrative per type
+    python -m explainability.explain --samples               # the PILOT review sample, one narrative per type
     python -m explainability.explain --seeds 1 --rings contract/out/rings_stub_cc.parquet \
         --name "explanations_week2_stub_cc_seed{seed}.parquet" --disagreement-name "roles_disagreement_stub_cc_seed{seed}.csv"
 
@@ -313,7 +313,7 @@ def review_samples(cfg: dict, seeds, out_path) -> dict:
     chosen = {}
     for c in sorted(cand, key=lambda c: c[:4]):
         chosen.setdefault(c[0], c)
-    lines = ["# Week 3 narrative review sample", "",
+    lines = ["# Week 3 narrative review -- PILOT (7 rings; not the spec's 30-ring review, no kappa)", "",
              "One matched ring per predicted pattern type (highest type probability; all five seeds). For each, read",
              "the narrative against the evidence and roles shown, and answer the four questions of spec section 7 (0/1).",
              "The true pattern types are at the very end: do not read them before answering.", ""]
@@ -357,14 +357,14 @@ def main(argv=None) -> int:
     ap.add_argument("--no-narrative", action="store_true",
                     help="weights only, no SHAP / narrative (reproduces the migrated Week 2 files)")
     ap.add_argument("--samples", action="store_true",
-                    help="only write the Week 3 review sample (one narrative per type) from the Week 3 files")
+                    help="only write the Week 3 PILOT review sample (one narrative per type) from the Week 3 files")
     ap.add_argument("--out", default=cfg["output_dir"])
     ap.add_argument("--name", default=None)
     ap.add_argument("--disagreement-name", default=None)
     a = ap.parse_args(argv)
     if a.samples:
         picked = review_samples(cfg, a.seeds, repo_path(a.out) / cfg["narrative_samples_name"])
-        print(f"review sample: {len(picked)} types -> {cfg['narrative_samples_name']}: {picked}")
+        print(f"pilot review sample: {len(picked)} types -> {cfg['narrative_samples_name']}: {picked}")
         return 0
     raw = a.policy == "raw"
     narrate = not raw and not a.no_narrative

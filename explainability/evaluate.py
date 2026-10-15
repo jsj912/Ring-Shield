@@ -1,6 +1,7 @@
 """Explanation fidelity (spec section 6.1-6.2, minimal Week 1 version: XR-22 point estimates, XR-24 controls).
 
     python -m explainability.evaluate                       # all seeds in config.yaml, primary window
+    python -m explainability.evaluate --week4               # Week 4: results/xai/fidelity.json (CIs, controls, XR-23)
     python -m explainability.evaluate --seeds 1 --rings contract/out/rings_stub_cc.parquet \
         --name fidelity_week1_stub_cc_seed{seed}.json
 
@@ -315,6 +316,178 @@ def tune_mixing(cfg: dict, seeds) -> dict:
             "tie_break": "closest to the untuned default (0.4, 0.4, 0.2), then larger alpha, then larger beta"}
 
 
+# ----------------------------------------------------------------------------- Week 4: fidelity.json
+RANKS_W4 = ("w_total", "score_only", "random")
+
+
+def expanded_rows(scored_edges: pd.DataFrame, rings: pd.DataFrame, match_result, truth_edges, window, cfg: dict,
+                  detector_seed: int, orders: dict) -> list[dict]:
+    """XR-23 per matched ring-instance (Joan, Q3). X = the ring's expanded edges inside the window, conversions removed.
+      (b) expanded recall@k (headline): of the TRUE expanded edges (X & T), how many are in the top k of the FULL
+          member ranking, / min(k, |X & T|). Asks: does the ranking put the recovered quiet-member edges near the top?
+      (c) literal: rank X alone against T's non-seed edges (spec 6.1 wording); few rings can discriminate.
+      (a) expanded precision |X & T| / |X|: context -- it measures the ring layer, not the explanation."""
+    ev = cfg["evaluation"]
+    ks = [int(k) for k in ev["k"]]
+    in_win = in_window_edge_ids(scored_edges, window)
+    conv = conversion_mask(scored_edges)
+    se = scored_edges.set_index("edge_id")
+    ring_by_id = rings.set_index("ring_id")
+    out = []
+    for i, m in enumerate(match_result.matches.itertuples(index=False)):
+        r = ring_by_id.loc[m.ring_id]
+        member, _ = evidence_edge_ids([int(e) for e in r["member_edges"] if e in in_win], conv, "converted")
+        X, _ = evidence_edge_ids([int(e) for e in r["expanded_edges"] if e in in_win], conv, "converted")
+        T = truth_edges.edges[int(m.truth_ring_id)]
+        XT = set(X) & T
+        T_nonseed = {e for e in T if e in se.index and not bool(se.at[e, "is_seed"])}
+        row = {"ring_id": m.ring_id, "truth_ring_id": int(m.truth_ring_id), "n_expanded": len(X),
+               "n_expanded_true": len(XT), "precision": (len(XT) / len(X)) if X else None,
+               "c_defined": bool(X) and bool(set(X) & T_nonseed),
+               "c_discriminates": bool(set(X) & T_nonseed) and len(set(X) & T_nonseed) < len(X)}
+        edges = se.loc[sorted(member)].reset_index()
+        ranked = {"w_total": [e for e in orders[m.ring_id] if e in set(member)], "score_only": rank_by_score(edges)}
+        salt = [int(ev["random_seed"]), int(detector_seed), i, 23]
+        if XT:
+            for name, order in ranked.items():
+                for k in ks:
+                    row[f"b_{name}@{k}"] = fidelity_at_k(order, XT, k)
+            rnd = random_fidelity(member, XT, ks, int(ev["random_shuffles"]), salt)
+            for k in ks:
+                row[f"b_random@{k}"] = rnd[k]
+        if row["c_defined"]:
+            xs = set(X)
+            for name, order in ranked.items():
+                for k in ks:
+                    row[f"c_{name}@{k}"] = fidelity_at_k([e for e in order if e in xs], T_nonseed, k)
+            rnd = random_fidelity(X, T_nonseed, ks, int(ev["random_shuffles"]), salt + [3])
+            for k in ks:
+                row[f"c_random@{k}"] = rnd[k]
+        out.append(row)
+    return out
+
+
+def _block(rows: pd.DataFrame, prefix: str, cfg: dict, label: str) -> dict:
+    """Per truth ring (mean over the seeds where it is in `rows`): CIs for the three rankings at every k, the six
+    paired comparisons of w_total against each control (Holm over the six), the spec's k=5 non-overlap verdict."""
+    from explainability.stats import bootstrap_mean, holm, non_overlap_verdict, paired_test, per_truth_ring
+    ev = cfg["evaluation"]
+    ks = [int(k) for k in ev["k"]]
+    nb, npm, sd, ci = int(ev["bootstrap_resamples"]), int(ev["permutation_resamples"]), int(ev["stats_seed"]), float(ev["ci"])
+    if rows.empty:
+        return {"label": label, "n_ring_instances": 0, "n_truth_rings": 0}
+    vals, seeds = {}, None
+    for name in RANKS_W4:
+        for k in ks:
+            col = f"{prefix}{name}@{k}"
+            per_seed = [dict(zip(g["truth_ring_id"], g[col])) for _, g in rows.groupby("seed", sort=True)]
+            vals[(name, k)], seeds = per_truth_ring(per_seed)
+    table = {name: {str(k): {**bootstrap_mean(vals[(name, k)], n_resamples=nb, seed=sd, ci=ci),
+                             "ring_instance_mean": float(rows[f"{prefix}{name}@{k}"].mean())} for k in ks}
+             for name in RANKS_W4}
+    comps = {}
+    for control in ("score_only", "random"):
+        for k in ks:
+            comps[f"w_total vs {control} @{k}"] = paired_test(vals[("w_total", k)], vals[(control, k)],
+                                                              n_permutations=npm, seed=sd, ci=ci)
+    for h in holm([(n, c["p_value"]) for n, c in comps.items()]):
+        comps[h["comparison"]].update(p_holm=h["p_holm"], reject_at_05=h["reject_at_05"])
+    vk = str(int(ev["verdict_k"]))
+    verdict = {c: non_overlap_verdict(table["w_total"][vk], table[c][vk]) for c in ("score_only", "random")}
+    return {"label": label, "n_ring_instances": int(len(rows)), "n_truth_rings": len(vals[("w_total", ks[0])]),
+            "truth_rings_by_n_seeds_matched": seeds, "fidelity": table, "comparisons": comps,
+            "holm_family": "the six comparisons of this block (2 controls x 3 k)",
+            f"verdict_at_k{vk}": verdict,
+            "overall": "positive" if all(v == "positive" for v in verdict.values()) else "negative"}
+
+
+def week4_report(cfg: dict, seeds) -> dict:
+    """XR-22/23/24 pooled over the detector seeds, on the primary window, policy converted, w_total from the Week 3
+    explanations (mixing tuned on validation; NOT re-tuned). Joan's decisions Q1-Q4 (2026-10)."""
+    import pyarrow.parquet as pq
+    ev = cfg["evaluation"]
+    ks = [int(k) for k in ev["k"]]
+    W = window_from_config(cfg)
+    thr, scope = matching_rule(cfg)
+    inp, out_dir = cfg["inputs"], repo_path(cfg["output_dir"])
+    head, expd, per_seed, files = [], [], {}, []
+    for s in seeds:
+        scores, rings_path = inp["scored_edges"].format(seed=s), inp["rings"].format(seed=s)
+        expl = out_dir / cfg["explanations_name_week3"].format(seed=s)
+        files += [_rel(scores), _rel(rings_path), _rel(expl)]
+        se = read_scored_edges(scores)
+        rings = read_rings(rings_path, scored_edges=se)
+        res = match_in_window(rings, se, W, threshold=thr, scope=scope, truth_path=inp["truth"])
+        T = truth_edge_sets(inp["split_parquet"], W, ring_ids=res.matches["truth_ring_id"])
+        orders = {r["ring_id"]: [e["edge_id"] for e in r["edge_weights"]]
+                  for r in pq.read_table(expl, columns=["ring_id", "edge_weights"]).to_pylist()}
+        pr, summ = evaluate_frames(se, rings, res, T, W, cfg, s, policy="converted", precomputed={"w_total": orders})
+        head.append(pr.assign(seed=s))
+        expd.append(pd.DataFrame(expanded_rows(se, rings, res, T, W, cfg, s, orders)).assign(seed=s))
+        per_seed[str(s)] = {"n_matched": int(len(pr)), "fidelity": summ}
+    head, expd = pd.concat(head, ignore_index=True), pd.concat(expd, ignore_index=True)
+    files += [_rel(inp["truth"]), _rel(inp["split_parquet"])]
+    sat = head["n_true_among_ranked"] == head["n_edges_ranked"]
+    some_true = head["n_true_among_ranked"] > 0
+    nonsat = head[some_true & ~sat]
+    xr05 = json.loads((out_dir / cfg["xr05_choice_name"]).read_text(encoding="utf-8"))
+    val_n = sum(v["n_matched"] for v in xr05["per_seed"].values())
+    val_disc = sum(v["n_rings_that_can_discriminate"] for v in xr05["per_seed"].values())
+    objs = [g["objective"] for g in xr05["grid"]]
+    b_rows = expd[expd["n_expanded_true"] > 0]
+    c_rows = expd[expd["c_defined"]]
+    with_x = expd[expd["n_expanded"] > 0]
+    return {
+        "experiment_id": "XAI-W4", "explainer_version": cfg["explainer_version"],
+        "what": "explanation fidelity with 95% bootstrap CIs over truth rings (XR-22), expanded-edge fidelity (XR-23), "
+                "random and score-only controls with paired tests (XR-24); primary window; pooled over detector seeds",
+        "inputs": {"files_read": files, "xr05_choice": _rel(out_dir / cfg["xr05_choice_name"])},
+        "evaluation": {"window": "primary", "scope": scope, "match_threshold": thr, "k": ks, "policy": "converted",
+                       "ranked_edges": "ring member_edges inside the window, currency conversions removed",
+                       "unit": "truth ring; its value = mean over the detector seeds in which it was matched (Joan, Q2)",
+                       "bootstrap_resamples": int(ev["bootstrap_resamples"]), "ci": float(ev["ci"]),
+                       "permutation_resamples": int(ev["permutation_resamples"]), "stats_seed": int(ev["stats_seed"]),
+                       "random_shuffles": int(ev["random_shuffles"]), "mixing": cfg["edge_weights"]["mixing_tuned"],
+                       "mixing_retuned_on_test": False, "seeds": [int(s) for s in seeds]},
+        "headline": _block(head, "", cfg, "fidelity@k on ring member edges (spec 6.1 definition)"),
+        "secondary_non_saturated": _block(nonsat, "", cfg, "the same, on ring-instances whose ranked edges are neither "
+                                                           "all true nor all false (the only ones where order matters)"),
+        "xr23": {
+            "headline_b_expanded_recall": _block(b_rows, "b_", cfg, "expanded recall@k: true expanded edges in the top k "
+                                                                     "of the full member ranking / min(k, their number)"),
+            "c_literal": {**_block(c_rows, "c_", cfg, "spec wording: rank expanded edges only, against the truth ring's "
+                                                      "non-seed edges"),
+                          "n_ring_instances_that_discriminate": int(expd["c_discriminates"].sum())},
+            "a_expanded_precision": {"what": "share of expanded in-window edges that are truly in the ring; measures the "
+                                             "ring layer (L3), not the explanation",
+                                     "n_ring_instances_with_expanded_edges": int(len(with_x)),
+                                     "mean": float(with_x["precision"].mean()) if len(with_x) else None,
+                                     "pooled": float(with_x["n_expanded_true"].sum() / with_x["n_expanded"].sum())
+                                     if len(with_x) else None}},
+        "findings": {
+            "saturation": {"n_matched_ring_instances": int(len(head)),
+                           "n_with_a_true_ranked_edge": int(some_true.sum()),
+                           "n_only_true_edges": int((sat & some_true).sum()),
+                           "n_no_true_ranked_edge": int((~some_true).sum()),
+                           "n_non_saturated": int(len(nonsat)),
+                           "reading": "after removing currency conversions most matched predicted rings contain only "
+                                      "true transactions: the rings are very clean, and fidelity cannot separate "
+                                      "rankings on them (Joan, Q1-i)"},
+            "xr05_strength": {"chosen": xr05["chosen"], "validation_objective_chosen": xr05["chosen_objective"],
+                              "validation_objective_default": xr05["default_objective"],
+                              "grid_objective_range": [min(objs), max(objs)],
+                              "n_validation_ring_instances_matched": val_n,
+                              "n_validation_ring_instances_that_can_discriminate": val_disc,
+                              "leave_one_out_weight": xr05["chosen"]["beta"],
+                              "reading": f"the mixing weights were chosen on validation where only {val_disc} of "
+                                         f"{val_n} matched ring-instances could discriminate, and the whole grid spans "
+                                         f"{max(objs) - min(objs):.3f}: the choice is weakly determined. Leave-one-out "
+                                         f"got zero weight (beta = {xr05['chosen']['beta']}). The weights were not "
+                                         f"re-tuned on test (Joan, Q1-ii)."}},
+        "per_seed": per_seed,
+    }
+
+
 # ----------------------------------------------------------------------------- CLI
 def main(argv=None) -> int:
     cfg = load_config()
@@ -337,7 +510,18 @@ def main(argv=None) -> int:
                     help="XR-05: choose (alpha, beta, gamma) on the VALIDATION split, write the choice file and stop")
     ap.add_argument("--explanations", default=None,
                     help="explanations parquet ('{seed}' filled in): adds the w_total ranking it contains")
+    ap.add_argument("--week4", action="store_true",
+                    help="write results/xai/fidelity.json: CIs, controls, paired tests, XR-23 (pooled over seeds) and stop")
     a = ap.parse_args(argv)
+    if a.week4:
+        rep = week4_report(cfg, a.seeds)
+        path = write_json(rep, repo_path(a.out) / cfg["fidelity_week4_name"])
+        for key in ("headline", "secondary_non_saturated"):
+            blk = rep[key]
+            print(f"{key}: {blk['n_truth_rings']} truth rings ({blk['n_ring_instances']} ring-instances); verdict "
+                  f"{blk['overall']} {blk['verdict_at_k5']}")
+        print(f"-> {_rel(path)}")
+        return 0
     if a.tune_mixing:
         rep = tune_mixing(cfg, a.seeds)
         path = write_json(rep, repo_path(a.out) / cfg["xr05_choice_name"])

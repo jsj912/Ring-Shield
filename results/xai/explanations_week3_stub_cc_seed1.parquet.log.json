@@ -6,9 +6,9 @@
     "scored_edges": "contract/out/scored_edges_gine_causal_1.parquet"
   },
   "latency_ms": {
-    "max": 526.0,
-    "p50": 240.0,
-    "p95": 383.15,
+    "max": 936.0,
+    "p50": 292.5,
+    "p95": 574.2499999999997,
     "rings_over_5000_ms": []
   },
   "mixing": {
@@ -41,7 +41,7 @@
       "money": 98,
       "no_closure": 4,
       "roles_both": 94,
-      "roles_mule": 39,
+      "roles_mule": 37,
       "roles_sink": 1,
       "roles_src": 2
     },
@@ -50,8 +50,8 @@
     },
     "topology_source": "rings",
     "words": {
-      "max": 87,
-      "p50": 80.0
+      "max": 90,
+      "p50": 84.0
     }
   },
   "not_reproduced": [

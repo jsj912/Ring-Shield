@@ -1,8 +1,8 @@
-# L4 Explainability — Weeks 1, 2 and 3 handoff
+# L4 Explainability — Weeks 1 to 4 handoff
 
 **Branch:** `explainability-l4`. It contains Joan's `v2` up to commit `77add7f` (merged by you), your
-fixtures-patch commit `c2a37ab`, and the Week 1 / Week 2 / Week 3 work. **Everything described as "new" below
-is uncommitted and unpushed.**
+fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Week 3 (`c5e2dd5`), all pushed.
+**Week 4 and the Week 3 caption fix are uncommitted and unpushed.**
 
 **Status:**
 - **Weeks 1 and 2** are complete and have been migrated to Joan's rings contract v2, her exchange rates and her
@@ -11,7 +11,10 @@ is uncommitted and unpushed.**
   suspicious transactions) and a **narrative** (a short, plain-English summary built from a fixed template),
   with every value the narrative used stored next to it so the sentence can be rebuilt and checked (XR-31).
   Week 3 is described in **section 14**.
-- **225 tests pass, 0 skipped**: Joan's 116, 30 for the migration, 79 for Week 3.
+- **Week 4** is complete: `results/xai/fidelity.json` holds fidelity with 95 % confidence intervals, the two
+  comparison rankings with paired tests, the expanded-edge measure (XR-23) and two findings. The verdict is
+  **negative**: our ranking does not beat either comparison. Week 4 is described in **section 15**.
+- **235 tests pass, 0 skipped**: Joan's 116, 30 for the migration, 79 for Week 3, 10 for Week 4.
 - Every ring of all five detector seeds, plus the old stub file, has an explanation.
 
 This document is written so that someone with basic technical knowledge can understand what was built,
@@ -109,8 +112,9 @@ explainability/                 the L4 layer
   match.py                      which predicted ring is which truth ring (calls Joan's code)
   edge_weights.py               conversions filter; w_score, w_flow (raw / converted), w_loo, bridges, w_total
   account_weights.py            roles (raw / converted), money in/out, busyness, account weight, spec-role check
-  explain.py                    one explanation row per ring; the Week 3 review sample; command-line tool
-  evaluate.py                   fidelity, the policy comparison report, the XR-05 tuning; command-line tool
+  explain.py                    one explanation row per ring; the Week 3 PILOT review sample; command-line tool
+  evaluate.py                   fidelity, the policy comparison report, the XR-05 tuning, WEEK 4 fidelity.json
+  stats.py                      WEEK 4: bootstrap confidence intervals and paired tests (mirrors Joan's ring_stats)
   feature_weights.py            WEEK 3: the detector-feature model's inputs, SHAP, the top-10 feature weights
   narrative.py                  WEEK 3: the narrative templates, formatting, evidence_summary, regeneration
   phrasing.yaml                 WEEK 3: plain-English words for the 17 features and the 8 shapes
@@ -120,12 +124,13 @@ explainability/                 the L4 layer
     fixtures.py                 tiny hand-made rings and tables used by the tests
     test_contract_io.py         73 tests: the reader, both schema versions
     test_match.py                8 tests: matching
-    test_fidelity.py            19 tests: fidelity, policies, the comparison report, XR-05
+    test_fidelity.py            23 tests: fidelity, policies, the comparison report, XR-05, WEEK 4 fidelity.json
     test_edge_weights.py        26 tests: edge weights, raw and converted
     test_account_weights.py     11 tests: roles and account weights
     test_explain.py             20 tests: the explanation file, both policies, Week 3 on real rings
     test_feature_weights.py     15 tests: WEEK 3, the SHAP model, its inputs and the feature weights
     test_narrative.py           53 tests: WEEK 3, the narrative on hand-made rings of every shape
+    test_stats.py                6 tests: WEEK 4, the statistics, checked against Joan's own functions
 results/xai/                    our results (kept apart from Joan's results/tables/)
   fidelity_week1_seed{1..5}.json, fidelity_week1_stub_cc_seed1.json        Week 1 (policy raw, v1 rings)
   explanations_week2_seed{1..5}.parquet (+ .log.json), ..._stub_cc_seed1    Week 2 (policy raw, v1 rings)
@@ -138,7 +143,8 @@ results/xai/                    our results (kept apart from Joan's results/tabl
   explanations_week3_seed{1..5}.parquet (+ .log.json), ..._stub_cc_seed1    WEEK 3: CURRENT explanations
                                               (the weights above + feature weights + narrative + evidence_summary)
   roles_disagreement_week3_seed{1..5}.csv, ..._stub_cc_seed1.csv            same content as the converted ones
-  narrative_samples_week3.md                  WEEK 3: one narrative per shape, for the team review
+  narrative_samples_week3.md                  WEEK 3: one narrative per shape -- a PILOT review (7 rings)
+  fidelity.json                               WEEK 4: the spec's fidelity file (XR-22/23/24), pooled over seeds
 ```
 
 `.parquet` files are ignored by git in this repository (Joan's convention); the small `.json` / `.csv` /
@@ -171,7 +177,7 @@ From the repository root (PowerShell or Git Bash), Python 3.11:
 # current explanations (Week 3: weights + SHAP + narrative), all five seeds -> results/xai/explanations_week3_seed*.parquet
 python -m explainability.explain
 
-# the Week 3 review sample (one narrative per shape) -> results/xai/narrative_samples_week3.md
+# the Week 3 PILOT review sample (one narrative per shape) -> results/xai/narrative_samples_week3.md
 python -m explainability.explain --samples
 
 # weights only, as after the migration -> results/xai/explanations_converted_seed*.parquet
@@ -185,6 +191,9 @@ python -m explainability.evaluate --tune-mixing
 
 # the migration report (Week 2 raw vs current converted)
 python -m explainability.evaluate --compare-policies
+
+# WEEK 4: fidelity with confidence intervals, paired tests and XR-23 -> results/xai/fidelity.json
+python -m explainability.evaluate --week4
 
 # reproduce Week 1 / Week 2 exactly (v1 rings, policy raw)
 python -m explainability.evaluate --policy raw
@@ -206,7 +215,7 @@ Always run from the repository root with `python -m ...`, never `python explaina
 | `val_inputs` | validation-split files and the `val` window — read **only** by the XR-05 tuning |
 | `research_inputs` | GFP features and embeddings for test **and** val, the affinity model, the partition settings |
 | output names | one file-name pattern per kind of result and policy, so no run overwrites another |
-| `evaluation` | window `primary`, k = 3, 5, 10, 20 random shuffles, random seed, bootstrap settings (Week 4) |
+| `evaluation` | window `primary`, k = 3, 5, 10, 20 random shuffles, random seed; WEEK 4: 1,000 bootstrap resamples, 95 %, 10,000 permutations, the statistics seed, verdict at k = 5 |
 | `edge_weights` | `mixing_default` (0.4, 0.4, 0.2), **`mixing_tuned` (0.6, 0.0, 0.4)** from XR-05, grid step 0.1, λ_split 0.5, leave-one-out over included edges, the "ring disappears = full loss" rule, XR-05 objective k = 5 |
 | `account_weights` | the two halves of the account weight: 0.5 and 0.5 |
 | `amounts` | `currency_policy: converted`, the path to `fx_rates.json`, the amount column |
@@ -548,7 +557,7 @@ Test fidelity, mean over seeds:
 
 ---
 
-## 9. The tests (225 pass, 0 skipped; the Week 3 ones are listed in section 14.6)
+## 9. The tests (235 pass, 0 skipped; Week 3 in section 14.6, Week 4 in section 15.6)
 
 **`test_contract_io.py` (73)**
 - All real files load and validate: v2 rings for 5 seeds plus the stub, **and** the v1 originals, each
@@ -616,7 +625,7 @@ Test fidelity, mean over seeds:
   account weights and the disagreement file).
 - **Converted explanations contain no conversion, and `w_flow` sums to 1 per ring.**
 
-Run: `python -m pytest explainability/tests -q` (about 7 minutes).
+Run: `python -m pytest explainability/tests -q` (about 15 minutes).
 
 ---
 
@@ -651,24 +660,22 @@ Run: `python -m pytest explainability/tests -q` (about 7 minutes).
 |---|---|
 | XR-01 reader, 02 one currency, 03–04 weights and mix, 06–07 rerun and bridges, 08–12 accounts and roles, 21 file layout, 28 matching, 30 determinism (except timing), 32 provenance, 37 config | **met** |
 | XR-05 mixing tuned on validation | **met** |
-| XR-22 fidelity | point estimates met; confidence intervals in Week 4 |
-| XR-24 beat both controls with clear margins | **not met, and not meetable on the saturated metric** (section 8.3) |
+| XR-22 fidelity with 1,000-resample bootstrap CIs | **met** (Week 4, section 15) |
+| XR-23 fidelity restricted to expanded edges | **met** (Week 4: expanded recall@k as agreed with Joan) |
+| XR-24 random and score-only controls | **met as a measurement; the result is negative**: our ranking does not beat either control (spec 6.2 says to report it as negative) |
 | XR-13 SHAP on the 17-feature model, XR-14 top-10 per ring, XR-15 phrasing, XR-16 templates, XR-17 evidence_summary, XR-18 cross-bank, XR-19 topology source, XR-31 regeneration | **met** (Week 3, section 14) |
 | XR-20 Integrated Gradients (optional, "could") | not done: only if Weeks 1–5 finish early |
 
-**Decision needed (you and Joan) before Week 4:** how to make fidelity informative again. Options:
-1. Report fidelity only on the rings that can discriminate (52 on test), stating why.
-2. Rank against a harder candidate set, such as every transaction touching the ring's accounts in the
-   window, including non-members. This changes the spec's definition.
-3. Lean on the expanded-edge fidelity (XR-23) and the role and typology accuracy instead.
-4. Report the saturation as the finding.
+**Decided with Joan (Week 4):** the spec's definition stays the headline and is reported as negative; the 52
+non-saturated rings are a labelled secondary result; "every transaction touching the ring" is not reported as
+fidelity; the mixing weights are not re-tuned on test. Details and results in section 15.
 
 ## 12. Next weeks
 
-**Week 3:** done (section 14). What stays open from it: the team review of `narrative_samples_week3.md`, and
-names for currency, payment-format and bank codes if Joan has a lookup.
+**Week 3:** done (section 14). Open: the 7-ring PILOT review of `narrative_samples_week3.md`; Joan is adding
+currency and payment-format name maps (banks keep "Bank <code>": AMLworld has no bank names).
 
-**Week 4:** confidence intervals, plus the fidelity decision above.
+**Week 4:** done (section 15).
 
 **Week 5:** typology, role accuracy with converted roles, latency and the API (role values include
 `undetermined`).
@@ -709,6 +716,17 @@ names for currency, payment-format and bank codes if Joan has a lookup.
 > 6. **The payment method is the top SHAP feature in 509 of 560 rings.** Is that expected from the refit?
 > 7. **Do you have names for the currency, payment-format and bank codes?** Narratives say "currency 0" and list
 >    bank codes for now.
+>
+> Week 4 (your Q1–Q6 decisions) is done: `results/xai/fidelity.json`, 235 tests pass, our bootstrap and paired
+> test reproduce your `bootstrap_over_rings` / `paired_permutation` exactly, Holm imported from `ring_stats`.
+> - Headline (100 truth rings): fidelity@5 ours 0.881 [0.838, 0.921], score-only 0.891, random 0.874 -> negative
+>   against both; only 5 truth rings rank differently from score-only.
+> - **XR-23 (b) expanded recall@5: ours 0.724, score-only 0.729, random 0.873** (ours below random, Holm p < 0.001).
+>   Quiet edges have low scores by definition, the mix is 0.6 score + 0.4 flow, and LOO got zero weight -- so the
+>   explanation under-ranks exactly the edges L3 recovers. Worth a line in the paper.
+> - Saturation 343/395 reported as a ring-quality result; XR-05 resting on 89/431 discriminating val rings, grid
+>   span 0.025, LOO weight 0 -- stated plainly; nothing re-tuned.
+> - Caption changed to "Signals from a reference transaction-level model"; the 7-ring review is labelled a pilot.
 
 ---
 
@@ -814,8 +832,8 @@ A real example (ring `full-gine_causal-1-4`, seed 1):
 > Fan-out ring (most likely shape, p = 0.92): 10 accounts, 9 transactions over 2.57 days. Account 513343 paid 9
 > different accounts. Total moved: 433,000 in currency 0. 100% of the money sent by the sources reached the
 > sinks. Strongest evidence: 513343→33859 (296,000, weight 0.87); 513343→178251 (59,200, weight 0.65);
-> 513343→142719 (18,100, weight 0.62). Feature-model signals that raised suspicion: the payment method, two-hop
-> scatter-gather paths; that lowered it: the sender paying many accounts. The accounts span 10 banks (8, 6625,
+> 513343→142719 (18,100, weight 0.62). Signals from a reference transaction-level model that raised suspicion:
+> the payment method, two-hop scatter-gather paths; that lowered it: the sender paying many accounts. The accounts span 10 banks (8, 6625,
 > 10709 +7 more).
 
 **`evidence_summary`** is JSON with the values (step 1), the slots exactly as substituted (step 2), and the
@@ -835,18 +853,21 @@ narrative.
 
 | seed | rings | narratives | words (median / max) | latency p95 (incl. SHAP) | max |
 |---|---|---|---|---|---|
-| 1 | 108 | 108 | 84 / 90 | 927 ms | 2,147 ms |
-| 2 | 112 | 112 | 84 / 90 | 898 ms | 1,740 ms |
-| 3 | 113 | 113 | 84 / 90 | 889 ms | 1,828 ms |
-| 4 | 120 | 120 | 84 / 90 | 622 ms | 1,311 ms |
-| 5 | 107 | 107 | 85 / 90 | 748 ms | 1,632 ms |
-| stub | 98 | 98 | 80 / 87 | 383 ms | 526 ms |
+| 1 | 108 | 108 | 87 / 90 | 1,192 ms | 2,339 ms |
+| 2 | 112 | 112 | 86 / 90 | 1,116 ms | 2,229 ms |
+| 3 | 113 | 113 | 86 / 90 | 1,183 ms | 2,396 ms |
+| 4 | 120 | 120 | 87 / 90 | 796 ms | 1,611 ms |
+| 5 | 107 | 107 | 87 / 90 | 893 ms | 2,057 ms |
+| stub | 98 | 98 | 84 / 90 | 574 ms | 936 ms |
+
+(Numbers from the regeneration after the Week 4 caption change. That run shared the machine with other jobs, so
+latencies are higher than the first Week 3 run (p95 622–927 ms); every seed is still under the 2,000 ms target.)
 
 Over the 560 rings of the five seeds:
 - **Latency:** p95 is under the 2,000 ms target in every seed; no ring is over 5,000 ms.
-- **Every ring spans at least two banks.** The bank clause is kept in 548 (515 with the bank list, 33 as a
-  count); 12 lose it to the word limit.
-- **Feature clause:** present in 559; one loses it to the word limit.
+- **Every ring spans at least two banks.** The bank clause is kept in 516 (460 with the bank list, 56 as a
+  count); 44 lose it to the word limit. (Before the Week 4 caption change, which adds four words, only 12 did.)
+- **Feature clause:** present in 555; 5 lose it to the word limit (1 before the caption change).
 - **Closure:** 525 rings state it; 35 take the "cannot be measured" branch.
 - **Currency 1:** 1 ring is partial; 1 narrative names undetermined accounts.
 - **Shape sentences:** stated only where the transactions show the shape. For example, 9 of the 59 rings typed
@@ -854,7 +875,8 @@ Over the 560 rings of the five seeds:
 - **Feature dominance:** the payment method is the top SHAP feature in **509 of 560 rings**. The feature model
   leans heavily on it; reported to Joan.
 
-**The review sample** (`narrative_samples_week3.md`) holds one matched ring per predicted shape (7; BIPARTITE is
+**The PILOT review sample** (`narrative_samples_week3.md`; 7 rings cannot support Fleiss' κ — the spec's
+30-ring review comes in Weeks 6–7) holds one matched ring per predicted shape (7; BIPARTITE is
 never predicted).
 - Each shows the narrative, the top-5 evidence edges, the roles, and the spec's four 0/1 questions.
 - The true shapes are only in an answer key at the end.
@@ -907,9 +929,155 @@ Then:
 2. **SHAP edges** are the seed edges minus conversions.
 3. **The shape** is the shipped typing model's, written as "most likely shape". Shape sentences are stated only
    when true on the transactions.
-4. **Feature signals** are split into "raised" and "lowered" suspicion, and are called "feature-model signals".
-   They explain the companion XGBoost model, not the GNN that chose the seed edges.
+4. **Feature signals** are split into "raised" and "lowered" suspicion. Since Week 4 (Joan) they are captioned
+   **"Signals from a reference transaction-level model"**: they explain the GFP+XGBoost reference model, not
+   the GNN that chose the seed edges. Never say they come "from the detector".
 5. **Codes, not names,** for currency, payment method and bank, until a lookup exists.
 6. **Our own 10-line feature loader** instead of installing optuna. It is proven identical by the exact
    score match.
 7. **New output names** (`explanations_week3_*`), so the migrated Week 2 files stay as the comparison reference.
+
+---
+
+## 15. Week 4 — fidelity with confidence intervals, controls and XR-23
+
+Week 4 turns the fidelity numbers into **results with error bars and a verdict**. One file holds everything:
+`results/xai/fidelity.json` (`python -m explainability.evaluate --week4`). Nothing was re-tuned: the mixing weights
+are still the ones chosen on validation in the migration (0.6, 0.0, 0.4).
+
+### 15.1 What was agreed with Joan
+
+| Topic | Decision |
+|---|---|
+| Headline | The spec's fidelity on ring member edges, reported honestly, negative if it is |
+| Secondary | The same on the 52 ring-instances where order matters (clearly labelled) |
+| Not reported as fidelity | "Every transaction touching the ring" — it would measure the detector's ranking, not ours |
+| Unit | A **truth ring**. Its value is its mean over the detector seeds in which it was matched |
+| Confidence intervals | Mirror Joan's `bootstrap_over_rings`; a test proves our version gives her exact numbers |
+| Comparisons | Paired sign-flip test (Joan's `paired_permutation`), Holm over the 6 comparisons, the number of non-zero differences beside every p-value, and the spec's "non-overlapping intervals at k = 5" verdict |
+| XR-23 | Headline **(b) expanded recall@k**; also (c) the literal definition with its n, and (a) expanded precision as context |
+| Extra findings | (i) the saturation rate as a result in itself; (ii) how weakly XR-05 was determined |
+
+### 15.2 How the numbers are made (`stats.py`, `evaluate.week4_report`)
+
+1. **Per ring-instance fidelity**, as in Weeks 1–3: for every predicted ring matched to a truth ring (5 seeds,
+   primary window), rank its member edges (conversions removed) three ways — ours (`w_total`), score-only, random
+   — and compute fidelity@3/5/10.
+2. **Per truth ring.** The same truth ring is usually matched in several seeds. Its value is the **mean over the
+   seeds where it was matched**. 100 truth rings: 61 matched in all 5 seeds, 9 in 4, 9 in 3, 12 in 2, 9 in 1.
+3. **Bootstrap 95 % interval.** Draw 100 truth rings with replacement (some twice, some not at all), take the
+   mean. Do it 1,000 times with a fixed seed. The middle 95 % of those means is the interval.
+4. **Paired test (ours vs a control).** For each truth ring, d = ours − control.
+   - If "ours" meant nothing, +d and −d would be equally likely. Flip random signs 10,000 times; the share of
+     flips whose mean is at least as far from 0 as the real mean is the p-value.
+   - **Rings with d = 0** (every saturated ring) cannot say anything, so the number of non-zero differences is
+     printed beside each p.
+   - **Holm correction** across the 6 comparisons (2 controls × 3 k) guards against "one of six was lucky".
+5. **Verdict (spec 6.2).** "Positive" only if our interval at k = 5 is entirely above the control's; otherwise
+   negative.
+
+Why our statistics can be trusted: `test_stats.py` builds Joan's own `RingEvidence` objects, runs her
+`bootstrap_over_rings` and `paired_permutation`, and checks that ours give the same point, interval ends and
+p-value. Holm is imported from her file, not copied.
+
+### 15.3 Results — headline (spec definition, 100 truth rings, 401 ring-instances)
+
+| ranking | @3 | @5 | @10 |
+|---|---|---|---|
+| ours (`w_total`) | 0.900 [0.854, 0.940] | 0.881 [0.838, 0.921] | 0.890 [0.846, 0.927] |
+| score-only | 0.901 [0.852, 0.941] | 0.891 [0.848, 0.928] | 0.890 [0.846, 0.927] |
+| random | 0.879 [0.834, 0.919] | 0.874 [0.830, 0.910] | 0.882 [0.837, 0.919] |
+
+| comparison | mean difference [95 % CI] | p | p after Holm | rings that differ |
+|---|---|---|---|---|
+| ours − score-only @3 | −0.001 [−0.012, 0.013] | 1.00 | 1.00 | 5 |
+| ours − score-only @5 | −0.010 [−0.026, −0.001] | 0.065 | 0.32 | 5 |
+| ours − score-only @10 | 0.000 | 1.00 | 1.00 | 0 |
+| ours − random @3 | +0.021 [0.002, 0.043] | 0.051 | 0.31 | 26 |
+| ours − random @5 | +0.007 [−0.011, 0.025] | 0.47 | 1.00 | 23 |
+| ours − random @10 | +0.008 [0.001, 0.017] | 0.066 | 0.32 | 14 |
+
+**Verdict at k = 5: negative against both controls** (the intervals overlap). In plain words: on the spec's
+measure our ranking is statistically indistinguishable from simply sorting by the detector score, and only
+barely better than random. Only 5 of 100 truth rings rank differently from score-only at all.
+
+**Secondary — the 52 ring-instances where order matters (21 truth rings):** ours 0.840 [0.743, 0.922] at k = 5,
+score-only 0.898 [0.824, 0.960], random 0.788 [0.712, 0.863]. Same verdict (negative), with ours numerically
+below score-only.
+
+### 15.4 Results — XR-23, the expanded (quiet-member) edges
+
+**(b) Expanded recall@k, the headline (56 truth rings, 159 ring-instances with a true expanded edge in the
+window).** It asks: does the ranking put the edges the ring layer recovered — the quiet members, the point of the
+project — near the top?
+
+| ranking | @3 | @5 | @10 |
+|---|---|---|---|
+| ours | 0.428 [0.320, 0.542] | 0.724 [0.616, 0.825] | 0.974 |
+| score-only | 0.418 [0.308, 0.534] | 0.729 [0.622, 0.830] | 0.974 |
+| random | **0.714** [0.649, 0.778] | **0.873** [0.821, 0.922] | 0.982 |
+
+**This is the most important Week 4 finding: our ranking puts the true quiet-member edges *below* where a random
+order would** (ours − random @3 = −0.286, @5 = −0.150, both p < 0.001 after Holm, 40 and 23 rings differ).
+
+The reason is mechanical:
+- an expanded edge has a low detector score by definition (that is why it was "quiet");
+- our mix is 0.6 × score + 0.4 × money share;
+- leave-one-out, the one ingredient that could have lifted a structurally important quiet edge, got weight 0
+  in XR-05.
+
+So the explanation hides exactly the edges the ring layer exists to find. It does no worse than score-only;
+both are well below random.
+
+**(c) The literal definition** (rank expanded edges alone against the non-seed true edges): 159 ring-instances,
+only **11** can tell rankings apart; all three rankings ≈ 0.85. Reported for completeness; it can't separate
+rankings.
+
+**(a) Expanded precision** (context, measures the ring layer, not the explanation): **95.8 %** of the expanded
+in-window edges are truly in the ring (162 ring-instances).
+
+### 15.5 Findings, in Joan's words where she asked for them
+
+- **The predicted rings are very clean.** After removing currency conversions, 343 of the 395 matched
+  ring-instances with any true ranked edge contain **only** true transactions (6 more have none). That is a
+  result about the ring layer, not just a reason the metric saturates.
+- **XR-05 was weakly determined.**
+  - On validation only **89 of 431** matched ring-instances could tell rankings apart.
+  - The whole 66-combination grid spanned 0.025 (0.888–0.913).
+  - The chosen (0.6, 0.0, 0.4) beat the default by 0.011 there.
+  - **Leave-one-out got zero weight.**
+  - A weakly determined choice, not a flaw in the method, is the likely reason score-only matches or beats it on
+    test.
+  - Nothing was re-tuned on test.
+- **For the report:** the honest summary is "the explanations are faithful to the detector (≈ 0.88–0.90
+  fidelity) but add nothing measurable over the detector's own ordering, and actively under-rank the recovered
+  quiet members". The XR-23 result points to what would have to change: a ranking term that rewards structural
+  importance (leave-one-out, bridges) independently of score.
+
+### 15.6 The Week 4 tests (10)
+
+**`test_stats.py` (6)**
+- Our bootstrap reproduces Joan's `bootstrap_over_rings` exactly on her own evidence objects.
+- Our paired test reproduces her `paired_permutation` p-value, difference and interval.
+- Per-truth-ring averaging uses only the seeds where a ring was matched.
+- Bootstrap basics: identical values give a zero-width interval; same answer twice; empty input.
+- Non-zero differences are counted, and ties give p = 1.
+- The verdict cases; Holm is Joan's function itself.
+
+**`test_fidelity.py` (4 new)**
+- XR-23 (a), (b), (c) on a hand-made chain ring with known answers.
+- The per-truth-ring block: seeds-matched counts, six comparisons with Holm, the verdict.
+- `fidelity.json` agrees with the per-seed files and the XR-05 file:
+  - 401 / 395 / 343 / 52;
+  - 89 of 431;
+  - β = 0;
+  - n = 11;
+  - every interval contains its point.
+- Recomputing the report reproduces the stored file exactly.
+
+### 15.7 Week 4 changes to Week 3 (asked by Joan)
+
+- **Caption:** feature signals now read "Signals from a reference transaction-level model …". All Week 3 files
+  were regenerated; every narrative still rebuilds exactly and stays ≤ 90 words. The four extra words push the
+  bank clause out of 44 rings (was 12) and the feature clause out of 5 (was 1).
+- **The 7-ring review file is labelled a PILOT.** The spec's 30-ring review with Fleiss' κ comes in Weeks 6–7.
