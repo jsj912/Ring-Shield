@@ -1,0 +1,38 @@
+# Plain-English wording used by the narrative (spec 4.4 / 5, XR-15). Data, not code: change a phrase here and
+# every narrative changes with it; nothing else needs editing. No raw feature or type name may reach a narrative
+# (tested); every entry is a phrase an investigator can read without knowing the model.
+
+# The 17 features of the GFP+XGBoost refit (experiments/R2_b0/gfpxgb_scores), exactly as named in the model file.
+features:
+  Amount Sent: "the amount sent"
+  Sent Currency: "the currency it was sent in"
+  Amount Received: "the amount received"
+  Received Currency: "the currency it was received in"
+  Payment Format: "the payment method"
+  hour_of_day: "the hour of the day"
+  day_of_week: "the day of the week"
+  fan_out: "the sender paying many accounts"
+  fan_in: "the receiver being paid by many accounts"
+  deg_out_src: "how many payments the sender makes"
+  deg_in_src: "how many payments the sender receives"
+  deg_out_dst: "how many payments the receiver makes"
+  deg_in_dst: "how many payments the receiver receives"
+  scatter_gather: "two-hop scatter-gather paths"
+  gather_scatter: "money gathered and then scattered by one account"
+  temporal_cycle: "money returns to origin within the window"
+  cycle_length: "the length of that return loop"
+
+# A feature's sign decides its group in the sentence: mean SHAP > 0 pushed the model towards "laundering"
+# ("raised suspicion"), <= 0 away from it ("lowered it"). That wording lives in narrative.CLAUSES.
+
+# The 8 topology types of contract.schema.TOPOLOGY_TYPES, plus the contract's 'UNKNOWN' (no type attached).
+types:
+  FAN-OUT: "Fan-out"
+  FAN-IN: "Fan-in"
+  GATHER-SCATTER: "Gather-scatter"
+  SCATTER-GATHER: "Scatter-gather"
+  CYCLE: "Cycle"
+  RANDOM: "Irregular"
+  BIPARTITE: "Bipartite"
+  STACK: "Layered chain"
+  UNKNOWN: "Unclassified"

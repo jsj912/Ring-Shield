@@ -40,7 +40,8 @@ def test_real_files_load(seed):
     se = read_scored_edges(SCORES.format(seed))
     rings = read_rings(RINGS.format(seed), scored_edges=se)
     assert len(se) == 863_900 and len(rings) > 0
-    assert provenance(se, rings) == {"model_id": "gine_causal", "seed": seed, "aggregator_id": "full"}
+    assert provenance(se, rings) == {"model_id": "gine_causal", "seed": seed, "aggregator_id": "full",
+                                     "rings_schema_version": 2}
 
 
 def test_stub_loads(real1):
@@ -49,6 +50,46 @@ def test_stub_loads(real1):
     stub = read_rings(STUB, scored_edges=se)
     assert provenance(se, stub)["aggregator_id"] == "cc"
     assert all(len(e) == 0 for e in stub["expanded_edges"])
+
+
+# ----------------------------------------------------------------------------- schema versions (v1 / v2)
+V1_FILES = [f"contract/out/v1/rings_full_gine_causal_{s}.parquet" for s in SEEDS] + \
+           ["contract/out/v1/rings_stub_cc.parquet"]
+
+
+@pytest.mark.parametrize("path", V1_FILES)
+def test_v1_files_are_read_as_v1(real1, path):
+    """The preserved v1 originals branch on rings_schema_version -> 1 and validate against the 22 v1 columns."""
+    from contract.schema import RINGS_ORDER_V1
+    from ringshield.rings import rings_schema_version
+    _need(path)
+    seed = 1 if "stub" in path else int(path.split("_")[-1].split(".")[0])
+    se = real1[0] if seed == 1 else read_scored_edges(SCORES.format(seed))
+    rings = read_rings(path, scored_edges=se)
+    assert rings_schema_version(repo_path(path)) == 1
+    assert rings.attrs["rings_schema_version"] == 1 and list(rings.columns) == RINGS_ORDER_V1
+    assert provenance(se, rings)["rings_schema_version"] == 1
+
+
+def test_v2_and_v1_files_hold_the_same_rings(real1):
+    """Membership did not move between the versions: the 22 shared columns agree ring for ring."""
+    from contract.schema import RINGS_ORDER_V1
+    se, v2 = real1
+    v1 = read_rings("contract/out/v1/rings_full_gine_causal_1.parquet", scored_edges=se)
+    assert v2.attrs["rings_schema_version"] == 2 and len(v2.columns) == 30
+    pd.testing.assert_frame_equal(v1[RINGS_ORDER_V1].reset_index(drop=True), v2[RINGS_ORDER_V1].reset_index(drop=True))
+
+
+def test_wrong_version_column_set_is_rejected(real1):
+    """A v2 table checked as v1 has 8 unexpected fields; a v1 table checked as v2 misses them."""
+    from contract.schema import RINGS_ORDER_V1
+    _, v2 = real1
+    with pytest.raises(ContractError, match=r"unexpected field\(s\)"):
+        validate_rings(v2.head(3), version=1)
+    with pytest.raises(ContractError, match=r"missing field\(s\)"):
+        validate_rings(v2.head(3)[RINGS_ORDER_V1], version=2)
+    with pytest.raises(ContractError, match="schema version 9"):
+        validate_rings(v2.head(3), version=9)
 
 
 # ----------------------------------------------------------------------------- missing fields are named

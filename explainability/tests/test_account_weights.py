@@ -93,3 +93,23 @@ def test_w_account_matches_the_hand_computation():
         assert abs(t.at[a, "w_account"] - v) < 1e-6
     assert list(t.index) == [101, 102, 100]                     # sorted by w_account, high first
     assert t.at[101, "deg_in_ring"] == 2 and t.at[100, "deg_background"] == 4
+
+
+# ----------------------------------------------------------------------------- migration: converted roles on real rings
+def test_converted_roles_leave_exactly_three_undetermined_accounts_all_in_currency_1():
+    """Joan's figure: under currency='converted' only 3 of 4,280 ring-accounts stay undetermined, all because
+    they touch currency 1 (the one currency with no usable rate). Checked on all five seeds."""
+    n_undet, n_accounts = 0, 0
+    for seed in SEEDS:
+        se, rings = _real(seed)
+        sei = se.set_index("edge_id")
+        for r in rings.itertuples(index=False):
+            roles = research_roles(r, sei, currency="converted")
+            n_accounts += len(roles)
+            for a, d in roles.items():
+                if d["role"] == "undetermined":
+                    n_undet += 1
+                    inc = sei.loc[list(r.seed_edges) + list(r.expanded_edges)]
+                    touch = inc[(inc["from_id"] == a) | (inc["to_id"] == a)]
+                    assert ((touch["currency_sent"] == 1) | (touch["currency_received"] == 1)).any(), (r.ring_id, a)
+    assert n_undet == 3 and n_accounts == 4280

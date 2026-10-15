@@ -8,7 +8,7 @@
 #
 # Paths are relative to the repository root.
 
-explainer_version: "0.2.0-week2"  # recorded in every explanation's provenance (XR-32)
+explainer_version: "0.4.0-narrative"   # recorded in every explanation's provenance (XR-32); 0.3 = currency migration, 0.4 = Week 3
 experiment_id: "XAI-W1"          # fidelity runs; own prefix, never R9 / R11 (those IDs are taken in this repo)
 explanations_experiment_id: "XAI-W2"
 
@@ -17,26 +17,46 @@ research_configs:
   eval_window: configs/eval_window.yaml
   roles: configs/roles.yaml
 
+# Test split (the reporting split). Rings files are schema v2 since the 2026-10 merge; the v1 originals
+# are kept verbatim under contract/out/v1/ and are used ONLY to reproduce Weeks 1-2 (policy `raw`).
 inputs:
   scored_edges: contract/out/scored_edges_gine_causal_{seed}.parquet
   rings: contract/out/rings_full_gine_causal_{seed}.parquet
+  rings_v1: contract/out/v1/rings_full_gine_causal_{seed}.parquet
   truth: data/processed/amlworld_ring_ground_truth.parquet
   split_parquet: data/processed/amlworld_test.parquet
   seeds: [1, 2, 3, 4, 5]
 
-# Research-side artefacts needed for NON-degraded leave-one-out reruns (Week 2). The rerun must see
-# the same GFP features, embeddings and affinity model the rings were built with.
+# Validation split: used ONLY to choose the mixing weights (XR-05). Never read by a test-split run.
+val_inputs:
+  scored_edges: contract/out/scored_edges_gine_causal_{seed}_val.parquet
+  rings: experiments_valrings/average/seed{seed}/rings_val.parquet
+  split_parquet: data/processed/amlworld_val.parquet
+  window: val                    # name from configs/eval_window.yaml (days 6-7)
+
+# Research-side artefacts needed for NON-degraded leave-one-out reruns. The rerun must see the same
+# GFP features, embeddings and affinity model the rings were built with -- per split.
 research_inputs:
   gfp: data/processed/amlworld_gfp_features_test.parquet
   embeddings: experiments/R1_gine_causal/embeddings_test_seed{seed}.parquet
+  gfp_val: data/processed/amlworld_gfp_features_val.parquet
+  embeddings_val: experiments/R1_gine_causal/embeddings_val_seed{seed}.parquet
   affinity_dir: experiments/R4_partition/affinity                          # one model, shared by all seeds
   partition_config: experiments/R4_partition/runs/average/seed{seed}/config.yaml   # val-chosen cut / min_size / method
   # for a `cc` rings file (the stub) min_size is read from "<rings file>.log.json" -> params.min_size
 
 output_dir: results/xai
-output_name: fidelity_week1_seed{seed}.json
-explanations_name: explanations_week2_seed{seed}.parquet
+output_name: fidelity_week1_seed{seed}.json             # policy raw (Week 1 reproduction)
+output_name_converted: fidelity_converted_seed{seed}.json   # policy converted
+explanations_name: explanations_week2_seed{seed}.parquet             # policy raw (Week 2 reproduction)
 disagreement_name: roles_disagreement_seed{seed}.csv
+explanations_name_converted: explanations_converted_seed{seed}.parquet   # policy converted
+disagreement_name_converted: roles_disagreement_converted_seed{seed}.csv
+migration_report_name: migration_report_raw_vs_converted.json
+xr05_choice_name: xr05_mixing_choice.json        # validation-only choice of (alpha, beta, gamma)
+explanations_name_week3: explanations_week3_seed{seed}.parquet        # policy converted + SHAP + narrative
+disagreement_name_week3: roles_disagreement_week3_seed{seed}.csv
+narrative_samples_name: narrative_samples_week3.md   # one narrative per pattern type, for the team review
 
 evaluation:
   window: primary                # name from configs/eval_window.yaml
@@ -48,7 +68,11 @@ evaluation:
 
 # Used from Week 2 onwards; recorded now so every constant has one home.
 edge_weights:
-  mixing_default: {alpha: 0.4, beta: 0.4, gamma: 0.2}   # w_score, w_loo, w_flow
+  mixing_default: {alpha: 0.4, beta: 0.4, gamma: 0.2}   # w_score, w_loo, w_flow (untuned; always used by policy raw)
+  # XR-05, chosen on the VALIDATION split only (results/xai/xr05_mixing_choice.json, recorded 2026-10-15 before
+  # any test run with it): validation fidelity@5 0.9126 vs 0.9017 for the default; every top-8 triple has beta 0.
+  mixing_tuned: {alpha: 0.6, beta: 0.0, gamma: 0.4}   # used by policy converted
+  xr05_objective_k: 5            # XR-05 tunes on fidelity@5 (spec 4.1)
   grid_step: 0.1
   lambda_split: 0.5
   loo_edges: included            # leave-one-out over seed + expanded edges (verified: reproduces 108/108 shipped rings)
@@ -60,9 +84,39 @@ account_weights:
   score_share: 0.5               # weight of the "sum of w_total on its edges / max" term
   degree_share: 0.5              # weight of the "deg_in_ring / deg_background" term
 
+# Two policies, chosen per run (CLI --policy), default below:
+#   converted  everything new. Currency conversions (an account changing its own money: currency_sent !=
+#              currency_received, a self-loop; never laundering) are dropped from the evidence edges and
+#              from w_flow; amounts are converted to currency 0 with contract/fx_rates.json (XR-02 met);
+#              roles = account_roles(currency="converted"), which adds `undetermined` (currency 1 only).
+#   raw        reproduces Weeks 1-2 EXACTLY: member edges incl. conversions, raw cross-currency w_flow,
+#              raw roles. Kept only so the earlier results stay re-derivable.
 amounts:
-  currency_policy: raw           # PROVISIONAL: raw sums across currencies, as the shipped roles/closure do; to be decided with Joan
+  currency_policy: converted
+  fx_rates: contract/fx_rates.json
   flow_amount_column: amount_received
+
+# Week 3, SHAP (spec 4.4, XR-13/14). The 17-feature GFP+XGBoost refit, NOT the retired 28-feature E5b model
+# (Reality Check 5.1). The model of the SAME seed as the detector is used. Its feature list is read from the model
+# file, never re-derived; the feature rows are inputs.split_parquet joined 1:1 on EdgeID with research_inputs.gfp.
+feature_weights:
+  model: experiments/R2_b0/gfpxgb_scores/model_seed{seed}.json
+  shipped_scores: experiments/R2_b0/gfpxgb_scores/scores_test_seed{seed}.parquet   # used only to verify the rows
+  top_n: 10                      # features stored per ring
+  edges: seed_minus_conversions  # SHAP over the ring's seed edges, conversions left out (they are never evidence)
+  additivity_tolerance: 1.0e-3   # |base + sum(SHAP) - model margin| per edge (float32 model)
+
+# Week 3, narrative (spec 5, XR-15..19, 31). A filled template; no language model.
+narrative:
+  phrasing: explainability/phrasing.yaml
+  max_words: 90
+  sig_figs: 3                    # amounts and durations
+  days_from_hours: 48            # below: "h", from here on: "days"
+  list_max: 3                    # accounts named per role, then "+N more"
+  top_edges: 3
+  top_features: 3
+  topology_source: rings         # rings = the shipped topology_type (the Step 8 typing head);
+                                 # rule_scorer = ringshield.typing.rules (XR-19 swap test only)
 
 contract_checks:
   topology_probs_sum_tolerance: 1.0e-6

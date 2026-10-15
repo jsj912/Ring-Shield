@@ -1,0 +1,430 @@
+{
+  "pooled": {
+    "fidelity_mean_over_seeds": {
+      "converted": {
+        "random": {
+          "10": 0.9098992009582796,
+          "3": 0.9083940464310036,
+          "5": 0.9039390476647844
+        },
+        "score_only": {
+          "10": 0.9149287545851772,
+          "3": 0.9235582458283534,
+          "5": 0.9184817665215455
+        }
+      },
+      "raw": {
+        "random": {
+          "10": 0.8454134232177367,
+          "3": 0.6207589100602969,
+          "5": 0.7085391202043588
+        },
+        "score_only": {
+          "10": 0.9124439705347989,
+          "3": 0.9191724292659768,
+          "5": 0.9122581913481987
+        }
+      }
+    },
+    "matched_rings_saturation": {
+      "converted": {
+        "all_ranked_edges_true": 343,
+        "can_discriminate_rankings": 52,
+        "n_matched": 401
+      },
+      "raw": {
+        "all_ranked_edges_true": 18,
+        "can_discriminate_rankings": 377,
+        "n_matched": 401
+      }
+    },
+    "n_accounts": 4280,
+    "n_rings": 560,
+    "n_roles_changed": 285,
+    "note": "Default (untuned) mixing in both runs; fidelity uses the score-only ranking and the random control. 'can_discriminate_rankings' = matched rings with at least one true and one non-true ranked edge: only those can tell two orderings apart.",
+    "role_transitions": {
+      "holder -> holder": 14,
+      "mule -> mule": 456,
+      "mule -> peripheral": 1,
+      "peripheral -> holder": 4,
+      "peripheral -> mule": 66,
+      "peripheral -> peripheral": 80,
+      "peripheral -> sink": 1,
+      "sink -> holder": 5,
+      "sink -> mule": 68,
+      "sink -> peripheral": 5,
+      "sink -> sink": 1818,
+      "sink -> undetermined": 2,
+      "source -> holder": 1,
+      "source -> mule": 111,
+      "source -> peripheral": 20,
+      "source -> source": 1627,
+      "source -> undetermined": 1
+    },
+    "topk_conversions_before_filter": {
+      "10": 779,
+      "3": 94,
+      "5": 278
+    },
+    "topk_same_edge_set_rings": {
+      "10": 207,
+      "3": 385,
+      "5": 303
+    },
+    "topk_slots_total": {
+      "10": 5600,
+      "3": 1680,
+      "5": 2800
+    }
+  },
+  "seeds": {
+    "1": {
+      "fidelity": {
+        "converted": {
+          "random": {
+            "10": 0.8970948461689203,
+            "3": 0.897633744855967,
+            "5": 0.8832921810699589
+          },
+          "score_only": {
+            "10": 0.903233392122281,
+            "3": 0.9135802469135802,
+            "5": 0.8971193415637859
+          }
+        },
+        "raw": {
+          "random": {
+            "10": 0.830698363707623,
+            "3": 0.6064814814814815,
+            "5": 0.6898559670781893
+          },
+          "score_only": {
+            "10": 0.8992210464432688,
+            "3": 0.9094650205761318,
+            "5": 0.8915637860082305
+          }
+        }
+      },
+      "n_accounts": 879,
+      "n_rings": 108,
+      "n_roles_changed": 64,
+      "role_transitions": {
+        "holder -> holder": 5,
+        "mule -> mule": 100,
+        "mule -> peripheral": 1,
+        "peripheral -> holder": 1,
+        "peripheral -> mule": 19,
+        "peripheral -> peripheral": 16,
+        "sink -> holder": 3,
+        "sink -> mule": 13,
+        "sink -> peripheral": 1,
+        "sink -> sink": 381,
+        "source -> mule": 22,
+        "source -> peripheral": 4,
+        "source -> source": 313
+      },
+      "roles_converted": {
+        "holder": 9,
+        "mule": 154,
+        "peripheral": 22,
+        "sink": 381,
+        "source": 313
+      },
+      "roles_raw": {
+        "holder": 5,
+        "mule": 101,
+        "peripheral": 36,
+        "sink": 398,
+        "source": 339
+      },
+      "topk_conversions_before_filter": {
+        "10": 153,
+        "3": 19,
+        "5": 53
+      },
+      "topk_same_edge_set": {
+        "10": 33,
+        "3": 69,
+        "5": 56
+      }
+    },
+    "2": {
+      "fidelity": {
+        "converted": {
+          "random": {
+            "10": 0.9279933372525966,
+            "3": 0.9124485596707819,
+            "5": 0.9145679012345679
+          },
+          "score_only": {
+            "10": 0.9353321575543797,
+            "3": 0.9300411522633746,
+            "5": 0.9432098765432098
+          }
+        },
+        "raw": {
+          "random": {
+            "10": 0.861845238095238,
+            "3": 0.6323045267489711,
+            "5": 0.725
+          },
+          "score_only": {
+            "10": 0.9353321575543797,
+            "3": 0.9259259259259259,
+            "5": 0.932716049382716
+          }
+        }
+      },
+      "n_accounts": 870,
+      "n_rings": 112,
+      "n_roles_changed": 65,
+      "role_transitions": {
+        "holder -> holder": 4,
+        "mule -> mule": 85,
+        "peripheral -> holder": 1,
+        "peripheral -> mule": 16,
+        "peripheral -> peripheral": 18,
+        "sink -> mule": 17,
+        "sink -> sink": 369,
+        "sink -> undetermined": 2,
+        "source -> mule": 22,
+        "source -> peripheral": 6,
+        "source -> source": 329,
+        "source -> undetermined": 1
+      },
+      "roles_converted": {
+        "holder": 5,
+        "mule": 140,
+        "peripheral": 24,
+        "sink": 369,
+        "source": 329,
+        "undetermined": 3
+      },
+      "roles_raw": {
+        "holder": 4,
+        "mule": 85,
+        "peripheral": 35,
+        "sink": 388,
+        "source": 358
+      },
+      "topk_conversions_before_filter": {
+        "10": 156,
+        "3": 19,
+        "5": 58
+      },
+      "topk_same_edge_set": {
+        "10": 40,
+        "3": 76,
+        "5": 57
+      }
+    },
+    "3": {
+      "fidelity": {
+        "converted": {
+          "random": {
+            "10": 0.9129870129870129,
+            "3": 0.9152597402597403,
+            "5": 0.9174025974025974
+          },
+          "score_only": {
+            "10": 0.916017316017316,
+            "3": 0.9177489177489178,
+            "5": 0.9233766233766233
+          }
+        },
+        "raw": {
+          "random": {
+            "10": 0.8514205833848691,
+            "3": 0.6173160173160173,
+            "5": 0.7119805194805194
+          },
+          "score_only": {
+            "10": 0.916017316017316,
+            "3": 0.9177489177489178,
+            "5": 0.9233766233766233
+          }
+        }
+      },
+      "n_accounts": 885,
+      "n_rings": 113,
+      "n_roles_changed": 58,
+      "role_transitions": {
+        "holder -> holder": 2,
+        "mule -> mule": 106,
+        "peripheral -> holder": 1,
+        "peripheral -> mule": 12,
+        "peripheral -> peripheral": 13,
+        "sink -> holder": 1,
+        "sink -> mule": 15,
+        "sink -> peripheral": 1,
+        "sink -> sink": 373,
+        "source -> holder": 1,
+        "source -> mule": 24,
+        "source -> peripheral": 3,
+        "source -> source": 333
+      },
+      "roles_converted": {
+        "holder": 5,
+        "mule": 157,
+        "peripheral": 17,
+        "sink": 373,
+        "source": 333
+      },
+      "roles_raw": {
+        "holder": 2,
+        "mule": 106,
+        "peripheral": 26,
+        "sink": 390,
+        "source": 361
+      },
+      "topk_conversions_before_filter": {
+        "10": 158,
+        "3": 16,
+        "5": 48
+      },
+      "topk_same_edge_set": {
+        "10": 46,
+        "3": 80,
+        "5": 63
+      }
+    },
+    "4": {
+      "fidelity": {
+        "converted": {
+          "random": {
+            "10": 0.9121410736579276,
+            "3": 0.9178838951310861,
+            "5": 0.9113389513108614
+          },
+          "score_only": {
+            "10": 0.9151685393258425,
+            "3": 0.9363295880149812,
+            "5": 0.9159176029962545
+          }
+        },
+        "raw": {
+          "random": {
+            "10": 0.8537930265739255,
+            "3": 0.64438202247191,
+            "5": 0.7307677902621724
+          },
+          "score_only": {
+            "10": 0.9129213483146067,
+            "3": 0.9363295880149812,
+            "5": 0.9159176029962545
+          }
+        }
+      },
+      "n_accounts": 883,
+      "n_rings": 120,
+      "n_roles_changed": 46,
+      "role_transitions": {
+        "holder -> holder": 1,
+        "mule -> mule": 83,
+        "peripheral -> mule": 8,
+        "peripheral -> peripheral": 14,
+        "sink -> holder": 1,
+        "sink -> mule": 8,
+        "sink -> peripheral": 2,
+        "sink -> sink": 380,
+        "source -> mule": 22,
+        "source -> peripheral": 5,
+        "source -> source": 359
+      },
+      "roles_converted": {
+        "holder": 2,
+        "mule": 121,
+        "peripheral": 21,
+        "sink": 380,
+        "source": 359
+      },
+      "roles_raw": {
+        "holder": 1,
+        "mule": 83,
+        "peripheral": 22,
+        "sink": 391,
+        "source": 386
+      },
+      "topk_conversions_before_filter": {
+        "10": 167,
+        "3": 22,
+        "5": 60
+      },
+      "topk_same_edge_set": {
+        "10": 49,
+        "3": 82,
+        "5": 71
+      }
+    },
+    "5": {
+      "fidelity": {
+        "converted": {
+          "random": {
+            "10": 0.8992797347249402,
+            "3": 0.8987442922374428,
+            "5": 0.893093607305936
+          },
+          "score_only": {
+            "10": 0.9048923679060664,
+            "3": 0.9200913242009131,
+            "5": 0.9127853881278539
+          }
+        },
+        "raw": {
+          "random": {
+            "10": 0.8293099043270277,
+            "3": 0.603310502283105,
+            "5": 0.6850913242009133
+          },
+          "score_only": {
+            "10": 0.8987279843444226,
+            "3": 0.906392694063927,
+            "5": 0.8977168949771689
+          }
+        }
+      },
+      "n_accounts": 763,
+      "n_rings": 107,
+      "n_roles_changed": 52,
+      "role_transitions": {
+        "holder -> holder": 2,
+        "mule -> mule": 82,
+        "peripheral -> holder": 1,
+        "peripheral -> mule": 11,
+        "peripheral -> peripheral": 19,
+        "peripheral -> sink": 1,
+        "sink -> mule": 15,
+        "sink -> peripheral": 1,
+        "sink -> sink": 315,
+        "source -> mule": 21,
+        "source -> peripheral": 2,
+        "source -> source": 293
+      },
+      "roles_converted": {
+        "holder": 3,
+        "mule": 129,
+        "peripheral": 22,
+        "sink": 316,
+        "source": 293
+      },
+      "roles_raw": {
+        "holder": 2,
+        "mule": 82,
+        "peripheral": 32,
+        "sink": 331,
+        "source": 316
+      },
+      "topk_conversions_before_filter": {
+        "10": 145,
+        "3": 18,
+        "5": 59
+      },
+      "topk_same_edge_set": {
+        "10": 39,
+        "3": 78,
+        "5": 56
+      }
+    }
+  },
+  "what": "Week 2 (v1 rings, raw) vs migrated (v2 rings, converted)"
+}

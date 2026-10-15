@@ -26,9 +26,16 @@ DISAGREEMENT_COLUMNS = ["ring_id", "account_id", "research_role", "spec_role", "
 
 
 # ----------------------------------------------------------------------------- roles (research, authoritative)
-def research_roles(ring, scored_edges: pd.DataFrame) -> dict[int, dict]:
-    """{account: {role, inflow, outflow, hold_time_s, closure, n_in, n_out}} over the ring's included edges."""
-    return account_roles(ring, scored_edges, edges="included")
+def research_roles(ring, scored_edges: pd.DataFrame, currency: str = "raw") -> dict[int, dict]:
+    """{account: {role, inflow, outflow, hold_time_s, closure, n_in, n_out, ...}} over the ring's included edges.
+
+    currency "raw"        Weeks 1-2: amounts summed across currency codes (the shipped convention).
+    currency "converted"  each leg booked on its own side (sender: amount_sent / currency_sent, receiver:
+                          amount_received / currency_received), both converted to currency 0 with the
+                          generator's fixed rates. Adds a sixth role, `undetermined`, ONLY for an account
+                          touching a currency with no usable rate (currency 1); inflow / outflow are then in
+                          currency 0."""
+    return account_roles(ring, scored_edges, edges="included", currency=currency)
 
 
 # ----------------------------------------------------------------------------- degrees
@@ -40,9 +47,14 @@ def _incident_counts(from_ids: np.ndarray, to_ids: np.ndarray) -> pd.Series:
     return s
 
 
-def background_degree(scored_edges: pd.DataFrame) -> pd.Series:
-    """Edges touching each account across the whole test period (the denominator of the degree ratio)."""
-    return _incident_counts(scored_edges["from_id"].to_numpy(), scored_edges["to_id"].to_numpy())
+def background_degree(scored_edges: pd.DataFrame, exclude_conversions: bool = False) -> pd.Series:
+    """Edges touching each account across the whole test period (the denominator of the degree ratio).
+    With `exclude_conversions` (policy converted) an account changing its own money is not counted as
+    activity, the same rule the in-ring count uses, so the ratio compares like with like."""
+    se = scored_edges
+    if exclude_conversions:
+        se = se[se["currency_sent"] == se["currency_received"]]
+    return _incident_counts(se["from_id"].to_numpy(), se["to_id"].to_numpy())
 
 
 # ----------------------------------------------------------------------------- w_account
@@ -56,9 +68,9 @@ def account_weight_table(members, member_edges: pd.DataFrame, edge_table: pd.Dat
         w_account(a)    = score_share * sum_w(a) / max_a sum_w  +  degree_share * deg_in_ring(a) / deg_background(a)
 
     The second term is high for an account that is busy inside the ring and quiet outside it."""
-    e = member_edges
+    e = member_edges                    # the evidence edges of the ring (conversions already removed under `converted`)
     f, t = e["from_id"].to_numpy(np.int64), e["to_id"].to_numpy(np.int64)
-    wt = pd.Series(edge_table.set_index("edge_id")["w_total"]).reindex(e["edge_id"].to_numpy(np.int64)).to_numpy(float)
+    wt = pd.Series(edge_table.set_index("edge_id")["w_total"]).reindex(e["edge_id"].to_numpy(np.int64)).fillna(0.0).to_numpy(float)
     sum_w = pd.Series(np.concatenate([wt, wt[t != f]]), index=np.concatenate([f, t[t != f]])).groupby(level=0).sum()
     deg_ring = _incident_counts(f, t)
     deg_bg = pd.Series(deg_background)

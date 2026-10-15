@@ -24,14 +24,19 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import yaml
 
-from contract.schema import RINGS_COLUMNS, SCORED_EDGES_COLUMNS, TOPOLOGY_TYPES
+from contract.schema import RINGS_COLUMNS, RINGS_COLUMNS_V1, SCORED_EDGES_COLUMNS, TOPOLOGY_TYPES
+from ringshield.rings import rings_schema_version
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = Path(__file__).resolve().with_name("config.yaml")
-LIST_COLUMNS = [c for c, (t, _) in RINGS_COLUMNS.items() if t.startswith("list<")]
 EDGE_LIST_COLUMNS = ["member_edges", "seed_edges", "expanded_edges"]
-ROLE_LIST_COLUMNS = ["source_accounts", "sink_accounts", "mule_accounts"]
+ROLE_LIST_COLUMNS = ["source_accounts", "sink_accounts", "mule_accounts",          # v1
+                     "source_accounts_ccy", "sink_accounts_ccy", "mule_accounts_ccy", "undetermined_accounts_ccy"]  # v2
 MAX_ERRORS_SHOWN = 20
+# Rings contract versions this layer reads. The version is stamped in the parquet metadata by
+# ringshield.rings.write_rings_parquet (absent = 1); the column lists are Joan's, never redefined here.
+RINGS_SPECS = {1: RINGS_COLUMNS_V1, 2: RINGS_COLUMNS}
+CURRENT_RINGS_VERSION = max(RINGS_SPECS)
 
 
 class ContractError(ValueError):
@@ -160,19 +165,27 @@ def read_scored_edges(path) -> pd.DataFrame:
 
 
 # ----------------------------------------------------------------------------- rings
-def _as_plain_lists(rings: pd.DataFrame) -> pd.DataFrame:
+def _as_plain_lists(rings: pd.DataFrame, spec: dict) -> pd.DataFrame:
     """List columns as python lists of int / float (parquet hands back numpy arrays)."""
     out = rings.copy()
-    for c in LIST_COLUMNS:
-        conv = float if RINGS_COLUMNS[c][0] == "list<float64>" else int
-        out[c] = [[conv(x) for x in v] for v in out[c]]
+    for c, (t, _) in spec.items():
+        if t.startswith("list<"):
+            conv = float if t == "list<float64>" else int
+            out[c] = [[conv(x) for x in v] for v in out[c]]
     return out
 
 
+def rings_spec(version: int) -> dict:
+    if version not in RINGS_SPECS:
+        raise ContractError(f"rings schema version {version} is not one this layer reads ({sorted(RINGS_SPECS)})")
+    return RINGS_SPECS[version]
+
+
 def validate_rings(rings: pd.DataFrame, scored_edges: pd.DataFrame | None = None, *, what: str = "rings",
-                   topology_tolerance: float | None = None) -> pd.DataFrame:
-    """Contract invariants per ring; with `scored_edges`, also that every edge exists there and agrees."""
-    check_frame_types(rings, RINGS_COLUMNS, what)
+                   topology_tolerance: float | None = None, version: int = CURRENT_RINGS_VERSION) -> pd.DataFrame:
+    """Contract invariants per ring; with `scored_edges`, also that every edge exists there and agrees.
+    `version` picks the column list (1 = the 22 v1 columns, 2 = all 30); in-memory frames are current (2)."""
+    check_frame_types(rings, rings_spec(version), what)
     tol = topology_tolerance if topology_tolerance is not None else \
         float(load_config()["contract_checks"]["topology_probs_sum_tolerance"])
     se = scored_edges.set_index("edge_id") if scored_edges is not None else None
@@ -206,6 +219,8 @@ def validate_rings(rings: pd.DataFrame, scored_edges: pd.DataFrame | None = None
         if r.topology_type not in TOPOLOGY_TYPES and r.topology_type != "UNKNOWN":
             errors.append(f"{rid}: topology_type {r.topology_type!r} is not a contract type")
         for c in ROLE_LIST_COLUMNS:
+            if not hasattr(r, c):                            # v1 rings have no *_ccy arrays
+                continue
             extra = set(getattr(r, c)) - members
             if extra:
                 errors.append(f"{rid}: {c} holds non-members {sorted(extra)[:5]}")
@@ -234,11 +249,18 @@ def validate_rings(rings: pd.DataFrame, scored_edges: pd.DataFrame | None = None
 
 
 def read_rings(path, scored_edges: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Read a rings parquet, branching on its schema version (ringshield.rings.rings_schema_version):
+    v1 files are checked against the 22 v1 columns, v2 files against all 30. The version travels with
+    the frame as `rings.attrs["rings_schema_version"]` and into provenance."""
     path = repo_path(path)
-    what = f"rings {path.name}"
-    check_arrow_schema(pq.read_schema(path), RINGS_COLUMNS, what)
-    rings = _as_plain_lists(pd.read_parquet(path))
-    return validate_rings(rings, scored_edges, what=what)
+    version = rings_schema_version(path)
+    spec = rings_spec(version)
+    what = f"rings {path.name} (schema v{version})"
+    check_arrow_schema(pq.read_schema(path), spec, what)
+    rings = _as_plain_lists(pd.read_parquet(path), spec)
+    rings = validate_rings(rings, scored_edges, what=what, version=version)
+    rings.attrs["rings_schema_version"] = version
+    return rings
 
 
 # ----------------------------------------------------------------------------- provenance
@@ -256,4 +278,5 @@ def provenance(scored_edges: pd.DataFrame, rings: pd.DataFrame) -> dict:
     if wrong:
         raise ContractError(f"rings do not belong to these scored_edges: expected ring_id prefix {prefix!r}, "
                             f"got e.g. {wrong[:3]}")
-    return {"model_id": model_id, "seed": seed, "aggregator_id": aggregator_id}
+    return {"model_id": model_id, "seed": seed, "aggregator_id": aggregator_id,
+            "rings_schema_version": int(rings.attrs.get("rings_schema_version", CURRENT_RINGS_VERSION))}

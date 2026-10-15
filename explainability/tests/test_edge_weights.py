@@ -237,3 +237,68 @@ def test_missing_rerun_inputs_are_refused():
     inp.emb = None
     with pytest.raises(RuntimeError, match="features_degraded"):
         inp.rerunner(se.set_index("edge_id").loc[_included(r)].reset_index())
+
+
+# ----------------------------------------------------------------------------- migration M4: converted w_flow
+def _fx():
+    from explainability.edge_weights import load_fx
+    return load_fx(CFG)
+
+
+def test_fx_table_is_joans_and_currency_1_has_no_rate():
+    fx = _fx()
+    assert fx["hub"] == 0 and fx["rate_to_ccy0"][0] == 1.0 and fx["rate_to_ccy0"][1] is None
+    assert fx["unconvertible"] == {1} and abs(fx["rate_to_ccy0"][2] - 1.17178) < 1e-5
+
+
+def test_converted_w_flow_is_a_share_of_the_converted_total():
+    """XR-02: amounts in one unit; the shares sum to 1 over the ring; the duplicate counts once."""
+    from explainability.edge_weights import w_flow_converted
+    from explainability.tests import fixtures as fx_
+    e = fx_.converted_flow_case()
+    e = e[e["edge_id"].isin([1, 5, 2, 3])]                      # evidence edges: no conversion, no currency 1
+    r2 = _fx()["rate_to_ccy0"][2]
+    total = 100 + 100 * r2 + 50
+    got, info = w_flow_converted(e, _fx())
+    expect = {1: 100 / total, 5: 100 / total, 2: 100 * r2 / total, 3: 50 / total}
+    for k, v in expect.items():
+        assert abs(got.loc[k] - v) < 1e-12
+    assert abs(got.drop(5).sum() - 1.0) < 1e-12                  # unique payments sum to 1
+    assert info["partial"] is False and abs(info["total_ccy0"] - total) < 1e-9 and info["currency"] == 0
+
+
+def test_converted_w_flow_refuses_conversions():
+    from explainability.edge_weights import w_flow_converted
+    from explainability.tests import fixtures as fx_
+    with pytest.raises(ValueError, match="conversions must be removed"):
+        w_flow_converted(fx_.converted_flow_case(), _fx())
+
+
+def test_currency_1_ring_is_partial_and_shares_sum_to_1_over_convertible_edges():
+    from explainability.edge_weights import w_flow_converted
+    from explainability.tests import fixtures as fx_
+    e = fx_.converted_flow_case()
+    e = e[e["edge_id"].isin([1, 3, 6])]
+    got, info = w_flow_converted(e, _fx())
+    assert info["partial"] is True and info["n_unconvertible_edges"] == 1
+    assert got.loc[6] == 0.0 and abs(got.loc[1] - 100 / 150) < 1e-12 and abs(got.loc[3] - 50 / 150) < 1e-12
+    assert abs(got.sum() - 1.0) < 1e-12
+
+
+def test_converted_table_drops_conversions_and_rescales_w_loo_over_ranked_edges():
+    """The conversion (edge 4) the aggregator used holds the largest leave-one-out value; under `converted` it
+    is not ranked, and w_loo is re-scaled so the top RANKED edge gets 1. Under `raw` it stays (Week 2)."""
+    from explainability.edge_weights import edge_weight_table
+    from explainability.tests import fixtures as fx_
+    e = fx_.converted_flow_case()
+    e = e[e["edge_id"].isin([1, 2, 3, 4])]
+    loo = pd.DataFrame({"edge_id": [1, 2, 4], "raw": [0.2, 0.1, 0.5], "w_loo": [0.4, 0.2, 1.0], "split": [0, 0, 1]})
+    mix = CFG["edge_weights"]["mixing_default"]
+    conv = edge_weight_table(e, loo, mix, policy="converted", fx=_fx()).set_index("edge_id")
+    assert 4 not in conv.index and conv.attrs["n_conversions_dropped"] == 1
+    assert conv.at[1, "w_loo"] == 1.0 and conv.at[2, "w_loo"] == 0.5 and conv.at[3, "w_loo"] == 0.0
+    assert conv.attrs["flow"]["partial"] is False and abs(conv["w_flow"].sum() - 1.0) < 1e-12
+    raw = edge_weight_table(e, loo, mix, policy="raw").set_index("edge_id")
+    assert 4 in raw.index and raw.at[4, "w_loo"] == 1.0 and raw.attrs["n_conversions_dropped"] == 0
+    with pytest.raises(ValueError, match="needs the exchange-rate table"):
+        edge_weight_table(e, loo, mix, policy="converted")

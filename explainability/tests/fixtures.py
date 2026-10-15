@@ -281,3 +281,91 @@ def account_weight_case() -> dict:
     deg_background = {100: 4, 101: 2, 102: 1}
     return {"edges": edges, "w_total": w_total, "deg_background": deg_background,
             "w_account": {100: 0.5 * (0.8 / 1.2) + 0.5 * 0.25, 101: 1.0, 102: 0.5 * (0.4 / 1.2) + 0.5 * 1.0}}
+
+
+# ============================================================================= currency migration
+def converted_flow_case() -> pd.DataFrame:
+    """Edges for the converted w_flow (XR-02). Currency 0 is the hub; currency 2 converts at the generator's
+    fixed rate (contract/fx_rates.json, about 1.17178); currency 1 has NO usable rate.
+
+        1  A -> B   100  in currency 0
+        5  A -> B   100  in currency 0   (exact duplicate of 1: counted once in the total, same share)
+        2  B -> C   100  in currency 2   -> 100 x rate(2) in currency 0
+        3  C -> D    50  in currency 0
+        4  B -> B   conversion: B changes 100 of currency 0 into currency 2 (a self-loop; never evidence)
+        6  D -> E  1000  in currency 1   (only in the currency-1 variant: unconvertible -> ring is partial)
+    """
+    rows = [(1, 10, 11, 100, 0, 0, 100.0, 100.0, 0.9), (5, 10, 11, 100, 0, 0, 100.0, 100.0, 0.9),
+            (2, 11, 12, 200, 2, 2, 100.0, 100.0, 0.8), (3, 12, 13, 300, 0, 0, 50.0, 50.0, 0.6),
+            (4, 11, 11, 150, 0, 2, 100.0, 85.34, 0.01), (6, 13, 14, 400, 1, 1, 1000.0, 1000.0, 0.5)]
+    return pd.DataFrame([{"edge_id": e, "from_id": f, "to_id": t, "timestamp": ts, "currency_sent": cs,
+                          "currency_received": cr, "amount_sent": a_s, "amount_received": a_r,
+                          "score_calibrated": s, "score_raw": s, "is_seed": s > 0.5}
+                         for e, f, t, ts, cs, cr, a_s, a_r, s in rows])
+
+
+def undetermined_case() -> dict:
+    """A ring where one leg is in currency 1, the only currency with no recoverable rate.
+
+        S -> M  100  currency 0  @0h      M -> K  100  currency 1  @1h
+        S -> N   80  currency 0  @0h      N -> K   80  currency 0  @1h
+    Under the converted policy, M (pays out in currency 1) and K (receives currency 1) touch a currency that
+    cannot be converted, so their balance cannot be checked: role `undetermined` -- never `peripheral`.
+    S is a source and N a mule either way. Under `raw` nobody is undetermined."""
+    b = _Builder()
+    S, M, N, K = b.accounts(4)
+    b.ring("undetermined", "FAN-IN", [(S, M, 100), (M, K, 100), (S, N, 80), (N, K, 80)],
+           currencies=[(0, 0), (1, 1), (0, 0), (0, 0)], times_h=[0, 1, 0, 1])
+    se, rings = b.frames()
+    return {"scored_edges": se, "rings": rings,
+            "converted_roles": {S: "source", M: "undetermined", N: "mule", K: "undetermined"},
+            "raw_roles": {S: "source", M: "mule", N: "mule", K: "sink"}}
+
+
+# ============================================================================= Week 3 narrative
+NARRATIVE_SHAPES = {
+    # kind: (topology_type, edges as (from, to), roles {account: role}, closure)
+    "FAN-OUT": ("FAN-OUT", [(1, 2), (1, 3), (1, 4)], {1: "source", 2: "sink", 3: "sink", 4: "sink"}, 0.96),
+    "FAN-IN": ("FAN-IN", [(2, 1), (3, 1), (4, 1)], {1: "sink", 2: "source", 3: "source", 4: "source"}, 0.96),
+    "GATHER-SCATTER": ("GATHER-SCATTER", [(2, 1), (3, 1), (1, 4), (1, 5)],
+                       {1: "mule", 2: "source", 3: "source", 4: "sink", 5: "sink"}, 0.9),
+    "SCATTER-GATHER": ("SCATTER-GATHER", [(1, 2), (1, 3), (2, 4), (3, 4)],
+                       {1: "source", 2: "mule", 3: "mule", 4: "sink"}, 0.9),
+    "CYCLE": ("CYCLE", [(1, 2), (2, 3), (3, 1)], {1: "mule", 2: "mule", 3: "mule"}, math.nan),
+    "STACK": ("STACK", [(1, 2), (2, 3), (3, 4)], {1: "source", 2: "mule", 3: "holder", 4: "sink"}, 0.8),
+    "BIPARTITE": ("BIPARTITE", [(1, 2), (3, 4)], {1: "source", 2: "sink", 3: "source", 4: "sink"}, 1.0),
+    "RANDOM": ("RANDOM", [(1, 2), (2, 3), (1, 3), (3, 4)], {1: "source", 2: "peripheral", 3: "mule", 4: "sink"}, 0.5),
+    "UNKNOWN": ("UNKNOWN", [(1, 2), (1, 3), (1, 4)], {1: "source", 2: "sink", 3: "sink", 4: "sink"}, 0.96),
+}
+NARRATIVE_FX = {"rate_to_ccy0": {0: 1.0, 1: None, 2: 1.17178}, "unconvertible": {1}, "hub": 0}
+NARRATIVE_FEATURES = [{"feature_name": "Payment Format", "mean_shap": 2.5, "top_edge_id": 1},
+                      {"feature_name": "scatter_gather", "mean_shap": 1.4, "top_edge_id": 1},
+                      {"feature_name": "hour_of_day", "mean_shap": -1.1, "top_edge_id": 2}]
+
+
+def narrative_case(kind: str, *, banks: dict | None = None, currencies: dict | None = None,
+                   partial: bool = False, p: float | None = 0.65, features: bool = True) -> dict:
+    """Keyword arguments for `narrative.narrative_values` describing a tiny ring of one shape.
+
+    Edge i (1-based, in the order listed) carries amount 1000 * i in currency 0 (or `currencies[i]`) and
+    w_total 1 - i/10, so the strongest edge is the first one. Accounts weigh 1 / id (smaller id first).
+    The ring spans 6 hours; every account is at bank 1 unless `banks` says otherwise; mules held 5 h."""
+    ttype, pairs, roles, closure = NARRATIVE_SHAPES[kind]
+    currencies, banks = currencies or {}, banks or {}
+    edges = pd.DataFrame([{"edge_id": i, "from_id": a, "to_id": b, "amount_received": 1000.0 * i,
+                           "currency_received": currencies.get(i, 0),
+                           "from_bank": banks.get(a, 1), "to_bank": banks.get(b, 1)}
+                          for i, (a, b) in enumerate(pairs, start=1)])
+    rate = NARRATIVE_FX["rate_to_ccy0"]
+    convertible = edges[edges["currency_received"].map(rate).notna()]
+    total = float((convertible["amount_received"] * convertible["currency_received"].map(rate)).sum())
+    return {"topology_type": ttype, "topology_prob": p, "type_source": "rings", "duration_s": 6 * 3600.0,
+            "evidence": edges, "member_edges": edges,
+            "edge_weights": [{"edge_id": i, "w_total": 1 - i / 10} for i in edges["edge_id"]],
+            "account_weights": [{"account_id": a, "role": r, "w_account": 1 / a,
+                                 "hold_time_s": 5 * 3600.0 if r in ("mule", "holder") else math.nan}
+                                for a, r in sorted(roles.items())],
+            "flow": {"total_ccy0": total, "partial": partial},
+            "conservation": {"closure": closure, "unconvertible": partial}, "closure_raw": closure,
+            "feature_weights": NARRATIVE_FEATURES if features else [], "fx": NARRATIVE_FX,
+            "n_top_edges": 3, "n_top_features": 3}

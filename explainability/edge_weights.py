@@ -25,6 +25,29 @@ import yaml
 from explainability.contract_io import repo_path
 
 EDGE_WEIGHT_COLUMNS = ["edge_id", "w_total", "w_score", "w_loo", "w_flow"]
+POLICIES = ("converted", "raw")
+
+
+# ----------------------------------------------------------------------------- currency conversions
+def conversion_mask(scored_edges: pd.DataFrame) -> pd.Series:
+    """True for a currency CONVERSION: an edge whose sent and received currencies differ. In AMLworld every
+    such edge among ring members is an account changing its own money (a self-loop, from_id == to_id);
+    0 of 72,170 is ever laundering and no truth ring contains one. Indexed by edge_id."""
+    se = scored_edges.reset_index() if scored_edges.index.name == "edge_id" else scored_edges
+    return pd.Series((se["currency_sent"] != se["currency_received"]).to_numpy(bool),
+                     index=se["edge_id"].to_numpy(np.int64), name="is_conversion")
+
+
+def evidence_edge_ids(edge_ids, conversions: pd.Series, policy: str) -> tuple[list[int], int]:
+    """(edges that may serve as evidence, how many conversions were dropped).
+    policy `converted`: conversions are dropped; `raw`: every edge kept (reproduces Weeks 1-2)."""
+    if policy not in POLICIES:
+        raise ValueError(f"unknown currency policy {policy!r}; choose from {POLICIES}")
+    ids = [int(e) for e in edge_ids]
+    if policy == "raw":
+        return ids, 0
+    flags = conversions.reindex(ids).fillna(False).to_numpy(bool)
+    return [e for e, f in zip(ids, flags) if not f], int(flags.sum())
 
 
 # ----------------------------------------------------------------------------- w_score + Week 1 ranking
@@ -68,6 +91,38 @@ def w_flow(member_edges: pd.DataFrame, amount_col: str = "amount_received") -> p
     return pd.Series(share.to_numpy(float), index=e["edge_id"].to_numpy(np.int64), name="w_flow")
 
 
+def load_fx(cfg: dict) -> dict:
+    """The research side's exchange-rate table (contract/fx_rates.json, read through ringshield.roles):
+    {"rate_to_ccy0": {currency: rate or None}, "unconvertible": {1}, "hub": 0, "meta": {...}}."""
+    from ringshield.roles import load_fx_rates
+    return load_fx_rates(repo_path(cfg["amounts"]["fx_rates"]))
+
+
+def w_flow_converted(edges: pd.DataFrame, fx: dict, amount_col: str = "amount_received") -> tuple[pd.Series, dict]:
+    """Share of the ring's money in ONE unit (XR-02): each edge's amount converted to currency 0 with the
+    generator's fixed rates, divided by the ring's converted total.
+
+        value(e) = amount_received(e) x rate_to_ccy0[currency_received(e)]
+        w_flow(e) = value(e) / sum of value over the ring's convertible edges   (duplicates counted once)
+
+    `edges` must be evidence edges -- currency conversions already removed (refused otherwise). An edge in a
+    currency with no usable rate (currency 1) is left out of the total and gets w_flow 0, and the ring is
+    flagged `partial`: its shares sum to 1 over the convertible edges only. Returns (shares, info)."""
+    e = edges
+    if (e["currency_sent"] != e["currency_received"]).any():
+        raise ValueError("w_flow_converted: currency conversions must be removed before computing flow shares")
+    table = fx["rate_to_ccy0"]
+    rate = e["currency_received"].map(lambda c: table.get(int(c))).astype(float)    # None -> NaN
+    value = e[amount_col].astype(float) * rate
+    ok = rate.notna()
+    dup = e.duplicated(["from_id", "to_id", "timestamp", amount_col])
+    total = float(value[ok & ~dup].sum())
+    share = (value / total).where(ok, 0.0) if total > 0 else value * 0.0
+    info = {"partial": bool((~ok).any()), "n_unconvertible_edges": int((~ok).sum()), "total_ccy0": total,
+            "currency": int(fx["hub"])}
+    return pd.Series(share.fillna(0.0).to_numpy(float), index=e["edge_id"].to_numpy(np.int64), name="w_flow"), info
+
+
 # ----------------------------------------------------------------------------- research inputs for the rerun
 @dataclass
 class LooInputs:
@@ -93,9 +148,14 @@ class LooInputs:
         return rr
 
 
-def load_loo_inputs(cfg: dict, seed: int, aggregator_id: str, rings_path, edge_ids) -> LooInputs:
-    """Load the rerun inputs for one detector seed, restricted to `edge_ids` (the rings' included edges)."""
-    ri = cfg["research_inputs"]
+def load_loo_inputs(cfg: dict, seed: int, aggregator_id: str, rings_path, edge_ids, split: str = "test") -> LooInputs:
+    """Load the rerun inputs for one detector seed, restricted to `edge_ids` (the rings' included edges).
+    `split` picks the GFP / embedding files of that split (test, or val for the XR-05 tuning)."""
+    ri = dict(cfg["research_inputs"])
+    if split == "val":
+        ri["gfp"], ri["embeddings"] = ri["gfp_val"], ri["embeddings_val"]
+    elif split != "test":
+        raise ValueError(f"unknown split {split!r}")
     if aggregator_id == "cc":
         rp = repo_path(rings_path)
         log_path = rp.with_name(rp.name + ".log.json")
@@ -201,18 +261,40 @@ def check_mixing(mixing: dict, tol: float) -> tuple[float, float, float]:
 
 
 def edge_weight_table(member_edges: pd.DataFrame, loo: pd.DataFrame, mixing: dict, *, amount_col: str = "amount_received",
-                      tol: float = 1e-9) -> pd.DataFrame:
-    """One row per MEMBER edge: edge_id, w_total, w_score, w_loo, w_flow (plus split, included).
+                      tol: float = 1e-9, policy: str = "raw", fx: dict | None = None) -> pd.DataFrame:
+    """One row per EVIDENCE edge: edge_id, w_total, w_score, w_loo, w_flow (plus split, included).
     Member edges that are not included (not seed, not expanded) get w_loo = 0 and split = 0: the grouping
     never used them, so removing one cannot change the ring. Sorted by w_total (high first), then by the
-    Week 1 score tie-breaks, so the order is total and repeatable."""
+    Week 1 score tie-breaks, so the order is total and repeatable.
+
+    policy `raw` (Weeks 1-2, reproduced exactly): every member edge; w_flow over raw cross-currency sums.
+    policy `converted`: currency conversions are dropped (they are never laundering); w_flow is the converted
+    share (w_flow_converted); w_loo is re-scaled so the top RANKED edge gets 1 (a conversion the aggregator used
+    stays in the leave-one-out rerun but is never ranked). The table's `attrs` carry `n_conversions_dropped`
+    and `flow` (partial flag, unconvertible edges, total in currency 0)."""
+    if policy not in POLICIES:
+        raise ValueError(f"unknown currency policy {policy!r}; choose from {POLICIES}")
     a, b, g = check_mixing(mixing, tol)
     e = member_edges.sort_values("edge_id").reset_index(drop=True)
+    L = loo.set_index("edge_id")
+    n_conv, flow_info = 0, None
+    if policy == "converted":
+        is_conv = (e["currency_sent"] != e["currency_received"]).to_numpy(bool)
+        n_conv = int(is_conv.sum())
+        e = e[~is_conv].reset_index(drop=True)
+        if fx is None:
+            raise ValueError("policy 'converted' needs the exchange-rate table (fx)")
     ids = e["edge_id"].to_numpy(np.int64)
     ws = e["score_calibrated"].fillna(0.0).to_numpy(float)
-    wf = w_flow(e, amount_col).reindex(ids).to_numpy(float)
-    L = loo.set_index("edge_id")
-    wl = L["w_loo"].reindex(ids).fillna(0.0).to_numpy(float)
+    if policy == "raw":
+        wf = w_flow(e, amount_col).reindex(ids).to_numpy(float)
+        wl = L["w_loo"].reindex(ids).fillna(0.0).to_numpy(float)
+    else:
+        shares, flow_info = w_flow_converted(e, fx, amount_col)
+        wf = shares.reindex(ids).to_numpy(float)
+        loo_raw = L["raw"].reindex(ids).fillna(0.0).to_numpy(float) if len(L) else np.zeros(len(ids))
+        mx = float(loo_raw.max()) if len(loo_raw) else 0.0
+        wl = loo_raw / mx if mx > 0 else np.zeros(len(ids))
     sp = L["split"].reindex(ids).fillna(0).astype(int).to_numpy()
     inc = np.isin(ids, L.index.to_numpy(np.int64))
     wt = a * ws + b * wl + g * wf
@@ -220,7 +302,9 @@ def edge_weight_table(member_edges: pd.DataFrame, loo: pd.DataFrame, mixing: dic
     order = np.lexsort((ids, -raw, -cal, -wt))
     out = pd.DataFrame({"edge_id": ids, "w_total": wt, "w_score": ws, "w_loo": wl, "w_flow": wf,
                         "split": sp, "included": inc})
-    return out.iloc[order].reset_index(drop=True)
+    out = out.iloc[order].reset_index(drop=True)
+    out.attrs.update({"policy": policy, "n_conversions_dropped": n_conv, "flow": flow_info})
+    return out
 
 
 def rank_by_w_total(table: pd.DataFrame) -> list[int]:
