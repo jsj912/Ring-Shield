@@ -1,0 +1,44 @@
+{
+  "created_utc": "2026-10-15T12:41:31+00:00",
+  "dataset": "HI-Small",
+  "source": "E:\\JSJ\\Ring-Shield\\data\\raw\\HI-Small_Trans.csv",
+  "encoder": "scripts/format_kaggle_files.py, reproduced and verified row-for-row against the processed parquets by contract/make_code_maps.py",
+  "verification": {
+    "n_rows": 5078345,
+    "Timestamp": {
+      "matching_rows": 5078345,
+      "mismatched": 0
+    },
+    "Sent Currency": {
+      "matching_rows": 5078345,
+      "mismatched": 0
+    },
+    "Received Currency": {
+      "matching_rows": 5078345,
+      "mismatched": 0
+    },
+    "Payment Format": {
+      "matching_rows": 5078345,
+      "mismatched": 0
+    }
+  },
+  "note": "code order is first appearance in the raw file",
+  "code_to_name": {
+    "0": "Reinvestment",
+    "1": "Cheque",
+    "2": "Credit Card",
+    "3": "ACH",
+    "4": "Cash",
+    "5": "Wire",
+    "6": "Bitcoin"
+  },
+  "name_to_code": {
+    "Reinvestment": 0,
+    "Cheque": 1,
+    "Credit Card": 2,
+    "ACH": 3,
+    "Cash": 4,
+    "Wire": 5,
+    "Bitcoin": 6
+  }
+}

@@ -45,31 +45,19 @@ from sklearn.metrics import f1_score, precision_score, recall_score, average_pre
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-SEED = 42
-GFP_COLS = ["fan_out", "fan_in", "deg_out_src", "deg_in_src", "deg_out_dst", "deg_in_dst",
-            "scatter_gather", "gather_scatter", "temporal_cycle", "cycle_length"]
-REFIT_TABULAR = ["Amount Sent", "Sent Currency", "Amount Received", "Received Currency", "Payment Format",
-                 "hour_of_day", "day_of_week"]
-REFIT_EXCLUDED = ["day_index", "from_bank", "to_bank"] + [f"{p}_{k}" for p in ("sender_out", "receiver_in")
-                                                          for k in ("degree", "amount_mean", "amount_std", "amount_max",
-                                                                    "volume_total")]
+# The feature set and the loader live in baselines/refit_data.py, which does NOT import optuna --
+# this module does, at ~2.6 s, and a caller that only wants the data should not pay for the tuner.
+# Re-exported here so `from baselines.gfp_xgboost_aml import load_split_for_refit` keeps working
+# and hands back the same function object.
+from baselines.refit_data import (  # noqa: E402,F401
+    GFP_COLS,
+    REFIT_EXCLUDED,
+    REFIT_TABULAR,
+    SEED,
+    load_split_for_refit,
+)
 
 
-def load_split_for_refit(data_dir: Path, split: str):
-    """Split parquet + trailing GFP parquet, joined 1:1 on EdgeID; asserts the re-keyed files."""
-    import pyarrow.parquet as pq
-    df = pd.read_parquet(data_dir / f"amlworld_{split}.parquet")
-    gfp_path = data_dir / f"amlworld_gfp_features_{split}.parquet"
-    gfp = pd.read_parquet(gfp_path)
-    meta = pq.ParquetFile(gfp_path).schema_arrow.metadata or {}
-    assert b"gfp" in meta and json.loads(meta[b"gfp"]).get("trailing"), \
-        f"{gfp_path}: not the Step 3b-z trailing GFP parquet (no 'gfp' schema metadata)"
-    assert gfp["EdgeID"].is_unique and set(gfp["EdgeID"]) == set(df["EdgeID"]), \
-        f"{gfp_path}: EdgeID set differs from the split parquet (not re-keyed / edge_id aligned)"
-    df = df.merge(gfp, on="EdgeID", how="inner", validate="one_to_one")
-    assert len(df) == len(gfp) and not df[GFP_COLS].isna().any().any()
-    feature_cols = REFIT_TABULAR + GFP_COLS
-    return df, df[feature_cols].values.astype(np.float32), df["Is Laundering"].values.astype(np.int64), feature_cols
 
 
 def refit(args):
