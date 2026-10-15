@@ -62,7 +62,12 @@ RINGS_COLUMNS = {
     "aggregator_id": ("string", "e.g. 'cc' (connected components)"),
     "members": ("list<int64>", "account ids"),
     "n_members": ("int64", "len(members)"),
-    "member_edges": ("list<int64>", "edge_ids with from_id AND to_id in members and timestamp in [start_time, end_time]"),
+    "member_edges": ("list<int64>", "edge_ids with from_id AND to_id in members and timestamp in "
+                     "[start_time, end_time]. This is EVERY edge among the member accounts in the "
+                     "ring's span, not only the ones the aggregator used -- including self-loop "
+                     "currency conversions, which are 38.7 % of predicted member edges and are "
+                     "NEVER laundering in AMLworld (0 of 72,170). Filter them out of evidence and "
+                     "flow shares: see 'What member_edges contains' below"),
     "seed_edges": ("list<int64>", "member_edges with is_seed"),
     "expanded_edges": ("list<int64>", "member_edges the expansion policy added around the seeds (Step 6); [] for the cc aggregator"),
     "expanded_edge_probs": ("list<float64>", "the expansion policy's probability for each edge of expanded_edges, same order and length (Step 8); [] when nothing was expanded. The XAI layer needs it because an expanded edge's own detector score is low by definition"),
@@ -81,15 +86,30 @@ RINGS_COLUMNS = {
     "mule_accounts": ("list<int64>", "members whose role is 'mule' (both flows, closure >= 1 - tau_role, passed on within 72 h) or 'holder' (same but held longer); ringshield.roles.account_roles returns the two separately"),
 
     # ---- schema v2 (Step 14, currency correction) ---------------------------------------------
-    # AMLworld amounts carry a currency code and 55.2 % of test rings span more than one currency;
-    # 51.9 % of the ring-accounts a closure is computed on have DISJOINT in/out currency sets, so a
-    # raw cross-currency ratio is arithmetic on mismatched units. The v1 fields keep their raw-sum
+    # AMLworld amounts carry a currency code and 55.2 % of test rings span more than one currency,
+    # so a raw cross-currency ratio compares mismatched units. The v1 fields keep their raw-sum
     # definition so existing artefacts and downstream consumers are unchanged; these carry the
-    # currency-partitioned values beside them. See docs/PITFALLS.md and docs/MIGRATION.md.
+    # currency-partitioned values beside them.
+    #
+    # CORRECTED 2026-10-14. Two statements that stood here were false, both found by the XAI
+    # teammate's measurement:
+    #   * "no single edge is cross-currency" -- 13,627 test edges (1.58 %) have
+    #     currency_sent != currency_received, with a real amount on each side;
+    #   * "51.9 % of the ring-accounts a closure is computed on have disjoint in/out currency sets"
+    #     -- not reproducible. The figures are 521 of 881 two-sided ring-accounts (59.1 %), or 521
+    #     of 4,280 ring-accounts (12.2 %), identical under both flow bookings.
+    # The `partitioned` mode these columns hold is therefore SUPERSEDED by
+    # `account_roles(..., currency="converted")`, which converts with the generator's own fixed
+    # rates (contract/fx_rates.json) and leaves only 3 of 4,280 accounts undetermined, against
+    # 571 here. These columns are kept as published; nothing is regenerated.
+    # See docs/PITFALLS.md entries 3b and 3c, docs/FX_RATES.md and docs/MIGRATION.md.
     "conservation_closure_ccy": ("float64", "ring-level closure computed per currency and summed over currencies "
-                                 "that appear on BOTH sides of an account; NaN when no currency does, which is "
-                                 "~52 % of ring-accounts. `conservation_closure` (v1) remains the RAW "
-                                 "cross-currency ratio and is what `confidence` uses"),
+                                 "that appear on BOTH sides of an account; NaN when no currency does -- 521 of "
+                                 "881 two-sided ring-accounts (59.1 %), or 12.2 % of all 4,280. SUPERSEDED by "
+                                 "account_roles(currency='converted'), which converts with the generator's "
+                                 "own fixed rates instead of withholding; kept as published. "
+                                 "`conservation_closure` (v1) remains the RAW cross-currency ratio and is "
+                                 "what `confidence` uses"),
     "n_accounts_ccy_undefined": ("int64", "ring accounts whose inflow and outflow currency sets are disjoint, so "
                                  "no per-currency closure exists for them; the denominator behind "
                                  "conservation_closure_ccy"),
@@ -97,16 +117,34 @@ RINGS_COLUMNS = {
                             "v1 `source_accounts` stays raw-sum"),
     "sink_accounts_ccy": ("list<int64>", "sink accounts under currency-partitioned flows"),
     "mule_accounts_ccy": ("list<int64>", "mule accounts under currency-partitioned flows"),
-    "undetermined_accounts_ccy": ("list<int64>", "accounts whose role CANNOT be decided from "
+    "undetermined_accounts_ccy": ("list<int64>", "accounts whose role could not be decided from "
                                   "same-currency evidence: their inflow and outflow currencies do not "
                                   "overlap, or the overlap carries too little flow to judge. Not "
-                                  "'peripheral' -- whether they are mules depends on the exchange rate. "
-                                  "Render explicitly; never collapse into another role"),
+                                  "'peripheral'. SUPERSEDED 2026-10-14: the exchange rates ARE recoverable "
+                                  "(contract/fx_rates.json), and under currency='converted' 568 of these "
+                                  "571 accounts resolve -- 86 % of them to mule. Kept as published; prefer "
+                                  "the converted roles. Render any remaining undetermined explicitly"),
     "n_roles_changed_ccy": ("int64", "accounts whose role differs between the raw and the "
                             "currency-aware assignment; the size of the disagreement, visible without "
                             "recomputing either"),
     "n_currencies": ("int64", "distinct currency codes on the ring's member edges (1 = the raw and "
                      "currency-partitioned definitions coincide)"),}
+
+# The eight columns schema v2 added, named once so the v1 view below is derived and cannot drift.
+RINGS_COLUMNS_V2_ADDED = (
+    "conservation_closure_ccy", "n_accounts_ccy_undefined", "source_accounts_ccy",
+    "sink_accounts_ccy", "mule_accounts_ccy", "undetermined_accounts_ccy",
+    "n_roles_changed_ccy", "n_currencies",
+)
+
+# The rings contract as it stood at schema v1, for reading or validating a file written before the
+# v2 bump -- `contract/out/v1/*.parquet`, and any artefact a consumer kept. A reader should branch
+# on `ringshield.rings.rings_schema_version(path)` and pick the matching spec rather than sniff the
+# column list.
+RINGS_COLUMNS_V1 = {c: v for c, v in RINGS_COLUMNS.items() if c not in RINGS_COLUMNS_V2_ADDED}
+assert len(RINGS_COLUMNS_V1) == len(RINGS_COLUMNS) - 8 == 22, (
+    f"RINGS_COLUMNS_V1 should hold 22 columns, got {len(RINGS_COLUMNS_V1)}")
+RINGS_ORDER_V1 = list(RINGS_COLUMNS_V1)
 
 SCORED_EDGES_ORDER = list(SCORED_EDGES_COLUMNS)
 LABELS_ORDER = list(LABELS_COLUMNS)
@@ -253,6 +291,44 @@ Read by `evaluation/edge_metrics.py`; never joined into a shipped file.
 `topology_probs` order: {', '.join(TOPOLOGY_TYPES)}.
 
 {_table(RINGS_COLUMNS)}
+
+## What `member_edges` contains
+
+`member_edges` is **every** edge with both endpoints among `members` and a timestamp inside
+[`start_time`, `end_time`]. It is a superset of what the aggregator used: `seed_edges` and
+`expanded_edges` are the edges the pipeline acted on, and `member_edges` additionally sweeps in
+whatever else those accounts did in that window.
+
+**The largest single category of that extra traffic is currency conversion.** AMLworld records an
+exchange as a **self-loop**: one account, `from_id == to_id`, with
+`Sent Currency != Received Currency` and a real amount on each side. Measured over the five shipped
+`full` seeds:
+
+| edge set | edges | cross-currency |
+|---|---:|---:|
+| `member_edges` | 7,520 | **2,912 (38.7 %)**, in 489 of 560 rings |
+| `seed_edges` + `expanded_edges` | 4,316 | 33 (0.76 %) |
+
+**None of them is laundering.** Across all three splits, **0 of 72,170** cross-currency edges carry
+`Is Laundering`, and 0 of the 1,611 laundering test edges is a conversion. Truth rings contain no
+conversions at all, while 1.53 % of non-member edges are conversions.
+
+**The filter is label-free and exact:**
+
+```python
+is_conversion = se["currency_sent"] != se["currency_received"]
+# equivalently, and this is 96.95 % of them:
+is_self_conversion = (se["from_id"] == se["to_id"]) & is_conversion
+```
+
+**Recommendation for the L4 explainability layer:** exclude conversions from the ring's **evidence
+edges** and from **`w_flow`**. They carry no laundering signal, they are an artefact of how the
+dataset represents an exchange rather than a transfer between parties, and a self-loop moves no
+money between accounts, so counting it in a flow share dilutes every real edge's share. Excluding
+them needs **no schema change** - it is a filter on `member_edges` at read time.
+
+This is a statement about what the column holds, not a change to it: `member_edges` keeps its
+definition and the shipped files are untouched.
 
 ## Time basis
 

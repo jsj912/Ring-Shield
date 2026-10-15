@@ -37,6 +37,7 @@ enough) to get `features_degraded: False`.
 """
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 
@@ -131,7 +132,7 @@ def flows_of(edges: pd.DataFrame, amount_col: str | None = None) -> pd.DataFrame
                          "closure": closure, "hold_time_s": hold}, columns=cols)
 
 
-CURRENCY_MODES = ("raw", "partitioned")
+CURRENCY_MODES = ("raw", "partitioned", "converted")
 # Fixed by construction and deliberately not swept: an account must spend at least this
 # share of BOTH its inflow and its outflow in currencies present on both sides before a
 # same-currency balance is treated as decisive. Below it the role is `undetermined`.
@@ -149,12 +150,24 @@ def _currency_column(edges: pd.DataFrame) -> str | None:
 def flows_by_currency(edges: pd.DataFrame, amount_col: str | None = None) -> pd.DataFrame:
     """Per (account, currency): inflow / outflow sums and counts.
 
-    Why this exists (Step 14). AMLworld amounts carry a currency code, no single edge is
-    cross-currency, but **55.2 % of test rings span more than one** and **51.9 % of the
-    ring-accounts a closure is computed on have DISJOINT in/out currency sets**. Median amounts
-    differ by ~140x between codes, so `inflow / outflow` over raw sums is arithmetic on mismatched
-    units for about half the accounts it is applied to. This splits the flows so a ratio is only
-    ever taken within one currency.
+    Why this exists (Step 14). AMLworld amounts carry a currency code and **55.2 % of test rings
+    span more than one**, with median amounts differing by ~140x between codes, so `inflow /
+    outflow` over raw sums compares mismatched units. This splits the flows so a ratio is only ever
+    taken within one currency.
+
+    SUPERSEDED 2026-10-14; kept because the published v2 artefacts were computed with it.
+    Two claims in the original docstring were false, both found by the XAI teammate:
+
+      * "no single edge is cross-currency" -- 13,627 test edges (1.58 %) have
+        `currency_sent != currency_received`, 96.95 % of them self-loops: one account converting.
+        Neither claim had ever been measured before it was written down.
+      * "51.9 % of ring-accounts ... disjoint in/out currency sets" -- not reproducible. It is 521
+        of 881 two-sided ring-accounts (59.1 %), or 521 of 4,280 (12.2 %).
+
+    Prefer `flows_converted` / `account_roles(..., currency="converted")`: it books the sender's
+    leg from `amount_sent` / `currency_sent` (this function books BOTH legs from the receiver's
+    column pair) and converts with the generator's own fixed rates, leaving 3 of 4,280 accounts
+    undetermined instead of 571. See docs/PITFALLS.md 3b and 3c.
     """
     amount_col = amount_col or ("amount_received" if "amount_received" in edges.columns else "amount")
     cur = _currency_column(edges)
@@ -174,6 +187,114 @@ def flows_by_currency(edges: pd.DataFrame, amount_col: str | None = None) -> pd.
     j["n_in"] = j["n_in"].astype(np.int64)
     j["n_out"] = j["n_out"].astype(np.int64)
     return j[cols]
+
+
+FX_RATES_PATH = Path(__file__).resolve().parents[1] / "contract" / "fx_rates.json"
+_FX: dict | None = None
+
+
+def load_fx_rates(path: Path | None = None) -> dict:
+    """`contract/fx_rates.json`: {currency -> rate to currency 0}, plus the unconvertible list.
+
+    Built by `contract/make_fx_rates.py` from the train split's own cross-currency transactions.
+    The rates are the generator's fixed constants, not estimates -- round trip and triangle close
+    to 3e-5 -- so there is nothing here to tune or seed. See docs/FX_RATES.md.
+    """
+    global _FX
+    if _FX is not None and path is None:
+        return _FX
+    f = path or FX_RATES_PATH
+    if not f.exists():
+        raise FileNotFoundError(
+            f"{f} missing; run `python contract/make_fx_rates.py` (currency='converted' needs it)")
+    d = json.loads(f.read_text(encoding="utf-8"))
+    table = {int(k): v["rate_to_ccy0"] for k, v in d["rate_to_ccy0"].items()}
+    out = {"rate_to_ccy0": table,
+           "unconvertible": {int(c) for c in d.get("unconvertible", [])},
+           "hub": int(d.get("hub_currency", 0)), "meta": d}
+    if path is None:
+        _FX = out
+    return out
+
+
+def _to_hub(amount: np.ndarray, currency: np.ndarray, fx: dict) -> tuple[np.ndarray, np.ndarray]:
+    """(converted amounts, convertible mask). An unconvertible currency yields NaN, never a guess."""
+    rates = np.full(len(amount), np.nan)
+    table = fx["rate_to_ccy0"]
+    for c in np.unique(currency):
+        r = table.get(int(c))
+        if r is not None:
+            rates[currency == c] = float(r)
+    return amount.astype(float) * rates, np.isfinite(rates)
+
+
+def flows_converted(edges: pd.DataFrame, amount_col: str | None = None,
+                    fx: dict | None = None) -> pd.DataFrame:
+    """`flows_of`'s columns, with the two defects of the raw path repaired.
+
+    1. **Leg booking.** The raw path sums one amount column over both legs, so a sender's outflow
+       is recorded at the *receiver's* amount and currency. AMLworld has 13,627 cross-currency test
+       edges (1.58 %), 96.95 % of them self-loops -- an account converting currency. On those the
+       raw booking reports one currency on both sides at one amount, which reads as a perfectly
+       balanced mule. Here the sender's leg is `amount_sent` in `currency_sent` and the receiver's
+       is `amount_received` in `currency_received`.
+    2. **Comparability.** Both legs are converted to currency 0 with the generator's own fixed
+       rates (`contract/fx_rates.json`), so inflow and outflow are in one unit and the raw role
+       rule applies unchanged.
+
+    An account touching a currency with no usable rate (currency 1: its amounts are too small for
+    2-dp recording to pin a rate) gets `closure` NaN and `ccy_unconvertible` True, and
+    `account_roles` reports it `undetermined`. Withholding, not guessing -- the same discipline the
+    partitioned mode introduced, now needed for far fewer accounts.
+    """
+    amount_col = amount_col or ("amount_received" if "amount_received" in edges.columns else "amount")
+    fx = fx or load_fx_rates()
+    e = dedup_edges(edges, amount_col)
+    cols = ["account", "inflow", "outflow", "n_in", "n_out", "closure", "hold_time_s"]
+    if len(e) == 0:
+        return pd.DataFrame(columns=cols + ["ccy_unconvertible", "n_currencies"])
+
+    has = "currency_sent" in e.columns and "currency_received" in e.columns
+    if not has:                       # no currency columns: fall back to raw and say so
+        base = flows_of(edges, amount_col)
+        return base.assign(ccy_unconvertible=False, n_currencies=0)
+
+    amt_in = e["amount_received"].to_numpy(float)
+    amt_out = (e["amount_sent"].to_numpy(float) if "amount_sent" in e.columns else amt_in)
+    cur_in = e["currency_received"].to_numpy()
+    cur_out = e["currency_sent"].to_numpy()
+    v_in, ok_in = _to_hub(amt_in, cur_in, fx)
+    v_out, ok_out = _to_hub(amt_out, cur_out, fx)
+
+    rin = pd.DataFrame({"acc": e["to_id"].to_numpy(np.int64), "v": v_in, "ok": ok_in,
+                        "ccy": cur_in, "ts": e["timestamp"].to_numpy(np.int64)})
+    rout = pd.DataFrame({"acc": e["from_id"].to_numpy(np.int64), "v": v_out, "ok": ok_out,
+                         "ccy": cur_out, "ts": e["timestamp"].to_numpy(np.int64)})
+    gi = rin.groupby("acc").agg(inflow=("v", "sum"), n_in=("v", "size"), ok_in=("ok", "all"))
+    go = rout.groupby("acc").agg(outflow=("v", "sum"), n_out=("v", "size"), ok_out=("ok", "all"))
+    j = gi.join(go, how="outer")
+    j[["inflow", "outflow"]] = j[["inflow", "outflow"]].fillna(0.0)
+    j[["n_in", "n_out"]] = j[["n_in", "n_out"]].fillna(0).astype(np.int64)
+    j[["ok_in", "ok_out"]] = j[["ok_in", "ok_out"]].fillna(True).astype(bool)
+    bad = ~(j["ok_in"] & j["ok_out"])
+
+    hi = np.maximum(j["inflow"].to_numpy(float), j["outflow"].to_numpy(float))
+    lo = np.minimum(j["inflow"].to_numpy(float), j["outflow"].to_numpy(float))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        closure = np.where(hi > 0, lo / np.where(hi > 0, hi, 1.0), 0.0)
+    closure = np.where(bad.to_numpy(), np.nan, closure)       # no rate -> no closure
+
+    ccy = pd.concat([rin[["acc", "ccy"]], rout[["acc", "ccy"]]]).groupby("acc")["ccy"].nunique()
+    base = flows_of(edges, amount_col).set_index("account")    # hold times are currency-free
+    out = pd.DataFrame({
+        "account": j.index.to_numpy(np.int64),
+        "inflow": j["inflow"].to_numpy(float), "outflow": j["outflow"].to_numpy(float),
+        "n_in": j["n_in"].to_numpy(np.int64), "n_out": j["n_out"].to_numpy(np.int64),
+        "closure": closure,
+        "hold_time_s": base["hold_time_s"].reindex(j.index).to_numpy(float),
+        "ccy_unconvertible": bad.to_numpy(),
+        "n_currencies": ccy.reindex(j.index).fillna(0).to_numpy(np.int64)})
+    return out[cols + ["ccy_unconvertible", "n_currencies"]]
 
 
 def flows_partitioned(edges: pd.DataFrame, amount_col: str | None = None) -> pd.DataFrame:
@@ -252,6 +373,13 @@ def account_roles(ring, scored_edges: pd.DataFrame, *, edges: str = "included",
         "partitioned"  compares inflow with outflow only within a currency; an account whose in and
                        out currency sets are disjoint gets closure NaN and is counted in
                        `n_accounts_ccy_undefined`. Feeds the v2 `*_ccy` contract fields.
+                       **SUPERSEDED by "converted"** -- it was built on the false premise that no
+                       edge is cross-currency and no rate is recoverable (docs/PITFALLS.md 3c).
+        "converted"    the sender's leg from amount_sent / currency_sent and the receiver's from
+                       amount_received / currency_received, both converted to currency 0 with the
+                       generator's own fixed rates, then raw's role rule. This is the correct
+                       convention. `undetermined` survives only for an account touching a currency
+                       with no usable rate.
 
     The default is deliberately *not* the more correct option: changing it would silently move
     every shipped closure, confidence and role array, and the downstream XAI layer compares against
@@ -260,14 +388,15 @@ def account_roles(ring, scored_edges: pd.DataFrame, *, edges: str = "included",
     assert currency in CURRENCY_MODES, f"currency must be one of {CURRENCY_MODES}, got {currency!r}"
     cfg = config or load_roles_config()
     frame = ring_edges_frame(ring, scored_edges, edges)
-    f = flows_of(frame) if currency == "raw" else flows_partitioned(frame)
+    f = {"raw": flows_of, "partitioned": flows_partitioned, "converted": flows_converted}[currency](frame)
     out = {}
     for r in f.itertuples(index=False):
         closure = float(r.closure)
         # role_of() reads closure >= 1 - tau as a mule/holder; an undefined closure must not be
         # allowed to masquerade as 0.0 (which would read as a source or sink), so it stays NaN and
         # role_of falls through on the inflow/outflow ratio alone.
-        undet = currency == "partitioned" and bool(getattr(r, "ccy_undetermined", False))
+        undet = ((currency == "partitioned" and bool(getattr(r, "ccy_undetermined", False)))
+                 or (currency == "converted" and bool(getattr(r, "ccy_unconvertible", False))))
         # An undetermined account must NOT fall through to role_of: a NaN closure there would be
         # read as "unbalanced" and land on peripheral / source / sink, which asserts something the
         # evidence does not support.
@@ -279,6 +408,9 @@ def account_roles(ring, scored_edges: pd.DataFrame, *, edges: str = "included",
             rec["n_currencies"] = int(getattr(r, "n_currencies", 0))
             rec["ccy_undefined"] = bool(getattr(r, "ccy_undefined", False))
             rec["ccy_undetermined"] = undet
+        elif currency == "converted":
+            rec["n_currencies"] = int(getattr(r, "n_currencies", 0))
+            rec["ccy_unconvertible"] = undet
         out[int(r.account)] = rec
     return out
 
@@ -291,9 +423,59 @@ def role_arrays(roles: dict[int, dict], config: dict | None = None, *, currency:
     `undetermined_accounts_ccy` -- which exists so that an account whose balance cannot be checked
     is reported as such instead of being absorbed into another role."""
     cfg = config or load_roles_config()
-    key = "contract_arrays" if currency == "raw" else "contract_arrays_ccy"
+    # "converted" deliberately reuses the v1 array names: it is the corrected version of the same
+    # quantity, and there is no schema bump in this change.
+    key = "contract_arrays_ccy" if currency == "partitioned" else "contract_arrays"
     return {col: sorted(a for a, d in roles.items() if d["role"] in set(members))
             for col, members in cfg[key].items()}
+
+
+def conservation_totals(roles: dict[int, dict]) -> dict:
+    """The parts `conservation_closure` reduces to one number, so a narrative can state them.
+
+    Same definition, same NaN rule; this just returns the two sums and the counts behind the ratio
+    instead of only the ratio. `closure` here is identical to `conservation_closure(roles)` by
+    construction -- it calls it -- so the two can never disagree.
+    """
+    sinks = [d for d in roles.values() if d["role"] == "sink"]
+    sources = [d for d in roles.values() if d["role"] == "source"]
+    return {"closure": conservation_closure(roles),
+            "in_at_sinks": float(sum(d["inflow"] for d in sinks)),
+            "out_at_sources": float(sum(d["outflow"] for d in sources)),
+            "n_sinks": len(sinks), "n_sources": len(sources),
+            "n_undetermined": sum(1 for d in roles.values() if d["role"] == "undetermined")}
+
+
+def ring_conservation_converted(ring, scored_edges: pd.DataFrame, *, edges: str = "included",
+                                config: dict | None = None) -> dict:
+    """Ring-level conservation under `currency="converted"`, with the totals, in currency 0.
+
+        c = ring_conservation_converted(ring, scored_edges)
+        # {"closure": 0.98, "in_at_sinks": 41230.5, "out_at_sources": 42011.0, "currency": 0,
+        #  "n_sinks": 2, "n_sources": 1, "n_undetermined": 0, "unconvertible": False, ...}
+
+    The definition is the contract's, unchanged: `1 - |in at sinks - out at sources| / max(...)`,
+    clipped to [0, 1], NaN when the ring has no source or no sink. What changes is the flows it
+    reads -- each leg booked on its own side's amount and currency, then converted to currency 0
+    with `contract/fx_rates.json` -- so the two sums are in **one unit** and can be quoted.
+
+    For narratives: quote `in_at_sinks` and `out_at_sources` as currency-0 totals and say so. They
+    are NOT comparable with the contract's `conservation_closure`, which is a raw cross-currency
+    ratio and is what `confidence` uses; this is the corrected quantity beside it, and nothing
+    shipped was recomputed with it (docs/PITFALLS.md 3c, 3d).
+
+    `unconvertible` is True when any account in the ring touches a currency with no usable rate
+    (code 1). The closure is still reported for the accounts that have one, but a narrative should
+    say the total is partial rather than present it as the ring's whole flow.
+    """
+    cfg = config or load_roles_config()
+    roles = account_roles(ring, scored_edges, edges=edges, config=cfg, currency="converted")
+    out = conservation_totals(roles)
+    out["currency"] = load_fx_rates()["hub"]
+    out["unconvertible"] = any(d.get("ccy_unconvertible") for d in roles.values())
+    out["n_accounts"] = len(roles)
+    out["basis"] = "converted to currency 0 via contract/fx_rates.json"
+    return out
 
 
 def conservation_closure(roles: dict[int, dict]) -> float:
