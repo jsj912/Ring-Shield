@@ -16,6 +16,8 @@ mismatch there would get attributed to the schema change, which is exactly the w
 
 Total: **Group A 908.40 KiB** across 19 files, **Group B 3.27 GiB** across 22 files.
 
+Since then: **10 new files** (688.61 KiB) for the gfpxgb and MEGA detectors, plus 16 already-shipped files (2.44 GiB) listed with hashes only.
+
 **Your suite passes on the merge: 116 passed, 0 failed.** See the last section for what that took.
 
 > ### Correction since the first version of this file, 2026-10-14
@@ -97,6 +99,94 @@ Also in the zip, and not a data file:
   validation metrics came from, so this is the object the grid chose on, not a re-derivation. Val
   F1 0.6138 / 0.5770 / 0.6048 / 0.6048 / 0.5632, matching `configs/detector_choice.yaml`. This is
   what XR-05 needs to bootstrap an interval.
+
+---
+
+### Two more detectors' rings - new
+
+`contract/out/rings_full_gfpxgb_{1..5}.parquet` and `rings_full_mega_{1..5}.parquet`, built from
+the Step 10 `full` runs through the **same field-filling path** as the gine files
+(`contract/make_rings_full.py --detector gfpxgb|mega`), at schema v2 with every field filled. Each
+build asserts two things against the run it reproduces, and writes nothing if either fails:
+
+* the **member-edge sets are identical** to the run's own `rings.parquet` - the check that actually
+  pins "same rings";
+* the primary-window metrics and counts match the run's `metrics.json`, at the precision that file
+  recorded (the R6 runs store 4 dp, so the tolerance is taken from the reference rather than fixed
+  at 1e-9 and quietly loosened).
+
+Membership reproduced exactly on all five seeds for both detectors.
+
+| detector | rings/seed | primary ring-F1 | policy | affinity | `cos_emb` |
+|---|---|---|---|---|---|
+| gfpxgb | [177, 168, 169, 185, 174] | 0.4508 +/- 0.0195 | its own (`R6_gfpxgb_expand/policy_gfpxgb`) | its own, **19 features** | **no** |
+| mega | [123, 115, 120, 105, 116] | 0.6074 +/- 0.0179 | the **gine-trained** one (`R3_expansion/policy_proposed`) | the **gine-trained** one, 20 features | yes |
+
+**That difference is the point of the `RingRerunner` change below.** The gfpxgb policy and affinity
+were trained *without* embeddings, so its affinity has no `cos_emb` and a rerun with GFP slices and
+no embeddings is reproducing what the aggregator did -- not a degraded version of it. MEGA is read
+through the **gine-trained** policy and affinity with MEGA's own embeddings supplying `cos_emb`, so
+the affinity is applied to an embedding space it was not trained on (the caveat in
+`docs/FINDINGS.md`), and a MEGA rerun **does** need the embeddings.
+
+| path | bytes | size | sha256 |
+|---|---:|---:|---|
+| `contract/out/rings_full_gfpxgb_1.parquet` | 80,810 | 78.92 KiB | `7b693c7b01573c0ea63620365fdebe27d18ecf77a453a3a1e2d2565469781893` |
+| `contract/out/rings_full_gfpxgb_2.parquet` | 78,617 | 76.77 KiB | `e71c1b489edd88a8ddbf70b8af46261573dcdd7d0c239828a622574693e0fd84` |
+| `contract/out/rings_full_gfpxgb_3.parquet` | 77,236 | 75.43 KiB | `8563fc3a4fd0526235624ec530ec69e57f00f4c0b3aa8aee9e160e1fa1d33459` |
+| `contract/out/rings_full_gfpxgb_4.parquet` | 84,599 | 82.62 KiB | `a5505a16d8a3cc9d2f9f2a16932f2272be8e6c3192ac13ecae28f497181c3c0f` |
+| `contract/out/rings_full_gfpxgb_5.parquet` | 80,558 | 78.67 KiB | `37f5a0023045dcf88949024da3728fe4e02a70e7d4e6492bb62ed8a0fa450351` |
+| `contract/out/rings_full_mega_1.parquet` | 62,089 | 60.63 KiB | `e38f47799f5de2ffd77df792f85e6ad6c1fbe1b2a113cd2da779ad54a2de0cee` |
+| `contract/out/rings_full_mega_2.parquet` | 60,909 | 59.48 KiB | `4a571db01e66bf6d028e12fda013c116bc1b50add54176c00c8397d3b883685c` |
+| `contract/out/rings_full_mega_3.parquet` | 60,432 | 59.02 KiB | `18d709db1f55c9454ee07221aa7ffcbcdcdcfe690ae65b5537e651e8f092f1db` |
+| `contract/out/rings_full_mega_4.parquet` | 59,417 | 58.02 KiB | `13d9114c1ed6be8b05afbb21379aa99ad1798fae3ee7a4a6d15356ea260ad15e` |
+| `contract/out/rings_full_mega_5.parquet` | 60,470 | 59.05 KiB | `748728c54757cf14b88a0f78f648b7586aa979f97278d254595e68c84aabe219` |
+
+### What a non-degraded rerun needs - already shipped, hashes only
+
+| path | bytes | size | sha256 |
+|---|---:|---:|---|
+| `data/processed/amlworld_gfp_features_test.parquet` | 10,713,596 | 10.22 MiB | `1bbd30f72d3419d40fa83fe8afa6931c54c704ed4e82997f033486e7a9f1e2e1` |
+| `experiments/R2_b0/gfpxgb_scores/scores_test_seed1.parquet` | 10,086,212 | 9.62 MiB | `8986523fe7bb400518621842214f1013458fd9f014fad4caff88d0a87bddcb4e` |
+| `experiments/R2_b0/gfpxgb_scores/scores_test_seed2.parquet` | 10,064,714 | 9.60 MiB | `4030e9ae13638fb87d27c02f07344ba8c178962d6b8b7ee0a8652c67b3b5c604` |
+| `experiments/R2_b0/gfpxgb_scores/scores_test_seed3.parquet` | 10,073,743 | 9.61 MiB | `1da004ec9822cdcd667ceb045592b31a5be6300ee079627ccb3900f71d7e1c83` |
+| `experiments/R2_b0/gfpxgb_scores/scores_test_seed4.parquet` | 10,056,884 | 9.59 MiB | `6ad8be83ea593b0b379ae67c3b52100c49264b94ffc49d8f0ece0c26b0fa1548` |
+| `experiments/R2_b0/gfpxgb_scores/scores_test_seed5.parquet` | 10,051,385 | 9.59 MiB | `310d9650f49901902b0c6c7d8b705793980d1442aaf6a18433d91bcca9b644af` |
+| `experiments/R6_mega/embeddings_test_seed1.parquet` | 491,498,138 | 468.73 MiB | `1b3019cf14310880908c6e94a31689d408f91001e05be0b3ef29ecb063a91d0c` |
+| `experiments/R6_mega/embeddings_test_seed2.parquet` | 490,743,532 | 468.01 MiB | `183cc2c53f4a7bd53a73fa22d044b32c53123c0bdbf79fd611ee4611caad7b3b` |
+| `experiments/R6_mega/embeddings_test_seed3.parquet` | 504,598,727 | 481.22 MiB | `b2c2a8698b685c2ec87a1fb4a166442012269180f6123c5dafff9903b38bd40f` |
+| `experiments/R6_mega/embeddings_test_seed4.parquet` | 519,524,403 | 495.46 MiB | `3d26fc25bd00940462e043bcc755b307982a1a2352d9df0e86704cb5d936cbd1` |
+| `experiments/R6_mega/embeddings_test_seed5.parquet` | 506,754,693 | 483.28 MiB | `07b35dd01e0577e1a38180d07ecaff5e50adf0a3b546b4da72a41196494b1171` |
+| `experiments/R6_mega/scores_test_seed1.parquet` | 7,578,428 | 7.23 MiB | `1c53ac92f64393609774fcb422e9f60f43c80c86cedf235622fbc3445acc48b7` |
+| `experiments/R6_mega/scores_test_seed2.parquet` | 10,029,175 | 9.56 MiB | `a3dc5682f559525c591e41c6f93e693defee4de55ea8353fc406f671cb6ccad5` |
+| `experiments/R6_mega/scores_test_seed3.parquet` | 10,060,509 | 9.59 MiB | `e2198c4b362160c76ffa42a50c863eeec6244e894a59c48d856fa3f6737a0580` |
+| `experiments/R6_mega/scores_test_seed4.parquet` | 9,996,190 | 9.53 MiB | `624dc65d094df9e223f72103fd064c180b3258ad7e53dd7a518ffafecc2e389e` |
+| `experiments/R6_mega/scores_test_seed5.parquet` | 6,788,292 | 6.47 MiB | `935f6efae2e2b5544c691453c3e69d957fd7424f1b0ab64fe7abc83d2c210e8f` |
+
+* `experiments/R2_b0/gfpxgb_scores/scores_test_seed{1..5}.parquet` - the gfpxgb detector scores.
+* `experiments/R6_mega/scores_test_seed{1..5}.parquet` - the MEGA detector scores.
+* `experiments/R6_mega/embeddings_test_seed{1..5}.parquet` - **required for a non-degraded MEGA
+  rerun**, because the affinity MEGA uses is the gine one and declares `cos_emb`.
+* `data/processed/amlworld_gfp_features_test.parquet` - required by both.
+
+**gfpxgb needs no embeddings file at all.** There is none to ship: the detector never produced one,
+and its affinity does not ask for one.
+
+### `RingRerunner` is detector-aware
+
+`features_degraded` used to be `gfp is None or emb is None`, which assumes every `full` model needs
+both. It now reports degradation only when a feature in **this affinity's own list** cannot be
+computed from the inputs given, and `missing_features` names which:
+
+```python
+rr = RingRerunner(ring_edges, "full", affinity=aff, gfp=gfp, emb=None)
+rr.features_degraded   # False for the gfpxgb affinity, True for the gine affinity
+rr.missing_features    # [] vs ["cos_emb"]
+```
+
+The feature-to-input mapping is read from `ringshield.partition.pairs.FEATURE_GROUPS`, the same
+constant the pair builder uses, so a new feature group cannot be added without this following it.
+The p95 <= 50 ms leave-one-out budget is unchanged and still tested.
 
 ---
 

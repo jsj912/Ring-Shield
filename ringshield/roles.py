@@ -29,7 +29,13 @@ percentile are then computed once for the whole ring instead of once per call (a
 ~34 ms per call standalone, ~8 ms through the cache), and every call sees the same feature
 scaling, as the aggregator did when it built the ring.
 
-The result carries **`features_degraded`**: True when the `full` grouping ran without the GFP
+The result carries **`features_degraded`** and **`missing_features`**. Degraded means at least one
+of THIS affinity's own features could not be computed from the inputs given -- not simply that GFP
+or embeddings were absent. An affinity trained without embeddings (gfpxgb: 19 features, no
+`cos_emb`) is not degraded by their absence; the gine affinity (20 features, with `cos_emb`) is.
+`missing_features` names the ones that were unavailable, so a caller can say which.
+
+Historically: True when the `full` grouping ran without the GFP
 table or without embeddings, so `cos_gfp` / `cos_emb` were zero / NaN rather than the values the
 rings were built with. Leave-one-out weights computed on a degraded feature set are not
 comparable with the shipped rings -- pass `gfp=` and `emb=` (slices restricted to the ring are
@@ -367,6 +373,56 @@ def ring_edges_frame(ring, scored_edges: pd.DataFrame, edges: str = "included") 
     return sub[(sub["timestamp"] >= ring.start_time) & (sub["timestamp"] <= ring.end_time)]
 
 
+FLOWS_BY_CURRENCY = {}          # filled below; keyed by CURRENCY_MODES
+
+
+def flows_for(edges: pd.DataFrame, currency: str = "raw") -> pd.DataFrame:
+    """The flow frame for one currency convention. One place, so every caller agrees."""
+    assert currency in CURRENCY_MODES, f"currency must be one of {CURRENCY_MODES}, got {currency!r}"
+    return FLOWS_BY_CURRENCY[currency](edges)
+
+
+def role_records_from_flows(f: pd.DataFrame, cfg: dict, currency: str = "raw") -> dict[int, dict]:
+    """{account: role record} from a flow frame. Shared by `account_roles` and `roles_for_edges`.
+
+    Named `role_records_from_flows` because `roles_from_flows` already exists in this module and
+    is a different thing: it takes raw numpy sums and returns an ARRAY of role strings for the
+    typing-head features. Two functions with one name is how a shadowed definition silently wins.
+
+    Extracted so the two cannot drift: "roles_for_edges with currency='converted' uses the same
+    conversion path as account_roles" is true because it is the same function, not because two
+    copies happen to agree.
+    """
+    out = {}
+    for r in f.itertuples(index=False):
+        closure = float(r.closure)
+        # role_of() reads closure >= 1 - tau as a mule/holder; an undefined closure must not be
+        # allowed to masquerade as 0.0 (which would read as a source or sink), so it stays NaN and
+        # role_of falls through on the inflow/outflow ratio alone.
+        undet = ((currency == "partitioned" and bool(getattr(r, "ccy_undetermined", False)))
+                 or (currency == "converted" and bool(getattr(r, "ccy_unconvertible", False))))
+        # An undetermined account must NOT fall through to role_of: a NaN closure there would be
+        # read as "unbalanced" and land on peripheral / source / sink, which asserts something the
+        # evidence does not support.
+        role = "undetermined" if undet else role_of(r.inflow, r.outflow, closure, r.hold_time_s, cfg)
+        rec = {"role": role,
+               "inflow": float(r.inflow), "outflow": float(r.outflow), "hold_time_s": float(r.hold_time_s),
+               "closure": closure, "n_in": int(r.n_in), "n_out": int(r.n_out)}
+        if currency == "partitioned":
+            rec["n_currencies"] = int(getattr(r, "n_currencies", 0))
+            rec["ccy_undefined"] = bool(getattr(r, "ccy_undefined", False))
+            rec["ccy_undetermined"] = undet
+        elif currency == "converted":
+            rec["n_currencies"] = int(getattr(r, "n_currencies", 0))
+            rec["ccy_unconvertible"] = undet
+        out[int(r.account)] = rec
+    return out
+
+
+FLOWS_BY_CURRENCY.update({"raw": flows_of, "partitioned": flows_partitioned,
+                          "converted": flows_converted})
+
+
 def account_roles(ring, scored_edges: pd.DataFrame, *, edges: str = "included",
                   config: dict | None = None, currency: str = "raw") -> dict[int, dict]:
     """{account: {role, inflow, outflow, hold_time_s, closure, n_in, n_out}} for the ring.
@@ -395,31 +451,7 @@ def account_roles(ring, scored_edges: pd.DataFrame, *, edges: str = "included",
     assert currency in CURRENCY_MODES, f"currency must be one of {CURRENCY_MODES}, got {currency!r}"
     cfg = config or load_roles_config()
     frame = ring_edges_frame(ring, scored_edges, edges)
-    f = {"raw": flows_of, "partitioned": flows_partitioned, "converted": flows_converted}[currency](frame)
-    out = {}
-    for r in f.itertuples(index=False):
-        closure = float(r.closure)
-        # role_of() reads closure >= 1 - tau as a mule/holder; an undefined closure must not be
-        # allowed to masquerade as 0.0 (which would read as a source or sink), so it stays NaN and
-        # role_of falls through on the inflow/outflow ratio alone.
-        undet = ((currency == "partitioned" and bool(getattr(r, "ccy_undetermined", False)))
-                 or (currency == "converted" and bool(getattr(r, "ccy_unconvertible", False))))
-        # An undetermined account must NOT fall through to role_of: a NaN closure there would be
-        # read as "unbalanced" and land on peripheral / source / sink, which asserts something the
-        # evidence does not support.
-        role = "undetermined" if undet else role_of(r.inflow, r.outflow, closure, r.hold_time_s, cfg)
-        rec = {"role": role,
-               "inflow": float(r.inflow), "outflow": float(r.outflow), "hold_time_s": float(r.hold_time_s),
-               "closure": closure, "n_in": int(r.n_in), "n_out": int(r.n_out)}
-        if currency == "partitioned":
-            rec["n_currencies"] = int(getattr(r, "n_currencies", 0))
-            rec["ccy_undefined"] = bool(getattr(r, "ccy_undefined", False))
-            rec["ccy_undetermined"] = undet
-        elif currency == "converted":
-            rec["n_currencies"] = int(getattr(r, "n_currencies", 0))
-            rec["ccy_unconvertible"] = undet
-        out[int(r.account)] = rec
-    return out
+    return role_records_from_flows(flows_for(frame, currency), cfg, currency)
 
 
 def role_arrays(roles: dict[int, dict], config: dict | None = None, *, currency: str = "raw") -> dict[str, list[int]]:
@@ -609,6 +641,30 @@ def ring_confidence(mean_seed_score: float, closure: float) -> float:
 
 
 # --------------------------------------------------------------------------------- rerun_ring
+def missing_affinity_features(affinity, *, gfp=None, emb=None) -> list[str]:
+    """Which of THIS affinity's features cannot be computed from the inputs given.
+
+    `features_degraded` used to be `gfp is None or emb is None`, which assumes every `full` model
+    needs both. That is wrong for a detector whose affinity was trained without embeddings: the
+    gfpxgb affinity has 19 features and no `cos_emb`, so a rerun with GFP slices and no embeddings
+    is reproducing exactly what the aggregator did -- not a degraded version of it. The gine
+    affinity has 20 features including `cos_emb`, so the same call there IS degraded.
+
+    The mapping from feature to required input is read from `pairs.FEATURE_GROUPS`, the same
+    constant the pair builder uses, so a new feature group cannot be added without this following.
+    An affinity is only asked about the features it actually declares (`Affinity.features`).
+    """
+    from ringshield.partition.pairs import FEATURE_GROUPS
+    if affinity is None:
+        return []
+    needed = set(getattr(affinity, "features", []) or [])
+    missing: list[str] = []
+    for group, supplied in (("gfp", gfp is not None), ("embedding", emb is not None)):
+        if not supplied:
+            missing += [f for f in FEATURE_GROUPS[group] if f in needed]
+    return sorted(missing)
+
+
 class RingRerunner:
     """Re-run the grouping stage of one ring many times (leave-one-out) without rebuilding its index.
 
@@ -642,7 +698,9 @@ class RingRerunner:
         self.is_seed = df["is_seed"].to_numpy(bool)
         self.score = df["score_calibrated"].to_numpy(float)
         self.cfg = load_roles_config()
-        self.features_degraded = bool(aggregator_id == "full" and (gfp is None or emb is None))
+        self.missing_features = missing_affinity_features(affinity, gfp=gfp, emb=emb) \
+            if aggregator_id == "full" else []
+        self.features_degraded = bool(self.missing_features)
 
     def run(self, edge_ids=None) -> dict:
         """Group the given edges (default: all of them) and summarise the largest group."""
@@ -658,7 +716,8 @@ class RingRerunner:
         from ringshield.partition.affinity import cluster_average, cluster_pivot, reattach_small
         from ringshield.partition.pairs import components_of, pair_features
         idx = self.idx
-        out = {"confidence": math.nan, "n_rings": 0, "largest_ring_edges": [], "features_degraded": self.features_degraded}
+        out = {"confidence": math.nan, "n_rings": 0, "largest_ring_edges": [],
+               "features_degraded": self.features_degraded, "missing_features": list(self.missing_features)}
         if len(pos) == 0:
             return out
         is_seed = self.is_seed[pos]
@@ -717,7 +776,8 @@ def rerun_ring(subgraph_edges: pd.DataFrame, aggregator_id: str = "full", *, aff
     """One-shot grouping of `subgraph_edges` (see the module docstring). For leave-one-out use
     `RingRerunner`, which keeps the index and the feature context across calls.
 
-    Returns {"confidence", "n_rings", "largest_ring_edges", "features_degraded"}; `confidence` is
+    Returns {"confidence", "n_rings", "largest_ring_edges", "features_degraded",
+    "missing_features"}; `confidence` is
     the contract's (mean score_calibrated over the group's seed edges x its conservation closure)
     of the largest group, NaN when no group survives `min_size`."""
     rr = RingRerunner(subgraph_edges, aggregator_id, affinity=affinity, cut=cut, min_size=min_size,

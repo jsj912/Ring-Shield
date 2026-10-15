@@ -16,7 +16,8 @@ import numpy as np
 import pandas as pd
 
 from contract.make_scored_edges import load_paths
-from ringshield.roles import account_roles, flows_of, load_roles_config, role_of
+from ringshield.roles import (account_roles, flows_for, flows_of, load_roles_config, role_of,  # noqa: E402
+                              role_records_from_flows)
 from ringshield.typing.features import RING_FEATURES, ring_features
 
 SPLIT_COLUMNS = ["EdgeID", "from_id", "to_id", "Timestamp", "Amount Received", "ring_id", "pattern_type"]
@@ -29,12 +30,19 @@ def split_rings(split: str, processed_dir: Path | None = None) -> pd.DataFrame:
     return df
 
 
-def roles_for_edges(edges: pd.DataFrame, cfg: dict | None = None) -> dict[int, dict]:
+def roles_for_edges(edges: pd.DataFrame, cfg: dict | None = None, *, currency: str = "raw") -> dict[int, dict]:
+    """{account: role record} over `edges` directly, without needing a Ring.
+
+    `currency` is the same switch as `account_roles`, and **defaults to `"raw"`**, which is
+    byte-identical to the previous behaviour -- every typing-head feature and every truth-ring row
+    published so far was computed with it, and the head's training set would move if the default
+    changed. `"converted"` runs the corrected convention (sender's leg from amount_sent /
+    currency_sent, both legs converted to currency 0 via contract/fx_rates.json); it is literally
+    the same code path as `account_roles(..., currency="converted")`, because both call
+    `flows_for` and `role_records_from_flows`.
+    """
     cfg = cfg or load_roles_config()
-    f = flows_of(edges)
-    return {int(r.account): {"role": role_of(r.inflow, r.outflow, r.closure, r.hold_time_s, cfg), "inflow": float(r.inflow),
-                             "outflow": float(r.outflow), "hold_time_s": float(r.hold_time_s), "closure": float(r.closure),
-                             "n_in": int(r.n_in), "n_out": int(r.n_out)} for r in f.itertuples(index=False)}
+    return role_records_from_flows(flows_for(edges, currency), cfg, currency)
 
 
 def truth_ring_rows(split: str, *, min_members: int = 3, processed_dir: Path | None = None,
