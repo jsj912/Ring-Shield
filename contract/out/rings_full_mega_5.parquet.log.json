@@ -1,0 +1,171 @@
+{
+  "created_utc": "2026-10-15T18:00:40+00:00",
+  "git_commit": "b35b233ffa1743ac5ac2b9f18fd625c341bc986e",
+  "contract_version": "rings.parquet v2 (v1 Step 8; v2 Step 14 currency fields)",
+  "detector_seed": 5,
+  "aggregator": "full",
+  "detector": "mega",
+  "detector_note": "MEGA-GNN detector read through the GINE-TRAINED policy and affinity, with MEGA's own embeddings supplying cos_emb -- so the affinity is applied to an embedding space it was not trained on (docs/FINDINGS.md, the embedding-space caveat)",
+  "inputs": {
+    "scores": "E:\\JSJ\\Ring-Shield\\experiments\\R6_mega\\scores_test_seed5.parquet",
+    "embeddings": "E:\\JSJ\\Ring-Shield\\experiments\\R6_mega\\embeddings_test_seed5.parquet",
+    "checkpoint": "E:\\JSJ\\Ring-Shield\\experiments\\R6_mega\\model_best_seed5.pt",
+    "gfp": "E:\\JSJ\\Ring-Shield\\data\\processed\\amlworld_gfp_features_test.parquet",
+    "policy": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\policy_proposed",
+    "affinity": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\affinity",
+    "affinity_features": [
+      "time_gap_s",
+      "amount_ratio",
+      "dir_in_out",
+      "dir_out_out",
+      "dir_in_in",
+      "dir_out_in",
+      "cos_emb",
+      "cos_gfp",
+      "kind_seed_seed",
+      "kind_seed_exp",
+      "kind_exp_exp",
+      "role_source",
+      "role_sink",
+      "role_mule",
+      "role_other",
+      "acc_closure",
+      "acc_n_included",
+      "acc_n_counterparties",
+      "acc_log_degree_window",
+      "on_chain"
+    ],
+    "affinity_uses_embeddings": true,
+    "typing_head": "E:\\JSJ\\RS-det\\experiments\\R5_typing\\head_w2",
+    "roles_config": "configs/roles.yaml",
+    "reproduced_run": "E:\\JSJ\\Ring-Shield\\experiments\\R6_full\\mega\\seed5"
+  },
+  "params": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "delta_t_h": 24.0,
+    "p_min": 0.7,
+    "partition": "average",
+    "cut": 0.5,
+    "max_events_per_query": 500
+  },
+  "n_rings": 116,
+  "columns": [
+    "ring_id",
+    "tenant_id",
+    "aggregator_id",
+    "members",
+    "n_members",
+    "member_edges",
+    "seed_edges",
+    "expanded_edges",
+    "expanded_edge_probs",
+    "n_edges",
+    "start_time",
+    "end_time",
+    "duration_hours",
+    "confidence",
+    "max_edge_prob",
+    "density",
+    "conservation_closure",
+    "topology_type",
+    "topology_probs",
+    "source_accounts",
+    "sink_accounts",
+    "mule_accounts",
+    "conservation_closure_ccy",
+    "n_accounts_ccy_undefined",
+    "source_accounts_ccy",
+    "sink_accounts_ccy",
+    "mule_accounts_ccy",
+    "undetermined_accounts_ccy",
+    "n_roles_changed_ccy",
+    "n_currencies"
+  ],
+  "fields": {
+    "n_seed_edges": 786,
+    "n_expanded_edges": 167,
+    "n_member_edges": 1685,
+    "expanded_edge_probs_aligned": true,
+    "n_rings_with_expansion": 50,
+    "n_rings_closure_nan": 4,
+    "n_rings_with_source": 114,
+    "n_rings_with_sink": 114,
+    "n_rings_with_mule": 45,
+    "n_accounts_by_role": {
+      "source": 375,
+      "sink": 438,
+      "mule_or_holder": 98
+    },
+    "topology_counts": {
+      "FAN-OUT": 28,
+      "GATHER-SCATTER": 22,
+      "STACK": 20,
+      "SCATTER-GATHER": 14,
+      "FAN-IN": 13,
+      "CYCLE": 13,
+      "RANDOM": 6
+    },
+    "n_topology_unknown": 0,
+    "confidence": {
+      "min": 0.23626718122449505,
+      "max": 0.9999999999999999,
+      "mean": 0.8840615322029366
+    },
+    "conservation_closure": {
+      "n_nan": 4,
+      "mean_non_nan": 0.9308919691441506
+    },
+    "currency_v2": {
+      "n_rings": 116,
+      "n_accounts_undetermined_ccy": 121,
+      "n_rings_with_undetermined": 59,
+      "n_roles_changed_ccy_total": 123,
+      "n_rings_roles_unchanged": 57,
+      "conservation_closure_ccy": {
+        "n_nan": 5,
+        "mean_non_nan": 0.7630117202669654
+      },
+      "currency_mode": "partitioned (v2 fields only; v1 fields remain raw cross-currency sums)",
+      "ccy_min_two_sided_share": 0.5
+    }
+  },
+  "primary_window": {
+    "n_predicted": 101,
+    "n_truth": 174,
+    "n_matched": 85,
+    "ring_precision": 0.8416,
+    "ring_recall": 0.4885,
+    "ring_f1": 0.6182,
+    "mean_jaccard": 0.9355,
+    "member_coverage": 0.9522,
+    "ring_recall_ge3": 0.6667
+  },
+  "reproduces_run": {
+    "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R6_full\\mega\\seed5",
+    "metrics": {
+      "ring_precision": true,
+      "ring_recall": true,
+      "ring_f1": true,
+      "mean_jaccard": true,
+      "member_coverage": true
+    },
+    "counts": {
+      "n_predicted": true,
+      "n_truth": true,
+      "n_matched": true
+    },
+    "reference_decimals": 4,
+    "tolerance": 5e-05,
+    "member_edge_sets_identical": true
+  },
+  "reproduces_r4_average_run": {
+    "ring_precision": true,
+    "ring_recall": true,
+    "ring_f1": true,
+    "mean_jaccard": true,
+    "member_coverage": true
+  },
+  "seconds": 68.4,
+  "out": "E:\\JSJ\\RS-det\\contract\\out\\rings_full_mega_5.parquet"
+}
