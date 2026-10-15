@@ -18,7 +18,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from contract.schema import RINGS_ORDER, SCORED_EDGES_ORDER, TOPOLOGY_TYPES
+from contract.schema import RINGS_ORDER, SCORED_EDGES_ORDER, TOPOLOGY_TYPES, ring_record
 from ringshield.windows import load_windows
 
 MODEL_ID, SEED, AGGREGATOR = "fixture", 0, "full"
@@ -87,7 +87,11 @@ class _Builder:
         mean_seed = float(e.loc[e.is_seed, "score_calibrated"].mean())
         n_edges = len(seed_ids) + len(exp_ids)
         earliest_seed = e[e.is_seed].sort_values(["timestamp", "edge_id"]).iloc[0]
-        self.rings.append({
+        # Through ring_record so every contract column is present and correctly typed: the fields
+        # set below are the ones this fixture decides, the rest take the contract's defaults. Built
+        # as a bare dict, any column added by a later schema version would materialise as all-NaN
+        # float64 in `pd.DataFrame(self.rings, columns=RINGS_ORDER)` and fail the type check.
+        self.rings.append(ring_record(**{
             "ring_id": PREFIX + name, "tenant_id": int(earliest_seed.from_bank), "aggregator_id": AGGREGATOR,
             "members": members, "n_members": len(members),
             "member_edges": [int(x) for x in e.edge_id], "seed_edges": seed_ids, "expanded_edges": exp_ids,
@@ -98,7 +102,7 @@ class _Builder:
             "max_edge_prob": float(e.score_calibrated.max()), "density": n_edges / (len(members) * (len(members) - 1)),
             "conservation_closure": closure, "topology_type": topology, "topology_probs": _probs(topology),
             "source_accounts": sorted(senders - receivers), "sink_accounts": sorted(receivers - senders),
-            "mule_accounts": sorted(senders & receivers)})
+            "mule_accounts": sorted(senders & receivers)}))
 
     def frames(self):
         se = pd.DataFrame(self.edges, columns=SCORED_EDGES_ORDER)
