@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+import bcrypt
 from sqlalchemy import create_engine, text
 
 
@@ -11,12 +12,16 @@ def main() -> None:
     url = os.environ.get("RINGSHIELD_TEST_ADMIN_URL")
     if not url:
         raise RuntimeError("RINGSHIELD_TEST_ADMIN_URL is required to load the RLS test fixture")
+    fixture_password = "fixture-only-password"
+    fixture_password_hash = bcrypt.hashpw(
+        fixture_password.encode("utf-8"), bcrypt.gensalt()
+    ).decode("ascii")
     engine = create_engine(url)
     with engine.begin() as connection:
         connection.execute(text("""
             INSERT INTO users (tenant_id, email, password_hash, role)
-            VALUES (NULL, 'admin@test.invalid', 'fixture-not-a-password-hash', 'admin')
-        """))
+            VALUES (NULL, 'admin@test.invalid', :password_hash, 'admin')
+        """), {"password_hash": fixture_password_hash})
         users = {}
         for tenant_id in (210, 220):
             connection.execute(text("""
@@ -26,9 +31,10 @@ def main() -> None:
             """), {"tenant_id": tenant_id})
             result = connection.execute(text("""
                 INSERT INTO users (tenant_id, email, password_hash, role)
-                VALUES (:tenant_id, :email, 'fixture-not-a-password-hash', 'analyst')
+                VALUES (:tenant_id, :email, :password_hash, 'analyst')
                 RETURNING user_id
-            """), {"tenant_id": tenant_id, "email": f"analyst-{tenant_id}@test.invalid"})
+            """), {"tenant_id": tenant_id, "email": f"analyst-{tenant_id}@test.invalid",
+                  "password_hash": fixture_password_hash})
             users[tenant_id] = result.scalar_one()
 
             connection.execute(text("""

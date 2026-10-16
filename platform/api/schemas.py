@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class VerdictKind(str, Enum):
@@ -55,6 +55,13 @@ class UserCreateRequest(BaseModel):
     email: str
     password: str = Field(min_length=12, max_length=128)
     role: Literal["analyst", "supervisor", "admin"]
+
+    @field_validator("password")
+    @classmethod
+    def bcrypt_byte_limit(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be at most 72 UTF-8 bytes")
+        return value
 
     @model_validator(mode="after")
     def role_tenant_pair(self) -> "UserCreateRequest":

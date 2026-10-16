@@ -41,13 +41,15 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements-platform-test.txt
+          cache-dependency-path: |
+            requirements-dev.txt
+            platform/requirements.txt
       - name: Install PostgreSQL client and platform dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-platform-test.txt
+          python -m pip install -r requirements-dev.txt
       - name: Bootstrap schema and restricted migration role
         run: |
           python -m alembic -c platform/alembic.ini upgrade 0002_role_ownership_force_rls

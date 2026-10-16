@@ -19,6 +19,7 @@ function Invoke-Checked {
 }
 
 try {
+    Invoke-Checked $python @('-m', 'pip', 'install', '-r', 'requirements-dev.txt')
     Invoke-Checked 'docker' @('compose', '-f', $composeFile, 'up', '-d', 'postgres-test')
     $deadline = [DateTime]::UtcNow.AddSeconds($PostgresTimeoutSeconds)
     $ready = $false

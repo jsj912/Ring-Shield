@@ -1,2 +1,1 @@
--r requirements-platform.txt
-pytest>=8.0
+-r requirements-dev.txt

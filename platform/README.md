@@ -8,17 +8,16 @@ behind adapters to the existing research CLI and explainability functions.
 The implementation is being built in vertical slices, beginning with the API and
 database foundation described in `directions/RingShield_L5_L6_Platform_Spec.docx`.
 
-Install the CPU-only API dependencies with `pip install -r requirements-platform.txt`.
-For database-free platform unit tests, install `python -m pip install -r requirements-platform-test.txt`
-and run `python -m pytest platform/tests --ignore=platform/tests/isolation` from the repository root.
+Install the exact pinned platform dependencies with `python -m pip install -r platform/requirements.txt`.
+For database-free unit tests, install `python -m pip install -r requirements-dev.txt` and run
+`python -m pytest platform/tests --ignore=platform/tests/isolation` from the repository root.
 
 ### PostgreSQL tenant-isolation acceptance
 
 The Windows path requires Docker Desktop running with Linux containers and Python 3.12+
-available on `PATH`. From the repository root, install the test dependencies and run:
+available on `PATH`. From the repository root, run the Windows test script; it installs the pinned dependencies:
 
 ```powershell
-python -m pip install -r requirements-platform-test.txt
 .\scripts\test-db.ps1
 ```
 

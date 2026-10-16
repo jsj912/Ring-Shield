@@ -83,3 +83,11 @@ This file records findings and changes in the order requested for the platform h
 - Added a disposable-Postgres migration integration test. It migrates to 0002 and head, downgrades to base, upgrades to head again, runs `alembic check`, and checks every tenant table has enabled and forced RLS. CI runs `alembic check` after `upgrade head` and before roles/fixture seeding.
 - Collision review: no duplicate table, index, constraint, or policy names remain across 0001–0003. Revision 0002 creates `ringshield_api` and `ringshield_loader` conditionally; the later `roles.sql` conditionally creates those same roles, so it does not issue duplicate `CREATE ROLE` statements. `roles.sql` repeats the grants for `edge_scores` after 0003; PostgreSQL grants are additive/idempotent, so this is redundant but not a failing collision. 0003's table/index/policy names are unique to that revision. The `edge_scores_tenant_id_seq` owner alteration was removed because this table has no serial column or sequence.
 - PostgreSQL migration/RLS execution was unavailable locally; CI must pass before acceptance is verified.
+
+## Authentication dependency correction — 2026-10-16
+
+- Removed Passlib and use bcrypt directly for password hashing and verification. Passwords over 72 UTF-8 bytes are rejected with a clear validation error at login and user creation; values are never truncated.
+- The auth router creates its short-secret dummy bcrypt hash at import time so unknown users still exercise a bcrypt check. The RLS fixture seeder now creates bcrypt-compatible fixture hashes.
+- Added exact platform dependency pins, including `bcrypt==5.0.0`, and separate pinned pytest/httpx development dependencies. CI, Docker test image, and the Windows database test script install from `requirements-dev.txt`.
+- Added a database-free test that imports `api.main`, hashes and verifies a password, and checks the 72-byte boundary.
+- `python -m compileall platform` passed. The available virtual environment lacks SQLAlchemy, so pytest collection could not run locally; CI must execute the new test.
