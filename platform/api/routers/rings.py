@@ -19,8 +19,9 @@ from api.schemas import (RingDetail, RingEvidenceEdge, RingEvidenceGraph,
                          RingEvidenceNode, RingExplanation, RingPage, RingSummary)
 from api.timebasis import from_utc, to_utc
 from contract.schema import TOPOLOGY_TYPES
-from db.models import Account, Explanation, Ring as PlatformRing, Transaction
+from db.models import Account, EdgeScore, Explanation, Ring as PlatformRing, Transaction
 from db.session import db_session
+from settings import load_platform_config
 
 router = APIRouter(tags=["rings"])
 SortField = Literal["confidence", "total_amount", "start_time", "members"]
@@ -279,6 +280,16 @@ def get_ring_evidence(
                        Transaction.edge_id.in_(page_candidate_ids))
                 .order_by(Transaction.edge_id.desc())
             ))
+        score_rows = []
+        if page_candidate_ids:
+            active = load_platform_config()
+            score_rows = list(session.scalars(
+                select(EdgeScore)
+                .where(EdgeScore.tenant_id == tenant_id,
+                       EdgeScore.edge_id.in_(page_candidate_ids),
+                       EdgeScore.model_id == active["active_model_id"],
+                       EdgeScore.seed == int(active["active_seed"]))
+            ))
 
         page_account_ids = sorted({
             int(account_id)
@@ -300,6 +311,7 @@ def get_ring_evidence(
             account_banks.setdefault(int(row.to_id), int(row.to_bank))
 
     returned_edge_ids = {int(row.edge_id) for row in transaction_rows}
+    scores_by_edge = {int(row.edge_id): row for row in score_rows}
     roles = {
         role: {int(account_id) for account_id in payload.get(payload_key, [])}
         for role, payload_key in EvidenceRoleKeys.items()
@@ -327,8 +339,9 @@ def get_ring_evidence(
             currency_sent=currency_label(row.currency_sent),
             currency_received=currency_label(row.currency_received),
             payment_format=payment_format_label(row.payment_format),
-            calibrated_score=_optional_float(row.score_calibrated),
-            is_seed=row.is_seed,
+            calibrated_score=_optional_float(scores_by_edge[row.edge_id].score_calibrated)
+            if row.edge_id in scores_by_edge else None,
+            is_seed=scores_by_edge[row.edge_id].is_seed if row.edge_id in scores_by_edge else None,
         )
         for row in transaction_rows
     ]

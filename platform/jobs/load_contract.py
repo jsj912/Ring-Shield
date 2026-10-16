@@ -98,7 +98,6 @@ def _account_upserts(session, accounts: dict[tuple[int, int], tuple[int, int, in
 
 def load_edges(path: Path, *, scope: str, batch_size: int = BATCH_SIZE) -> dict[str, int]:
     parquet, run_log = _check_file(path, SCORED_EDGES_ORDER)
-    config = load_platform_config()
     if "tenant_id" not in parquet.schema_arrow.names:
         raise ContractLoadError(f"{path}: scored_edges requires tenant_id in its contract")
 
@@ -124,10 +123,6 @@ def load_edges(path: Path, *, scope: str, batch_size: int = BATCH_SIZE) -> dict[
                 if (run_log.get("seed") is not None
                         and int(source.get("seed", -1)) != int(run_log["seed"])):
                     raise ContractLoadError("scored-edge row seed does not match its sibling run log")
-                is_active_model = (
-                    str(source.get("model_id")) == config["active_model_id"]
-                    and int(source.get("seed", -1)) == int(config["active_seed"])
-                )
                 from_bank = int(source["from_bank"])
                 to_bank = int(source["to_bank"])
                 timestamp = int(source["timestamp"])
@@ -148,10 +143,6 @@ def load_edges(path: Path, *, scope: str, batch_size: int = BATCH_SIZE) -> dict[
                         "currency_sent": _python_value(source.get("currency_sent")),
                         "currency_received": _python_value(source.get("currency_received")),
                         "payment_format": _python_value(source.get("payment_format")),
-                        "score_calibrated": _python_value(source.get("score_calibrated")) if is_active_model else None,
-                        "is_seed": _python_value(source.get("is_seed")) if is_active_model else None,
-                        "model_id": str(source["model_id"]) if is_active_model else None,
-                        "seed": int(source["seed"]) if is_active_model else None,
                         "payload": {key: value for key, value in row.items()
                                     if key not in {"score_raw", "score_calibrated", "is_seed", "model_id", "seed"}},
                     })
@@ -183,12 +174,6 @@ def load_edges(path: Path, *, scope: str, batch_size: int = BATCH_SIZE) -> dict[
                                 "amount_sent", "amount_received", "currency_sent", "currency_received",
                                 "payment_format", "payload")
                 }
-                if (str(run_log.get("model_id")) == config["active_model_id"]
-                        and int(run_log.get("seed", -1)) == int(config["active_seed"])):
-                    update_columns.update({
-                        col: getattr(stmt.excluded, col)
-                        for col in ("score_calibrated", "is_seed", "model_id", "seed")
-                    })
                 session.execute(stmt.on_conflict_do_update(
                     index_elements=[Transaction.tenant_id, Transaction.edge_id], set_=update_columns,
                 ))

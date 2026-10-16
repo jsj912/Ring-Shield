@@ -11,6 +11,12 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Scores lived on transactions in the initial schema. The durable, model-
+    # specific representation below replaces those mutable cached columns.
+    op.drop_column("transactions", "score_calibrated")
+    op.drop_column("transactions", "is_seed")
+    op.drop_column("transactions", "model_id")
+    op.drop_column("transactions", "seed")
     op.create_table(
         "edge_scores",
         sa.Column("tenant_id", sa.BigInteger(), nullable=False),
@@ -43,8 +49,13 @@ def upgrade() -> None:
         WITH CHECK (current_user = 'ringshield_loader')
     """)
     op.execute("ALTER TABLE edge_scores OWNER TO ringshield_owner")
-    op.execute("ALTER SEQUENCE IF EXISTS edge_scores_tenant_id_seq OWNER TO ringshield_owner")
+    op.execute("GRANT SELECT ON edge_scores TO ringshield_api")
+    op.execute("GRANT SELECT, INSERT, UPDATE ON edge_scores TO ringshield_loader")
 
 
 def downgrade() -> None:
     op.drop_table("edge_scores")
+    op.add_column("transactions", sa.Column("seed", sa.Integer(), nullable=True))
+    op.add_column("transactions", sa.Column("model_id", sa.String(length=80), nullable=True))
+    op.add_column("transactions", sa.Column("is_seed", sa.Boolean(), nullable=True))
+    op.add_column("transactions", sa.Column("score_calibrated", sa.Float(), nullable=True))

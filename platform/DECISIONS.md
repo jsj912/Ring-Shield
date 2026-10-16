@@ -74,3 +74,12 @@ This file records findings and changes in the order requested for the platform h
 - Commits follow the requested order, with migrations/RLS last; no push is being made. Each commit is preceded by a database-free test run, `git status`, staged path hygiene check, and `git diff --check`.
 - `.gitignore` and `.dockerignore` exclude local data, parquet sidecars, credentials, and temporary test dependencies from staging and Docker build context.
 - Postgres RLS acceptance is not verified here because Docker/Postgres are unavailable; only a nonzero database-backed count from the Windows script or CI verifies that acceptance.
+
+## Migration chain correction — 2026-10-16
+
+- Confirmed the CI collision: `0001_platform_schema` imported `db.models` and called `Base.metadata.create_all()`, which built the current `edge_scores` table; `0003_edge_scores` then attempted to create the same relation.
+- Replaced `0001` with explicit, frozen `op.create_table` and index declarations; it no longer imports ORM models. `0003` now owns the score-table addition, creates it once with forced RLS and grants, and removes the four detector-cache columns from `transactions`. The ORM and loader no longer write those moved columns.
+- Ring evidence now reads calibrated score and seed flags from the active `(model_id, seed)` row in `edge_scores`, keeping the API aligned with the storage move.
+- Added a disposable-Postgres migration integration test. It migrates to 0002 and head, downgrades to base, upgrades to head again, runs `alembic check`, and checks every tenant table has enabled and forced RLS. CI runs `alembic check` after `upgrade head` and before roles/fixture seeding.
+- Collision review: no duplicate table, index, constraint, or policy names remain across 0001–0003. Revision 0002 creates `ringshield_api` and `ringshield_loader` conditionally; the later `roles.sql` conditionally creates those same roles, so it does not issue duplicate `CREATE ROLE` statements. `roles.sql` repeats the grants for `edge_scores` after 0003; PostgreSQL grants are additive/idempotent, so this is redundant but not a failing collision. 0003's table/index/policy names are unique to that revision. The `edge_scores_tenant_id_seq` owner alteration was removed because this table has no serial column or sequence.
+- PostgreSQL migration/RLS execution was unavailable locally; CI must pass before acceptance is verified.

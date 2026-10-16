@@ -55,6 +55,7 @@ jobs:
           export RINGSHIELD_MIGRATION_DATABASE_URL='postgresql+psycopg://ringshield_test_migrator:test-migrator-only@localhost:5432/ringshield?options=-c%20role%3Dringshield_owner'
           echo "RINGSHIELD_MIGRATION_DATABASE_URL=$RINGSHIELD_MIGRATION_DATABASE_URL" >> "$GITHUB_ENV"
           python -m alembic -c platform/alembic.ini upgrade head
+          python -m alembic -c platform/alembic.ini check
           psql "$RINGSHIELD_DATABASE_ADMIN_PSQL_URL" -v ON_ERROR_STOP=1 -f platform/db/roles.sql
           psql "$RINGSHIELD_DATABASE_ADMIN_PSQL_URL" -v ON_ERROR_STOP=1 -f platform/tests/isolation/provision_test_roles.sql
       - name: Seed tenants and contract fixture

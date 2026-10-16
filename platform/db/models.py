@@ -97,10 +97,6 @@ class Transaction(Base):
     currency_sent: Mapped[int | None] = mapped_column(Integer)
     currency_received: Mapped[int | None] = mapped_column(Integer)
     payment_format: Mapped[int | None] = mapped_column(Integer)
-    score_calibrated: Mapped[float | None] = mapped_column(Float)
-    is_seed: Mapped[bool | None] = mapped_column(Boolean)
-    model_id: Mapped[str | None] = mapped_column(String(80))
-    seed: Mapped[int | None] = mapped_column(Integer)
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
 
 

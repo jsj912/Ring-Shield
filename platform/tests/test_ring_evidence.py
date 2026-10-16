@@ -13,14 +13,15 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 
 from api.identity import Principal
 from api.routers import rings
-from db.models import Account, Transaction
+from db.models import Account, EdgeScore, Transaction
 
 
 class _FakeSession:
-    def __init__(self, ring, accounts, transactions):
+    def __init__(self, ring, accounts, transactions, scores=None):
         self.ring = ring
         self.accounts = accounts
         self.transactions = transactions
+        self.scores = scores or []
         self.queries = []
 
     def get(self, model, key):
@@ -35,6 +36,8 @@ class _FakeSession:
             assert "ORDER BY transactions.edge_id DESC" in compiled
             assert "transactions.tenant_id = 21" in compiled
             return self.transactions
+        if entity is EdgeScore:
+            return self.scores
         assert entity is Account
         compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
         assert "accounts.tenant_id = 21" in compiled
@@ -77,9 +80,11 @@ def _transaction(edge_id, from_id, to_id, from_bank=210, to_bank=211):
         currency_sent=1,
         currency_received=1,
         payment_format=2,
-        score_calibrated=0.92,
-        is_seed=edge_id == 11,
     )
+
+
+def _score(edge_id):
+    return SimpleNamespace(edge_id=edge_id, score_calibrated=0.92, is_seed=edge_id == 11)
 
 
 def test_ring_evidence_returns_scoped_nodes_edges_and_pagination(monkeypatch):
@@ -90,6 +95,7 @@ def test_ring_evidence_returns_scoped_nodes_edges_and_pagination(monkeypatch):
          SimpleNamespace(account_id=102, bank_code=211),
          SimpleNamespace(account_id=103, bank_code=212)],
         [_transaction(13, 102, 103), _transaction(12, 101, 102)],
+        [_score(13), _score(12)],
     )
     _install_session(monkeypatch, session)
 
@@ -104,6 +110,8 @@ def test_ring_evidence_returns_scoped_nodes_edges_and_pagination(monkeypatch):
     assert result.nodes[1].is_mule
     assert result.edges[0].source_account == 102
     assert result.edges[0].timestamp is not None
+    assert result.edges[0].calibrated_score == pytest.approx(0.92)
+    assert result.edges[0].is_seed is False
     assert result.missing_edge_ids == []
     assert "account_number" not in str(result.model_dump()).lower()
 

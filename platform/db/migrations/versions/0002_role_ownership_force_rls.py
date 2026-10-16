@@ -17,6 +17,9 @@ def upgrade() -> None:
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ringshield_api') THEN
                 CREATE ROLE ringshield_api NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
             END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ringshield_loader') THEN
+                CREATE ROLE ringshield_loader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+            END IF;
         END $$;
     """)
     op.execute("GRANT USAGE, CREATE ON SCHEMA public TO ringshield_owner")
@@ -36,6 +39,8 @@ def upgrade() -> None:
             END LOOP;
         END $$;
     """)
+    # Revision 0003 grants this role access to its new score table.
+    op.execute("GRANT USAGE ON SCHEMA public TO ringshield_loader")
     op.execute("""
         DO $$ DECLARE t record; BEGIN
             FOR t IN
