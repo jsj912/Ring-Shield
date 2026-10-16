@@ -145,6 +145,20 @@ class RingEvidenceGraph(BaseModel):
     missing_edge_ids: list[int] = Field(default_factory=list)
 
 
+class RingExplanation(BaseModel):
+    tenant_id: int
+    ring_id: str
+    explainer_version: str
+    edge_weights: list[dict[str, Any]]
+    account_weights: list[dict[str, Any]]
+    feature_weights: list[dict[str, Any]]
+    narrative: str
+    evidence_summary: dict[str, Any]
+    latency_ms: int
+    provenance: dict[str, Any]
+    created_at: datetime
+
+
 class VerdictRequest(BaseModel):
     verdict: VerdictKind
     corrected_members: list[int] = Field(default_factory=list)
@@ -193,6 +207,10 @@ class ModelVersionSummary(BaseModel):
 class ModelVersionPage(BaseModel):
     items: list[ModelVersionSummary]
     next_before_id: int | None = None
+    active_model_id: str
+    active_seed: int
+    active_model_id: str
+    active_seed: int
 
 
 class DriftEventSummary(BaseModel):

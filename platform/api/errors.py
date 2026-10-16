@@ -23,7 +23,7 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=exc.status_code,
             headers=exc.headers,
-            content={"code": code, "message": message,
+            content={"error_code": code, "message": message,
                      "request_id": getattr(request.state, "request_id", "-")},
         )
 
@@ -37,7 +37,7 @@ def install_error_handlers(app: FastAPI) -> None:
         ]
         return JSONResponse(
             status_code=422,
-            content={"code": "VALIDATION_ERROR", "message": "Request validation failed",
+            content={"error_code": "VALIDATION_ERROR", "message": "Request validation failed",
                      "request_id": getattr(request.state, "request_id", "-"),
                      "details": {"errors": safe_errors}},
         )
@@ -47,6 +47,6 @@ def install_error_handlers(app: FastAPI) -> None:
         logger.exception("Unhandled API error", extra={"request_id": getattr(request.state, "request_id", "-")})
         return JSONResponse(
             status_code=500,
-            content={"code": "INTERNAL_ERROR", "message": "An unexpected error occurred",
+            content={"error_code": "INTERNAL_ERROR", "message": "An unexpected error occurred",
                      "request_id": getattr(request.state, "request_id", "-")},
         )

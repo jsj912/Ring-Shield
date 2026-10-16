@@ -16,10 +16,10 @@ from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
 from api.label_maps import currency_label, payment_format_label
 from api.schemas import (RingDetail, RingEvidenceEdge, RingEvidenceGraph,
-                         RingEvidenceNode, RingPage, RingSummary)
+                         RingEvidenceNode, RingExplanation, RingPage, RingSummary)
 from api.timebasis import from_utc, to_utc
 from contract.schema import TOPOLOGY_TYPES
-from db.models import Account, Ring as PlatformRing, Transaction
+from db.models import Account, Explanation, Ring as PlatformRing, Transaction
 from db.session import db_session
 
 router = APIRouter(tags=["rings"])
@@ -33,6 +33,50 @@ EvidenceRoleKeys = {
 }
 
 
+@router.get("/tenants/{tenant_id}/rings/{ring_id}/explanation",
+            response_model=RingExplanation)
+def get_ring_explanation(
+    tenant_id: int,
+    ring_id: str,
+    principal: Principal = Depends(get_principal),
+) -> RingExplanation:
+    """Return the newest persisted L4 explanation for a tenant-visible ring."""
+    require_tenant_access(tenant_id, principal)
+    with db_session(tenant_id=tenant_id, role=principal.role) as session:
+        ring = session.get(PlatformRing, {"tenant_id": tenant_id, "ring_id": ring_id})
+        if ring is None or ring.scope != "tenant":
+            raise HTTPException(status_code=404, detail="Ring not found")
+        explanation = session.scalar(
+            select(Explanation)
+            .where(Explanation.tenant_id == tenant_id, Explanation.ring_id == ring_id)
+            .order_by(Explanation.created_at.desc(), Explanation.explainer_version.desc())
+            .limit(1)
+        )
+        if explanation is None:
+            raise HTTPException(status_code=404, detail="Explanation not found")
+        raw_provenance = explanation.provenance or {}
+        public_provenance = {
+            key: raw_provenance[key]
+            for key in ("aggregator_id", "model_id", "seed", "explainer_version",
+                        "currency_policy", "rings_schema_version", "mixing", "loo",
+                        "flow_partial", "features_degraded")
+            if key in raw_provenance
+        }
+        return RingExplanation(
+            tenant_id=tenant_id,
+            ring_id=ring_id,
+            explainer_version=explanation.explainer_version,
+            edge_weights=explanation.edge_weights if isinstance(explanation.edge_weights, list) else [],
+            account_weights=explanation.account_weights if isinstance(explanation.account_weights, list) else [],
+            feature_weights=explanation.feature_weights if isinstance(explanation.feature_weights, list) else [],
+            narrative=explanation.narrative,
+            evidence_summary=explanation.evidence_summary,
+            latency_ms=explanation.latency_ms,
+            provenance=public_provenance,
+            created_at=explanation.created_at,
+        )
+
+
 @contextmanager
 def _tenant_session(tenant_id: int, principal: Principal) -> Iterator[Session]:
     require_tenant_access(tenant_id, principal)
@@ -42,6 +86,8 @@ def _tenant_session(tenant_id: int, principal: Principal) -> Iterator[Session]:
 
 def _summary(row: PlatformRing) -> RingSummary:
     payload = row.payload or {}
+    n_currencies = _optional_int(payload.get("n_currencies"))
+    single_currency = n_currencies == 1
     probabilities = row.topology_probs or []
     try:
         topology_probability = float(probabilities[TOPOLOGY_TYPES.index(row.topology_type)])
@@ -54,9 +100,9 @@ def _summary(row: PlatformRing) -> RingSummary:
         topology_prob=topology_probability,
         n_members=len(row.member_accounts),
         n_edges=int(payload.get("n_edges", len(row.member_edges))),
-        total_amount=_optional_float(payload.get("total_amount")),
-        total_currency=currency_label(payload.get("total_currency")),
-        n_currencies=_optional_int(payload.get("n_currencies")),
+        total_amount=_optional_float(payload.get("total_amount")) if single_currency else None,
+        total_currency=currency_label(payload.get("total_currency")) if single_currency else None,
+        n_currencies=n_currencies,
         start_time=to_utc(row.start_time),
         end_time=to_utc(row.end_time),
         confidence=float(row.confidence),

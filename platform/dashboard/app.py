@@ -19,7 +19,8 @@ from contract.schema import TOPOLOGY_TYPES  # noqa: E402
 API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip("/")
 
 
-def _api(method: str, path: str, *, body: dict | None = None, params=None):
+def _api(method: str, path: str, *, body: dict | None = None, params=None,
+         quiet_not_found: bool = False):
     headers = {}
     if st.session_state.get("token"):
         headers["Authorization"] = f"Bearer {st.session_state['token']}"
@@ -35,6 +36,8 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None):
         st.info("Session expired. Please sign in again.")
         st.rerun()
     if not response.is_success:
+        if response.status_code == 404 and quiet_not_found:
+            return None
         try:
             message = response.json().get("message", "Request failed")
         except ValueError:
@@ -156,9 +159,10 @@ def _queue(tenant_id: int) -> None:
             st.session_state["ring_page"] = page + 1
             st.rerun()
 
-    selected_ring = st.selectbox("Open ring", [row["ring_id"] for row in rows])
+    selected_ring = st.selectbox("Open ring", [row["ring_id"] for row in rows],
+                                 key=f"select_ring_{tenant_id}")
     if st.button("View ring"):
-        st.session_state["open_ring"] = selected_ring
+        st.session_state["open_ring"] = {"tenant_id": tenant_id, "ring_id": selected_ring}
         st.rerun()
 
 
@@ -218,7 +222,27 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
                  for edge in evidence["edges"]],
                 use_container_width=True, hide_index=True,
             )
-    st.info("Explanation weights and narrative will appear when the L4 interface is connected.")
+    explanation = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/explanation",
+                       quiet_not_found=True)
+    st.subheader("L4 explanation")
+    if explanation is None:
+        st.info("No verified L4 explanation has been loaded for this ring yet.")
+    else:
+        st.write(explanation["narrative"])
+        st.caption(f"Explainer {explanation['explainer_version']} · {explanation['latency_ms']} ms")
+        with st.expander("Evidence summary"):
+            st.json(explanation["evidence_summary"])
+        if explanation["edge_weights"]:
+            st.markdown("**Edge contribution weights**")
+            st.dataframe(explanation["edge_weights"], use_container_width=True, hide_index=True)
+        if explanation["account_weights"]:
+            st.markdown("**Account contribution weights**")
+            st.dataframe(explanation["account_weights"], use_container_width=True, hide_index=True)
+        if explanation["feature_weights"]:
+            st.markdown("**Feature contributions**")
+            st.dataframe(explanation["feature_weights"], use_container_width=True, hide_index=True)
+        with st.expander("Explanation provenance"):
+            st.json(explanation["provenance"])
 
     st.subheader("Verdict history")
     history = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
@@ -240,7 +264,7 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
         st.warning("Administrators cannot record verdicts.")
         return
     st.subheader("Record a verdict")
-    note = st.text_input("Note (optional for confirm or reject)", key=f"note_{ring_id}")
+    note = st.text_input("Note (optional for confirm or reject)", key=f"note_{tenant_id}_{ring_id}")
     left, right = st.columns(2)
     if left.button("Confirm ring", type="primary"):
         result = _api("POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
@@ -323,10 +347,11 @@ def main() -> None:
     elif page == "Score drift":
         _drift_events(tenant_id)
     else:
-        ring_id = st.session_state.get("open_ring")
-        if ring_id:
-            _ring_detail(tenant_id, ring_id)
+        open_ring = st.session_state.get("open_ring")
+        if isinstance(open_ring, dict) and open_ring.get("tenant_id") == tenant_id:
+            _ring_detail(tenant_id, open_ring["ring_id"])
         else:
+            st.session_state.pop("open_ring", None)
             _queue(tenant_id)
 
 

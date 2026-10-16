@@ -15,6 +15,7 @@ from api.schemas import (DriftEventPage, DriftEventSummary, ModelVersionPage,
                          ModelVersionSummary)
 from db.models import DriftEvent, ModelVersion
 from db.session import db_session
+from settings import load_platform_config
 
 router = APIRouter(tags=["operations"])
 ModelComponent = Literal["expansion", "affinity", "typing", "detector"]
@@ -75,6 +76,8 @@ def list_model_versions(
     return ModelVersionPage(
         items=items,
         next_before_id=items[-1].model_version_id if has_more and items else None,
+        active_model_id=load_platform_config()["active_model_id"],
+        active_seed=int(load_platform_config()["active_seed"]),
     )
 
 

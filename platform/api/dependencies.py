@@ -30,6 +30,13 @@ def get_principal(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Session expired or invalid", headers={"WWW-Authenticate": "Bearer"}) from exc
 
+    # Reject a signed token's cross-tenant path before issuing its account-state
+    # lookup. The token's tenant claim is already cryptographically verified;
+    # same-tenant and admin requests still pass through the live account check.
+    requested_tenant = request.path_params.get("tenant_id")
+    if requested_tenant is not None:
+        require_tenant_access(int(requested_tenant), principal)
+
     # Re-check account state and authorization on every request so disabled users
     # and changed roles lose access before any tenant-scoped query is made.
     with auth_db_session() as session:
