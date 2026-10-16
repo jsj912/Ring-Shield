@@ -143,8 +143,8 @@ class LooInputs:
             kw = dict(affinity=self.affinity, cut=self.cut, method=self.method, gfp=self.gfp, emb=self.emb)
         rr = RingRerunner(included_edges, self.aggregator_id, min_size=self.min_size, **kw)
         if rr.features_degraded:
-            raise RuntimeError("RingRerunner reports features_degraded=True: GFP or embeddings missing; "
-                               "leave-one-out weights would not be comparable with the shipped rings")
+            raise RuntimeError(f"RingRerunner reports features_degraded=True (missing {rr.missing_features}): a feature "
+                               "this affinity uses is missing; leave-one-out would not be comparable with the rings")
         return rr
 
 
@@ -165,14 +165,22 @@ def load_loo_inputs(cfg: dict, seed: int, aggregator_id: str, rings_path, edge_i
         raise ValueError(f"no leave-one-out inputs defined for aggregator {aggregator_id!r}")
     from ringshield.expand.features import EmbeddingStore
     from ringshield.partition.affinity import Affinity
-    part_cfg_path = ri["partition_config"].format(seed=seed)
-    chosen = yaml.safe_load(repo_path(part_cfg_path).read_text(encoding="utf-8"))["chosen"]
+    if ri["partition_config"]:
+        part_cfg_path = ri["partition_config"].format(seed=seed)
+        chosen = yaml.safe_load(repo_path(part_cfg_path).read_text(encoding="utf-8"))["chosen"]
+    else:                       # XR-36: the partition settings the rings file was built with (its own log, `params`)
+        rp = repo_path(rings_path)
+        part_cfg_path = rp.with_name(rp.name + ".log.json").name
+        p = json.loads(rp.with_name(rp.name + ".log.json").read_text(encoding="utf-8"))["params"]
+        chosen = {"min_size": p["min_size"], "cut": p["cut"], "method": p["partition"]}
     ids = sorted({int(e) for e in edge_ids})
     gfp = pd.read_parquet(repo_path(ri["gfp"]), filters=[("EdgeID", "in", ids)])
-    emb_path = ri["embeddings"].format(seed=seed)
-    embdf = pd.read_parquet(repo_path(emb_path), filters=[("edge_id", "in", ids)])
-    emb = EmbeddingStore(embdf["edge_id"].to_numpy(np.int64),
-                         embdf[[c for c in embdf.columns if c.startswith("emb_")]].to_numpy(np.float32))
+    emb_path = ri["embeddings"].format(seed=seed) if ri["embeddings"] else None
+    emb = None                  # a detector whose affinity uses no embeddings (gfpxgb) gets none -- not degraded
+    if emb_path:
+        embdf = pd.read_parquet(repo_path(emb_path), filters=[("edge_id", "in", ids)])
+        emb = EmbeddingStore(embdf["edge_id"].to_numpy(np.int64),
+                             embdf[[c for c in embdf.columns if c.startswith("emb_")]].to_numpy(np.float32))
     params = {"aggregator_id": "full", "min_size": int(chosen["min_size"]), "cut": float(chosen["cut"]),
               "method": str(chosen["method"]), "partition_config": part_cfg_path, "affinity_dir": ri["affinity_dir"],
               "gfp": ri["gfp"], "embeddings": emb_path}

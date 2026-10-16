@@ -1,0 +1,106 @@
+{
+  "experiment_id": "XAI-W2",
+  "explainer_version": "0.4.0-narrative",
+  "inputs": {
+    "rings": "contract/out/rings_full_mega_4.parquet",
+    "scored_edges": "contract/out/scored_edges_mega_4.parquet"
+  },
+  "latency_ms": {
+    "max": 5171.0,
+    "p50": 452.0,
+    "p95": 1306.2,
+    "rings_over_5000_ms": [
+      "full-mega-4-35"
+    ]
+  },
+  "mixing": {
+    "source": "tuned on validation (XR-05)",
+    "values": {
+      "alpha": 0.6,
+      "beta": 0.0,
+      "gamma": 0.4
+    }
+  },
+  "n_conversions_dropped": 633,
+  "n_explained": 105,
+  "n_reproduces_shipped_ring": 104,
+  "n_rings": 105,
+  "n_rings_flow_partial": 0,
+  "n_rings_mixed_currency": 74,
+  "n_rings_with_conversions": 99,
+  "n_undetermined_accounts": 0,
+  "narrative": {
+    "feature_model": "experiments/R2_b0/gfpxgb_scores/model_seed4.json",
+    "n_narratives": 105,
+    "n_rings_without_shap_edges": 0,
+    "rings_with_clause": {
+      "banks": 42,
+      "banks_short": 54,
+      "closure": 103,
+      "cycle": 2,
+      "evidence": 105,
+      "fan_in": 15,
+      "fan_out": 23,
+      "features_both": 89,
+      "features_up": 14,
+      "gather_scatter": 13,
+      "head": 105,
+      "money": 105,
+      "no_closure": 2,
+      "roles_both": 3,
+      "scatter_gather": 10,
+      "stack": 12
+    },
+    "templates": {
+      "CYCLE": 12,
+      "FAN-IN": 15,
+      "FAN-OUT": 23,
+      "GATHER-SCATTER": 21,
+      "RANDOM": 7,
+      "SCATTER-GATHER": 15,
+      "STACK": 12
+    },
+    "topology_source": "rings",
+    "words": {
+      "max": 90,
+      "p50": 86.0
+    }
+  },
+  "not_reproduced": [
+    "full-mega-4-75"
+  ],
+  "outputs": {
+    "explanations": "results/xai/explanations_mega_seed4.parquet",
+    "role_disagreements": "results/xai/roles_disagreement_mega_seed4.csv"
+  },
+  "policy": "converted",
+  "provenance": {
+    "aggregator_id": "full",
+    "model_id": "mega",
+    "rings_schema_version": 2,
+    "seed": 4
+  },
+  "rerun": {
+    "affinity_dir": "experiments/R4_partition/affinity",
+    "aggregator_id": "full",
+    "cut": 0.5,
+    "embeddings": "experiments/R6_mega/embeddings_test_seed4.parquet",
+    "gfp": "data/processed/amlworld_gfp_features_test.parquet",
+    "method": "average",
+    "min_size": 3,
+    "partition_config": "rings_full_mega_4.parquet.log.json"
+  },
+  "role_counts": {
+    "holder": 11,
+    "mule": 142,
+    "peripheral": 18,
+    "sink": 394,
+    "source": 376
+  },
+  "role_disagreements": {
+    "by_cause": {
+      "undefined_hold_time": 6
+    },
+    "n_rows": 6
+  }
+}

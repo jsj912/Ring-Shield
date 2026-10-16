@@ -1,0 +1,6 @@
+ring_id,account_id,research_role,spec_role,research_hold_s,spec_hold_s,inflow,outflow,cause
+full-gfpxgb-4-10,254612,mule,holder,7590.0,331410.0,118956.2,123901.20000000001,hold_time_definition
+full-gfpxgb-4-52,367905,holder,peripheral,,,19428.85,17644.15,undefined_hold_time
+full-gfpxgb-4-64,257868,holder,peripheral,,,59140.58,55163.91,undefined_hold_time
+full-gfpxgb-4-80,64417,holder,peripheral,,,11221.94,9171.93,undefined_hold_time
+full-gfpxgb-4-182,254935,holder,peripheral,,,13001.02,12859.38,undefined_hold_time

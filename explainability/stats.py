@@ -94,3 +94,29 @@ def non_overlap_verdict(ours: dict, control: dict) -> str:
     if ours["lo"] > control["hi"]:
         return "positive"
     return "negative (below)" if ours["hi"] < control["lo"] else "negative (intervals overlap)"
+
+
+def bootstrap_ratio(num: Mapping, den: Mapping, *, n_resamples: int, seed: int, ci: float = 0.95) -> dict:
+    """Percentile bootstrap of sum(num) / sum(den) over units (e.g. precision = correct / predicted, summed over truth
+    rings). Same draw order as bootstrap_mean (one rng.integers(0, n, n) per resample). A resample whose denominator
+    is 0 has no ratio and is left out (reported as n_draws)."""
+    ids = list(num)
+    if set(ids) != set(den):
+        raise ValueError("bootstrap_ratio: num and den must cover the same units")
+    a = np.array([num[i] for i in ids], dtype=float)
+    b = np.array([den[i] for i in ids], dtype=float)
+    n = len(ids)
+    if n == 0 or b.sum() == 0:
+        return {"point": None, "lo": None, "hi": None, "n_units": n, "numerator": float(a.sum()),
+                "denominator": float(b.sum()), "n_draws": 0}
+    rng = np.random.default_rng(seed)
+    draws = []
+    for _ in range(n_resamples):
+        pick = rng.integers(0, n, n)
+        d = b[pick].sum()
+        if d > 0:
+            draws.append(a[pick].sum() / d)
+    lo_q, hi_q = _percentiles(ci)
+    return {"point": float(a.sum() / b.sum()), "lo": float(np.percentile(draws, lo_q)),
+            "hi": float(np.percentile(draws, hi_q)), "n_units": n, "numerator": float(a.sum()),
+            "denominator": float(b.sum()), "n_draws": len(draws)}

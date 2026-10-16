@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "description": "A partial verdict's correction: accounts and/or transactions the analyst removed (platform FR-D52 / PR-13).",
+  "properties": {
+    "note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Note"
+    },
+    "remove_accounts": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Remove Accounts",
+      "type": "array"
+    },
+    "remove_edges": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Remove Edges",
+      "type": "array"
+    }
+  },
+  "title": "RegenerateRequest",
+  "type": "object"
+}

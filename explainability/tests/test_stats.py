@@ -85,3 +85,15 @@ def test_non_overlap_verdict_and_holm():
     assert holm is ring_stats.holm                                     # Joan's, not a copy
     adj = holm([("x", 0.01), ("y", 0.04), ("z", 0.03)])
     assert [r["p_holm"] for r in adj] == pytest.approx([0.03, 0.06, 0.06])
+
+
+def test_bootstrap_ratio_basics():
+    """Ratio of sums over units (role precision / recall): point = sum(num) / sum(den); same answer twice; a unit set
+    with no denominator has no ratio."""
+    from explainability.stats import bootstrap_ratio
+    num, den = {i: float(i % 2) for i in range(40)}, {i: 1.0 for i in range(40)}
+    a = bootstrap_ratio(num, den, n_resamples=300, seed=2)
+    assert a["point"] == 0.5 and a["lo"] <= 0.5 <= a["hi"] and a == bootstrap_ratio(num, den, n_resamples=300, seed=2)
+    assert bootstrap_ratio({1: 0.0}, {1: 0.0}, n_resamples=10, seed=0)["point"] is None
+    with pytest.raises(ValueError, match="same units"):
+        bootstrap_ratio({1: 1.0}, {2: 1.0}, n_resamples=10, seed=0)

@@ -295,5 +295,6 @@ def test_fidelity_json_is_reproducible():
     """Recomputing the report gives exactly the stored file (deterministic draws, current inputs)."""
     from explainability.evaluate import week4_report
     stored = _fidelity_json()
+    stored.pop("role_accuracy", None)                    # added by `evaluate --roles` (Week 5), tested separately
     again = json.loads(json.dumps(week4_report(CFG, CFG["inputs"]["seeds"]), sort_keys=True))
     assert again == stored

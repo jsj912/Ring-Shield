@@ -2,6 +2,8 @@
 
     python -m explainability.evaluate                       # all seeds in config.yaml, primary window
     python -m explainability.evaluate --week4               # Week 4: results/xai/fidelity.json (CIs, controls, XR-23)
+    python -m explainability.evaluate --typology            # Week 5: results/xai/typology_eval.json (XR-25)
+    python -m explainability.evaluate --roles               # Week 5: XR-26 role accuracy, added to fidelity.json
     python -m explainability.evaluate --seeds 1 --rings contract/out/rings_stub_cc.parquet \
         --name fidelity_week1_stub_cc_seed{seed}.json
 
@@ -30,7 +32,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from explainability.contract_io import REPO_ROOT, load_config, provenance, read_rings, read_scored_edges, repo_path
+from explainability.contract_io import (REPO_ROOT, detector_cfg, load_config, load_research_config, provenance,
+                                        read_rings, read_scored_edges, repo_path)
 from explainability.edge_weights import conversion_mask, evidence_edge_ids, rank_by_score
 from explainability.match import (in_window_edge_ids, match_in_window, matching_rule, truth_edge_sets,
                                   window_from_config)
@@ -488,9 +491,308 @@ def week4_report(cfg: dict, seeds) -> dict:
     }
 
 
+# ----------------------------------------------------------------------------- Week 5: typology_eval.json (XR-25)
+SHAPE_CLAUSES = ("fan_out", "fan_in", "gather_scatter", "scatter_gather", "cycle", "stack", "bipartite")
+
+
+def typing_rows(cfg: dict, seeds, window_name: str, *, mapping: str = "by_name") -> pd.DataFrame:
+    """One row per matched ring: true pattern type, the narrated type (the ring's topology_type, as the explanation
+    states it) and the research rule scorer's type, as in evaluation/typing_eval.py.
+
+    mapping "by_name"   the matched prediction is found by ring id (match.match_in_window keeps names aligned).
+    mapping "position"  research's typing_eval.py lookup, rings[m.pred_idx] on restrict_rings positions. restrict_rings
+                        drops rings with no edge in the window, so on the primary window the positions shift and the
+                        wrong ring is typed. Kept ONLY to show that it reproduces r5_typing.json exactly."""
+    from contract.make_scored_edges import load_paths
+    from evaluation.ring_metrics import match_rings
+    from ringshield.evaluate import restrict_rings
+    from ringshield.rings import read_rings_parquet
+    from ringshield.roles import account_roles
+    from ringshield.truth import load_ground_truth
+    from ringshield.typing.features import ring_features
+    from ringshield.typing.rules import rule_type
+    from ringshield.windows import load_windows
+    W = load_windows(repo_path(cfg["research_configs"]["eval_window"]))[window_name]
+    thr, scope = matching_rule(cfg)
+    truth, patterns = load_ground_truth(load_paths()["processed_dir"] / "amlworld_ring_ground_truth.parquet",
+                                        *W.bounds, scope, verbose=False)
+    rows = []
+    for s in seeds:
+        rings_path = cfg["inputs"]["rings"].format(seed=s)
+        recs = read_rings_parquet(repo_path(rings_path))
+        se = read_scored_edges(cfg["inputs"]["scored_edges"].format(seed=s))
+        sei = se.set_index("edge_id")
+        if mapping == "position":
+            in_win = set(se.loc[W.mask(se["timestamp"].to_numpy()), "edge_id"])
+            kept = [r for r in recs if any(e in in_win for e in r.member_edges)]   # what restrict_rings kept
+            ms = match_rings(restrict_rings(recs, se, W), truth, thr)[0]
+            pairs = [(recs[m.pred_idx], m.truth_id) for m in ms]
+            correct = [kept[m.pred_idx].ring_id for m in ms]
+        else:
+            by_id = {r.ring_id: r for r in recs}
+            res = match_in_window(read_rings(rings_path, scored_edges=se), se, W, threshold=thr, scope=scope,
+                                  truth=truth, patterns=patterns)
+            pairs = [(by_id[m.ring_id], int(m.truth_ring_id)) for m in res.matches.itertuples(index=False)]
+        for j, (r, tid) in enumerate(pairs):
+            inc = sorted(set(r.seed_edges + r.expanded_edges))
+            f = ring_features(sei.loc[inc].reset_index(), account_roles(r, se), seed_ratio=len(r.seed_edges) / max(len(inc), 1))
+            rows.append({"seed": s, "ring_id": r.ring_id, "truth_ring": int(tid), "true_type": patterns.get(tid, "?"),
+                         "head_type": r.topology_type, "rule_type": rule_type(f),
+                         "matched_ring_id": correct[j] if mapping == "position" else r.ring_id})
+    return pd.DataFrame(rows)
+
+
+def typing_metrics(d: pd.DataFrame, n_bootstrap: int, rng_seed: int) -> dict:
+    """Accuracy with research's bootstrap over matched rings (typing_eval.py `boot`, same draws), macro-F1,
+    per-class recall and the 8x8 confusion matrices -- the r5_typing.json fields."""
+    from sklearn.metrics import f1_score
+    from contract.schema import TOPOLOGY_TYPES
+    from ringshield.typing.head import confusion
+
+    def boot(col):
+        ok = (d[col].to_numpy() == d["true_type"].to_numpy()).astype(float)
+        rng = np.random.default_rng(rng_seed)
+        draws = ok[rng.integers(0, len(ok), (n_bootstrap, len(ok)))].mean(axis=1)
+        return {"point": float(ok.mean()), "lo": float(np.percentile(draws, 2.5)), "hi": float(np.percentile(draws, 97.5)),
+                "n": int(len(ok))}
+    return {
+        "n_matched_rings": int(len(d)), "head": boot("head_type"), "rule": boot("rule_type"),
+        "head_macro_f1": float(f1_score(d.true_type, d.head_type, average="macro", labels=TOPOLOGY_TYPES, zero_division=0)),
+        "rule_macro_f1": float(f1_score(d.true_type, d.rule_type, average="macro", labels=TOPOLOGY_TYPES, zero_division=0)),
+        "per_class": {t: {"n": int((d.true_type == t).sum()),
+                          "head_recall": float((d.loc[d.true_type == t, "head_type"] == t).mean()) if (d.true_type == t).any() else None,
+                          "rule_recall": float((d.loc[d.true_type == t, "rule_type"] == t).mean()) if (d.true_type == t).any() else None}
+                      for t in TOPOLOGY_TYPES},
+        "head_confusion": json.loads(confusion(list(d.true_type), list(d.head_type)).to_json(orient="split")),
+        "rule_confusion": json.loads(confusion(list(d.true_type), list(d.rule_type)).to_json(orient="split")),
+        "per_seed": {str(s): {"n_matched": int(len(g)), "head_accuracy": float((g.head_type == g.true_type).mean()),
+                              "rule_accuracy": float((g.rule_type == g.true_type).mean())}
+                     for s, g in d.groupby("seed")}}
+
+
+def typology_report(cfg: dict, seeds) -> dict:
+    """XR-25: accuracy of the narrated topology_type against the true pattern type on matched rings (Joan, Q1).
+    Headline on the primary window with matches found by ring id; the whole test period as the window sensitivity;
+    the shape-sentence split from the Week 3 narratives; and the reproduction of research's r5_typing.json."""
+    import pyarrow.parquet as pq
+    nb, sd = 1000, 0                                   # research's typing_eval.py defaults, so the CIs are comparable
+    prim = typing_rows(cfg, seeds, "primary")
+    whole = typing_rows(cfg, seeds, "whole")
+    shipped = cfg.get("detector", "gine_causal") == "gine_causal"     # r5_typing.json exists only for it
+    legacy = typing_rows(cfg, seeds, "primary", mapping="position") if shipped else None
+    out_dir = repo_path(cfg["output_dir"])
+    shape = {}
+    for s in seeds:
+        for r in pq.read_table(out_dir / cfg["explanations_name_week3"].format(seed=s),
+                               columns=["ring_id", "evidence_summary"]).to_pylist():
+            shape[(s, r["ring_id"])] = bool(set(json.loads(r["evidence_summary"])["clauses"]) & set(SHAPE_CLAUSES))
+    prim["shape_sentence"] = [shape[(s, rid)] for s, rid in zip(prim["seed"], prim["ring_id"])]
+    split = {}
+    for flag, g in prim.groupby("shape_sentence"):
+        split["stated" if flag else "not_stated"] = {"n": int(len(g)),
+                                                     "narrated_type_accuracy": float((g.head_type == g.true_type).mean())}
+    r5 = json.loads(repo_path("results/tables/r5_typing.json").read_text(encoding="utf-8")) if shipped else None
+    n_wrong = int((legacy["ring_id"] != legacy["matched_ring_id"]).sum()) if shipped else None
+    head_prim = typing_metrics(prim, nb, sd)
+    head_whole = typing_metrics(whole, nb, sd)
+    return {
+        "experiment_id": "XAI-W5", "explainer_version": cfg["explainer_version"],
+        "what": "XR-25: accuracy of the narrated topology type (the ring's topology_type, Step 8 typing head) and of the "
+                "research rule scorer against the true pattern type, on matched rings; 8x8 confusion; per-type recall",
+        "status": "headline uses matches found by ring id; differs from research's r5_typing.json, whose primary-window "
+                  "rows type the wrong ring (see reproduction_of_r5_typing) -- pending Joan's confirmation",
+        "evaluation": {"seeds": [int(s) for s in seeds], "scope": "test_visible", "match_threshold": matching_rule(cfg)[0],
+                       "bootstrap": f"over matched rings, {nb} resamples, rng seed {sd} (research's typing_eval.py)",
+                       "rule_type": "ringshield.typing.rules.rule_type on ring_features(included edges, account_roles raw)"},
+        "primary": head_prim,
+        "whole_test_period": head_whole,
+        "shape_sentence_split": {"what": "narrated-type accuracy on matched primary-window rings, by whether the Week 3 "
+                                         "narrative states a shape sentence (one that holds on the ring's transactions)",
+                                 **split},
+        "detector": cfg.get("detector", "gine_causal"),
+        "reproduction_of_r5_typing": None if not shipped else {
+            "what": "research's evaluation/typing_eval.py looks the matched ring up as rings[m.pred_idx], but the "
+                    "positions index restrict_rings' output, which drops rings with no edge in the window; on the "
+                    "primary window 72 rings are dropped and the lookup shifts. With that lookup we reproduce "
+                    "r5_typing.json exactly; with the lookup by ring id the numbers are the 'primary' block above.",
+            "position_lookup": {"head_accuracy": float((legacy.head_type == legacy.true_type).mean()),
+                                "rule_accuracy": float((legacy.rule_type == legacy.true_type).mean()),
+                                "n": int(len(legacy))},
+            "r5_typing_json": {"head_accuracy": r5["pooled"]["head_accuracy"], "rule_accuracy": r5["pooled"]["rule_accuracy"],
+                               "n": r5["n_matched_rings_total"]},
+            "n_rows_typing_a_different_ring_than_matched": n_wrong,
+            "whole_window_unaffected": "no ring is dropped on the whole test period, so both lookups agree there"},
+        "caveats": {
+            "window": f"primary {head_prim['head']['point']:.3f} vs whole test period {head_whole['head']['point']:.3f} "
+                      f"(same classifier): with the lookup by ring id typing is NOT strongly window-bounded; the 0.219 "
+                      f"vs 0.594 gap in docs/TYPING.md comes from the shifted lookup",
+            "raw_roles": "the typing head's role-count features were built on raw (cross-currency) roles "
+                         "(docs/PITFALLS.md, 'What it reached'); the narrated roles are currency-converted"},
+    }
+
+
+# ----------------------------------------------------------------------------- Week 5: role accuracy (XR-26)
+ROLE_NAMES = ("source", "sink", "mule", "holder", "peripheral", "undetermined")
+ROLE_VARIANTS = {
+    "headline": "our roles over the ring's seed + expanded edges (conversions removed), vs the truth ring's roles over "
+                "its in-window edges; accounts in only one of the two rings count as errors (spec 6.5)",
+    "in_window": "the same, our roles recomputed on the ring's in-window seed + expanded edges only -- separates the "
+                 "time-window effect from membership errors",
+    "accounts_in_both": "per-role agreement on accounts present in BOTH rings only -- pure role errors, no membership "
+                        "errors (Joan, Q2)",
+}
+
+
+def _role_counts(pred: dict, truth: dict) -> dict:
+    """{role: (correct, predicted with that role, true with that role)}; an account missing on one side has no role
+    there, so it can only be wrong for the side that has it."""
+    out = {}
+    for r in ROLE_NAMES:
+        p = {a for a, d in pred.items() if d["role"] == r}
+        t = {a for a, d in truth.items() if d["role"] == r}
+        out[r] = (len(p & t), len(p), len(t))
+    return out
+
+
+def role_rows(cfg: dict, seeds, *, inputs: dict | None = None, explanations_name: str | None = None) -> pd.DataFrame:
+    """One row per (matched ring-instance, variant, role) with correct / predicted / true counts, plus the number of
+    accounts whose recomputed role differs from the role shipped in the explanation. Roles everywhere come from
+    research's roles_for_edges(currency="converted") -- one code path for both sides (Joan, Q2)."""
+    import pyarrow.parquet as pq
+    from ringshield.typing.truth_rings import roles_for_edges
+    inp = inputs or cfg["inputs"]
+    expl_name = explanations_name or cfg["explanations_name_week3"]
+    roles_cfg = load_research_config(cfg, "roles")
+    W = window_from_config(cfg)
+    thr, scope = matching_rule(cfg)
+    out = []
+    for s in seeds:
+        se = read_scored_edges(inp["scored_edges"].format(seed=s))
+        rings = read_rings(inp["rings"].format(seed=s), scored_edges=se)
+        res = match_in_window(rings, se, W, threshold=thr, scope=scope, truth_path=inp["truth"])
+        T = truth_edge_sets(inp["split_parquet"], W, ring_ids=res.matches["truth_ring_id"])
+        in_win = in_window_edge_ids(se, W)
+        conv = conversion_mask(se)
+        sei = se.set_index("edge_id")
+        shipped = {r["ring_id"]: {a["account_id"]: a["role"] for a in r["account_weights"]}
+                   for r in pq.read_table(repo_path(cfg["output_dir"]) / expl_name.format(seed=s),
+                                          columns=["ring_id", "account_weights"]).to_pylist()}
+        ring_by_id = rings.set_index("ring_id")
+
+        def roles(ids):
+            ids = sorted(ids)
+            return roles_for_edges(sei.loc[ids].reset_index(), roles_cfg, currency="converted") if ids else {}
+        for m in res.matches.itertuples(index=False):
+            r = ring_by_id.loc[m.ring_id]
+            inc = [int(e) for e in set(r["seed_edges"]) | set(r["expanded_edges"]) if not conv.loc[int(e)]]
+            truth = roles(T.edges[int(m.truth_ring_id)])
+            pred = roles(inc)
+            pred_win = roles([e for e in inc if e in in_win])
+            both = set(pred) & set(truth)
+            ship = shipped[m.ring_id]
+            n_diff = sum(1 for a in pred if a in ship and ship[a] != pred[a]["role"])
+            base = {"seed": s, "ring_id": m.ring_id, "truth_ring_id": int(m.truth_ring_id),
+                    "n_pred_accounts": len(pred), "n_truth_accounts": len(truth), "n_both": len(both),
+                    "n_recomputed_differs_from_shipped": n_diff}
+            for variant, (p, t) in {"headline": (pred, truth), "in_window": (pred_win, truth),
+                                    "accounts_in_both": ({a: pred[a] for a in both}, {a: truth[a] for a in both})}.items():
+                for role, (c, np_, nt) in _role_counts(p, t).items():
+                    out.append({**base, "variant": variant, "role": role, "correct": c, "predicted": np_, "true": nt})
+    return pd.DataFrame(out)
+
+
+def role_accuracy_block(cfg: dict, seeds, **kw) -> dict:
+    """XR-26 for fidelity.json: per variant and role, precision = correct / predicted and recall = correct / true,
+    pooled over truth rings (each truth ring = mean of its counts over the seeds where it was matched), with percentile
+    bootstrap intervals over truth rings (stats.bootstrap_ratio, Week 4 draws)."""
+    from explainability.stats import bootstrap_ratio, per_truth_ring
+    ev = cfg["evaluation"]
+    nb, sd, ci = int(ev["bootstrap_resamples"]), int(ev["stats_seed"]), float(ev["ci"])
+    rows = role_rows(cfg, seeds, **kw)
+    first = rows[(rows.variant == "headline") & (rows.role == ROLE_NAMES[0])]
+    out = {"what": "XR-26 role precision / recall of the narrated (converted) roles against roles derived from the "
+                   "truth ring's in-window edges with the same algorithm (ringshield roles_for_edges, converted)",
+           "unit": "truth ring; counts averaged over the detector seeds in which it was matched",
+           "n_ring_instances": int(len(first)),
+           "n_truth_rings": int(first["truth_ring_id"].nunique()),
+           "shipped_vs_recomputed": {"n_accounts_compared": int(first["n_pred_accounts"].sum()),
+                                     "n_role_differs": int(first["n_recomputed_differs_from_shipped"].sum()),
+                                     "why": "the shipped roles include the 33 currency conversions the ring-builder "
+                                            "used; the evaluation removes them on both sides (Joan, Q2)"},
+           "variants": {}}
+    for variant, desc in ROLE_VARIANTS.items():
+        g = rows[rows.variant == variant]
+        block = {"what": desc, "per_role": {}}
+        for role in ROLE_NAMES:
+            h = g[g.role == role]
+            per_seed = lambda col: [dict(zip(x["truth_ring_id"], x[col])) for _, x in h.groupby("seed", sort=True)]
+            corr, _ = per_truth_ring(per_seed("correct"))
+            pred, _ = per_truth_ring(per_seed("predicted"))
+            true, _ = per_truth_ring(per_seed("true"))
+            block["per_role"][role] = {
+                "precision": bootstrap_ratio(corr, pred, n_resamples=nb, seed=sd, ci=ci),
+                "recall": bootstrap_ratio(corr, true, n_resamples=nb, seed=sd, ci=ci),
+                "n_predicted": int(h["predicted"].sum()), "n_true": int(h["true"].sum()),
+                "n_correct": int(h["correct"].sum())}
+        if variant == "accounts_in_both":
+            n_both = int(rows[(rows.variant == variant) & (rows.role == ROLE_NAMES[0])]["n_both"].sum())
+            block["n_accounts"] = n_both
+            block["agreement"] = (float(g["correct"].sum()) / n_both) if n_both else None
+        out["variants"][variant] = block
+    return out
+
+
+# ----------------------------------------------------------------------------- Week 5: XR-36 summary
+def detectors_summary(cfg: dict, seeds) -> dict:
+    """XR-36: one table over every detector profile, read from the files each detector's run wrote with the SAME code
+    (explain, evaluate --week4 / --typology / --roles with --detector). Nothing is recomputed here."""
+    import pyarrow.parquet as pq
+    out_dir = repo_path(cfg["output_dir"])
+    rows = {}
+    for d in cfg["detectors"]:
+        dc = detector_cfg(cfg, d)
+        logs = [json.loads((out_dir / (dc["explanations_name_week3"].format(seed=s) + ".log.json")).read_text(encoding="utf-8"))
+                for s in seeds]
+        first = pq.read_table(out_dir / dc["explanations_name_week3"].format(seed=seeds[0]), columns=["provenance"])
+        prov = json.loads(first.column("provenance")[0].as_py())
+        fid = json.loads((out_dir / dc["fidelity_week4_name"]).read_text(encoding="utf-8"))
+        typ = json.loads((out_dir / dc["typology_name"]).read_text(encoding="utf-8"))
+        h = fid["headline"]["fidelity"]
+        ra = fid.get("role_accuracy")
+        rows[d] = {
+            "label": cfg["detectors"][d]["label"],
+            "inputs": {"scored_edges": dc["inputs"]["scored_edges"], "rings": dc["inputs"]["rings"],
+                       "embeddings": dc["research_inputs"]["embeddings"], "affinity_dir": dc["research_inputs"]["affinity_dir"],
+                       "partition": prov["rerun"].get("partition_config")},
+            "mixing": prov["mixing"], "mixing_source": prov["mixing_source"],
+            "n_rings": sum(l["n_rings"] for l in logs), "n_explained": sum(l["n_explained"] for l in logs),
+            "n_degraded": 0,      # a degraded rerun raises (edge_weights.LooInputs.rerunner); every ring was explained
+            "n_reproduces_shipped_ring": sum(l["n_reproduces_shipped_ring"] for l in logs),
+            "latency_p95_ms": max(l["latency_ms"]["p95"] for l in logs),
+            "latency_max_ms": max(l["latency_ms"]["max"] for l in logs),
+            "n_matched_ring_instances": fid["headline"]["n_ring_instances"], "n_truth_rings": fid["headline"]["n_truth_rings"],
+            "fidelity_at5": {k: h[k]["5"]["point"] for k in ("w_total", "score_only", "random")},
+            "fidelity_at5_ci": {k: [h[k]["5"]["lo"], h[k]["5"]["hi"]] for k in ("w_total", "score_only", "random")},
+            "verdict": fid["headline"]["overall"],
+            "saturation": fid["findings"]["saturation"],
+            "expanded_recall_at5": {k: v["5"]["point"] for k, v in
+                                    fid["xr23"]["headline_b_expanded_recall"].get("fidelity", {}).items()},
+            "typing_accuracy_primary": typ["primary"]["head"]["point"],
+            "rule_accuracy_primary": typ["primary"]["rule"]["point"],
+            "role_agreement_accounts_in_both": None if ra is None else ra["variants"]["accounts_in_both"]["agreement"],
+        }
+    return {"experiment_id": "XAI-W5", "explainer_version": cfg["explainer_version"],
+            "what": "XR-36: the same layer run unchanged on every detector's contract files; per detector, what was read "
+                    "and the headline results (latency p95 = the worst seed's p95)",
+            "same_code": "explainability/ unchanged between detectors; only contract_io.detector_cfg swaps the inputs",
+            "detectors": rows}
+
+
 # ----------------------------------------------------------------------------- CLI
 def main(argv=None) -> int:
-    cfg = load_config()
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--detector", default="gine_causal")
+    cfg = detector_cfg(load_config(), pre.parse_known_args(argv)[0].detector)
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--split", choices=["test", "val"], default="test",
                     help="test = the reporting split; val = the validation rings (only for choosing settings)")
@@ -512,7 +814,47 @@ def main(argv=None) -> int:
                     help="explanations parquet ('{seed}' filled in): adds the w_total ranking it contains")
     ap.add_argument("--week4", action="store_true",
                     help="write results/xai/fidelity.json: CIs, controls, paired tests, XR-23 (pooled over seeds) and stop")
+    ap.add_argument("--typology", action="store_true", help="write results/xai/typology_eval.json (XR-25) and stop")
+    ap.add_argument("--detector", default="gine_causal",
+                    help="XR-36: which detector's files (a profile under `detectors` in config.yaml)")
+    ap.add_argument("--detectors-summary", action="store_true",
+                    help="XR-36: write results/xai/xr36_detectors.json from every detector's output files and stop")
+    ap.add_argument("--roles", action="store_true",
+                    help="add XR-26 role accuracy to results/xai/fidelity.json (other sections untouched) and stop")
     a = ap.parse_args(argv)
+    if a.detectors_summary:
+        rep = detectors_summary(load_config(), a.seeds)
+        path = write_json(rep, repo_path(a.out) / cfg["detectors_summary_name"])
+        for d, v in rep["detectors"].items():
+            print(f"{d}: {v['n_explained']}/{v['n_rings']} explained, degraded {v['n_degraded']}, p95 {v['latency_p95_ms']:.0f} ms, "
+                  f"fidelity@5 w_total {v['fidelity_at5']['w_total']:.3f} score {v['fidelity_at5']['score_only']:.3f} "
+                  f"random {v['fidelity_at5']['random']:.3f} ({v['verdict']}); typing {v['typing_accuracy_primary']:.3f}")
+        print(f"-> {_rel(path)}")
+        return 0
+    if a.roles:
+        path = repo_path(a.out) / cfg["fidelity_week4_name"]
+        rep = json.loads(path.read_text(encoding="utf-8"))
+        rep["role_accuracy"] = role_accuracy_block(cfg, a.seeds)
+        write_json(rep, path)
+        ra = rep["role_accuracy"]
+        print(f"{ra['n_truth_rings']} truth rings / {ra['n_ring_instances']} ring-instances; shipped vs recomputed "
+              f"{ra['shipped_vs_recomputed']}")
+        for v, b in ra["variants"].items():
+            print(f"  {v}: " + "; ".join(f"{r} P {x['precision']['point'] if x['precision']['point'] is not None else float('nan'):.2f} "
+                                       f"R {x['recall']['point'] if x['recall']['point'] is not None else float('nan'):.2f}"
+                                       for r, x in b["per_role"].items()) + (f"; agreement {b['agreement']:.3f}" if "agreement" in b else ""))
+        print(f"-> {_rel(path)}")
+        return 0
+    if a.typology:
+        rep = typology_report(cfg, a.seeds)
+        path = write_json(rep, repo_path(a.out) / cfg["typology_name"])
+        p, w = rep["primary"], rep["whole_test_period"]
+        print(f"primary: head {p['head']['point']:.3f} [{p['head']['lo']:.3f}, {p['head']['hi']:.3f}], rule "
+              f"{p['rule']['point']:.3f} (n {p['n_matched_rings']}); whole: head {w['head']['point']:.3f}; "
+              f"shape sentence {rep['shape_sentence_split']}; r5 reproduction "
+              f"{(rep['reproduction_of_r5_typing'] or {}).get('position_lookup', 'n/a (shipped detector only)')}")
+        print(f"-> {_rel(path)}")
+        return 0
     if a.week4:
         rep = week4_report(cfg, a.seeds)
         path = write_json(rep, repo_path(a.out) / cfg["fidelity_week4_name"])

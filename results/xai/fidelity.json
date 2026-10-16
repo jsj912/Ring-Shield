@@ -385,6 +385,450 @@
       "n_matched": 73
     }
   },
+  "role_accuracy": {
+    "n_ring_instances": 401,
+    "n_truth_rings": 100,
+    "shipped_vs_recomputed": {
+      "n_accounts_compared": 3464,
+      "n_role_differs": 13,
+      "why": "the shipped roles include the 33 currency conversions the ring-builder used; the evaluation removes them on both sides (Joan, Q2)"
+    },
+    "unit": "truth ring; counts averaged over the detector seeds in which it was matched",
+    "variants": {
+      "accounts_in_both": {
+        "agreement": 0.8277583624563155,
+        "n_accounts": 2003,
+        "per_role": {
+          "holder": {
+            "n_correct": 0,
+            "n_predicted": 12,
+            "n_true": 0,
+            "precision": {
+              "denominator": 3.6166666666666667,
+              "hi": 0.0,
+              "lo": 0.0,
+              "n_draws": 999,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": 0.0
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            }
+          },
+          "mule": {
+            "n_correct": 133,
+            "n_predicted": 349,
+            "n_true": 165,
+            "precision": {
+              "denominator": 80.46666666666667,
+              "hi": 0.5753375939490045,
+              "lo": 0.26865176641028665,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 32.93333333333334,
+              "point": 0.4092792046396024
+            },
+            "recall": {
+              "denominator": 41.7,
+              "hi": 0.8789478905597329,
+              "lo": 0.6969438285291945,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 32.93333333333334,
+              "point": 0.7897681854516387
+            }
+          },
+          "peripheral": {
+            "n_correct": 5,
+            "n_predicted": 62,
+            "n_true": 10,
+            "precision": {
+              "denominator": 19.133333333333333,
+              "hi": 0.14605949690782977,
+              "lo": 0.0,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 1.0,
+              "point": 0.05226480836236934
+            },
+            "recall": {
+              "denominator": 2.0,
+              "hi": 0.6,
+              "lo": 0.4,
+              "n_draws": 864,
+              "n_units": 100,
+              "numerator": 1.0,
+              "point": 0.5
+            }
+          },
+          "sink": {
+            "n_correct": 646,
+            "n_predicted": 664,
+            "n_true": 917,
+            "precision": {
+              "denominator": 148.08333333333334,
+              "hi": 0.984965897464237,
+              "lo": 0.9339839300377322,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 142.93333333333334,
+              "point": 0.9652222847495779
+            },
+            "recall": {
+              "denominator": 206.0,
+              "hi": 0.7919866610006556,
+              "lo": 0.5761706771397617,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 142.93333333333334,
+              "point": 0.6938511326860841
+            }
+          },
+          "source": {
+            "n_correct": 874,
+            "n_predicted": 916,
+            "n_true": 911,
+            "precision": {
+              "denominator": 210.36666666666667,
+              "hi": 0.9717464000562336,
+              "lo": 0.9158904368669307,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 199.43333333333334,
+              "point": 0.9480272540009507
+            },
+            "recall": {
+              "denominator": 211.96666666666667,
+              "hi": 0.9684719036697248,
+              "lo": 0.9038341114045588,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 199.43333333333334,
+              "point": 0.9408712061644913
+            }
+          },
+          "undetermined": {
+            "n_correct": 0,
+            "n_predicted": 0,
+            "n_true": 0,
+            "precision": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            }
+          }
+        },
+        "what": "per-role agreement on accounts present in BOTH rings only -- pure role errors, no membership errors (Joan, Q2)"
+      },
+      "headline": {
+        "per_role": {
+          "holder": {
+            "n_correct": 0,
+            "n_predicted": 19,
+            "n_true": 0,
+            "precision": {
+              "denominator": 5.016666666666667,
+              "hi": 0.0,
+              "lo": 0.0,
+              "n_draws": 999,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": 0.0
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            }
+          },
+          "mule": {
+            "n_correct": 133,
+            "n_predicted": 578,
+            "n_true": 187,
+            "precision": {
+              "denominator": 131.66666666666666,
+              "hi": 0.3717474014165615,
+              "lo": 0.1619727573557742,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 32.93333333333334,
+              "point": 0.25012658227848106
+            },
+            "recall": {
+              "denominator": 47.0,
+              "hi": 0.817204481792717,
+              "lo": 0.5880263157894737,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 32.93333333333334,
+              "point": 0.7007092198581562
+            }
+          },
+          "peripheral": {
+            "n_correct": 5,
+            "n_predicted": 70,
+            "n_true": 10,
+            "precision": {
+              "denominator": 21.18333333333333,
+              "hi": 0.13158100649100352,
+              "lo": 0.0,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 1.0,
+              "point": 0.04720692368214006
+            },
+            "recall": {
+              "denominator": 2.0,
+              "hi": 0.6,
+              "lo": 0.4,
+              "n_draws": 864,
+              "n_units": 100,
+              "numerator": 1.0,
+              "point": 0.5
+            }
+          },
+          "sink": {
+            "n_correct": 646,
+            "n_predicted": 1436,
+            "n_true": 959,
+            "precision": {
+              "denominator": 338.65,
+              "hi": 0.5234216753308618,
+              "lo": 0.3252523077537268,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 142.93333333333334,
+              "point": 0.42206801515822634
+            },
+            "recall": {
+              "denominator": 218.0,
+              "hi": 0.7475020277577507,
+              "lo": 0.5422176295143617,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 142.93333333333334,
+              "point": 0.65565749235474
+            }
+          },
+          "source": {
+            "n_correct": 874,
+            "n_predicted": 1361,
+            "n_true": 969,
+            "precision": {
+              "denominator": 325.1666666666667,
+              "hi": 0.7029547192824541,
+              "lo": 0.5352611367101198,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 199.43333333333334,
+              "point": 0.6133264992311634
+            },
+            "recall": {
+              "denominator": 229.0,
+              "hi": 0.9067407202011238,
+              "lo": 0.8203103873673822,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 199.43333333333334,
+              "point": 0.8708879184861718
+            }
+          },
+          "undetermined": {
+            "n_correct": 0,
+            "n_predicted": 0,
+            "n_true": 0,
+            "precision": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            }
+          }
+        },
+        "what": "our roles over the ring's seed + expanded edges (conversions removed), vs the truth ring's roles over its in-window edges; accounts in only one of the two rings count as errors (spec 6.5)"
+      },
+      "in_window": {
+        "per_role": {
+          "holder": {
+            "n_correct": 0,
+            "n_predicted": 0,
+            "n_true": 0,
+            "precision": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            }
+          },
+          "mule": {
+            "n_correct": 133,
+            "n_predicted": 139,
+            "n_true": 187,
+            "precision": {
+              "denominator": 35.86666666666667,
+              "hi": 0.9833843362323458,
+              "lo": 0.810100453471809,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 32.93333333333334,
+              "point": 0.9182156133828997
+            },
+            "recall": {
+              "denominator": 47.0,
+              "hi": 0.817204481792717,
+              "lo": 0.5880263157894737,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 32.93333333333334,
+              "point": 0.7007092198581562
+            }
+          },
+          "peripheral": {
+            "n_correct": 2,
+            "n_predicted": 29,
+            "n_true": 10,
+            "precision": {
+              "denominator": 7.916666666666666,
+              "hi": 0.19794836840759994,
+              "lo": 0.0,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 0.4,
+              "point": 0.05052631578947369
+            },
+            "recall": {
+              "denominator": 2.0,
+              "hi": 0.4,
+              "lo": 0.0,
+              "n_draws": 864,
+              "n_units": 100,
+              "numerator": 0.4,
+              "point": 0.2
+            }
+          },
+          "sink": {
+            "n_correct": 890,
+            "n_predicted": 923,
+            "n_true": 959,
+            "precision": {
+              "denominator": 207.5,
+              "hi": 0.9768913210445469,
+              "lo": 0.9280251154719139,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 198.41666666666669,
+              "point": 0.9562248995983936
+            },
+            "recall": {
+              "denominator": 218.0,
+              "hi": 0.9459246176861702,
+              "lo": 0.8661096144065102,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 198.41666666666669,
+              "point": 0.9101681957186545
+            }
+          },
+          "source": {
+            "n_correct": 890,
+            "n_predicted": 949,
+            "n_true": 969,
+            "precision": {
+              "denominator": 225.36666666666667,
+              "hi": 0.9433848596875318,
+              "lo": 0.8615008461863489,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 204.60000000000002,
+              "point": 0.9078538677710398
+            },
+            "recall": {
+              "denominator": 229.0,
+              "hi": 0.9265676818950931,
+              "lo": 0.8489409733823368,
+              "n_draws": 1000,
+              "n_units": 100,
+              "numerator": 204.60000000000002,
+              "point": 0.8934497816593887
+            }
+          },
+          "undetermined": {
+            "n_correct": 0,
+            "n_predicted": 0,
+            "n_true": 0,
+            "precision": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 100,
+              "numerator": 0.0,
+              "point": null
+            }
+          }
+        },
+        "what": "the same, our roles recomputed on the ring's in-window seed + expanded edges only -- separates the time-window effect from membership errors"
+      }
+    },
+    "what": "XR-26 role precision / recall of the narrated (converted) roles against roles derived from the truth ring's in-window edges with the same algorithm (ringshield roles_for_edges, converted)"
+  },
   "secondary_non_saturated": {
     "comparisons": {
       "w_total vs random @10": {

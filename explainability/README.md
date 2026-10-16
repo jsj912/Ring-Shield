@@ -1,4 +1,4 @@
-# L4 Explainability — Weeks 1 to 4 handoff
+# L4 Explainability — Weeks 1 to 5 handoff
 
 **Branch:** `explainability-l4`. It contains Joan's `v2` up to commit `77add7f` (merged by you), your
 fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Week 3 (`c5e2dd5`), all pushed.
@@ -16,8 +16,11 @@ fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Wee
   **negative**: our ranking does not beat either comparison. Week 4 is described in **section 15**.
 - **Synced with Joan's `v2` at `b35b233`** (section 16): her feature loader, her code-to-name maps (currency 0 is
   **US Dollar**, the unconvertible currency 1 is **Bitcoin**, payment format 3 is **ACH**, bank names), her roles fix.
-- **238 tests pass, 0 skipped, with no pandas warnings**: Joan's 116, 30 for the migration, 79 for Week 3,
-  10 for Week 4, 3 for the sync.
+- **Week 5** (sections 17–18): typology, latency, the API and its samples, role accuracy, and the whole layer run
+  unchanged on all three detectors (Multi-GINe, GFP+XGBoost, MEGA-GNN). **Typology finding:** the research typing table (0.219) types the wrong ring for 316 of 401
+  matches; the narrated shape is right about 60 % of the time on both windows (pending Joan's confirmation).
+- **262 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
+  10 for Week 4, 3 for the sync, 24 for Week 5.
 - Every ring of all five detector seeds, plus the old stub file, has an explanation.
 
 This document is written so that someone with basic technical knowledge can understand what was built,
@@ -115,7 +118,11 @@ explainability/                 the L4 layer
   match.py                      which predicted ring is which truth ring (calls Joan's code)
   edge_weights.py               conversions filter; w_score, w_flow (raw / converted), w_loo, bridges, w_total
   account_weights.py            roles (raw / converted), money in/out, busyness, account weight, spec-role check
-  explain.py                    one explanation row per ring; the Week 3 PILOT review sample; command-line tool
+  explain.py                    one explanation row per ring; the Week 3 PILOT review sample; WEEK 5 latency run
+  api.py                        WEEK 5: the four functions behind the explanation endpoints, incl. regenerate
+  api_schemas.py                WEEK 5: the shapes the endpoints return (pydantic) and the JSON schema export
+  schemas/                      WEEK 5: the exported JSON schemas, one file per shape (for the platform)
+  schemas/examples/             WEEK 5: real sample responses of the four functions on the stub data
   evaluate.py                   fidelity, the policy comparison report, the XR-05 tuning, WEEK 4 fidelity.json
   stats.py                      WEEK 4: bootstrap confidence intervals and paired tests (mirrors Joan's ring_stats)
   feature_weights.py            WEEK 3: the detector-feature model's inputs, SHAP, the top-10 feature weights
@@ -134,6 +141,8 @@ explainability/                 the L4 layer
     test_feature_weights.py     15 tests: WEEK 3, the SHAP model, its inputs and the feature weights
     test_narrative.py           53 tests: WEEK 3, the narrative on hand-made rings of every shape
     test_stats.py                6 tests: WEEK 4, the statistics, checked against Joan's own functions
+    test_week5_eval.py          11 tests: WEEK 5, no attention, typology, latency, role accuracy, three detectors
+    test_api.py                 12 tests: WEEK 5, the API shapes, every real row, the endpoints, the sample fixtures
 results/xai/                    our results (kept apart from Joan's results/tables/)
   fidelity_week1_seed{1..5}.json, fidelity_week1_stub_cc_seed1.json        Week 1 (policy raw, v1 rings)
   explanations_week2_seed{1..5}.parquet (+ .log.json), ..._stub_cc_seed1    Week 2 (policy raw, v1 rings)
@@ -148,6 +157,11 @@ results/xai/                    our results (kept apart from Joan's results/tabl
   roles_disagreement_week3_seed{1..5}.csv, ..._stub_cc_seed1.csv            same content as the converted ones
   narrative_samples_week3.md                  WEEK 3: one narrative per shape -- a PILOT review (7 rings)
   fidelity.json                               WEEK 4: the spec's fidelity file (XR-22/23/24), pooled over seeds
+  typology_eval.json                          WEEK 5: shape accuracy (XR-25), incl. the r5_typing reproduction
+  latency.json                                WEEK 5: the dedicated timing run (XR-27)
+  explanations_{gfpxgb,mega}_seed{1..5}.parquet (+ .log.json), roles_disagreement_{gfpxgb,mega}_*.csv   XR-36
+  fidelity_{gfpxgb,mega}.json, typology_eval_{gfpxgb,mega}.json   XR-36 (fidelity.json also holds role_accuracy)
+  xr36_detectors.json                         WEEK 5: the three detectors side by side
 ```
 
 `.parquet` files are ignored by git in this repository (Joan's convention); the small `.json` / `.csv` /
@@ -560,7 +574,7 @@ Test fidelity, mean over seeds:
 
 ---
 
-## 9. The tests (235 pass, 0 skipped; Week 3 in section 14.6, Week 4 in section 15.6)
+## 9. The tests (262 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18)
 
 **`test_contract_io.py` (73)**
 - All real files load and validate: v2 rings for 5 seeds plus the stub, **and** the v1 originals, each
@@ -671,6 +685,13 @@ Run: `python -m pytest explainability/tests -q` (about 15 minutes).
 | XR-24 random and score-only controls | **met as a measurement; the result is negative**: our ranking does not beat either control (spec 6.2 says to report it as negative) |
 | XR-13 SHAP on the 17-feature model, XR-14 top-10 per ring, XR-15 phrasing, XR-16 templates, XR-17 evidence_summary, XR-18 cross-bank, XR-19 topology source, XR-31 regeneration | **met** (Week 3, section 14) |
 | XR-20 Integrated Gradients (optional, "could") | not done: only if Weeks 1–5 finish early |
+| XR-25 typology accuracy and confusion | **met** (Week 5; headline corrected for the research lookup bug, pending Joan) |
+| XR-27 latency | **met**: p95 918 ms on this laptop |
+| XR-33 functions + schemas, endpoints return 200 on stub data | **met** (Week 5; handoff to Kashish after part 2) |
+| XR-34 regenerate after member edits | **met** |
+| XR-35 no attention weights | **met** (test) |
+| XR-26 role precision / recall vs ground-truth-derived roles | **met** (Week 5, section 18.1) |
+| XR-36 runs unchanged on any detector's files | **met** (Week 5, section 18.2: three detectors, no code difference) |
 
 **Decided with Joan (Week 4):** the spec's definition stays the headline and is reported as negative; the 52
 non-saturated rings are a labelled secondary result; "every transaction touching the ring" is not reported as
@@ -1133,3 +1154,206 @@ Joan answered our open items. Her changes are all in her own folders; ours were 
 - a code-valued feature names its top edge's value.
 
 The clean-narrative check now also refuses any "currency <number>" text.
+
+---
+
+## 17. Week 5 (part 1) — typology, latency, the API
+
+Five of the seven Week 5 steps are built. Role accuracy (XR-26) and "runs on every detector" (XR-36) wait for
+Joan's v2 commit (her `roles_for_edges(currency=...)` helper, the `RingRerunner` change, the XGBoost and MEGA-GNN
+rings).
+
+### 17.1 No attention anywhere (XR-35)
+
+`test_week5_eval.py` reads every `.py` file of the layer and fails if any mentions attention or imports torch.
+
+### 17.2 Typology: how often the narrated shape is right (XR-25) — and a bug found in the research table
+
+**What it measures.** For every predicted ring matched to a truth ring, is the shape the narrative states (the
+ring's `topology_type`, from Joan's typing model) the true pattern type? The research rule scorer is scored on the
+same rings. Output: `results/xai/typology_eval.json` (`python -m explainability.evaluate --typology`).
+
+**What we found.** Joan's `evaluation/typing_eval.py`, behind `results/tables/r5_typing.json` and the 0.219 in
+`docs/TYPING.md`, types the wrong ring for most matches on the primary window.
+- It finds the matched ring as `rings[m.pred_idx]`. But `pred_idx` counts positions in the list `restrict_rings`
+  returns, which **leaves out rings with no transaction in the window** (72 rings over the 5 seeds). Every later
+  position shifts, so the lookup lands on a different ring.
+- Measured: **316 of the 401** matches type a different ring than the one that matched. Check: the members of the
+  ring that was looked up equal the matched set in only 85 of 401 cases; with the lookup by ring id, in all 401.
+- On the whole test period no ring is left out, so nothing shifts and her number there (0.594) is right.
+- This is the same trap our Week 1 code guards against (section 7.2). Her other scripts don't have it:
+  `r7_heldout.py` and `ring_stats.py` rebuild the correct mapping.
+
+**Results (by ring id; pending Joan's confirmation):**
+
+| window | matched rings | typing model (narrated type) | rule scorer |
+|---|---|---|---|
+| primary (test days 8–9) | 401 | **0.599** [0.554, 0.643] | 0.551 |
+| whole test period | 433 | 0.594 | 0.547 |
+
+- **The shape the narrative states is right about 60 % of the time**, on both windows. The "typing is
+  window-bounded" caveat (0.219 against 0.594) disappears once the lookup is fixed.
+- With research's own lookup, our code reproduces `r5_typing.json` exactly: point, interval, macro-F1, per-type
+  recall and both confusion matrices. A test pins this, so the lookup is the whole difference.
+- **Shape sentences are informative.** When the narrative states a shape sentence (one that holds on the ring's
+  transactions; 290 rings), the stated type is right **67 %** of the time. When it can't (111 rings), only **41 %**.
+- Joan's other caveat stands: the typing model's role-count features were built on unconverted roles
+  (`docs/PITFALLS.md`), while the narrated roles are converted.
+
+### 17.3 Latency (XR-27)
+
+A dedicated run: `python -m explainability.explain --latency`. It ran on this laptop with nothing else running,
+single process, over all 560 rings, and writes only `results/xai/latency.json`.
+
+| p50 | p95 | max | over 5 s | target |
+|---|---|---|---|---|
+| 393 ms | **918 ms** | 2,007 ms | 0 | p95 < 2,000 ms — **met** |
+
+- **Where the time goes:**
+  - leave-one-out reruns: 44 %;
+  - SHAP: 29 %;
+  - roles, accounts and shape: 14 %;
+  - the narrative: 10 %;
+  - everything else: 3 %.
+- **Latency follows the number of leave-one-out reruns** (Spearman ρ = 0.98). The slowest ring has 40 seed +
+  expanded transactions.
+- **Setup:** loading the files and building the rerunner and SHAP explainer takes about 9–13 s per file. That is
+  paid once, not per ring, and is reported separately.
+- **Machine:** AMD, 8 cores / 16 threads, 15.4 GB RAM, Windows 11, Python 3.11.9; package versions are in the
+  file.
+- **The laptop met the target**, so the A5000 rerun Joan offered isn't needed.
+
+How it is measured: `explain_ring` now times its stages (read, leave-one-out, edge weights, roles / accounts /
+shape, SHAP, narrative, assemble). The times go into the run log only; the explanation files are unchanged. A test
+checks that the stages add up to each ring's latency.
+
+### 17.4 The API for the platform (XR-33, XR-34)
+
+The platform's FastAPI service owns the routes, the login and the tenant isolation. This layer gives it four
+functions and the shapes of what they return.
+
+| Endpoint (spec 3.3) | Function in `api.py` | Returns (`api_schemas.py`) |
+|---|---|---|
+| `GET …/explanation` | `get_explanation(tenant, ring)` | `Explanation`: the explanation row, with a plain-English `display_name` per feature and the explainer version |
+| `GET …/evidence/edges` | `get_evidence_edges(tenant, ring)` | `EvidenceEdge` list in w_total order: weights plus the raw transaction fields, the amount in US Dollar, and currency / payment-method / bank names |
+| `GET …/evidence/accounts` | `get_evidence_accounts(tenant, ring)` | `EvidenceAccount` list, highest w_account first, with bank id and name |
+| `POST …/explanation/regenerate` | `regenerate(tenant, ring, request)` | a new `Explanation` after the analyst removed accounts and/or transactions |
+
+- **Schemas as files:** `explainability/schemas/*.schema.json` (`python -m explainability.api_schemas` writes
+  them). A test fails if the files and the code ever differ, so the platform's copy can't drift.
+- **Tenants:** an unknown ring and another tenant's ring give the **same** "not found", so a caller can't learn
+  that another bank's ring exists.
+- **Regenerate:**
+  - rebuilds the ring without the removed accounts (and their transactions) and transactions;
+  - explains it from scratch: new leave-one-out reruns, weights, roles, SHAP and narrative;
+  - records the edit in provenance.
+  - The shape stays the typing model's guess for the original ring, and is marked so.
+  - It needs the same research files as a normal run, loaded on the first call.
+- **Roles include `undetermined`** (an account touching Bitcoin): the dashboard needs a sixth role style.
+- **No ground truth** appears in any response (tested on every real ring).
+
+**Tests (`test_api.py`, 11):**
+- The exported schema files equal the code.
+- All three shapes are built and validated for every ring of all six Week 3 files, with no ground-truth field.
+- On the stub data, a test-only FastAPI app with the four routes:
+  - the three GETs return 200;
+  - unknown and other-tenant rings give an identical 404;
+  - **removing a member changes the weights, and the account and its transactions disappear**;
+  - regenerate is deterministic;
+  - an empty request, an unknown account, or an edit leaving fewer than two accounts gives 422;
+  - another tenant gets 404.
+
+---
+
+## 18. Week 5 (part 2) — role accuracy, three detectors, samples for the platform
+
+Built after Joan's `v2` commit `70b997c` (her `roles_for_edges(currency=...)` helper, the detector-aware
+`RingRerunner`, the gfpxgb and MEGA rings files). The handoff files were checked before use:
+- **The 10 new rings files** match her fingerprints and pass our contract reader.
+- **XGBoost seed 1:** our old `scored_edges_gfpxgb_1` (test and validation) had no seeds marked. Joan rebuilt both;
+  only `is_seed` changed, and the stale copies are kept outside the repo.
+- **The other 16 transactions files and the 2.4 GB of MEGA embeddings** match her list.
+
+### 18.1 Role accuracy (XR-26) — `fidelity.json` → `role_accuracy`
+
+**What it measures:** for every matched ring, does each account get the right role? The "right" role is the one
+Joan's same role code gives on the **true** ring's transactions inside the window (converted amounts on both sides,
+currency conversions removed on both sides). Precision and recall per role, bootstrap 95 % intervals over truth
+rings. There are three versions (Joan, Q2):
+
+| version | what it isolates | shipped detector, 100 truth rings |
+|---|---|---|
+| **headline** | our roles as narrated (whole ring span) vs truth roles; accounts in only one of the two rings count as errors | source P 0.61 / R 0.87, sink P 0.42 / R 0.66, mule P 0.25 / R 0.70 |
+| in-window | our roles recomputed on the ring's in-window transactions only | source P 0.91 / R 0.89, sink P 0.96 / R 0.91, mule P 0.92 / R 0.70 |
+| **accounts in both rings** | pure role errors, no membership errors | **82.8 %** of shared accounts get the same role; source 0.95 / 0.94, sink 0.97 / 0.69, mule 0.41 / 0.79 |
+
+**How to read it:**
+- Most of the headline "errors" are not role errors. They come from accounts the ring layer added or missed, and
+  from the predicted ring spanning more time than the 2-day window: in-window, precision jumps to 0.91–0.96.
+- On accounts both rings share, 83 % get the right role. The weak spot is mules: an account we call a mule is
+  often a sink in the truth window, because its onward payment falls outside the window.
+- Holder and peripheral are rare and unreliable. `undetermined` never occurs on matched rings.
+- The recomputed roles differ from the shipped narrated roles for **13 of 3,464** accounts. That's the 33
+  conversions the ring-builder used, which the evaluation removes (Joan, Q2).
+
+### 18.2 The same layer on three detectors (XR-36) — `results/xai/xr36_detectors.json`
+
+**No code differs between detectors.** A profile in `config.yaml` (`detectors:`) swaps the input files.
+- `contract_io.detector_cfg` applies the profile and tags every output name, e.g. `explanations_gfpxgb_seed1.parquet`.
+- The leave-one-out loader takes "no embeddings" and the partition settings from the rings file's own log.
+- **Run it with:** `python -m explainability.explain --detector gfpxgb`, then
+  `python -m explainability.evaluate --detector gfpxgb --week4` (and `--typology`, `--roles`), then
+  `python -m explainability.evaluate --detectors-summary`.
+- The mixing weights stay the XR-05 ones for every detector (Joan: not re-tuned).
+
+| | Multi-GINe (shipped) | GFP+XGBoost | MEGA-GNN |
+|---|---|---|---|
+| rings explained | 560 / 560 | 873 / 873 | 579 / 579 |
+| leave-one-out degraded | 0 | 0 (no embeddings, own 19-feature affinity) | 0 (MEGA embeddings, gine-trained affinity) |
+| rebuild identical to shipped ring | 555 | 856 | 571 |
+| latency p95 (worst seed) / max | 1,240 / 2,987 ms | 1,168 / 4,988 ms | 1,306 / 5,171 ms (1 ring over 5 s) |
+| matched ring-instances / truth rings | 401 / 100 | 372 / 87 | 418 / 103 |
+| rings whose ranked edges are all true | 343 of 395 | 285 of 357 | 366 of 415 |
+| fidelity@5: ours / score-only / random | 0.881 / 0.891 / 0.874 | 0.830 / 0.831 / 0.826 | 0.904 / 0.906 / 0.869 |
+| verdict (spec 6.2) | negative | negative | negative |
+| expanded recall@5: ours / score / random | 0.724 / 0.729 / 0.873 | 0.794 / 0.794 / 0.890 | 0.730 / 0.728 / 0.860 |
+| typing accuracy (narrated) / rule | 0.599 / 0.551 | 0.578 / 0.535 | 0.579 / 0.545 |
+| role agreement, accounts in both | 0.828 | 0.769 | 0.824 |
+
+**The findings hold on every detector:**
+- fidelity saturates;
+- our ranking ties score-only;
+- the recovered quiet-member edges rank below random;
+- the narrated shape is right about 58–60 % of the time;
+- shared accounts get the right role about 77–83 % of the time.
+
+**Latency:** the latencies here come from the explanation runs. The clean, dedicated measurement for the shipped
+detector is `latency.json` (p95 918 ms). One MEGA ring (`full-mega-4-35`) took 5.2 s and is logged, as the spec
+asks; that is the research side's large-component case.
+
+**Detector caveat (Joan):** MEGA is read through an affinity trained on the GINE embedding space
+(`docs/FINDINGS.md`).
+
+### 18.3 Samples for the platform — `explainability/schemas/examples/`
+
+`python -m explainability.api --examples` writes real responses of the four functions on the stub data:
+- `explanation.json`, `evidence_edges.json` and `evidence_accounts.json`;
+- `regenerate_request.json` and `regenerate_response.json` (one sink removed);
+- the two error bodies.
+
+A test validates each against its model and checks that none holds ground truth or a real account number. The
+`account_id` values are the dataset's internal integer ids; real account numbers exist only in
+`data/processed/account_bank.parquet`, which this layer never reads.
+
+### 18.4 The Week 5 part 2 tests
+
+**`test_week5_eval.py` (+6):**
+- role counts by hand;
+- the role-accuracy section of `fidelity.json`;
+- `detector_cfg` swaps only inputs and output names;
+- leave-one-out not degraded for gfpxgb and MEGA (×2);
+- the XR-36 summary: all three detectors, every ring explained, same mixing.
+
+**`test_stats.py` (+1):** the ratio bootstrap.
+
+**`test_api.py` (+1):** the sample fixtures validate. The no-ground-truth check now also covers account numbers.

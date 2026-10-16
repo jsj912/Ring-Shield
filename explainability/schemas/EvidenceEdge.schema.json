@@ -1,0 +1,141 @@
+{
+  "additionalProperties": false,
+  "description": "An evidence transaction with its raw fields joined (spec 3.3), in the explanation's w_total order.",
+  "properties": {
+    "amount_received": {
+      "title": "Amount Received",
+      "type": "number"
+    },
+    "amount_received_converted": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "amount_received in the hub currency (US Dollar); null when its currency (Bitcoin) has no rate",
+      "title": "Amount Received Converted"
+    },
+    "amount_sent": {
+      "title": "Amount Sent",
+      "type": "number"
+    },
+    "converted_currency_name": {
+      "title": "Converted Currency Name",
+      "type": "string"
+    },
+    "currency_received": {
+      "title": "Currency Received",
+      "type": "integer"
+    },
+    "currency_received_name": {
+      "title": "Currency Received Name",
+      "type": "string"
+    },
+    "currency_sent": {
+      "title": "Currency Sent",
+      "type": "integer"
+    },
+    "currency_sent_name": {
+      "title": "Currency Sent Name",
+      "type": "string"
+    },
+    "edge_id": {
+      "title": "Edge Id",
+      "type": "integer"
+    },
+    "from_bank": {
+      "title": "From Bank",
+      "type": "integer"
+    },
+    "from_bank_name": {
+      "description": "display only; not unique",
+      "title": "From Bank Name",
+      "type": "string"
+    },
+    "from_id": {
+      "title": "From Id",
+      "type": "integer"
+    },
+    "is_expanded": {
+      "title": "Is Expanded",
+      "type": "boolean"
+    },
+    "is_seed": {
+      "title": "Is Seed",
+      "type": "boolean"
+    },
+    "payment_format": {
+      "title": "Payment Format",
+      "type": "integer"
+    },
+    "payment_format_name": {
+      "title": "Payment Format Name",
+      "type": "string"
+    },
+    "timestamp": {
+      "description": "seconds since dataset start",
+      "title": "Timestamp",
+      "type": "integer"
+    },
+    "to_bank": {
+      "title": "To Bank",
+      "type": "integer"
+    },
+    "to_bank_name": {
+      "description": "display only; not unique",
+      "title": "To Bank Name",
+      "type": "string"
+    },
+    "to_id": {
+      "title": "To Id",
+      "type": "integer"
+    },
+    "w_flow": {
+      "title": "W Flow",
+      "type": "number"
+    },
+    "w_loo": {
+      "title": "W Loo",
+      "type": "number"
+    },
+    "w_score": {
+      "title": "W Score",
+      "type": "number"
+    },
+    "w_total": {
+      "title": "W Total",
+      "type": "number"
+    }
+  },
+  "required": [
+    "edge_id",
+    "from_id",
+    "to_id",
+    "timestamp",
+    "amount_sent",
+    "amount_received",
+    "amount_received_converted",
+    "converted_currency_name",
+    "currency_sent",
+    "currency_sent_name",
+    "currency_received",
+    "currency_received_name",
+    "payment_format",
+    "payment_format_name",
+    "from_bank",
+    "from_bank_name",
+    "to_bank",
+    "to_bank_name",
+    "is_seed",
+    "is_expanded",
+    "w_total",
+    "w_score",
+    "w_loo",
+    "w_flow"
+  ],
+  "title": "EvidenceEdge",
+  "type": "object"
+}

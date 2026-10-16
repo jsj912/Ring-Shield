@@ -48,6 +48,35 @@ def load_config(path: Path = CONFIG_PATH) -> dict:
     return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
 
 
+DETECTOR_OUTPUT_NAMES = {"explanations_name_week3": "explanations_{d}_seed{{seed}}.parquet",
+                         "disagreement_name_week3": "roles_disagreement_{d}_seed{{seed}}.csv",
+                         "output_name_converted": "fidelity_{d}_seed{{seed}}.json",
+                         "fidelity_week4_name": "fidelity_{d}.json",
+                         "typology_name": "typology_eval_{d}.json",
+                         "latency_name": "latency_{d}.json"}
+
+
+def detector_cfg(cfg: dict, name: str) -> dict:
+    """XR-36: the config for one detector's files. The shipped detector (gine_causal) is the config as it is; any other
+    profile under `detectors` replaces the test-split inputs and the leave-one-out inputs it lists and tags every
+    output name with the detector, so no run overwrites another. Nothing else changes -- same code, same settings,
+    same XR-05 mixing weights (Joan: not re-tuned per detector)."""
+    import copy
+    if name not in cfg["detectors"]:
+        raise ValueError(f"unknown detector {name!r}; profiles: {sorted(cfg['detectors'])}")
+    out = copy.deepcopy(cfg)
+    out["detector"] = name
+    if name == "gine_causal":
+        return out
+    prof = cfg["detectors"][name]
+    out["inputs"]["scored_edges"], out["inputs"]["rings"] = prof["scored_edges"], prof["rings"]
+    for k in ("embeddings", "affinity_dir", "partition_config"):
+        out["research_inputs"][k] = prof[k]
+    for key, pattern in DETECTOR_OUTPUT_NAMES.items():
+        out[key] = pattern.format(d=name)
+    return out
+
+
 def load_research_config(cfg: dict, name: str) -> dict:
     """One of the research-side YAMLs named under `research_configs` (read, never copied)."""
     return yaml.safe_load((REPO_ROOT / cfg["research_configs"][name]).read_text(encoding="utf-8"))

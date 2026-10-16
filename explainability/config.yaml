@@ -27,6 +27,29 @@ inputs:
   split_parquet: data/processed/amlworld_test.parquet
   seeds: [1, 2, 3, 4, 5]
 
+# XR-36: the same code on every detector's files. `inputs` / `research_inputs` above are the shipped detector
+# (gine_causal); a profile here replaces the listed keys and tags every output name with the detector
+# (contract_io.detector_cfg; CLI --detector). Mixing weights stay the XR-05 ones (Joan: not re-tuned per detector).
+# partition_config null = the partition settings recorded in the rings file's own .log.json (params).
+detectors:
+  gine_causal:
+    label: "Multi-GINe, causal (shipped)"
+  gfpxgb:
+    label: "GFP+XGBoost, own policy and affinity (trained without embeddings)"
+    scored_edges: contract/out/scored_edges_gfpxgb_{seed}.parquet
+    rings: contract/out/rings_full_gfpxgb_{seed}.parquet
+    embeddings: null                                       # none exists; its 19-feature affinity has no cos_emb
+    affinity_dir: experiments/R6_gfpxgb_partition/affinity_gfpxgb
+    partition_config: null
+  mega:
+    label: "MEGA-GNN, through the gine-trained policy and affinity with MEGA's own embeddings"
+    scored_edges: contract/out/scored_edges_mega_{seed}.parquet
+    rings: contract/out/rings_full_mega_{seed}.parquet
+    embeddings: experiments/R6_mega/embeddings_test_seed{seed}.parquet
+    affinity_dir: experiments/R4_partition/affinity
+    partition_config: null
+detectors_summary_name: xr36_detectors.json
+
 # Validation split: used ONLY to choose the mixing weights (XR-05). Never read by a test-split run.
 val_inputs:
   scored_edges: contract/out/scored_edges_gine_causal_{seed}_val.parquet
@@ -57,6 +80,8 @@ xr05_choice_name: xr05_mixing_choice.json        # validation-only choice of (al
 explanations_name_week3: explanations_week3_seed{seed}.parquet        # policy converted + SHAP + narrative
 disagreement_name_week3: roles_disagreement_week3_seed{seed}.csv
 narrative_samples_name: narrative_samples_week3.md   # one narrative per pattern type: a PILOT review (7 rings)
+typology_name: typology_eval.json                   # Week 5: XR-25
+latency_name: latency.json                          # Week 5: XR-27
 fidelity_week4_name: fidelity.json                  # Week 4: the spec's fidelity.json (XR-22/23/24), pooled over seeds
 
 evaluation:

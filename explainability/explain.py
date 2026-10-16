@@ -3,6 +3,7 @@
     python -m explainability.explain                         # all seeds, weights + SHAP + narrative -> results/xai/
     python -m explainability.explain --no-narrative          # weights only (the migrated Week 2 files)
     python -m explainability.explain --samples               # the PILOT review sample, one narrative per type
+    python -m explainability.explain --latency               # Week 5: dedicated timing run -> results/xai/latency.json
     python -m explainability.explain --seeds 1 --rings contract/out/rings_stub_cc.parquet \
         --name "explanations_week2_stub_cc_seed{seed}.parquet" --disagreement-name "roles_disagreement_stub_cc_seed{seed}.csv"
 
@@ -39,8 +40,8 @@ from ringshield.roles import ring_conservation_converted
 
 from explainability.account_weights import (ACCOUNT_WEIGHT_COLUMNS, DISAGREEMENT_COLUMNS, account_weight_table,
                                             background_degree, research_roles, role_disagreements, spec_roles)
-from explainability.contract_io import (REPO_ROOT, load_config, load_research_config, provenance, read_rings,
-                                        read_scored_edges, repo_path)
+from explainability.contract_io import (REPO_ROOT, detector_cfg, load_config, load_research_config, provenance,
+                                        read_rings, read_scored_edges, repo_path)
 from explainability.edge_weights import EDGE_WEIGHT_COLUMNS, LooInputs, edge_weight_table, load_fx, load_loo_inputs, w_loo
 from explainability.feature_weights import (FeatureExplainer, load_feature_model, load_feature_rows, ring_feature_weights,
                                             verify_rows)
@@ -119,18 +120,28 @@ def _row_provenance(ctx: ExplainContext, loo: pd.DataFrame, ring, extra: dict) -
 
 
 def explain_ring(ring, ctx: ExplainContext) -> tuple[dict, pd.DataFrame, dict]:
-    """(explanation row, role-disagreement rows, diagnostics) for one ring."""
+    """(explanation row, role-disagreement rows, diagnostics) for one ring. diagnostics["stage_ms"] splits the row's
+    latency into its stages (XR-27); it goes to the run log only, never into the explanations file."""
     t0 = time.perf_counter()
+    stage, mark = {}, [t0]
+
+    def lap(name):                                     # milliseconds since the previous lap
+        now = time.perf_counter()
+        stage[name] = stage.get(name, 0.0) + (now - mark[0]) * 1000
+        mark[0] = now
     cfg, ew = ctx.cfg, ctx.cfg["edge_weights"]
     converted = ctx.policy == "converted"
     se = ctx.scored_edges
     member = se.loc[sorted(map(int, ring.member_edges))].reset_index()
     included = se.loc[_included(ring)].reset_index()
+    lap("read")
     loo = w_loo(included, ctx.loo.rerunner, lambda_split=float(ew["lambda_split"]), nan_policy=ew["loo_nan_policy"])
+    lap("leave_one_out")
     mixing, _ = active_mixing(cfg, ctx.policy)
     table = edge_weight_table(member, loo, mixing, amount_col=cfg["amounts"]["flow_amount_column"],
                               tol=float(ew["mixing_sum_tolerance"]), policy=ctx.policy, fx=ctx.fx)
     evidence = member[member["edge_id"].isin(table["edge_id"])]
+    lap("edge_weights")
     roles = research_roles(ring, se, currency="converted" if converted else "raw")
     missing = set(map(int, ring.members)) - set(roles)
     if missing:
@@ -142,6 +153,7 @@ def explain_ring(ring, ctx: ExplainContext) -> tuple[dict, pd.DataFrame, dict]:
     raw_roles = roles if not converted else research_roles(ring, se, currency="raw")
     disagreements = role_disagreements(ring.ring_id, raw_roles, spec_roles(included, ctx.roles_cfg))
     ttype, tprob = topology_of(ring, ctx, included, raw_roles)
+    lap("roles_accounts_topology")
     flow = table.attrs.get("flow") or {}
     n_undet = sum(1 for d in roles.values() if d["role"] == "undetermined")
     extra = {"n_conversions_dropped": int(table.attrs.get("n_conversions_dropped", 0)),
@@ -155,7 +167,9 @@ def explain_ring(ring, ctx: ExplainContext) -> tuple[dict, pd.DataFrame, dict]:
         fwc, nc = cfg["feature_weights"], cfg["narrative"]
         ranked = set(table["edge_id"])
         shap_edges = [e for e in sorted(map(int, ring.seed_edges)) if e in ranked]      # seed edges minus conversions
+        lap("assemble")
         feature_weights = ring_feature_weights(ctx.features.shap_values(shap_edges), int(fwc["top_n"]))
+        lap("shap")
         values = narrative_values(
             topology_type=ttype, topology_prob=tprob, type_source=ctx.topology_source,
             duration_s=float(ring.duration_hours) * 3600, evidence=evidence, member_edges=member,
@@ -164,6 +178,7 @@ def explain_ring(ring, ctx: ExplainContext) -> tuple[dict, pd.DataFrame, dict]:
             closure_raw=float(ring.conservation_closure), feature_weights=feature_weights, fx=ctx.fx,
             n_top_edges=int(nc["top_edges"]), n_top_features=int(nc["top_features"]), names=ctx.names)
         narrative, summary = build_narrative(values, ctx.phrasing, nc)
+        lap("narrative")
         extra = {**extra, "n_shap_edges": len(shap_edges), "topology_source": ctx.topology_source,
                  "feature_model": fwc["model"].format(seed=ctx.file_provenance["seed"]),
                  "name_maps": dict(nc["names"])}
@@ -178,7 +193,11 @@ def explain_ring(ring, ctx: ExplainContext) -> tuple[dict, pd.DataFrame, dict]:
             "narrative_words": None if narrative is None else word_count(narrative),
             "clauses": None if summary is None else summary["clauses"],
             "template": None if summary is None else summary["template"], **extra}
+    lap("assemble")
     row["latency_ms"] = int(round((time.perf_counter() - t0) * 1000))
+    diag["stage_ms"] = {k: round(v, 3) for k, v in stage.items()}
+    diag["n_included_edges"] = len(included)
+    diag["n_members"] = int(len(ring.members))
     return row, disagreements, diag
 
 
@@ -350,8 +369,77 @@ def review_samples(cfg: dict, seeds, out_path) -> dict:
     return {t: chosen[t][3] for t in chosen}
 
 
+def machine_info() -> dict:
+    """What the latency was measured on (XR-27; Joan Q4: CPU, RAM, versions)."""
+    import importlib.metadata as md
+    import os
+    import platform
+    info = {"platform": platform.platform(), "processor": platform.processor(), "machine": platform.machine(),
+            "logical_cpus": os.cpu_count(), "python": platform.python_version()}
+    try:
+        import psutil
+        info["physical_cpus"] = psutil.cpu_count(logical=False)
+        info["ram_gb"] = round(psutil.virtual_memory().total / 2**30, 1)
+    except ImportError:
+        pass
+    info["packages"] = {p: md.version(p) for p in ("numpy", "pandas", "pyarrow", "xgboost", "shap", "networkx", "scipy")}
+    return info
+
+
+def latency_report(cfg: dict, seeds) -> dict:
+    """XR-27: a dedicated, single-process run of the full current pipeline (weights + SHAP + narrative) over every ring
+    of every seed; nothing is written but this report. Per ring: wall-clock from reading the ring to the finished row
+    (spec 6.4), split into stages. Per file: the one-off setup (loading files, building the rerunner and the SHAP
+    explainer), reported separately because it is paid once per file, not per ring."""
+    from scipy.stats import spearmanr
+    inp = cfg["inputs"]
+    target = 2000
+    per_seed, all_d = {}, []
+    for s in seeds:
+        t = time.perf_counter()
+        ctx, rings = build_context(cfg, inp["scored_edges"].format(seed=s), inp["rings"].format(seed=s), "converted", True)
+        setup_s = time.perf_counter() - t
+        _, _, diags = explain_rings(rings, ctx)
+        lat = np.array([d["latency_ms"] for d in diags], dtype=float)
+        per_seed[str(s)] = {"n_rings": len(diags), "setup_s": round(setup_s, 2),
+                            "p50_ms": float(np.percentile(lat, 50)), "p95_ms": float(np.percentile(lat, 95)),
+                            "max_ms": float(lat.max())}
+        all_d += [{**d, "seed": s} for d in diags]
+    lat = np.array([d["latency_ms"] for d in all_d], dtype=float)
+    stages = sorted({k for d in all_d for k in d["stage_ms"]})
+    stage = {k: np.array([d["stage_ms"].get(k, 0.0) for d in all_d]) for k in stages}
+    total_stage = sum(stage.values())
+    size = np.array([d["n_included_edges"] for d in all_d], dtype=float)
+    p95 = float(np.percentile(lat, 95))
+    return {
+        "experiment_id": "XAI-W5", "explainer_version": cfg["explainer_version"],
+        "what": "XR-27 latency: wall-clock per ring from reading the ring row to the finished explanation row, including "
+                "every leave-one-out rerun and the SHAP call; single process; nothing else running",
+        "machine": machine_info(),
+        "target_p95_ms": target,
+        "verdict": "met" if p95 < target else "missed on this machine -- rerun on the A5000 workstation before calling "
+                                              "it a fail (Joan, Q4)",
+        "pooled": {"n_rings": len(all_d), "p50_ms": float(np.percentile(lat, 50)), "p95_ms": p95, "max_ms": float(lat.max()),
+                   "mean_ms": float(lat.mean())},
+        "per_seed": per_seed,
+        "stages": {k: {"mean_ms": float(v.mean()), "p95_ms": float(np.percentile(v, 95)),
+                       "share_of_time": float(v.sum() / lat.sum())} for k, v in stage.items()},
+        "stages_sum_vs_latency_max_gap_ms": float(np.abs(total_stage - lat).max()),
+        "size_dependence": {"what": "Spearman correlation of latency with the number of seed + expanded edges (each is one "
+                                    "leave-one-out rerun)",
+                            "spearman_rho": float(spearmanr(size, lat).statistic),
+                            "largest_ring": {k: int(v) for k, v in max(all_d, key=lambda d: d["n_included_edges"]).items()
+                                             if k in ("n_included_edges", "n_members", "n_member_edges", "latency_ms", "seed")}},
+        "rings_over_5000_ms": [{"seed": d["seed"], "ring_id": d["ring_id"], "latency_ms": d["latency_ms"],
+                                "n_members": d["n_members"], "n_included_edges": d["n_included_edges"],
+                                "n_member_edges": d["n_member_edges"]} for d in all_d if d["latency_ms"] > 5000],
+    }
+
+
 def main(argv=None) -> int:
-    cfg = load_config()
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--detector", default="gine_causal")
+    cfg = detector_cfg(load_config(), pre.parse_known_args(argv)[0].detector)
     inp = cfg["inputs"]
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--scores", default=inp["scored_edges"], help="scored_edges parquet; '{seed}' is filled in")
@@ -363,10 +451,22 @@ def main(argv=None) -> int:
                     help="weights only, no SHAP / narrative (reproduces the migrated Week 2 files)")
     ap.add_argument("--samples", action="store_true",
                     help="only write the Week 3 PILOT review sample (one narrative per type) from the Week 3 files")
+    ap.add_argument("--detector", default="gine_causal",
+                    help="XR-36: which detector's files (a profile under `detectors` in config.yaml)")
+    ap.add_argument("--latency", action="store_true",
+                    help="XR-27: dedicated timing run over every ring of every seed; writes only results/xai/latency.json")
     ap.add_argument("--out", default=cfg["output_dir"])
     ap.add_argument("--name", default=None)
     ap.add_argument("--disagreement-name", default=None)
     a = ap.parse_args(argv)
+    if a.latency:
+        rep = latency_report(cfg, a.seeds)
+        path = repo_path(a.out) / cfg["latency_name"]
+        path.write_text(json.dumps(rep, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+        P = rep["pooled"]
+        print(f"latency over {P['n_rings']} rings: p50 {P['p50_ms']:.0f} / p95 {P['p95_ms']:.0f} / max {P['max_ms']:.0f} ms "
+              f"-> {rep['verdict']}; over 5 s: {len(rep['rings_over_5000_ms'])} -> {_rel(path)}")
+        return 0
     if a.samples:
         picked = review_samples(cfg, a.seeds, repo_path(a.out) / cfg["narrative_samples_name"])
         print(f"pilot review sample: {len(picked)} types -> {cfg['narrative_samples_name']}: {picked}")
