@@ -104,6 +104,24 @@ class Transaction(Base):
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
 
 
+class EdgeScore(Base):
+    """Model-specific detector scores; a new model never replaces another model's scores."""
+    __tablename__ = "edge_scores"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id"], ["tenants.tenant_id"]),
+        Index("ix_edge_scores_active", "tenant_id", "model_id", "seed", "edge_id"),
+    )
+
+    tenant_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    edge_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    model_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    seed: Mapped[int] = mapped_column(Integer, primary_key=True)
+    score_raw: Mapped[float | None] = mapped_column(Float)
+    score_calibrated: Mapped[float | None] = mapped_column(Float)
+    is_seed: Mapped[bool | None] = mapped_column(Boolean)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+
 class Ring(Base):
     __tablename__ = "rings"
     __table_args__ = (

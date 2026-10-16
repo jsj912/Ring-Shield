@@ -7,6 +7,7 @@ Ground-truth files are intentionally not accepted by this command.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import sys
 from collections import defaultdict
@@ -22,8 +23,9 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "platform"))
 
 from contract.schema import RINGS_ORDER, SCORED_EDGES_ORDER  # noqa: E402
-from db.models import Account, Ring as PlatformRing, Tenant, Transaction  # noqa: E402
+from db.models import Account, EdgeScore, Ring as PlatformRing, Tenant, Transaction  # noqa: E402
 from db.session import loader_db_session  # noqa: E402
+from settings import load_platform_config  # noqa: E402
 
 BATCH_SIZE = 10_000
 FORBIDDEN_COLUMNS = {"account_number", "from_account_number", "to_account_number", "true_label"}
@@ -49,9 +51,21 @@ def _python_value(value: Any) -> Any:
     return value
 
 
-def _check_file(path: Path, required: Iterable[str]) -> pq.ParquetFile:
+def _check_file(path: Path, required: Iterable[str]) -> tuple[pq.ParquetFile, dict]:
+    lowered_path = str(path).replace("\\", "/").lower()
+    if any(part.startswith("labels_") for part in Path(lowered_path).parts) or "ground_truth" in lowered_path:
+        raise ContractLoadError(f"label/ground-truth paths are forbidden: {path}")
     if not path.is_file():
         raise ContractLoadError(f"contract file not found: {path}")
+    log_path = Path(str(path) + ".log.json")
+    if not log_path.is_file():
+        raise ContractLoadError(f"run log is required beside contract file: {log_path}")
+    try:
+        run_log = json.loads(log_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ContractLoadError(f"invalid contract run log: {log_path}") from exc
+    if run_log.get("split") != "test":
+        raise ContractLoadError(f"{path}: sibling run log must declare split=test")
     parquet = pq.ParquetFile(path)
     names = set(parquet.schema_arrow.names)
     forbidden = sorted(names & FORBIDDEN_COLUMNS)
@@ -60,7 +74,7 @@ def _check_file(path: Path, required: Iterable[str]) -> pq.ParquetFile:
         raise ContractLoadError(f"{path}: sensitive/label columns are forbidden: {forbidden}")
     if missing:
         raise ContractLoadError(f"{path}: missing contract columns: {missing}")
-    return parquet
+    return parquet, run_log
 
 
 def _account_upserts(session, accounts: dict[tuple[int, int], tuple[int, int, int]]) -> None:
@@ -83,7 +97,8 @@ def _account_upserts(session, accounts: dict[tuple[int, int], tuple[int, int, in
 
 
 def load_edges(path: Path, *, scope: str, batch_size: int = BATCH_SIZE) -> dict[str, int]:
-    parquet = _check_file(path, SCORED_EDGES_ORDER)
+    parquet, run_log = _check_file(path, SCORED_EDGES_ORDER)
+    config = load_platform_config()
     if "tenant_id" not in parquet.schema_arrow.names:
         raise ContractLoadError(f"{path}: scored_edges requires tenant_id in its contract")
 
@@ -100,8 +115,19 @@ def load_edges(path: Path, *, scope: str, batch_size: int = BATCH_SIZE) -> dict[
 
         for record_batch in parquet.iter_batches(batch_size=batch_size):
             transaction_rows: list[dict] = []
+            edge_score_rows: list[dict] = []
             account_stats: dict[tuple[int, int], tuple[int, int, int]] = {}
             for source in record_batch.to_pylist():
+                if (run_log.get("model_id") is not None
+                        and str(source.get("model_id")) != str(run_log["model_id"])):
+                    raise ContractLoadError("scored-edge row model_id does not match its sibling run log")
+                if (run_log.get("seed") is not None
+                        and int(source.get("seed", -1)) != int(run_log["seed"])):
+                    raise ContractLoadError("scored-edge row seed does not match its sibling run log")
+                is_active_model = (
+                    str(source.get("model_id")) == config["active_model_id"]
+                    and int(source.get("seed", -1)) == int(config["active_seed"])
+                )
                 from_bank = int(source["from_bank"])
                 to_bank = int(source["to_bank"])
                 timestamp = int(source["timestamp"])
@@ -122,11 +148,22 @@ def load_edges(path: Path, *, scope: str, batch_size: int = BATCH_SIZE) -> dict[
                         "currency_sent": _python_value(source.get("currency_sent")),
                         "currency_received": _python_value(source.get("currency_received")),
                         "payment_format": _python_value(source.get("payment_format")),
+                        "score_calibrated": _python_value(source.get("score_calibrated")) if is_active_model else None,
+                        "is_seed": _python_value(source.get("is_seed")) if is_active_model else None,
+                        "model_id": str(source["model_id"]) if is_active_model else None,
+                        "seed": int(source["seed"]) if is_active_model else None,
+                        "payload": {key: value for key, value in row.items()
+                                    if key not in {"score_raw", "score_calibrated", "is_seed", "model_id", "seed"}},
+                    })
+                    edge_score_rows.append({
+                        "tenant_id": tenant_id,
+                        "edge_id": int(source["edge_id"]),
+                        "model_id": str(source["model_id"]),
+                        "seed": int(source["seed"]),
+                        "score_raw": _python_value(source.get("score_raw")),
                         "score_calibrated": _python_value(source.get("score_calibrated")),
                         "is_seed": _python_value(source.get("is_seed")),
-                        "model_id": str(source["model_id"]) if source.get("model_id") is not None else None,
-                        "seed": int(source["seed"]) if source.get("seed") is not None else None,
-                        "payload": row,
+                        "payload": {"selection_column": "score_raw"},
                     })
                     for account_id, bank_code in ((int(source["from_id"]), from_bank),
                                                   (int(source["to_id"]), to_bank)):
@@ -144,25 +181,41 @@ def load_edges(path: Path, *, scope: str, batch_size: int = BATCH_SIZE) -> dict[
                     col: getattr(stmt.excluded, col)
                     for col in ("from_id", "to_id", "from_bank", "to_bank", "timestamp",
                                 "amount_sent", "amount_received", "currency_sent", "currency_received",
-                                "payment_format", "score_calibrated", "is_seed", "model_id", "seed", "payload")
+                                "payment_format", "payload")
                 }
+                if (str(run_log.get("model_id")) == config["active_model_id"]
+                        and int(run_log.get("seed", -1)) == int(config["active_seed"])):
+                    update_columns.update({
+                        col: getattr(stmt.excluded, col)
+                        for col in ("score_calibrated", "is_seed", "model_id", "seed")
+                    })
                 session.execute(stmt.on_conflict_do_update(
                     index_elements=[Transaction.tenant_id, Transaction.edge_id], set_=update_columns,
                 ))
+                score_stmt = insert(EdgeScore).values(edge_score_rows)
+                session.execute(score_stmt.on_conflict_do_update(
+                    index_elements=[EdgeScore.tenant_id, EdgeScore.edge_id, EdgeScore.model_id, EdgeScore.seed],
+                    set_={key: getattr(score_stmt.excluded, key) for key in (
+                        "score_raw", "score_calibrated", "is_seed", "payload",
+                    )},
+                ))
                 _account_upserts(session, account_stats)
                 counts["visible_edge_rows"] += len(transaction_rows)
+                counts["edge_score_rows"] += len(edge_score_rows)
                 counts["unique_source_edges"] += len(record_batch)
                 counts["account_tenant_rows"] += len(account_stats)
     return dict(counts)
 
 
-def _ring_metadata(session, tenant_id: int, ring_row: dict) -> tuple[str, int]:
+def _ring_metadata(session, tenant_id: int, ring_row: dict, config: dict) -> tuple[str, int]:
     seed_edges = [int(edge_id) for edge_id in (ring_row.get("seed_edges") or [])]
     if not seed_edges:
         raise ContractLoadError(f"{ring_row['ring_id']}: ring has no seed_edges")
     metadata = set(session.execute(
-        select(Transaction.model_id, Transaction.seed)
-        .where(Transaction.tenant_id == tenant_id, Transaction.edge_id.in_(seed_edges))
+        select(EdgeScore.model_id, EdgeScore.seed)
+        .where(EdgeScore.tenant_id == tenant_id, EdgeScore.edge_id.in_(seed_edges),
+               EdgeScore.model_id == config["active_model_id"],
+               EdgeScore.seed == int(config["active_seed"]))
     ).all())
     if len(metadata) != 1:
         raise ContractLoadError(
@@ -173,7 +226,8 @@ def _ring_metadata(session, tenant_id: int, ring_row: dict) -> tuple[str, int]:
 
 
 def load_rings(path: Path, *, scope: str) -> dict[str, int]:
-    parquet = _check_file(path, RINGS_ORDER)
+    parquet, _run_log = _check_file(path, RINGS_ORDER)
+    config = load_platform_config()
     counts = defaultdict(int)
     seen_ring_ids: set[tuple[int, str]] = set()
     with loader_db_session() as session:
@@ -227,7 +281,21 @@ def load_rings(path: Path, *, scope: str) -> dict[str, int]:
                 counterparties = member_banks - ({tenant_id} if scope == "tenant" else set())
                 row["cross_bank"] = len(member_banks) > 1
                 row["counterparty_banks"] = [f"Bank {bank}" for bank in sorted(counterparties)]
-                model_id, seed = _ring_metadata(session, tenant_id, row)
+                currency_rows = session.execute(
+                    select(Transaction.currency_sent, Transaction.currency_received).where(
+                        Transaction.tenant_id == tenant_id, Transaction.edge_id.in_(member_edges),
+                    )
+                ).all()
+                currencies = {int(currency) for pair in currency_rows for currency in pair if currency is not None}
+                row["n_currencies"] = len(currencies) or None
+                if len(currencies) > 1:
+                    row["total_amount"] = None
+                    row["total_currency"] = None
+                model_id, seed = _ring_metadata(session, tenant_id, row, config)
+                if (model_id, seed) != (config["active_model_id"], int(config["active_seed"])):
+                    raise ContractLoadError(
+                        f"{row['ring_id']}: ring does not match active_model_id/active_seed in platform config"
+                    )
                 values = {
                     "tenant_id": tenant_id,
                     "ring_id": str(row["ring_id"]),
