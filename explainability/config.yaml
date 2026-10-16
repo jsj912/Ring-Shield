@@ -153,5 +153,15 @@ narrative:
     payment_format: contract/payment_format_map.json
     bank: contract/bank_names.json
 
+# Week 6: the internal review of thirty explanations (spec 7, XR-29). Shipped detector, primary window.
+review:
+  n_items: 30
+  per_type: 4                    # four per true pattern type where available ...
+  n_most_frequent: 2             # ... the remainder from the two most frequent types, in turn
+  rng_seed: 20261026             # fixes the sample, the seed drawn per truth ring and each reviewer's order
+  top_edges: 5                   # spec 7: the top-5 evidence edges
+  reviewers: [R1, R2, R3]        # anonymised ids; who is who is kept outside the repo
+  out_dir: results/xai/review
+
 contract_checks:
   topology_probs_sum_tolerance: 1.0e-6

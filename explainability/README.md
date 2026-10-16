@@ -1,4 +1,4 @@
-# L4 Explainability — Weeks 1 to 5 handoff
+# L4 Explainability — Weeks 1 to 6 handoff
 
 **Branch:** `explainability-l4`. It contains Joan's `v2` up to commit `77add7f` (merged by you), your
 fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Week 3 (`c5e2dd5`), all pushed.
@@ -17,10 +17,12 @@ fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Wee
 - **Synced with Joan's `v2` at `b35b233`** (section 16): her feature loader, her code-to-name maps (currency 0 is
   **US Dollar**, the unconvertible currency 1 is **Bitcoin**, payment format 3 is **ACH**, bank names), her roles fix.
 - **Week 5** (sections 17–18): typology, latency, the API and its samples, role accuracy, and the whole layer run
-  unchanged on all three detectors (Multi-GINe, GFP+XGBoost, MEGA-GNN). **Typology finding:** the research typing table (0.219) types the wrong ring for 316 of 401
+  unchanged on all three detectors (Multi-GINe, GFP+XGBoost, MEGA-GNN).
+- **Week 6** (section 19): the 30-explanation review is sampled and its packets and answer sheets are ready to send;
+  the scoring script (Fleiss' kappa) is built and tested; the review itself is Week 7. **Typology finding:** the research typing table (0.219) types the wrong ring for 316 of 401
   matches; the narrated shape is right about 60 % of the time on both windows (pending Joan's confirmation).
-- **262 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
-  10 for Week 4, 3 for the sync, 24 for Week 5.
+- **268 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
+  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6.
 - Every ring of all five detector seeds, plus the old stub file, has an explanation.
 
 This document is written so that someone with basic technical knowledge can understand what was built,
@@ -123,6 +125,7 @@ explainability/                 the L4 layer
   api_schemas.py                WEEK 5: the shapes the endpoints return (pydantic) and the JSON schema export
   schemas/                      WEEK 5: the exported JSON schemas, one file per shape (for the platform)
   schemas/examples/             WEEK 5: real sample responses of the four functions on the stub data
+  review/                       WEEK 6: sample.py (the 30 rings, packets, sheets), aggregate.py (scoring, Fleiss' kappa)
   evaluate.py                   fidelity, the policy comparison report, the XR-05 tuning, WEEK 4 fidelity.json
   stats.py                      WEEK 4: bootstrap confidence intervals and paired tests (mirrors Joan's ring_stats)
   feature_weights.py            WEEK 3: the detector-feature model's inputs, SHAP, the top-10 feature weights
@@ -143,6 +146,7 @@ explainability/                 the L4 layer
     test_stats.py                6 tests: WEEK 4, the statistics, checked against Joan's own functions
     test_week5_eval.py          11 tests: WEEK 5, no attention, typology, latency, role accuracy, three detectors
     test_api.py                 12 tests: WEEK 5, the API shapes, every real row, the endpoints, the sample fixtures
+    test_review.py               6 tests: WEEK 6, Fleiss' kappa, the sampling rule, the packets, the scoring
 results/xai/                    our results (kept apart from Joan's results/tables/)
   fidelity_week1_seed{1..5}.json, fidelity_week1_stub_cc_seed1.json        Week 1 (policy raw, v1 rings)
   explanations_week2_seed{1..5}.parquet (+ .log.json), ..._stub_cc_seed1    Week 2 (policy raw, v1 rings)
@@ -162,6 +166,8 @@ results/xai/                    our results (kept apart from Joan's results/tabl
   explanations_{gfpxgb,mega}_seed{1..5}.parquet (+ .log.json), roles_disagreement_{gfpxgb,mega}_*.csv   XR-36
   fidelity_{gfpxgb,mega}.json, typology_eval_{gfpxgb,mega}.json   XR-36 (fidelity.json also holds role_accuracy)
   xr36_detectors.json                         WEEK 5: the three detectors side by side
+  review/                                     WEEK 6: packet_R{1,2,3}.md, answers_R{1,2,3}.csv, sample_manifest.json
+                                              (+ answer_key.parquet, git-ignored on purpose; review.csv in Week 7)
 ```
 
 `.parquet` files are ignored by git in this repository (Joan's convention); the small `.json` / `.csv` /
@@ -574,7 +580,7 @@ Test fidelity, mean over seeds:
 
 ---
 
-## 9. The tests (262 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18)
+## 9. The tests (268 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4)
 
 **`test_contract_io.py` (73)**
 - All real files load and validate: v2 rings for 5 seeds plus the stub, **and** the v1 originals, each
@@ -690,6 +696,7 @@ Run: `python -m pytest explainability/tests -q` (about 15 minutes).
 | XR-33 functions + schemas, endpoints return 200 on stub data | **met** (Week 5; handoff to Kashish after part 2) |
 | XR-34 regenerate after member edits | **met** |
 | XR-35 no attention weights | **met** (test) |
+| XR-29 thirty-ring internal review, Fleiss' kappa | Week 6: sample, packets and scoring built; the review itself in Week 7 |
 | XR-26 role precision / recall vs ground-truth-derived roles | **met** (Week 5, section 18.1) |
 | XR-36 runs unchanged on any detector's files | **met** (Week 5, section 18.2: three detectors, no code difference) |
 
@@ -1357,3 +1364,99 @@ A test validates each against its model and checks that none holds ground truth 
 **`test_stats.py` (+1):** the ratio bootstrap.
 
 **`test_api.py` (+1):** the sample fixtures validate. The no-ground-truth check now also covers account numbers.
+
+---
+
+## 19. Week 6 — the internal review of thirty explanations (XR-29)
+
+The spec (section 7) asks for a structured check by the three team members (it is not an analyst study, and the
+report must say so).
+- **What the reviewers do:** each of the three reads 30 explanations and answers four yes/no questions per
+  explanation. They see only what the app would show: the narrative, the top-5 evidence transactions and the
+  account roles.
+- **What we compute afterwards:** how much the three agree (per question, and as Fleiss' κ), then a reveal of the
+  true pattern types.
+
+### 19.1 Which 30 rings (`explainability/review/sample.py`)
+
+Matched rings of the shipped detector on the primary window, pooled over the five seeds.
+- **One per truth ring:** if a truth ring was matched in several seeds, one of them is drawn at random.
+- **Stratified by the true pattern type:** four per type where available, the remainder from the two most frequent
+  types in turn.
+- **Fixed random seed:** `review.rng_seed`, so the sample is the same on every run.
+- **The 7 truth rings in the Week 3 pilot file are left out.** That file and its answer key are already committed
+  on the branch the reviewers pull. Three of them (one Fan-out, one Fan-in, one Cycle) were drawn in the first
+  sample, and a test now prevents it. The pilot can therefore safely serve as a short calibration round.
+
+| true type | truth rings available | chosen |
+|---|---|---|
+| Gather-scatter | 29 | 4 + 2 |
+| Scatter-gather | 16 | 4 + 2 |
+| Fan-out | 14 | 4 |
+| Fan-in | 13 | 4 |
+| Cycle | 9 | 4 |
+| Irregular (RANDOM) | 10 | 4 |
+| Stack | 1 | 1 |
+| Bipartite | 1 | 1 |
+| **total** | 93 (100 matched, minus the 7 in the pilot) | **30** |
+
+### 19.2 What each reviewer gets — `results/xai/review/`
+
+| file | for | contents |
+|---|---|---|
+| `packet_R1.md`, `packet_R2.md`, `packet_R3.md` | reviewer R1 / R2 / R3 | the four questions, then 30 sections, each: the narrative; the top-5 evidence transactions (amount and currency, ≈ US Dollar, payment method, banks by name, weight); the accounts by role |
+| `answers_R1.csv`, … | reviewer R1 / R2 / R3 | blank sheet, one row per item in that reviewer's order: `item_id`, `q1_topology_plausible`, `q2_named_accounts_matter`, `q3_evidence_enough`, `q4_misleading`, `comment` |
+| `answer_key.parquet` | **only us, after all sheets are in** | per item: the ring, its seed, the true pattern type, the narrated type |
+| `sample_manifest.json` | the record | the rule, what was available and chosen, the SHA-256 of every packet and sheet |
+
+**What stops answers being biased:**
+- **Nothing in a packet reveals the truth:** no ring id, no seed, no match score, no true type. A test checks this.
+- **Items are numbered R-01 … R-30**, the same for everyone, but **each reviewer reads them in their own shuffled
+  order**.
+- **The answer key is a `.parquet` file**, which git in this repo always ignores. The reviewers pull this branch,
+  so a CSV key would have reached them on GitHub.
+- **Who is R1 / R2 / R3** is kept outside the repo, so `review.csv` stays anonymised.
+
+**The four questions** (spec 7, answered 1 = yes, 0 = no):
+1. `q1_topology_plausible`: is the stated shape plausible from the evidence shown?
+2. `q2_named_accounts_matter`: are the named accounts the ones that matter?
+3. `q3_evidence_enough`: would the evidence transactions be enough to start an investigation?
+4. `q4_misleading`: is anything in the sentence misleading or unsupported? (1 = yes, something is.)
+
+### 19.3 Scoring (`explainability/review/aggregate.py`, Week 7)
+
+`python -m explainability.review.aggregate` once the three filled sheets are back in `results/xai/review/`.
+1. **Each sheet is checked:** the same 30 items as the key, and every answer 0 or 1. A blank or anything else
+   stops the run with the item named.
+2. **Per question:** the share of "yes", the share of items where all three agree, and **Fleiss' κ**.
+   - Fleiss' κ is agreement beyond what three people answering at random with the same yes-rates would reach:
+     1 = perfect, 0 = chance level, below 0 = worse than chance.
+   - It is computed from the table of how many reviewers said yes / no for each item.
+   - A test reproduces the published worked example from Fleiss (1971), κ = 0.210.
+3. **The reveal:** for each item, is the narrated shape the true one? Did each reviewer's "plausible" answer match
+   that (plausible when right, implausible when wrong)?
+4. **Output:** `review.csv` (one row per item and reviewer, with comments) and `review_summary.json`.
+
+### 19.4 Tests (`test_review.py`, 6)
+
+- Fleiss' κ: the published example, plus perfect agreement, one category (undefined) and unequal raters.
+- The sampling rule on a made-up pool: four per type, remainder to the two most frequent, one per truth ring, same
+  draw every run.
+- The real packets and sheets:
+  - 30 items with the stated counts;
+  - three different orders;
+  - blank sheets;
+  - no ring id, seed, "truth" or match score in any packet;
+  - no truth ring that the committed pilot file reveals;
+  - fingerprints match the manifest;
+  - **the answer key is git-ignored**.
+- Scoring on made-up filled sheets (90 rows, no ring ids in `review.csv`).
+- Blank, non-0/1 and missing-row sheets are refused.
+
+### 19.5 Something for the review to judge
+
+A few evidence lists start with a payment from an account to **itself in the same currency** (e.g. 3.77 million
+US Dollar). Only currency **conversions** (sent and received currencies differ) are removed from evidence; these
+are not conversions. They are almost never laundering (5 of 4,817 in the test split), but not never, so they stay
+in. In seed 1 they are 17 of 951 evidence transactions, 3 of them in a top-3 slot. If reviewers find them
+misleading (q4), that is a narrative fix for Week 7–8, to be agreed with Joan.
