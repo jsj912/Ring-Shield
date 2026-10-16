@@ -1,0 +1,81 @@
+name: Platform tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  platform-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ringshield
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ringshield-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ringshield"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      RINGSHIELD_DATABASE_ADMIN_URL: postgresql+psycopg://postgres:ringshield-test-only@localhost:5432/ringshield
+      RINGSHIELD_DATABASE_ADMIN_PSQL_URL: postgresql://postgres:ringshield-test-only@localhost:5432/ringshield
+      RINGSHIELD_TEST_ADMIN_URL: postgresql+psycopg://postgres:ringshield-test-only@localhost:5432/ringshield
+      RINGSHIELD_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:ringshield-test-only@localhost:5432/ringshield
+      RINGSHIELD_DATABASE_URL: postgresql+psycopg://ringshield_test_app:test-app-only@localhost:5432/ringshield?options=-c%20role%3Dringshield_api
+      RINGSHIELD_AUTH_DATABASE_URL: postgresql+psycopg://ringshield_test_auth:test-auth-only@localhost:5432/ringshield?options=-c%20role%3Dringshield_auth
+      RINGSHIELD_LOADER_DATABASE_URL: postgresql+psycopg://ringshield_test_loader:test-loader-only@localhost:5432/ringshield?options=-c%20role%3Dringshield_loader
+      RINGSHIELD_JWT_SECRET: ringshield-test-secret-that-is-long-enough
+      RINGSHIELD_TIME_ORIGIN_UTC: '2020-01-01T00:00:00+00:00'
+      RINGSHIELD_PLATFORM_CONFIG: platform/tests/isolation/config.test.yaml
+      RINGSHIELD_TEST_FIXTURE_DIR: /tmp/ringshield-platform-fixture
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-platform-test.txt
+      - name: Install PostgreSQL client and platform dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-platform-test.txt
+      - name: Bootstrap schema and restricted migration role
+        run: |
+          python -m alembic -c platform/alembic.ini upgrade 0002_role_ownership_force_rls
+          psql "$RINGSHIELD_DATABASE_ADMIN_PSQL_URL" -v ON_ERROR_STOP=1 -f platform/tests/isolation/provision_migration_role.sql
+          export RINGSHIELD_MIGRATION_DATABASE_URL='postgresql+psycopg://ringshield_test_migrator:test-migrator-only@localhost:5432/ringshield?options=-c%20role%3Dringshield_owner'
+          echo "RINGSHIELD_MIGRATION_DATABASE_URL=$RINGSHIELD_MIGRATION_DATABASE_URL" >> "$GITHUB_ENV"
+          python -m alembic -c platform/alembic.ini upgrade head
+          psql "$RINGSHIELD_DATABASE_ADMIN_PSQL_URL" -v ON_ERROR_STOP=1 -f platform/db/roles.sql
+          psql "$RINGSHIELD_DATABASE_ADMIN_PSQL_URL" -v ON_ERROR_STOP=1 -f platform/tests/isolation/provision_test_roles.sql
+      - name: Seed tenants and contract fixture
+        run: |
+          fixture_dir=/tmp/ringshield-platform-fixture
+          python platform/jobs/make_demo_fixture.py --output-dir "$fixture_dir"
+          python platform/tests/isolation/attach_fixture_logs.py "$fixture_dir"
+          python platform/jobs/seed_tenants.py --account-map "$fixture_dir/account_bank.csv" --loaded-bank 210 --loaded-bank 220
+          python platform/jobs/load_contract.py --scored-edges "$fixture_dir/scored_edges.parquet" --rings "$fixture_dir/rings.parquet" --scope tenant
+          python platform/tests/isolation/seed_rls_fixture.py
+      - name: Run platform tests and require real RLS executions
+        shell: bash
+        run: |
+          set +e
+          python -m pytest platform/tests -rA 2>&1 | tee /tmp/platform-pytest.log
+          pytest_status=${PIPESTATUS[0]}
+          set -e
+          passed=$(sed -nE 's/.*([0-9]+) passed.*/\1/p' /tmp/platform-pytest.log | tail -n 1)
+          rls_count=$(sed -nE 's/.*RLS_POSTGRES_TESTS_EXECUTED=([0-9]+).*/\1/p' /tmp/platform-pytest.log | tail -n 1)
+          passed=${passed:-0}
+          rls_count=${rls_count:-0}
+          echo "Platform test summary: total passed=$passed; RLS tests executed against PostgreSQL=$rls_count"
+          test "$pytest_status" -eq 0
+          test "$rls_count" -gt 0

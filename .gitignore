@@ -4,6 +4,7 @@
 data/raw/
 data/processed/
 data/platform_demo/
+data/platform_tenant_runs/
 
 # ============================================
 # MODEL ARTIFACTS — trained models, predictions
@@ -64,11 +65,13 @@ desktop.ini
 # ============================================
 logs/
 *.log
+*.parquet.log.json
 
 # ============================================
 # SECRETS / CONFIG
 # ============================================
 .env
+**/.env.*
 data_config.json
 
 # ============================================
@@ -89,6 +92,18 @@ experiments/**/predictions*.csv
 contract/out/*_dryrun*
 docs/*_dryrun.json
 external/
+**/labels_*
+**/*ground_truth*
+.pgpass
+*.password
+*.passwd
+*.secret
+*.pem
+*.key
+password.txt
+passwords.txt
+**/*password*
+**/*passwd*
 
 # ============================================
 # THIRD-PARTY CLONES (not vendored)

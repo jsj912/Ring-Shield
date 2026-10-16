@@ -1,0 +1,5 @@
+active_model_id: demo-model
+active_seed: 7
+seed_score_cutoff: 0.42
+seed_score_cutoff_source: /tmp/ringshield-platform-fixture/scored_edges.parquet.log.json:seed_rule.q
+seed_score_column: score_raw

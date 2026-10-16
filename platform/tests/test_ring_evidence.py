@@ -130,3 +130,20 @@ def test_ring_evidence_rejects_cross_tenant_access_before_query(monkeypatch):
 
     assert exc_info.value.status_code == 403
     assert session.queries == []
+
+
+def test_ring_summary_never_shows_a_multi_currency_total(monkeypatch):
+    monkeypatch.setenv("RINGSHIELD_TIME_ORIGIN_UTC", "2020-01-01T00:00:00Z")
+    ring = SimpleNamespace(
+        ring_id="multi-currency", tenant_id=21, topology_type="FAN-OUT",
+        topology_probs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        member_accounts=[1, 2], member_edges=[1, 2], confidence=0.8,
+        start_time=1, end_time=2, status="open",
+        payload={"n_currencies": 2, "total_amount": 999.0, "total_currency": 1},
+    )
+
+    result = rings._summary(ring)
+
+    assert result.total_amount is None
+    assert result.total_currency is None
+    assert result.n_currencies == 2

@@ -77,6 +77,8 @@ def test_model_registry_includes_shared_versions_and_hides_artifact_paths(monkey
     assert [item.shared for item in result.items] == [False, True]
     assert result.next_before_id == 4
     assert "artifact_path" not in result.items[0].model_dump()
+    assert result.active_model_id == "gine_causal"
+    assert result.active_seed == 1
 
 
 def test_drift_history_is_tenant_scoped_and_paged(monkeypatch):
