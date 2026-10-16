@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+WORKDIR /workspace
+COPY requirements-platform-test.txt requirements-platform.txt ./
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements-platform-test.txt
+COPY . .
+ENV PYTHONPATH=/workspace/platform:/workspace

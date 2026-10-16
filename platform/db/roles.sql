@@ -25,12 +25,12 @@ GRANT SELECT ON tenants TO ringshield_loader;
 GRANT SELECT (user_id, tenant_id, email, role, created_at, disabled),
     INSERT (tenant_id, email, password_hash, role),
     UPDATE (tenant_id, email, password_hash, role, disabled) ON users TO ringshield_api;
-GRANT SELECT ON accounts, transactions, rings, explanations, verdicts,
+GRANT SELECT ON accounts, transactions, edge_scores, rings, explanations, verdicts,
     model_versions, retrain_runs, drift_events, audit_log TO ringshield_api;
 GRANT INSERT ON explanations, verdicts, retrain_runs, audit_log TO ringshield_api;
 GRANT UPDATE ON rings, explanations, retrain_runs, drift_events TO ringshield_api;
 
-GRANT SELECT, INSERT, UPDATE ON accounts, transactions, rings, explanations,
+GRANT SELECT, INSERT, UPDATE ON accounts, transactions, edge_scores, rings, explanations,
     model_versions, retrain_runs, drift_events TO ringshield_loader;
 GRANT INSERT ON audit_log TO ringshield_loader;
 GRANT SELECT (user_id, tenant_id, email, password_hash, role, created_at, disabled) ON users TO ringshield_auth;
@@ -40,6 +40,8 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ringshield_api, ringshi
 
 -- Create separate LOGIN roles outside this script, set their passwords from a
 -- secret manager, then grant membership as appropriate:
+--   CREATE ROLE ringshield_owner_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+--   GRANT ringshield_owner TO ringshield_owner_login;
 --   GRANT ringshield_api TO ringshield_runtime_login;
 --   GRANT ringshield_auth TO ringshield_auth_login;
 --   GRANT ringshield_loader TO ringshield_loader_login;
