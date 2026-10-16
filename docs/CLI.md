@@ -33,6 +33,7 @@ Tenant-scoped inference — restrict the input to a set of edges:
 .venv312/Scripts/python.exe -m ringshield run \
     --scores contract/out/scored_edges_gfpxgb_1.parquet \
     --edge-subset my_bank_edges.parquet \
+    --tenant-id 12 \
     --model-dir models/artifacts/cc_gfpxgb_seed1 --aggregator cc \
     --out rings_my_bank.parquet
 ```
@@ -41,6 +42,7 @@ Tenant-scoped inference — restrict the input to a set of edges:
 |---|---|
 | `--scores` | a **scored_edges** parquet in the contract layout (`contract/schema.py::SCORED_EDGES_COLUMNS`: `edge_id, tenant_id, from_id, to_id, from_bank, to_bank, timestamp, amount_*, currency_*, payment_format, score_raw, score_calibrated, is_seed, model_id, seed`). `score_calibrated` may equal `score_raw` when no calibration exists. |
 | `--edge-subset` | optional parquet with an `edge_id` column. Only those edges are read; everything else (the quantile, components, member edges) is computed **within the subset**. |
+| `--tenant-id` | optional bank code for a tenant-scoped run; requires `--edge-subset` and stamps every output ring with the tenant that ran the subset. Without it, the legacy earliest-seed sender-bank rule is retained for pooled/research runs. |
 | `--model-dir` | a model directory (§4). It fixes the aggregator, its validation-chosen parameters, and the `model_id` / `seed` of the scorer whose scores are expected. |
 | `--aggregator` | `cc`, `expand` (Step 6) or `full` (Step 7: expansion + partition). If given, it overrides the model dir's aggregator (a note is printed). |
 | `--gfp`, `--embeddings` | `expand` / `full`: the split's GFP parquet (`data/processed/amlworld_gfp_features_<split>.parquet`) and the R1 embeddings parquet of the same detector seed and split. Without `--gfp` the policy's GFP features are zero; without `--embeddings` its cosine features are missing (a note is printed either way). |
@@ -60,10 +62,10 @@ Tenant-scoped inference — restrict the input to a set of edges:
 * **`ring_id = f"{aggregator}-{model_id}-{seed}-{idx}"`**, e.g. `cc-gfpxgb-1-0`, `idx` in
   descending order of `confidence`. Unique within one output file; not stable across runs
   with different inputs.
-* **`tenant_id` = the sender bank (`from_bank`) of the ring's earliest seed edge** (earliest
-  `timestamp`; ties → the smallest `edge_id`). The platform derives the full set of banks
-  with a member itself from `members` / `member_edges`; 98.9 % of AMLworld rings span more
-  than one bank, so a single tenant column cannot carry that.
+* **`tenant_id`** = explicit `--tenant-id` for tenant-scoped runs; otherwise it is the sender
+  bank (`from_bank`) of the ring's earliest seed edge (earliest `timestamp`; ties → the
+  smallest `edge_id`). The platform derives the full set of banks with a member itself from
+  `members` / `member_edges`; one tenant column does not encode all member banks.
 * **Edges.** `seed_edges` = the thresholded edges of the component; `member_edges` = every
   edge of the input with both endpoints in `members` and `timestamp` within
   `[start_time, end_time]`; `seed_edges ⊆ member_edges`; every listed edge is in the input

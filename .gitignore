@@ -3,6 +3,7 @@
 # ============================================
 data/raw/
 data/processed/
+data/platform_demo/
 
 # ============================================
 # MODEL ARTIFACTS — trained models, predictions

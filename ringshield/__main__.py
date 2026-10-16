@@ -129,6 +129,8 @@ def _tenant_of_earliest_seed(ring: Ring, se_idx: pd.DataFrame) -> int:
 
 
 def cmd_run(a) -> int:
+    if a.tenant_id is not None and not a.edge_subset:
+        raise UsageError("--tenant-id is only valid with --edge-subset (tenant-scoped run)")
     model = read_model(a.model_dir)
     aggregator = a.aggregator or model["aggregator"]
     if a.aggregator and a.aggregator != model["aggregator"]:
@@ -166,7 +168,8 @@ def cmd_run(a) -> int:
         d = r.to_dict()
         d["ring_id"] = f"{aggregator}-{model_id}-{seed}-{i}"
         d["aggregator_id"] = aggregator
-        d["tenant_id"] = _tenant_of_earliest_seed(r, se_idx)
+        d["tenant_id"] = (int(a.tenant_id) if a.tenant_id is not None
+                           else _tenant_of_earliest_seed(r, se_idx))
         out_rings.append(Ring(**{c: d[c] for c in RINGS_ORDER}))
     out = Path(a.out)
     write_rings_parquet(out_rings, out)
@@ -183,7 +186,9 @@ def cmd_run(a) -> int:
            "expansion": report or None, "gfp": str(a.gfp) if a.gfp else None, "embeddings": str(a.embeddings) if a.embeddings else None,
            "partition": params.get("partition"), "partition_cell": params.get("partition_cell"),
            "ring_id_rule": "f'{aggregator}-{model_id}-{seed}-{idx}'",
-           "tenant_rule": "sender bank (from_bank) of the ring's earliest seed edge; ties -> smallest edge_id",
+           "tenant_rule": (f"explicit tenant_id={int(a.tenant_id)} for tenant-scoped edge subset"
+                           if a.tenant_id is not None else
+                           "sender bank (from_bank) of the ring's earliest seed edge; ties -> smallest edge_id"),
            "out": str(out)}
     Path(str(out) + ".log.json").write_text(json.dumps(log, indent=2), encoding="utf-8")
     print(f"[ringshield run] {len(out_rings)} rings from {len(se):,} edges ({log['quantile_cut']['n_seeds']:,} seeds, "
@@ -331,6 +336,8 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("run", help="score edges -> rings.parquet (contract schema)")
     r.add_argument("--scores", required=True, help="scored_edges parquet (contract columns)")
     r.add_argument("--edge-subset", default=None, help="parquet with an edge_id column; restricts the input (tenant scope)")
+    r.add_argument("--tenant-id", type=int, default=None,
+                   help="tenant code to stamp on every ring; requires --edge-subset")
     r.add_argument("--model-dir", required=True)
     r.add_argument("--aggregator", choices=AGGREGATORS, default=None, help="default: the model dir's aggregator")
     r.add_argument("--out", required=True, help="rings.parquet; a .log.json is written beside it")
