@@ -75,6 +75,19 @@ def args_from_run_config(run_dir: Path, *, dry_run: bool, dry_run_seed: int) -> 
         # stage that rebuilds that run's data (cross-scoring, re-scoring) inherits the same holdout
         # instead of silently training on labels the detector never saw.
         hold_out_pattern=cfg.get("hold_out_pattern"),
+        # Step V3.3: the run's split boundaries. `tgn.load_data` reads this; without it the
+        # 60/20/20 day search runs again and scores a DIFFERENT edge set than the model was
+        # trained on. Silent on HI-Small (where the search reproduces the shipped split) and
+        # wrong on any run that forced its boundaries, which is why it is carried explicitly.
+        split_days=(list(int(x) for x in cfg["split_days"])
+                    if cfg.get("split_days") else None),
+        # Step V3.3: scoring rebuilds the run's data, which includes the ports / time-delta
+        # columns -- 82 minutes on HI-Medium. The cache is keyed on the source file's sha256, the
+        # split boundaries, the node count and the flags, so a scoring run and a training run on
+        # the same split share the same entry. Set by `--feature-cache`; None keeps the old
+        # behaviour. `train_label_days` is deliberately NOT read back: scoring does not train, so
+        # it wants the full train edge set.
+        feature_cache=None,
     )
     for name, flag in ADAPTATION_FLAGS.items():
         setattr(a, flag, name in cfg.get("adaptations", []))
@@ -106,9 +119,11 @@ class RunScorer:
     """Loads the run's data once; scores any (seed, split) pair from it."""
 
     def __init__(self, run_dir: Path, *, dry_run: bool = False, dry_run_seed: int = 1,
-                 device: torch.device | None = None):
+                 device: torch.device | None = None, feature_cache: Path | None = None):
         self.run_dir = Path(run_dir)
         self.args, self.cfg = args_from_run_config(self.run_dir, dry_run=dry_run, dry_run_seed=dry_run_seed)
+        if feature_cache is not None:
+            self.args.feature_cache = Path(feature_cache)
         self.dry_run = dry_run
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         t0 = time.time()
@@ -182,11 +197,28 @@ class RunScorer:
             emb = aligned[1]
             assert not np.isnan(emb).any(), "NaN embedding"
             cols = [f"emb_{i:03d}" for i in range(emb.shape[1])]
-            emb_df = pd.DataFrame(emb[order], columns=cols)
-            emb_df.insert(0, "edge_id", scores["edge_id"].values)
             emb_path = out_dir / f"embeddings_{tag}.parquet"
-            emb_df.to_parquet(emb_path, index=False)
-            emb_shape = list(emb_df.shape)
+            # Written in row-group chunks rather than as one DataFrame. A whole-split export is
+            # ~14 GiB on HI-Medium's test split, and `pd.DataFrame(emb[order])` holds three copies
+            # at once -- the fancy-index result, pandas' F-order copy, and the original -- which
+            # OOM'd at 13.9 GiB on seed 3 after seed 2 had run in the same process.
+            import pyarrow as pa
+            import pyarrow.parquet as pq
+
+            eid = scores["edge_id"].values
+            schema = pa.schema([("edge_id", pa.int64())]
+                               + [(c, pa.float32()) for c in cols])
+            rows_per_chunk = max(1, int(2_000_000))
+            n = len(order)
+            with pq.ParquetWriter(emb_path, schema) as w:
+                for lo in range(0, n, rows_per_chunk):
+                    sel = order[lo:lo + rows_per_chunk]
+                    block = emb[sel]                      # one chunk only
+                    arrays = [pa.array(eid[lo:lo + len(sel)])]
+                    arrays += [pa.array(block[:, j]) for j in range(block.shape[1])]
+                    w.write_table(pa.Table.from_arrays(arrays, schema=schema))
+                    del block, arrays
+            emb_shape = [int(n), int(emb.shape[1]) + 1]
 
         log = {
             "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -237,9 +269,27 @@ def main(argv=None):
     g.add_argument("--non-causal", dest="causal", action="store_false")
     ap.add_argument("--window-s", type=int, default=None,
                     help="causal fallback window in seconds (default: the run's loader_window_s)")
+    ap.add_argument("--feature-cache", type=Path, default=None,
+                    help="reuse cached ports/time-delta columns (see models/tgn.py). Shares "
+                         "entries with training runs on the same split; off by default.")
+    ap.add_argument("--batch-size", type=int, default=None,
+                    help="override the run config's batch_size for inference only. The HI-Medium "
+                         "test split is 18.9 M edges and training already sits at 24.1 of 24.5 GB "
+                         "of VRAM; this does not change any score, only how many edges are "
+                         "resident at once.")
+    ap.add_argument("--device", default=None, choices=["cpu", "cuda"],
+                    help="force the scoring device. CUDA_VISIBLE_DEVICES= is NOT a reliable way to "
+                         "hide the GPU here: torch.cuda.is_available() can stay True while "
+                         "device_count() is 0, and the checkpoint then fails to deserialise.")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
-    scorer = RunScorer(args.run_dir, dry_run=args.dry_run, dry_run_seed=args.seeds[0])
+    import torch
+    scorer = RunScorer(args.run_dir, dry_run=args.dry_run, dry_run_seed=args.seeds[0],
+                       feature_cache=args.feature_cache,
+                       device=torch.device(args.device) if args.device else None)
+    if args.batch_size is not None:
+        print(f"[score] batch_size {scorer.args.batch_size} -> {args.batch_size} (inference only)")
+        scorer.args.batch_size = int(args.batch_size)
     for seed in args.seeds:
         for split in args.splits:
             emb = (split in args.embeddings_for) if args.embeddings_for is not None else args.export_embeddings

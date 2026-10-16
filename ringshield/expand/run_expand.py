@@ -94,6 +94,8 @@ def main(argv=None):
     ap.add_argument("--labels-dir", type=Path, default=REPO_ROOT / "contract" / "out")
     ap.add_argument("--eval-window", type=Path, default=EVAL_WINDOW_YAML)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--val-only", action="store_true",
+                    help="choose and record the val parameters, then stop without touching test")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
     assert (args.policy_dir is None) != (args.policy is None), "give exactly one of --policy-dir / --policy"
@@ -113,8 +115,13 @@ def main(argv=None):
     min_size = args.min_size if args.min_size is not None else int(b0_cfg["chosen"]["min_size"])
 
     # ---- data, contexts ---------------------------------------------------------------------------
+    # --val-only stops after the val grid has been chosen and recorded, without reading or scoring
+    # the test split at all. V3.3d needs this: HI-Medium's parameters must be chosen and written
+    # down while the detector's remaining seeds are still training, and the registered rule is that
+    # nothing is chosen on test. The default (both splits) is unchanged.
+    splits = ("val",) if args.val_only else ("val", "test")
     se, ctx, ring_id_of = {}, {}, {}
-    for split in ("val", "test"):
+    for split in splits:
         df = build_scored_edges(args.r1_dir / f"scores_{split}_seed{S}.parquet", split, model_id=args.model_id, seed=S, processed_dir=pdir)
         if args.dry_run:
             df = df.sample(frac=DRY_RUN_FRAC, random_state=S).sort_values("edge_id").reset_index(drop=True)
@@ -127,17 +134,19 @@ def main(argv=None):
         ring_id_of[split] = pd.read_parquet(pdir / f"amlworld_{split}.parquet", columns=["EdgeID", "ring_id"]).set_index("EdgeID")["ring_id"]
         print(f"[run_expand] {split}: {len(df):,} edges, dead-region {ctx[split].meta['n_dead_region']:,}, "
               f"embeddings {'yes' if emb.exists() else 'NO'}")
-    calibrated = not se["test"]["score_calibrated"].equals(se["test"]["score_raw"])
+    cal_split = "val" if args.val_only else "test"
+    calibrated = not se[cal_split]["score_calibrated"].equals(se[cal_split]["score_raw"])
     labels = {s: (pd.read_parquet(args.labels_dir / f"labels_{s}.parquet") if (args.labels_dir / f"labels_{s}.parquet").exists() else None)
-              for s in ("val", "test")}
+              for s in splits}
     ring_gt = pdir / "amlworld_ring_ground_truth.parquet"
-    windows = {s: list(split_window(pdir / f"amlworld_{s}.parquet")) for s in ("val", "test")}
+    windows = {s: list(split_window(pdir / f"amlworld_{s}.parquet")) for s in splits}
     eval_windows = load_windows(args.eval_window)
     test_windows = {k: w for k, w in eval_windows.items() if w.split == "test"}
     truth_val, pat_val = load_ground_truth(ring_gt, *windows["val"], args.scope, verbose=False)
-    seed_mask = {s: seed_mask_for_pct(se[s][SELECT_COL].to_numpy(float), k_pct) for s in ("val", "test")}
+    seed_mask = {s: seed_mask_for_pct(se[s][SELECT_COL].to_numpy(float), k_pct) for s in splits}
     print(f"[run_expand] seed {S}, {method}, B0 cell {k_pct} % / min_size {min_size} (from {b0_cfg_path.name}); "
-          f"val seeds {int(seed_mask['val'].sum()):,}, test seeds {int(seed_mask['test'].sum()):,}")
+          f"val seeds {int(seed_mask['val'].sum()):,}"
+          + ("" if args.val_only else f", test seeds {int(seed_mask['test'].sum()):,}"))
 
     # ---- grid on VAL -------------------------------------------------------------------------------
     p_grid = list(args.p_min_grid) if is_model else [1.0]
@@ -172,11 +181,17 @@ def main(argv=None):
               "grid": {"delta_t_h": list(args.delta_grid_h), "p_min": p_grid}, "grid_results_val": grid_rows, "chosen": chosen,
               "candidate_definition": {"max_hops": args.max_hops, "max_events_per_query": MAX_EVENTS_PER_QUERY,
                                        "window": "[min seed time - delta_t, max seed time + delta_t]"},
-              "selection_column": SELECT_COL, "confidence_column": score_column(se["test"]), "calibrated": bool(calibrated),
-              "context": {s: ctx[s].meta for s in ("val", "test")}, "scope_windows": windows,
+              "selection_column": SELECT_COL, "confidence_column": score_column(se[cal_split]), "calibrated": bool(calibrated),
+              "context": {s: ctx[s].meta for s in splits}, "scope_windows": windows, "val_only": bool(args.val_only),
               "eval_window": str(args.eval_window), "eval_windows": {k: w.as_dict() for k, w in eval_windows.items()},
               "primary_block": "primary", "n_val_truth_rings": len(truth_val), "dry_run": bool(args.dry_run)}
     (args.out / "config.yaml").write_text(yaml.dump(config, sort_keys=False), encoding="utf-8")
+
+    if args.val_only:
+        grid_df.to_csv(args.out / "val_grid.csv", index=False)
+        print(f"[run_expand] --val-only: chosen parameters written to {args.out / 'config.yaml'} and the "
+              f"grid to {args.out / 'val_grid.csv'}. The test split was never read.")
+        return 0
 
     # ---- TEST, once -----------------------------------------------------------------------------------
     t0 = time.time()

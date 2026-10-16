@@ -207,3 +207,48 @@ FAN-IN             73
   transactions to prevent future leakage.
 - Ring ground truth saved separately in amlworld_ring_ground_truth.parquet for E7+.
 - Pattern matching rate: 1113/1023 (108.8%)
+
+
+---
+
+# AMLworld HI-Small Split Manifest (v2 — 60/20/20)
+
+Generated: 2026-09-30T16:54:08
+
+## Split rule
+Day-based chronological 60/20/20 split (matching Altman et al. NeurIPS 2023).
+Optimal day boundaries found via min-max split error.
+
+- Train: day [0, 4)  →  Timestamp < 345600
+- Val:   day [4, 6)  →  Timestamp in [345600, 518400)
+- Test:  day [6, 28)  →  Timestamp >= 518400
+
+## Transaction counts
+
+| Split | Total txns | Laundering | Illicit ratio | Unique rings |
+|-------|-----------|------------|---------------|--------------|
+| Train | 9146808 | 5309 | 0.06% | 657 |
+| Val   | 3857689 | 3904 | 0.10% | 773 |
+| Test  | 18893741 | 26017 | 0.14% | 2396 |
+
+## Feature set
+Transaction-level: Amount Sent, Sent Currency, Amount Received, Received Currency, Payment Format, hour_of_day, day_of_week, day_index
+Account-level (fit on train only): sender_out_degree, sender_out_amount_mean, sender_out_amount_std, sender_out_amount_max, sender_out_volume_total, receiver_in_degree, receiver_in_amount_mean, receiver_in_amount_std, receiver_in_amount_max, receiver_in_volume_total
+Total feature dim: 18
+
+## Pattern types in ground truth
+pattern_type
+GATHER-SCATTER    4289
+SCATTER-GATHER    3988
+STACK             3986
+FAN-IN            2315
+CYCLE             2235
+BIPARTITE         2135
+FAN-OUT           2128
+RANDOM            1667
+
+## Notes
+- Account-level features (degree, amount stats) computed ONLY from train-period
+  transactions to prevent future leakage.
+- Ring ground truth saved separately in amlworld_ring_ground_truth.parquet for E7+.
+- Pattern matching rate: 24822/22743 (109.1%)

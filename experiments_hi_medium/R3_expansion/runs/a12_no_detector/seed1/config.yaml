@@ -1,0 +1,199 @@
+experiment: seed1
+step: 6.4 (R3 expansion)
+created_utc: '2026-10-09T13:48:21+00:00'
+git_commit: cf2342310f65e179b1b68787967c4ec461a058b0
+aggregator: expand
+method: policy:experiments_hi_medium\R3_expansion\policy_no_detector
+policy_kind: model
+policy_features:
+- hop
+- gap_to_anchor_s
+- abs_gap_to_anchor_s
+- after_anchor
+- abs_gap_via_s
+- gap_to_nearest_seed_s
+- nearest_seed_before
+- n_anchors
+- n_included
+- log_amount
+- amount_below_p25
+- inc_in_sum
+- inc_out_sum
+- inc_in_cnt
+- inc_out_cnt
+- closure_before
+- closure_after
+- delta_closure
+- hold_time_s
+- cand_is_inflow
+- pair_in_out
+- pair_out_out
+- pair_in_in
+- pair_out_in
+- far_is_member
+- reach_1hop
+- reach_2hop
+- reach_count
+- far_24h_in_cnt
+- far_24h_out_cnt
+- far_24h_in_sum
+- far_24h_out_sum
+- far_24h_uniq_in
+- far_24h_uniq_out
+- far_24h_low_frac
+- far_72h_in_cnt
+- far_72h_out_cnt
+- far_72h_in_sum
+- far_72h_out_sum
+- far_72h_uniq_in
+- far_72h_uniq_out
+- far_72h_low_frac
+- shared_24h_in_cnt
+- shared_24h_out_cnt
+- shared_24h_in_sum
+- shared_24h_out_sum
+- shared_24h_uniq_in
+- shared_24h_uniq_out
+- shared_24h_low_frac
+- shared_72h_in_cnt
+- shared_72h_out_cnt
+- shared_72h_in_sum
+- shared_72h_out_sum
+- shared_72h_uniq_in
+- shared_72h_uniq_out
+- shared_72h_low_frac
+- cos_mean_included
+- cos_anchor
+- gfp_fan_out
+- gfp_fan_in
+- gfp_deg_out_src
+- gfp_deg_in_src
+- gfp_deg_out_dst
+- gfp_deg_in_dst
+- gfp_scatter_gather
+- gfp_gather_scatter
+- gfp_temporal_cycle
+- gfp_cycle_length
+policy_drop_groups:
+- detector
+policy_hop1_only: false
+policy_cv: 0.7694473599800145
+detector_seed: 1
+r1_dir: experiments_hi_medium\R1_gine_causal_c1prime
+model_id: gine_causal
+scope: test_visible
+choose_on: val
+b0_config: E:\JSJ\Ring-Shield\experiments\R2_b0\gine_causal\seed1\config.yaml
+b0_cell_fixed:
+  seed_frac_pct: 0.1
+  min_size: 3
+grid:
+  delta_t_h:
+  - 48.0
+  p_min:
+  - 0.7
+  - 0.8
+  - 0.9
+grid_results_val:
+- delta_t_h: 48.0
+  p_min: 0.7
+  n_rings: 617
+  ring_precision: 0.4959
+  ring_recall: 0.3959
+  ring_f1: 0.4403
+  member_coverage: 0.9542
+  n_matched: 306
+  n_expanded_edges: 733
+  n_components_expanded: 370
+  seconds: 777.1
+- delta_t_h: 48.0
+  p_min: 0.8
+  n_rings: 550
+  ring_precision: 0.5527
+  ring_recall: 0.3933
+  ring_f1: 0.4596
+  member_coverage: 0.9511
+  n_matched: 304
+  n_expanded_edges: 543
+  n_components_expanded: 286
+  seconds: 797.9
+- delta_t_h: 48.0
+  p_min: 0.9
+  n_rings: 485
+  ring_precision: 0.6186
+  ring_recall: 0.3881
+  ring_f1: 0.4769
+  member_coverage: 0.9427
+  n_matched: 300
+  n_expanded_edges: 327
+  n_components_expanded: 194
+  seconds: 817.3
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  max_gap_hours: null
+  delta_t_h: 48.0
+  p_min: 0.9
+  val_ring_f1: 0.4769
+candidate_definition:
+  max_hops: 2
+  max_events_per_query: 500
+  window: '[min seed time - delta_t, max seed time + delta_t]'
+selection_column: score_raw
+confidence_column: score_calibrated
+calibrated: false
+context:
+  val:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed_hi_medium\amlworld_gfp_features_val.parquet
+    embeddings_parquet: experiments_hi_medium\R1_gine_causal_c1prime\embeddings_val_seed1.parquet
+    checkpoint: experiments_hi_medium\R1_gine_causal_c1prime\model_best_seed1.pt
+    head_constants:
+    - 0.017156260088086128
+    - 0.01690254732966423
+    n_dead_region: 419500
+scope_windows:
+  val:
+  - 345610
+  - 518350
+val_only: true
+eval_window: configs\eval_window_hi_medium.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 4
+    - 5
+    bounds:
+    - 345610
+    - 518409
+  primary:
+    name: primary
+    split: test
+    days:
+    - 6
+    - 15
+    bounds:
+    - 518410
+    - 1382409
+  tail:
+    name: tail
+    split: test
+    days:
+    - 16
+    - 27
+    bounds:
+    - 1382410
+    - 2419209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 6
+    - 27
+    bounds:
+    - 518410
+    - 2419209
+primary_block: primary
+n_val_truth_rings: 773
+dry_run: false

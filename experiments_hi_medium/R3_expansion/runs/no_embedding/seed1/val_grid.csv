@@ -1,0 +1,2 @@
+delta_t_h,p_min,n_rings,ring_precision,ring_recall,ring_f1,member_coverage,n_matched,n_expanded_edges,n_components_expanded,seconds
+48.0,0.7,673,0.4577,0.3984,0.426,0.9506,308,829,423,841.2

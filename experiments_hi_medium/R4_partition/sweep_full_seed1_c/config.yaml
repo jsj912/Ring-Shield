@@ -1,0 +1,167 @@
+experiment: sweep_full_seed1_c
+step: 7 close, item 3 (pre-registered operating-point sweep)
+created_utc: '2026-10-06T13:25:23+00:00'
+git_commit: f0d225fb548f28c5023562d8564047b8fa05c2bb
+hypothesis: partitioning prevents the chaining collapse B0 shows above 0.3 % seeds,
+  allowing a looser operating point
+variant: full
+aggregator: full
+method: average
+detector_seed: 1
+expansion_fixed:
+  delta_t_h: 48.0
+  p_min: 0.7
+grid:
+  seed_frac_pct:
+  - 0.3
+  cut:
+  - 0.3
+  - 0.5
+  - 0.7
+  min_size:
+  - 2
+  - 3
+  registered_seed_frac_pct:
+  - 0.1
+  - 0.15
+  - 0.2
+  - 0.3
+  - 0.5
+grid_results_val:
+- variant: b0
+  seed_frac_pct: 0.3
+  cut: null
+  min_size: 2
+  n_rings: 9282
+  ring_precision: 0.053
+  ring_recall: 0.6365
+  ring_f1: 0.0979
+  mean_jaccard: 0.8904
+  max_members: 15
+- variant: full
+  seed_frac_pct: 0.3
+  cut: 0.3
+  min_size: 2
+  n_rings: 10574
+  ring_precision: 0.058
+  ring_recall: 0.793
+  ring_f1: 0.108
+  mean_jaccard: 0.8668
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.3
+  cut: 0.5
+  min_size: 2
+  n_rings: 10447
+  ring_precision: 0.0578
+  ring_recall: 0.7814
+  ring_f1: 0.1077
+  mean_jaccard: 0.8797
+  max_members: 13
+- variant: full
+  seed_frac_pct: 0.3
+  cut: 0.7
+  min_size: 2
+  n_rings: 10293
+  ring_precision: 0.0581
+  ring_recall: 0.7736
+  ring_f1: 0.1081
+  mean_jaccard: 0.8991
+  max_members: 14
+- variant: b0
+  seed_frac_pct: 0.3
+  cut: null
+  min_size: 3
+  n_rings: 984
+  ring_precision: 0.3171
+  ring_recall: 0.4036
+  ring_f1: 0.3552
+  mean_jaccard: 0.8758
+  max_members: 15
+- variant: full
+  seed_frac_pct: 0.3
+  cut: 0.3
+  min_size: 3
+  n_rings: 2926
+  ring_precision: 0.1237
+  ring_recall: 0.4683
+  ring_f1: 0.1957
+  mean_jaccard: 0.884
+  max_members: 13
+- variant: full
+  seed_frac_pct: 0.3
+  cut: 0.5
+  min_size: 3
+  n_rings: 2901
+  ring_precision: 0.1231
+  ring_recall: 0.4618
+  ring_f1: 0.1943
+  mean_jaccard: 0.8901
+  max_members: 13
+- variant: full
+  seed_frac_pct: 0.3
+  cut: 0.7
+  min_size: 3
+  n_rings: 2855
+  ring_precision: 0.1229
+  ring_recall: 0.4541
+  ring_f1: 0.1935
+  mean_jaccard: 0.8995
+  max_members: 15
+chosen:
+  seed_frac_pct: 0.3
+  min_size: 3
+  cut: 0.3
+  method: average
+  delta_t_h: 48.0
+  p_min: 0.7
+  val_ring_f1: 0.1957
+tie_break:
+- smallest_seed_frac_pct
+- largest_min_size
+- largest_cut
+scope: test_visible
+cluster_seed: 0
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 4
+    - 5
+    bounds:
+    - 345610
+    - 518409
+  primary:
+    name: primary
+    split: test
+    days:
+    - 6
+    - 15
+    bounds:
+    - 518410
+    - 1382409
+  tail:
+    name: tail
+    split: test
+    days:
+    - 16
+    - 27
+    bounds:
+    - 1382410
+    - 2419209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 6
+    - 27
+    bounds:
+    - 518410
+    - 2419209
+primary_block: primary
+val_only: true
+sources:
+  r1_dir: experiments_hi_medium\R1_gine_causal_c1prime
+  r3_dir: experiments_hi_medium\R3_expansion
+  r4_dir: experiments_hi_medium\R4_partition

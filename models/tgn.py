@@ -22,6 +22,7 @@ Usage (full Multi-GINe):
 
 import argparse
 import itertools
+import hashlib
 import json
 import platform
 import random
@@ -46,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from models.causal_loader import ROUTE as LOADER_ROUTE, WINDOW_S, make_loader, seed_mask  # noqa: E402
 from ringshield.holdout import TRAINING_SPLITS, Holdout  # noqa: E402
 from ringshield.holdout import add_argument as _add_holdout_argument  # noqa: E402
+from preprocessing.account_bank import load_paths  # noqa: E402
 
 DRY_RUN_FRAC = 0.01
 
@@ -111,7 +113,13 @@ def compute_time_deltas(edge_index, timestamps, adj_edges_list):
     return tds
 
 
-def add_ports_and_tds(data, add_ports, add_tds):
+def compute_ports_tds(data, add_ports, add_tds):
+    """The extra edge-feature columns: [ports_in, ports_out, td_in, td_out], as requested.
+
+    Split out of `add_ports_and_tds` in Step V3.3 so the result can be cached. These are pure
+    Python loops over every edge and every node -- 82 minutes on HI-Medium's 31.9 M edges, paid
+    again for every seed because `load_data` runs inside `run_single_seed`.
+    """
     num_nodes = int(data.x.shape[0])
     timestamps = data.timestamps if hasattr(data, "timestamps") else None
     extra = []
@@ -123,8 +131,54 @@ def add_ports_and_tds(data, add_ports, add_tds):
         adj_in, adj_out = to_adj_edges_with_times(data.edge_index, timestamps, num_nodes)
         extra.append(compute_time_deltas(data.edge_index, timestamps, adj_in))
         extra.append(compute_time_deltas(data.edge_index, timestamps, adj_out))
-    if extra:
-        data.edge_attr = torch.cat([data.edge_attr] + extra, dim=1)
+    return torch.cat(extra, dim=1) if extra else None
+
+
+def feature_cache_key(fmt_path: Path, split_days, num_nodes: int, add_ports: bool,
+                      add_tds: bool, dry_run: bool, dry_run_seed: int) -> str:
+    """Everything that determines the ports/time-delta columns, hashed.
+
+    The source file's sha256 pins the data; the split boundaries pin which edges land in which
+    Data object; `num_nodes`, the flags and the dry-run sampling pin the rest. A key that missed
+    any of these would serve one split's columns for another, which is exactly the class of bug
+    `tests/test_split_days_roundtrip.py` exists to catch, so the key is deliberately literal.
+    """
+    h = hashlib.sha256()
+    with open(fmt_path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 24), b""):
+            h.update(chunk)
+    spec = json.dumps({"data": h.hexdigest(), "split_days": list(split_days),
+                       "num_nodes": int(num_nodes), "ports": bool(add_ports),
+                       "tds": bool(add_tds), "dry_run": bool(dry_run),
+                       "dry_run_seed": int(dry_run_seed) if dry_run else None},
+                      sort_keys=True)
+    return hashlib.sha256(spec.encode()).hexdigest()[:16], spec
+
+
+def add_ports_and_tds(data, add_ports, add_tds, cache_dir: Path | None = None,
+                      key: str | None = None, split_name: str | None = None,
+                      spec: str | None = None):
+    """Append the ports / time-delta columns, reading or writing `cache_dir` when given."""
+    extra = None
+    path = None
+    if cache_dir is not None and key is not None and split_name is not None:
+        path = Path(cache_dir) / f"portstds_{split_name}_{key}.npy"
+        if path.exists():
+            arr = np.load(path)
+            assert arr.shape[0] == data.edge_attr.shape[0], (
+                f"{path}: cached {arr.shape[0]} rows, data has {data.edge_attr.shape[0]}")
+            extra = torch.from_numpy(arr)
+            print(f"      cache hit  {path.name} {tuple(arr.shape)}")
+    if extra is None:
+        extra = compute_ports_tds(data, add_ports, add_tds)
+        if path is not None and extra is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            np.save(path, extra.numpy())
+            if spec is not None:
+                path.with_suffix(".json").write_text(spec, encoding="utf-8")
+            print(f"      cache write {path.name} {tuple(extra.shape)}")
+    if extra is not None:
+        data.edge_attr = torch.cat([data.edge_attr, extra], dim=1)
     return data
 
 
@@ -298,18 +352,30 @@ def load_data(raw_dir, data_dir, args):
         daily_trans.append(di.shape[0])
 
     d_ts = np.array(daily_trans)
-    split_per = [0.6, 0.2, 0.2]
-    best_score, best_ij = float("inf"), (0, 0)
-    for i, j in itertools.combinations(range(len(d_ts)), 2):
-        if j < i:
-            continue
-        st = [d_ts[:i].sum(), d_ts[i:j].sum(), d_ts[j:].sum()]
-        total = sum(st)
-        if total == 0:
-            continue
-        score = max(abs(v / total - t) / t for v, t in zip(st, split_per))
-        if score < best_score:
-            best_score, best_ij = score, (i, j)
+    # Step V3.3: `--split-days I J` forces the boundaries instead of searching for 60/20/20.
+    # The split parquets and their GFP features are built by preprocessing/amlworld_loader.py,
+    # which has the same flag; if the two disagree the GFP reindex below finds rows missing and
+    # the run aborts. HI-Medium's split is chosen by ring observability
+    # (docs/V3_OBSERVABILITY.md), not by edge proportion, so the search would pick train 0-8
+    # where the split parquets say 0-3. Default None -> the search runs exactly as before.
+    if getattr(args, "split_days", None) is not None:
+        best_ij = tuple(int(x) for x in args.split_days)
+        assert 0 < best_ij[0] < best_ij[1] <= len(d_ts),             f"bad --split-days {best_ij} for {len(d_ts)} days"
+        print(f"  --split-days given: train=[0,{best_ij[0]}), val=[{best_ij[0]},{best_ij[1]}), "
+              f"test=[{best_ij[1]},{len(d_ts)}) -- the 60/20/20 day search is skipped")
+    else:
+        split_per = [0.6, 0.2, 0.2]
+        best_score, best_ij = float("inf"), (0, 0)
+        for i, j in itertools.combinations(range(len(d_ts)), 2):
+            if j < i:
+                continue
+            st = [d_ts[:i].sum(), d_ts[i:j].sum(), d_ts[j:].sum()]
+            total = sum(st)
+            if total == 0:
+                continue
+            score = max(abs(v / total - t) / t for v, t in zip(st, split_per))
+            if score < best_score:
+                best_score, best_ij = score, (i, j)
 
     i, j = best_ij
     split = [list(range(i)), list(range(i, j)), list(range(j, len(d_ts)))]
@@ -319,9 +385,28 @@ def load_data(raw_dir, data_dir, args):
     for name, inds in [("Train", tr_inds), ("Val", val_inds), ("Test", te_inds)]:
         print(f"  {name}: {inds.shape[0]} ({y[inds].sum()} laund, IR={y[inds].float().mean()*100:.2f}%)")
 
+    # Step V3.3 C': restrict the TRAINING SEED EDGES to a day range. The excluded edges stay in
+    # `tr_data` -- the graph the sampler walks -- so they remain available as causal history for
+    # message passing and for the ports / time-delta / GFP features; they simply stop being
+    # supervised examples. `tr_all` is the full train edge set and feeds the Data object;
+    # `tr_inds` is what the train loader seeds on. Val and test are untouched.
+    tr_all = tr_inds
+    label_days = getattr(args, "train_label_days", None)
+    if label_days is not None:
+        lo, hi = (int(x) for x in label_days)
+        keep_days = [d for d in split[0] if lo <= d <= hi]
+        assert keep_days, f"--train-label-days {lo} {hi} keeps no training day of {split[0]}"
+        tr_inds = torch.cat([daily_inds[d] for d in keep_days])
+        dropped = tr_all.shape[0] - tr_inds.shape[0]
+        print(f"  --train-label-days {lo}-{hi}: training labels restricted to days {keep_days}; "
+              f"{dropped:,} of {tr_all.shape[0]:,} train edges ({dropped / tr_all.shape[0]:.1%}) "
+              f"stay in the graph but are no longer training seeds")
+        print(f"  Train (supervised): {tr_inds.shape[0]} ({y[tr_inds].sum()} laund, "
+              f"IR={y[tr_inds].float().mean() * 100:.2f}%)")
+
     # Expanding window data objects
-    e_tr = tr_inds.numpy()
-    e_val = np.concatenate([tr_inds, val_inds])
+    e_tr = tr_all.numpy()
+    e_val = np.concatenate([tr_all, val_inds])
 
     tr_data = Data(x=x, y=y[e_tr], edge_index=edge_index[:, e_tr],
                    edge_attr=edge_attr[e_tr], timestamps=timestamps[e_tr])
@@ -339,7 +424,10 @@ def load_data(raw_dir, data_dir, args):
         # val_data edges = train + val edges
         # te_data edges = all edges
         edge_ids = df["EdgeID"].values
-        gfp_tr = load_gfp_features(data_dir, "train", edge_ids[tr_inds.numpy()])
+        # `tr_all`, not `tr_inds`: these are edge features of the GRAPH, so they must cover every
+        # train edge. Under --train-label-days the two differ (V3.3 C'), and indexing by the
+        # supervised subset would build a feature matrix shorter than tr_data's edge count.
+        gfp_tr = load_gfp_features(data_dir, "train", edge_ids[tr_all.numpy()])
         gfp_val = load_gfp_features(data_dir, "val", edge_ids[val_inds.numpy()])
         gfp_te = load_gfp_features(data_dir, "test", edge_ids[te_inds.numpy()])
 
@@ -358,9 +446,17 @@ def load_data(raw_dir, data_dir, args):
     # Ports and time deltas
     if args.ports or args.tds:
         print("  Adding ports/time-delta features...")
+        cache_dir = getattr(args, "feature_cache", None)
+        ck = cspec = None
+        if cache_dir is not None:
+            ck, cspec = feature_cache_key(fmt_path, (i, j), max_n_id, args.ports, args.tds,
+                                          bool(getattr(args, "dry_run", False)),
+                                          int(getattr(args, "dry_run_seed", 1)))
+            print(f"    feature cache {cache_dir} key {ck}")
         for name, data in [("train", tr_data), ("val", val_data), ("test", te_data)]:
             n_before = data.edge_attr.shape[1]
-            data = add_ports_and_tds(data, args.ports, args.tds)
+            data = add_ports_and_tds(data, args.ports, args.tds, cache_dir=cache_dir,
+                                     key=ck, split_name=name, spec=cspec)
             print(f"    {name}: {n_before} -> {data.edge_attr.shape[1]} edge features")
             if name == "train":
                 tr_data = data
@@ -642,33 +738,50 @@ def run_single_seed(seed, args, device):
     print(f"  Best val F1: {best_val_f1:.4f} at epoch {best_epoch}")
 
     # Load best model
-    model.load_state_dict(torch.load(args.out_dir / f"model_best_seed{seed}.pt", weights_only=True))
+    # map_location=device: the checkpoint carries the device it was saved from, so a CUDA-trained
+    # checkpoint fails to load on a CPU-only process without it (V3.3d, scoring on CPU while the
+    # GPU is busy with another seed).
+    model.load_state_dict(torch.load(args.out_dir / f"model_best_seed{seed}.pt",
+                                     map_location=device, weights_only=True))
     model.to(device)
 
     # Tune threshold on val
     best_thresh = tune_threshold(val_loader, val_inds, model, device, is_hetero)
 
-    # Test with tuned threshold
-    test_metrics, test_preds, test_labels, test_probs = evaluate(
-        te_loader, te_inds, model, device, is_hetero, threshold=best_thresh)
+    # Test with tuned threshold.
+    # Step V3.3: `--skip-final-test` skips it. On HI-Medium this call ran 7.6 h over the
+    # 18,893,741-edge test split without returning, and because the per-seed artefacts are
+    # written AFTER it, a run stopped there loses its entire training log (Amendment 5). The
+    # test scores come from `models/score.py` regardless -- this call only duplicated them -- so
+    # skipping it loses nothing and makes the training log survivable. Default off, so HI-Small
+    # and every shipped run behave exactly as before.
+    skip_test = bool(getattr(args, "skip_final_test", False))
+    test_metrics = {}
+    if skip_test:
+        print(f"\n  Final test evaluation SKIPPED (--skip-final-test); score the test split "
+              f"with models/score.py. Tuned threshold={best_thresh:.2f}")
+    else:
+        test_metrics, test_preds, test_labels, test_probs = evaluate(
+            te_loader, te_inds, model, device, is_hetero, threshold=best_thresh)
 
-    print(f"\n  Test (threshold={best_thresh:.2f}):")
-    print(f"    minority-F1:  {test_metrics['f1_minority']:.4f}")
-    print(f"    precision:    {test_metrics['precision_minority']:.4f}")
-    print(f"    recall:       {test_metrics['recall_minority']:.4f}")
-    print(f"    AP:           {test_metrics['average_precision']:.4f}")
+        print(f"\n  Test (threshold={best_thresh:.2f}):")
+        print(f"    minority-F1:  {test_metrics['f1_minority']:.4f}")
+        print(f"    precision:    {test_metrics['precision_minority']:.4f}")
+        print(f"    recall:       {test_metrics['recall_minority']:.4f}")
+        print(f"    AP:           {test_metrics['average_precision']:.4f}")
 
     # Save per-seed artifacts
     pd.DataFrame(training_log).to_csv(
         args.out_dir / f"training_log_seed{seed}.csv", index=False)
 
-    assert len(test_labels) == len(te_meta), (
-        f"Prediction count {len(test_labels)} != test edge count {len(te_meta)}")
-    pred_df = te_meta.copy()
-    pred_df["true_label"] = test_labels
-    pred_df["predicted_label"] = test_preds
-    pred_df["pred_prob"] = test_probs
-    pred_df.to_csv(args.out_dir / f"predictions_seed{seed}.csv", index=False)
+    if not skip_test:
+        assert len(test_labels) == len(te_meta), (
+            f"Prediction count {len(test_labels)} != test edge count {len(te_meta)}")
+        pred_df = te_meta.copy()
+        pred_df["true_label"] = test_labels
+        pred_df["predicted_label"] = test_preds
+        pred_df["pred_prob"] = test_probs
+        pred_df.to_csv(args.out_dir / f"predictions_seed{seed}.csv", index=False)
 
     result = {
         "seed": seed,
@@ -676,6 +789,7 @@ def run_single_seed(seed, args, device):
         "best_epoch": best_epoch,
         "best_threshold": float(best_thresh),
         "test": test_metrics,
+        "final_test_skipped": skip_test,
         "n_params": n_params,
         "epochs_run": len(training_log),
         "mean_epoch_time_s": float(np.mean([r["time_s"] for r in training_log])),
@@ -711,6 +825,25 @@ def main():
     parser.add_argument("--ego", action="store_true", help="Ego IDs for seed nodes")
     parser.add_argument("--gfp", action="store_true", help="Include GFP per-edge features")
     parser.add_argument("--num-neighs", nargs="+", type=int, default=[100, 100])
+    parser.add_argument("--skip-final-test", action="store_true",
+                        help="skip the post-training test evaluation; score the test split with "
+                             "models/score.py instead. Default off, so HI-Small and every "
+                             "shipped run are unchanged.")
+    parser.add_argument("--train-label-days", type=int, nargs=2, default=None, metavar=("LO", "HI"),
+                        help="restrict the detector's TRAINING LABELS to days [LO, HI]. Edges "
+                             "outside that range stay in the graph as message-passing history "
+                             "and keep their val/test labels; only their training supervision is "
+                             "removed. Step V3.3 C': day 0 is 48.8 %% of HI-Medium's training "
+                             "edges at ~0.27x the laundering base rate (C8).")
+    parser.add_argument("--feature-cache", type=Path, default=None,
+                        help="directory for cached ports/time-delta columns. The key covers the "
+                             "source file's sha256, the split boundaries, the node count, the "
+                             "flags and the dry-run sampling, so a stale or foreign cache cannot "
+                             "be read by mistake. Off by default.")
+    parser.add_argument("--split-days", type=int, nargs=2, default=None, metavar=("I", "J"),
+                        help="force split boundaries: train=[0,I), val=[I,J), test=[J,end). Must "
+                             "match the value given to preprocessing/amlworld_loader.py, or the "
+                             "GFP features will not line up. Default: the 60/20/20 day search.")
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--seeds", nargs="+", type=int, default=[42])
     parser.add_argument("--arch", choices=["gine"], default="gine", help="model architecture (only gine)")
@@ -758,26 +891,38 @@ def main():
     print(f"  AGGREGATE RESULTS ({len(seeds_all)} seeds: {seeds_all})")
     print(f"{'='*60}")
 
-    test_f1s = [r["test"]["f1_minority"] for r in all_results]
-    test_aps = [r["test"]["average_precision"] for r in all_results]
+    # With --skip-final-test there are no test metrics to aggregate; the run still reports its
+    # validation results and the test numbers come from models/score.py.
+    scored = [r for r in all_results if r.get("test")]
+    test_f1s = [r["test"]["f1_minority"] for r in scored]
+    test_aps = [r["test"]["average_precision"] for r in scored]
 
     for r in all_results:
-        print(f"  Seed {r['seed']}: F1={r['test']['f1_minority']:.4f}, "
-              f"AP={r['test']['average_precision']:.4f}, thresh={r['best_threshold']:.2f}")
+        if r.get("test"):
+            print(f"  Seed {r['seed']}: F1={r['test']['f1_minority']:.4f}, "
+                  f"AP={r['test']['average_precision']:.4f}, thresh={r['best_threshold']:.2f}")
+        else:
+            print(f"  Seed {r['seed']}: best val F1={r['best_val_f1']:.4f}, "
+                  f"thresh={r['best_threshold']:.2f}, final test skipped (use score.py)")
 
-    mean_f1 = np.mean(test_f1s)
-    std_f1 = np.std(test_f1s) if len(test_f1s) > 1 else 0
-    mean_ap = np.mean(test_aps)
-    std_ap = np.std(test_aps) if len(test_aps) > 1 else 0
+    mean_f1 = float(np.mean(test_f1s)) if test_f1s else float("nan")
+    std_f1 = float(np.std(test_f1s)) if len(test_f1s) > 1 else 0
+    mean_ap = float(np.mean(test_aps)) if test_aps else float("nan")
+    std_ap = float(np.std(test_aps)) if len(test_aps) > 1 else 0
 
-    print(f"\n  Mean F1:  {mean_f1:.4f} ± {std_f1:.4f}")
-    print(f"  Mean AP:  {mean_ap:.4f} ± {std_ap:.4f}")
-
-    print(f"\n  E5b GFP+XGBoost was: F1=0.534, AP=0.589")
-    if mean_f1 > 0.534:
-        print("  Multi-GINe BEATS the scientific caution baseline!")
+    if test_f1s:
+        print(f"\n  Mean F1:  {mean_f1:.4f} ± {std_f1:.4f}")
+        print(f"  Mean AP:  {mean_ap:.4f} ± {std_ap:.4f}")
     else:
-        print("  Multi-GINe does NOT beat E5b — report honestly per roadmap.")
+        # --skip-final-test: there is no test metric to average, and printing "nan ± 0" invited
+        # it being read as a measurement. The val-side numbers are already listed per seed above.
+        val_f1s = [r["best_val_f1"] for r in all_results if r.get("best_val_f1") is not None]
+        print("\n  Mean F1:  test skipped (--skip-final-test); score with models/score.py")
+        print("  Mean AP:  test skipped (--skip-final-test); score with models/score.py")
+        if len(val_f1s) > 1:
+            print(f"  Best val F1 across {len(val_f1s)} seeds: "
+                  f"{float(np.mean(val_f1s)):.4f} ± {float(np.std(val_f1s)):.4f} "
+                  f"(min {min(val_f1s):.4f}, max {max(val_f1s):.4f})")
 
     # Save final config + aggregate metrics
     try:
@@ -792,8 +937,23 @@ def main():
         "git_commit": commit,
         "adaptations": adaptations,
         **Holdout.load(getattr(args, "hold_out_pattern", None), processed_dir=args.data_dir).summary(),
-        "dataset": "AMLworld HI-Small",
-        "split": "60/20/20 day-based",
+        # Step V3.3: the release and split are read off the run, not hardcoded. A config that
+        # says "HI-Small" and "60/20/20" for an HI-Medium run with forced boundaries is not a
+        # record of anything, and `models/score.py::args_from_run_config` rebuilds the split
+        # from `split_days` -- without it, scoring silently re-runs the 60/20/20 search and
+        # scores a DIFFERENT set of edges than the one the model was trained on.
+        "dataset": f"AMLworld {load_paths().get('dataset', 'HI-Small')}",
+        "split": ("forced day boundaries (--split-days)" if args.split_days is not None
+                  else "60/20/20 day-based"),
+        "split_days": (list(int(x) for x in args.split_days) if args.split_days is not None
+                       else None),
+        # Recorded for provenance only. It is deliberately NOT read back by
+        # `models/score.py::args_from_run_config`: scoring and cross-scoring do not train the
+        # detector, so they want the full train edge set, and `cross_score` asserts
+        # `tr_inds == arange(n_tr)` which a restricted seed set would break.
+        "train_label_days": (list(int(x) for x in args.train_label_days)
+                             if getattr(args, "train_label_days", None) is not None else None),
+        "final_test_skipped": bool(getattr(args, "skip_final_test", False)),
         "seeds": seeds_all,
         "epochs": args.epochs, "patience": args.patience,
         "batch_size": args.batch_size, "lr": args.lr,
@@ -829,8 +989,15 @@ def main():
     best_seed_result = max(all_results, key=lambda r: r["best_val_f1"])
     best_seed = best_seed_result["seed"]
     import shutil
-    shutil.copy(args.out_dir / f"predictions_seed{best_seed}.csv",
-                args.out_dir / "predictions.csv")
+    # With --skip-final-test no predictions CSV is produced (the test split is scored by
+    # models/score.py instead), so this copy is skipped rather than crashing the run after
+    # training has already succeeded and every per-seed artefact is on disk.
+    best_preds = args.out_dir / f"predictions_seed{best_seed}.csv"
+    if best_preds.exists():
+        shutil.copy(best_preds, args.out_dir / "predictions.csv")
+    else:
+        print(f"  predictions.csv not written: {best_preds.name} absent "
+              f"(--skip-final-test); score the test split with models/score.py")
     shutil.copy(args.out_dir / f"model_best_seed{best_seed}.pt",
                 args.out_dir / "model.pkl")
     shutil.copy(args.out_dir / f"training_log_seed{best_seed}.csv",

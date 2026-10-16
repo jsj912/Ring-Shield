@@ -305,9 +305,12 @@ and remove both from the pool (greedy one-to-one).
       (43 of the 157 val rings) have fewer than three visible members. They **stay in the
       denominator** of Ring-Recall. The aggregator's minimum ring size is a
       **validation-grid parameter, `min_size ∈ {2, 3}`**, chosen on the val rings together
-      with the score threshold and recorded in the run config before any test run; under
-      `min_size = 3` these rings are guaranteed misses and recall is bounded above by 0.721 on the test set. **Decision: keep in
-      denominator.**
+      with the score threshold and recorded in the run config before any test run. ~~Under
+      `min_size = 3` these rings are guaranteed misses and recall is bounded above by 0.721 on
+      the test set.~~ **CORRECTED 2026-09-30 (V3.2b): they are not guaranteed misses and there is
+      no such bound** — `min_size` constrains the unrestricted prediction, matching uses the
+      window-restricted one, and 11.4 of these rings are matched per seed. See §6a.
+      **Decision: keep in denominator.**
 
 ## 6a. Ceiling on test-period evidence (Step 2.3, `test_visible`)
 
@@ -342,11 +345,20 @@ date (`full` = detector at 0.1 % + expansion + partition):
 
 *(c) corrected 2026-09-27 — see the note in `docs/PARTITION.md`; matched, (a) and (b) are unaffected.*
 
-(a) is a property of the ground truth under `min_size` 3, not of a model: 1,359 of the 1,387
-(a)-rings counted across seeds have exactly 2 visible members and 28 have 1. With `min_size` 3
-fixed, **ring recall on the primary window is capped at about 0.72** ((174 − 48.6) / 174) and the
-reachable part beyond today's 0.46 is mostly class (b) — rings the detector does not fire on at
-all. Quote (a) and (b) in the limitations next to (c) above; the per-pattern split (BIPARTITE is
+(a) counts the small rings this pipeline leaves **unmatched**: 1,359 of the 1,387 (a)-rings
+counted across seeds have exactly 2 visible members and 28 have 1.
+
+> **Correction, 2026-09-30 (V3.2b).** This paragraph previously said that with `min_size` 3 fixed,
+> *"ring recall on the primary window is capped at about 0.72 ((174 − 48.6)/174)"*. **Retracted.**
+> That arithmetic subtracts an observed outcome (48.6 unmatched small rings) and calls the result
+> a bound. `min_size` constrains the **unrestricted** prediction; matching is done on the
+> **window-restricted** prediction, which can be smaller — 13 of 106 per seed fall below 3
+> members. **11.4 of the 60 sub-`min_size` rings are matched per seed**, 11.0 of them at exactly
+> 2 members and most at Jaccard 1.0. (a) is therefore an outcome of this pipeline, not a property
+> of the ground truth.
+
+The reachable part beyond today's 0.46 is mostly class (b) — rings the detector does not fire on
+at all. Quote (a) and (b) in the limitations next to (c) above; the per-pattern split (BIPARTITE is
 almost entirely (a) + (b)) is in `docs/PARTITION.md`.
 
 ## Appendix A. Strict and majority policies (not used for reported numbers)
