@@ -190,6 +190,63 @@ The p95 <= 50 ms leave-one-out budget is unchanged and still tested.
 
 ---
 
+### Contract `scored_edges` for gfpxgb and MEGA - hashes (added 2026-10-16)
+
+**These were missing from this file, and that is why a stale one could not be caught.** The
+detector *score* files were listed above; the contract `scored_edges` built from them were not, so
+nothing in the manifest could show that one of them was built differently from its siblings.
+Ruhani found it from the reader's refusal instead.
+
+**What was wrong.** `scored_edges_gfpxgb_1.parquet` and `scored_edges_gfpxgb_1_val.parquet` were
+built on 2026-09-17 by `ringshield.scored_edges.build_scored_edges` directly. That library
+function **deliberately never marks seeds** (`is_seed = False` - "the aggregator decides seeds",
+`ringshield/scored_edges.py`). Every other file here was built on 2026-09-28 by
+`contract/make_scored_edges.py`, which applies the seed-fraction rule. So the stale pair had
+**0** seeds where their siblings have 864 (test) and 966 (val), and the contract reader correctly
+refused `rings_full_gfpxgb_1`: every one of its 177 rings had a seed edge not marked `is_seed`.
+
+**What changed in the fix.** Both were regenerated with `contract/make_scored_edges.py` using the
+same arguments as seeds 2-5 (`--k-from experiments/R2_b0/gfpxgb/seed1/config.yaml`, 0.1 %, strict
+cut, 0 on the boundary). Verified against the stale originals, row for row: **only `is_seed`
+changed** - 864 rows on test, 966 on val - and every other column, including both scores, is
+identical. Against the regenerated test file `rings_full_gfpxgb_1` now has 0 rings with an
+unmarked seed edge.
+
+**If your copy of either file has 0 seeds, replace it with the one in
+`xai_handoff_scored_edges.zip`.** The other 18 should match the hashes below already.
+
+Test split:
+
+| path | bytes | size | sha256 |
+|---|---:|---:|---|
+| `contract/out/scored_edges_gfpxgb_1.parquet` **(regenerated 2026-10-16)** | 32,374,620 | 30.87 MiB | `02687bbb0f10b03722128eb0384a4ad28e1320bf625672147ea088738c1e989b` |
+| `contract/out/scored_edges_gfpxgb_2.parquet` | 32,353,123 | 30.85 MiB | `d8a11ebcc242ff7fe485a6c1cf7efa3fb5819e87e5cc19278976d5b9d806d777` |
+| `contract/out/scored_edges_gfpxgb_3.parquet` | 32,362,146 | 30.86 MiB | `29d2f5ae5523a23e282e2746c7d4c7c6e5f37615abdd9cfe87022d4eab0b8a84` |
+| `contract/out/scored_edges_gfpxgb_4.parquet` | 32,345,261 | 30.85 MiB | `3132fccd4f2d8e256e845d9ad9b9e342c20b5706eaf8fe99dd8a351058630654` |
+| `contract/out/scored_edges_gfpxgb_5.parquet` | 32,339,793 | 30.84 MiB | `cc8f823e802d3666824ce0043a953fd766a570b3392c8c26de5c97ed3ba6b974` |
+| `contract/out/scored_edges_mega_1.parquet` | 29,866,516 | 28.48 MiB | `ab1a28a55f55bc030ab8c1b1684ec886e01170deb37a4bb1e734369c16a95be2` |
+| `contract/out/scored_edges_mega_2.parquet` | 32,317,065 | 30.82 MiB | `2c4c5eec9e425937f556a7c9fd573c0b5ec79b09a0c6fbb0e05a9b0fffa91f79` |
+| `contract/out/scored_edges_mega_3.parquet` | 32,348,447 | 30.85 MiB | `64a889679a6cc72b6b9420d8c5ee5bc990029f5a12ba5552fe407322ba0099cb` |
+| `contract/out/scored_edges_mega_4.parquet` | 32,284,034 | 30.79 MiB | `785e6957c94c7900a8d64242fa360ba82b91b9bbbaf0ac73da12a5c1dfce81e9` |
+| `contract/out/scored_edges_mega_5.parquet` | 29,076,186 | 27.73 MiB | `5af467f70a6283462d16af94ebb0de056cfe8a55ae38fccb8b494a23f4cacb12` |
+
+Val split - needed only with val rings:
+
+| path | bytes | size | sha256 |
+|---|---:|---:|---|
+| `contract/out/scored_edges_gfpxgb_1_val.parquet` **(regenerated 2026-10-16)** | 34,033,981 | 32.46 MiB | `15ffd61dbe1e82db2e956bf96a0d0b859ce26c685936d30ffd201fbff963d3a8` |
+| `contract/out/scored_edges_gfpxgb_2_val.parquet` | 34,100,463 | 32.52 MiB | `227cda1c70802a3ce85280a7df97774df93fc87e1a42c7470d27f0af94923144` |
+| `contract/out/scored_edges_gfpxgb_3_val.parquet` | 34,166,268 | 32.58 MiB | `98b0f8bc47ae26dc014894e1751f84568077e57336d6dcd5c889903f94d11399` |
+| `contract/out/scored_edges_gfpxgb_4_val.parquet` | 34,053,629 | 32.48 MiB | `be38716b880da503d9cd38ed07c5eaa1c4b899ab254432b5a320a17acc812926` |
+| `contract/out/scored_edges_gfpxgb_5_val.parquet` | 34,023,595 | 32.45 MiB | `f6cbb3d29d9fe5e9ac1268c8f9074b5bdeb99f55846b8a9df4c023babae4fa53` |
+| `contract/out/scored_edges_mega_1_val.parquet` | 32,083,699 | 30.60 MiB | `4438ee852d393cbd266e4a227ce4e4250c512f5bbffe0aa8f3c9f3fbf2e820ae` |
+| `contract/out/scored_edges_mega_2_val.parquet` | 33,886,722 | 32.32 MiB | `d2fcb3e8b508f188c1874a27d58290c47ada720e03eb747bbe6c674e63ad2ff7` |
+| `contract/out/scored_edges_mega_3_val.parquet` | 33,873,722 | 32.30 MiB | `c5f95494e5e2d2d5518261c55cacbb5d0064dad4c126c96b4992be5660da9d10` |
+| `contract/out/scored_edges_mega_4_val.parquet` | 33,689,676 | 32.13 MiB | `fc5e1717573a395f5f3e53a76f8a8c43971afc506e90dbcffb805e00a64c9752` |
+| `contract/out/scored_edges_mega_5_val.parquet` | 29,102,168 | 27.75 MiB | `b1f9568e259be4196524b69ce92ad608d5a34d93ca9c56a096ac33c108c0fe7c` |
+
+---
+
 ## Group B - unchanged. Verify your copies; nothing is being re-sent.
 
 | path | bytes | size | sha256 |
