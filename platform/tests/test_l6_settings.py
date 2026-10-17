@@ -11,6 +11,8 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 
 from settings import load_l6_config, load_platform_config
 
+pytestmark = pytest.mark.usefixtures("repo_platform_config")
+
 
 def test_l6_settings_resolve_paths_after_required_artifact_locations_are_provided():
     config = deepcopy(load_platform_config())
