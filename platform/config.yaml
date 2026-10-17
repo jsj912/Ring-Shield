@@ -10,3 +10,29 @@ seed_score_cutoff: 0.9295209672451074
 seed_score_cutoff_source: contract/out/scored_edges_gine_causal_1.parquet.log.json:seed_rule.q
 seed_score_column: score_raw
 survey_candidate_count: 30
+
+# L6-A/L6-B configuration. Validation artifacts not present in this checkout
+# stay null; the L6 loader reports the exact missing key before starting work.
+l6:
+  simulator:
+    review_fraction: 0.05
+    accuracy: 0.90
+    cycle_days: 1
+    seed: 0
+    match_jaccard: 0.5
+    full_confirm_jaccard: 0.9
+  retrain:
+    epsilon: 0.005
+    components: [expansion, affinity]
+    min_new_labels: 5
+    holdout_manifest: platform/holdout/holdout_manifest.json
+    holdout_sha256_file: platform/holdout/holdout_manifest.sha256
+    val_scored_edges: contract/out/scored_edges_gine_causal_1_val.parquet
+    val_gfp: null
+    val_embeddings: null
+    truth_parquet: null
+    eval_window: val
+    eval_scope: test_visible
+    base_model_dir: models/artifacts/full_gine_causal_seed1
+  drift:
+    delta: 0.002

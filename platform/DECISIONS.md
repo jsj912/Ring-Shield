@@ -91,3 +91,23 @@ This file records findings and changes in the order requested for the platform h
 - Added exact platform dependency pins, including `bcrypt==5.0.0`, and separate pinned pytest/httpx development dependencies. CI, Docker test image, and the Windows database test script install from `requirements-dev.txt`.
 - Added a database-free test that imports `api.main`, hashes and verifies a password, and checks the 72-byte boundary.
 - `python -m compileall platform` passed. The available virtual environment lacks SQLAlchemy, so pytest collection could not run locally; CI must execute the new test.
+
+## L6-A retraining and simulator setup - 2026-10-17
+
+### Findings
+
+- `ringshield/__main__.py::cmd_train` validates the documented label columns, copies the base model, appends confirmed labels to `extra_labels.parquet`, increments the version, and writes `version.json` with `retrained: false`; it does not learn new weights. Any platform candidate from this command must remain unpromoted.
+- The research CLI `run` accepts `--scores`, `--model-dir`, `--aggregator full`, `--gfp`, `--embeddings`, and `--out`; its run log is JSON. `eval` accepts `--rings`, `--truth`, `--holdout`, `--window`, `--scope`, and `--out`, and writes a metrics JSON containing `ring_f1`. The holdout filter uses truth ring IDs.
+- `ModelVersion` has a partial unique index on `(tenant_id, component)` where `promoted IS TRUE`. `Verdict` and `Ring` use tenant-scoped keys; the loader uses `RETURNING` to count preserved non-open rings.
+- The active pair remains `gine_causal` / seed `1`. The repository contains `contract/out/scored_edges_gine_causal_1_val.parquet` and its sibling log, whose split is `val`. It does not contain a validation GFP parquet, validation embeddings for seed 1, or an `amlworld_ring_ground_truth.parquet` file. The base model configured for this pair exists at `models/artifacts/full_gine_causal_seed1`.
+- Typing is excluded from retraining because verdict rows do not carry a pattern-type label.
+
+### Changes
+
+- Added the `l6` config values from the task. Unavailable validation GFP, validation embeddings, and truth paths are explicit `null` values. The holdout manifest targets are configured but will not be created until the real validation truth file is available.
+- Added `load_l6_config`, which validates required numeric settings, supported components, required evaluation window/scope, and presence of each artifact path without guessing or silently substituting a different input.
+
+### Verification and blockers
+
+- No ground-truth file was found in the repository, so `platform/holdout/holdout_manifest.json` and its checksum have not been generated. The exact missing files are listed above; no placeholder manifest is treated as the dataset holdout.
+- Postgres is unavailable in this environment. L6 database integration tests will be written for CI and are not claimed to have run here.
