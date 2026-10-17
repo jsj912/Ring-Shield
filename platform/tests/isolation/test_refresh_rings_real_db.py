@@ -48,11 +48,13 @@ def _tenant_table_rows(engine, table: str, tenant_id: int) -> list[str]:
 
 
 def test_refresh_updates_open_preserves_verdict_rings_and_isolates_tenant_rows(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, register_db_test_ids):
     admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
     run_id = uuid4().hex
     open_ring_id = f"refresh-open-{run_id}"
     model_version_tag = f"v2-refresh-{run_id[:8]}"
+    register_db_test_ids(run_id, open_ring_id, model_version_tag,
+                         f"full-demo-model-7-v2-refresh-{run_id[:8]}-")
     model_dir = tmp_path / "promoted-model"
     model_dir.mkdir()
     model_version_id = None
