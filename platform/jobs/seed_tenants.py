@@ -7,16 +7,18 @@ Input columns are `account_id` and `bank_code` (the preprocessing artifact
 from __future__ import annotations
 
 import argparse
+import secrets
 import sys
 from pathlib import Path
 
+import bcrypt
 import pandas as pd
 from sqlalchemy.dialects.postgresql import insert
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "platform"))
 
-from db.models import Tenant  # noqa: E402
+from db.models import Tenant, User  # noqa: E402
 from db.session import db_session  # noqa: E402
 
 
@@ -40,6 +42,14 @@ def seed_tenants(account_map_path: Path, loaded_bank_codes: set[int]) -> dict[st
 
     rows = [{"tenant_id": code, "bank_code": code, "name": f"Bank {code}",
              "is_loaded": code in loaded_bank_codes} for code in sorted(bank_codes)]
+    simulated_password_hash = bcrypt.hashpw(secrets.token_bytes(32), bcrypt.gensalt()).decode("ascii")
+    simulated_users = [{
+        "tenant_id": code,
+        "email": f"simulated.analyst@tenant{code}.local",
+        "password_hash": simulated_password_hash,
+        "role": "analyst",
+        "disabled": False,
+    } for code in sorted(bank_codes)]
     with db_session(role="admin") as session:
         for offset in range(0, len(rows), 5_000):
             chunk = rows[offset:offset + 5_000]
@@ -50,6 +60,9 @@ def seed_tenants(account_map_path: Path, loaded_bank_codes: set[int]) -> dict[st
                       "name": stmt.excluded.name,
                       "is_loaded": stmt.excluded.is_loaded},
             ))
+        for offset in range(0, len(simulated_users), 5_000):
+            stmt = insert(User).values(simulated_users[offset:offset + 5_000])
+            session.execute(stmt.on_conflict_do_nothing(index_elements=[User.email]))
     return {"banks": len(bank_codes), "accounts": int(account_map["account_id"].nunique()),
             "loaded": len(loaded_bank_codes)}
 

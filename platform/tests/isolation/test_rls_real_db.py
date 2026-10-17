@@ -164,6 +164,45 @@ def test_admin_reads_across_tenants_but_cannot_mutate_verdicts(connection):
             connection.execute(text("DELETE FROM verdicts WHERE tenant_id = 210"))
 
 
+def test_simulator_role_can_insert_only_in_its_local_tenant_context():
+    admin_engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    simulator_url = os.environ.get("RINGSHIELD_SIMULATOR_DATABASE_URL")
+    if not simulator_url:
+        raise RuntimeError("RINGSHIELD_SIMULATOR_DATABASE_URL is required for simulator RLS acceptance")
+    simulator_engine = create_engine(simulator_url)
+    try:
+        with admin_engine.connect() as admin:
+            user_a = admin.execute(text("SELECT user_id FROM users WHERE tenant_id = :tenant LIMIT 1"),
+                                   {"tenant": TENANT_A}).scalar_one()
+            user_b = admin.execute(text("SELECT user_id FROM users WHERE tenant_id = :tenant LIMIT 1"),
+                                   {"tenant": TENANT_B}).scalar_one()
+        with simulator_engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                assert connection.execute(text("SELECT current_user")).scalar_one() == "ringshield_simulator"
+                _set_context(connection, TENANT_A, role="analyst")
+                with pytest.raises(DBAPIError):
+                    with connection.begin_nested():
+                        connection.execute(text("""
+                            INSERT INTO verdicts (tenant_id, ring_id, user_id, verdict,
+                                                  corrected_members, corrected_edges, is_simulated)
+                            VALUES (:tenant, 'demo-cycle', :user_id, 'reject',
+                                    ARRAY[]::bigint[], ARRAY[]::bigint[], true)
+                        """), {"tenant": TENANT_B, "user_id": user_b})
+                with connection.begin_nested():
+                    connection.execute(text("""
+                        INSERT INTO verdicts (tenant_id, ring_id, user_id, verdict,
+                                              corrected_members, corrected_edges, is_simulated)
+                        VALUES (:tenant, 'demo-cycle', :user_id, 'reject',
+                                ARRAY[]::bigint[], ARRAY[]::bigint[], true)
+                    """), {"tenant": TENANT_A, "user_id": user_a})
+            finally:
+                transaction.rollback()
+    finally:
+        simulator_engine.dispose()
+        admin_engine.dispose()
+
+
 def test_cross_bank_transaction_is_visible_to_both_endpoint_tenants_only(connection):
     for tenant_id in (TENANT_A, TENANT_B):
         _set_context(connection, tenant_id)

@@ -134,3 +134,18 @@ This file records findings and changes in the order requested for the platform h
 - Added a source scanner that rejects research-library imports and literal ground-truth paths outside `platform/adapters/`, `platform/jobs/simulate_verdicts.py`, `platform/experiments/`, and `platform/scripts/`. Its negative-control test verifies it catches both kinds of violation.
 - `platform/jobs/build_tenant_rings.py` previously imported the research CC module for a constant and a one-line NumPy percentile calculation. It now uses the same score column and NumPy linear percentile locally, keeping output behavior unchanged while satisfying the requested boundary.
 - The scanner test is database-free; the Postgres suite remains unavailable locally.
+
+## L6 simulated verdict cycle - 2026-10-17
+
+### Changes
+
+- Added a deterministic `simulate_cycle` job. It selects open tenant rings whose start times fall in the configured cycle day, orders by confidence descending, reviews `ceil(review_fraction * open_count)`, matches only through the ground-truth adapter, and applies seeded accuracy noise. Partial corrections use truth members intersected with the ring and keep only member edges whose two endpoints are corrected.
+- Added a dedicated per-tenant simulated analyst account to the tenant seeder. The CLI requires that account and a tenant-matching non-admin actor; its function rejects admins before reading truth or opening a DB session.
+- Refactored API verdict persistence into `platform/services/verdicts.py`; API and simulator share status update, verdict insert, and audit-log behavior.
+- Added a separate simulator connection URL and no-login simulator role. It can select tenant-scoped ring/transaction data, select limited analyst identity columns, update only `rings.status`, and insert verdict rows. Migration 0004 tightens `verdicts_simulator_insert` so both `app.tenant_id` and analyst role are required in addition to the simulator role and `is_simulated=true`.
+- Added database-free tests for perfect/noisy outcomes, deterministic seeds, review rounding, simulator flags, shared persistence, and admin rejection. Added a real-Postgres test that proves the simulator can write simulated verdicts only for its transaction-local tenant; CI provisions its restricted login.
+
+### Security review and verification
+
+- The first simulator grant draft was rejected by automatic review because its simulated insert policy was not tenant-bound. The final migration adds the tenant check and analyst-role check to the policy before granting the role; the former broad simulator policy is not retained.
+- `pytest platform/tests --ignore=platform/tests/isolation -q` passed: **52 passed**. `python -m compileall platform -q` and `git diff --check` passed. Postgres checks have not run locally.

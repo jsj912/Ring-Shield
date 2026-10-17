@@ -20,6 +20,9 @@ def upgrade() -> None:
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ringshield_loader') THEN
                 CREATE ROLE ringshield_loader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
             END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ringshield_simulator') THEN
+                CREATE ROLE ringshield_simulator NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+            END IF;
         END $$;
     """)
     op.execute("GRANT USAGE, CREATE ON SCHEMA public TO ringshield_owner")

@@ -55,7 +55,7 @@ def configured_path(config: dict[str, Any], key: str) -> Path:
     return path if path.is_absolute() else REPO_ROOT / path
 
 
-def load_l6_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
+def load_l6_config(config: dict[str, Any] | None = None, *, require_retrain_paths: bool = True) -> dict[str, Any]:
     """Validate L6 settings and resolve required artifact paths without guessing."""
     root = config if config is not None else load_platform_config()
     l6 = root.get("l6")
@@ -101,6 +101,8 @@ def load_l6_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     for key in path_keys:
         value = retrain.get(key)
         if not isinstance(value, str) or not value.strip():
+            if not require_retrain_paths:
+                continue
             raise RuntimeError(f"platform config requires l6.retrain.{key}; path is unavailable")
         path = Path(value)
         if not path.is_absolute():

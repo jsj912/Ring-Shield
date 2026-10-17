@@ -159,3 +159,13 @@ Set `RINGSHIELD_TIME_ORIGIN_UTC` to the UTC instant represented by loader timest
 zero before using ring routes. L4 explanations are available after the verified batch
 loader runs; partial verdict regeneration still needs a callable L4 regeneration
 interface before the platform can safely make that workflow atomic.
+
+### Simulated verdict cycles (L6-A)
+
+The simulator uses the configured `l6.simulator` values and the validation truth adapter. It requires the validation truth parquet, a seeded per-tenant `simulated.analyst@tenant<ID>.local` account, and `RINGSHIELD_SIMULATOR_DATABASE_URL` configured for the restricted `ringshield_simulator` role. Example:
+
+```powershell
+python platform/jobs/simulate_verdicts.py --tenant-id 210 --cycle-day 6
+```
+
+Optional `--seed`, `--accuracy`, and `--review-fraction` override the configured defaults. The simulator role is separate from the API and its RLS policy binds simulated inserts to the active tenant context. The Postgres acceptance test verifies cross-tenant writes are rejected.
