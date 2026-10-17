@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
@@ -34,7 +34,7 @@ def test_cross_tenant_retrain_post_returns_403_before_any_query(monkeypatch):
     monkeypatch.setattr(operations, "db_session", forbidden_query)
 
     with pytest.raises(HTTPException) as exc_info:
-        operations.start_retrain(22, BackgroundTasks(), _principal())
+        operations.start_retrain(22, _principal())
 
     assert exc_info.value.status_code == 403
     assert not queried
@@ -69,14 +69,14 @@ def test_non_supervisor_retrain_post_returns_403_before_any_query(monkeypatch, r
     monkeypatch.setattr(operations, "db_session", forbidden_query)
 
     with pytest.raises(HTTPException) as exc_info:
-        operations.start_retrain(21, BackgroundTasks(), _principal(role=role, tenant_id=None if role == "admin" else 21))
+        operations.start_retrain(21, _principal(role=role, tenant_id=None if role == "admin" else 21))
 
     assert exc_info.value.status_code == 403
 
 
-def test_retrain_post_creates_a_run_and_schedules_background_job(monkeypatch):
+def test_retrain_post_creates_a_run_and_starts_a_separate_worker(monkeypatch):
     added = []
-    scheduled = []
+    launched = []
 
     class Session:
         def add(self, row):
@@ -91,19 +91,57 @@ def test_retrain_post_creates_a_run_and_schedules_background_job(monkeypatch):
         assert role == "supervisor"
         yield Session()
 
-    class Tasks:
-        def add_task(self, function, *args, **kwargs):
-            scheduled.append((function, args, kwargs))
-
     monkeypatch.setattr(operations, "db_session", fake_db_session)
-    monkeypatch.setattr("jobs.retrain.run_retrain_job", lambda *args: None, raising=False)
-    result = operations.start_retrain(21, Tasks(), _principal())
+    monkeypatch.setattr(operations, "launch_retrain_process", lambda *args: launched.append(args))
+    result = operations.start_retrain(21, _principal())
 
     assert len(added) == 1
     assert added[0].run_id == result.run_id
     assert added[0].status == "running"
     assert added[0].triggered_by == "supervisor"
-    assert scheduled[0][1] == (21, result.run_id)
+    assert launched == [(21, result.run_id)]
+
+
+def test_retrain_launcher_passes_loader_url_only_to_child(monkeypatch):
+    captured = {}
+
+    def fake_popen(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setenv("RINGSHIELD_LOADER_DATABASE_URL", "postgresql://loader:secret@db/ring")
+    monkeypatch.setattr(operations.subprocess, "Popen", fake_popen)
+    operations.launch_retrain_process(21, "run-a")
+
+    assert captured["command"][-3:] == ["jobs.retrain_worker", "21", "run-a"]
+    assert captured["env"]["RINGSHIELD_LOADER_DATABASE_URL"] == "postgresql://loader:secret@db/ring"
+    assert captured["stdin"] is operations.subprocess.DEVNULL
+    assert captured["stdout"] is operations.subprocess.DEVNULL
+
+
+def test_api_modules_do_not_read_or_import_loader_credentials_outside_launcher():
+    import ast
+
+    api_root = PLATFORM_ROOT / "api"
+    violations = []
+    for path in api_root.rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+        launcher = next((node for node in ast.walk(tree)
+                         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                         and node.name == "launch_retrain_process"), None)
+        allowed_lines = set()
+        if launcher is not None:
+            allowed_lines.update(range(launcher.lineno, launcher.end_lineno + 1))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and node.value == "RINGSHIELD_LOADER_DATABASE_URL":
+                if node.lineno not in allowed_lines:
+                    violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: loader URL reference")
+            if isinstance(node, ast.ImportFrom) and node.module and node.module.endswith("db.session"):
+                if any(alias.name == "loader_db_session" for alias in node.names):
+                    violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: loader session import")
+    assert violations == []
 
 
 def test_retrain_log_output_redacts_windows_and_unix_absolute_paths():

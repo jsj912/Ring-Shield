@@ -11,7 +11,7 @@ import pytest
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
 
-from jobs.retrain import (RetrainError, assign_roll_forward_ring_ids, build_label_rows, candidate_evaluation_policy,
+from jobs.retrain import (RetrainError, build_label_rows, candidate_evaluation_policy,
                           run_retrain_job, should_promote, verify_holdout)
 from adapters.research_cli import EvalResult, RingRunResult, TrainResult
 
@@ -72,27 +72,10 @@ def test_partial_labels_require_corrected_members():
         build_label_rows([(verdict, ring)], {20: (3, 3)})
 
 
-def test_roll_forward_updates_only_open_matches_and_never_reuses_a_closed_id():
-    existing = [
-        SimpleNamespace(ring_id="open-old", status="open", member_accounts=[1, 2, 3]),
-        SimpleNamespace(ring_id="full-gine_causal-1-v2-1", status="confirmed", member_accounts=[8, 9]),
-    ]
-    candidate = [
-        {"ring_id": "full-gine_causal-1-0", "confidence": 0.9, "members": [1, 2, 4]},
-        {"ring_id": "full-gine_causal-1-1", "confidence": 0.8, "members": [80, 90]},
-    ]
-
-    result = assign_roll_forward_ring_ids(candidate, existing, model_id="gine_causal", seed=1, version="2")
-
-    assert [row["ring_id"] for row in result] == ["open-old", "full-gine_causal-1-v2-2"]
-    assert existing[1].ring_id == "full-gine_causal-1-v2-1"
-    assert existing[1].member_accounts == [8, 9]
-
-
 @pytest.mark.parametrize(("candidate_f1", "retrained", "expected_promoted"), [
     (0.5551, True, True), (0.5123, True, False), (None, False, False),
 ])
-def test_retrain_job_gates_a_fake_research_candidate_and_rolls_forward_only_when_promoted(
+def test_retrain_job_gates_a_fake_candidate_without_writing_rings(
         monkeypatch, candidate_f1, retrained, expected_promoted):
     import jobs.retrain as retrain
 
@@ -110,7 +93,6 @@ def test_retrain_job_gates_a_fake_research_candidate_and_rolls_forward_only_when
                   "base_model_dir": base_dir})
     config = {"active_model_id": "gine_causal", "active_seed": 1}
     inserted = []
-    rolled_forward = []
 
     class FakeCLI:
         eval_calls = 0
@@ -130,15 +112,19 @@ def test_retrain_job_gates_a_fake_research_candidate_and_rolls_forward_only_when
         def __init__(self):
             self.run = SimpleNamespace(log_path=None)
 
-        def get(self, model, key):
+        def scalar(self, query):
             return self.run
+
+        def execute(self, statement):
+            return SimpleNamespace(rowcount=1)
 
     @contextmanager
     def fake_db_session(**kwargs):
         yield FakeDBSession()
 
     @contextmanager
-    def fake_loader_session():
+    def fake_loader_session(*, tenant_id):
+        assert tenant_id == 21
         yield object()
 
     monkeypatch.setattr(retrain, "load_platform_config", lambda *args, **kwargs: config)
@@ -154,7 +140,6 @@ def test_retrain_job_gates_a_fake_research_candidate_and_rolls_forward_only_when
         for index in range(5)
     ])
     monkeypatch.setattr(retrain, "_insert_model_version", lambda **kwargs: inserted.append(kwargs) or 91)
-    monkeypatch.setattr(retrain, "_roll_forward", lambda **kwargs: rolled_forward.append(kwargs))
     monkeypatch.setattr(retrain, "db_session", fake_db_session)
     monkeypatch.setattr(retrain, "loader_db_session", fake_loader_session)
 
@@ -169,7 +154,6 @@ def test_retrain_job_gates_a_fake_research_candidate_and_rolls_forward_only_when
             shutil.rmtree(run_directory)
 
     assert inserted[0]["promoted"] is expected_promoted
-    assert bool(rolled_forward) is expected_promoted
     assert fake_cli.eval_calls == (1 if retrained else 0)
     if not retrained:
         assert inserted[0]["f1"] is None
