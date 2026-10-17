@@ -92,7 +92,8 @@ def _cycle_bounds(cycle_day: int, cycle_days: int) -> tuple[int, int]:
 def simulate_cycle(*, tenant_id: int, cycle_day: int, actor: Principal,
                    truth_path: Path, seed: int, accuracy: float, review_fraction: float,
                    match_jaccard: float, full_confirm_jaccard: float,
-                   cycle_days: int = 1, truth_window: str = "val") -> dict[str, int]:
+                   cycle_days: int = 1, truth_window: str = "val",
+                   ring_ids: set[str] | None = None) -> dict[str, int]:
     if actor.role == "admin" or actor.tenant_id != tenant_id:
         raise PermissionError("simulation requires a non-admin actor for the requested tenant")
     if seed < 0:
@@ -116,14 +117,17 @@ def simulate_cycle(*, tenant_id: int, cycle_day: int, actor: Principal,
         )).scalar_one_or_none()
         if analyst is None:
             raise RuntimeError(f"simulated analyst is not seeded for tenant {tenant_id}")
-        open_rings = list(session.scalars(
-            select(Ring).where(
+        query = select(Ring).where(
                 Ring.tenant_id == tenant_id,
                 Ring.scope == "tenant",
                 Ring.status == "open",
                 Ring.start_time >= start,
                 Ring.start_time < end,
-            ).order_by(Ring.confidence.desc(), Ring.ring_id.asc())
+            )
+        if ring_ids is not None:
+            query = query.where(Ring.ring_id.in_(sorted(ring_ids)))
+        open_rings = list(session.scalars(
+            query.order_by(Ring.confidence.desc(), Ring.ring_id.asc())
         ))
         reviewed = open_rings[:review_limit(len(open_rings), review_fraction)]
         for ring in reviewed:

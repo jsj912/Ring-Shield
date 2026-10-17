@@ -14,6 +14,7 @@ from sqlalchemy import select
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PLATFORM_ROOT.parent
 sys.path.insert(0, str(PLATFORM_ROOT))
+sys.path.insert(1, str(REPO_ROOT))
 
 from adapters import research_cli
 from adapters.ground_truth import load_window_truth

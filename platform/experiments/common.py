@@ -45,11 +45,17 @@ def write_run_manifest(output_dir: Path, *, experiment: str, config: dict,
         except ValueError:
             label = value.name
         input_hashes[label] = sha256_file(value)
+    config_label = None
+    if config_file:
+        try:
+            config_label = Path(config_file).resolve().relative_to(REPO_ROOT).as_posix()
+        except ValueError:
+            config_label = Path(config_file).name
     manifest = {
         "experiment": experiment,
         "created_utc": pd.Timestamp.now(tz="UTC").isoformat(),
         "git_commit": git_commit(),
-        "config_path": str(config_file) if config_file else None,
+        "config_path": config_label,
         "config_sha256": sha256_file(Path(config_file)) if config_file else None,
         "input_sha256": input_hashes,
         **details,

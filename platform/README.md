@@ -20,10 +20,18 @@ The API exposes the supervisor-only daily series at
 `GET /tenants/{tenant_id}/drift/series`, the event history at
 `GET /tenants/{tenant_id}/drift`, and the supervisor-only review toggle at
 `PATCH /tenants/{tenant_id}/drift/{event_id}` with `{"acted_on": true|false}`.
+Supervisors can trigger a manual monitor run with
+`POST /tenants/{tenant_id}/drift/check`; it starts a separate tenant worker and
+returns `{"status": "queued"}`. This worker only records drift events and never
+starts retraining.
 The dashboard charts the two series and marks detected windows; supervisors can
 review events. Analysts can view the model registry but cannot start retraining
 or change drift review state. Drift event inserts are deduplicated on
 `(tenant_id, monitor, window_end)` by a database unique constraint.
+
+Supervisors also see recent tenant retraining runs and their status. An empty
+history is shown as “No retraining runs yet.” The API lists runs only for the
+requested tenant and keeps log tails on the individual run status endpoint.
 
 APScheduler is part of the pinned runtime dependencies. The API's scheduler is
 disabled by default (`scheduler.enabled: false` in `platform/config.yaml`). To
@@ -95,6 +103,30 @@ the real test truth, validation truth, validation GFP/embeddings and manifest
 inputs in `platform/config.yaml`, plus `RINGSHIELD_SIMULATOR_DATABASE_URL`,
 app and loader credentials. Those artifacts are not all present in this
 checkout, so no R11 result is claimed yet.
+
+### R12 injected-shift replay
+
+Run the fixture dry path with `python -m experiments.r12_injected_shift --dry`
+from `platform/`. If `r12.model_dir` is unset or unavailable, the command
+automatically uses that same clearly labeled dry fixture. It writes
+`results/platform/r12/dry_fixture/recall.csv`, `recall.md`, and `run.json`.
+The report says **“drift was injected, not observed”**, identifies itself as a
+fixture dry run, reports simulated ADWIN detection delay, and leaves the
+post-retrain recall blank because dry mode does not execute a model or DB job.
+
+Real replay requires a research-supplied full model trained with the configured
+pattern held out (`r12.model_dir`, default pattern `BIPARTITE`), the test truth,
+active test scores, matching GFP/embeddings, validation/holdout retrain inputs,
+and a dedicated loaded tenant with no existing transactions or rings in a
+disposable PostgreSQL database. Run, for example,
+`python -m experiments.r12_injected_shift --tenant-id 210`. It moves matching
+first-half pattern transactions into the second half, builds tenant rings
+before and after insertion through the existing builder, loads only the chosen
+tenant, replays daily ADWIN statistics, simulates analyst review for open rings
+on detected days, and invokes the gated retrain once. Do not point this at a
+production tenant: real mode writes test transactions, scores, rings,
+simulated verdicts and retraining history. Reports live under
+`results/platform/r12/<run-id>/` with config and input hashes.
 
 The implementation is being built in vertical slices, beginning with the API and
 database foundation described in `directions/RingShield_L5_L6_Platform_Spec.docx`.

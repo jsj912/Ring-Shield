@@ -40,3 +40,7 @@ l6:
 
 scheduler:
   enabled: false
+
+r12:
+  pattern: BIPARTITE
+  model_dir: null

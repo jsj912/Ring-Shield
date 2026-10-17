@@ -255,6 +255,10 @@ class DriftActedOnUpdate(BaseModel):
     acted_on: bool
 
 
+class DriftCheckStarted(BaseModel):
+    status: str
+
+
 class ExperimentJobResponse(BaseModel):
     job_id: str
     status: str
@@ -280,15 +284,16 @@ class RetrainRunCreated(BaseModel):
     run_id: str
 
 
-class RetrainRunStatusResponse(BaseModel):
+class RetrainRunSummary(BaseModel):
     run_id: str
     status: str
+    started_at: datetime | None
+    finished_at: datetime | None
     model_version_id: int | None
-    log_lines: list[str]
 
 
-class RetrainRunCreated(BaseModel):
-    run_id: str
+class RetrainRunPage(BaseModel):
+    items: list[RetrainRunSummary]
 
 
 class RetrainRunStatusResponse(BaseModel):

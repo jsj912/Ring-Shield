@@ -168,3 +168,59 @@ def test_drift_action_update_checks_tenant_and_uses_explicit_predicates(monkeypa
         )
     assert exc_info.value.status_code == 403
     assert session.queries == []
+
+
+def test_retrain_run_history_is_supervisor_tenant_scoped(monkeypatch):
+    rows = [SimpleNamespace(run_id="run-a", status="succeeded",
+                            started_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+                            finished_at=datetime(2026, 1, 2, 1, tzinfo=timezone.utc),
+                            model_version_id=8)]
+
+    class RunSession:
+        def __init__(self):
+            self.queries = []
+
+        def scalars(self, statement):
+            self.queries.append(statement)
+            compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+            assert "retrain_runs.tenant_id = 21" in compiled
+            return rows
+
+    session = RunSession()
+
+    @contextmanager
+    def fake_session(*, tenant_id=None, role=None):
+        assert tenant_id == 21
+        assert role == "supervisor"
+        yield session
+
+    monkeypatch.setattr(operations, "db_session", fake_session)
+    page = operations.list_retrain_runs(21, limit=50, principal=_principal())
+    assert page.items[0].run_id == "run-a"
+    assert page.items[0].status == "succeeded"
+
+    session.queries.clear()
+    with pytest.raises(HTTPException) as exc_info:
+        operations.list_retrain_runs(21, limit=50,
+                                     principal=_principal(tenant_id=22))
+    assert exc_info.value.status_code == 403
+    assert session.queries == []
+
+
+def test_manual_drift_check_launches_separate_tenant_worker_only_for_supervisor(monkeypatch):
+    launched = []
+    monkeypatch.setattr(operations, "launch_drift_process", lambda tenant: launched.append(tenant))
+    result = operations.start_drift_check(21, principal=_principal())
+    assert result.status == "queued"
+    assert launched == [21]
+
+    analyst = Principal(user_id=14, tenant_id=21, role="analyst", email="analyst@example.test")
+    with pytest.raises(HTTPException) as exc_info:
+        operations.start_drift_check(21, principal=analyst)
+    assert exc_info.value.status_code == 403
+    assert launched == [21]
+
+    with pytest.raises(HTTPException) as exc_info:
+        operations.start_drift_check(21, principal=_principal(tenant_id=22))
+    assert exc_info.value.status_code == 403
+    assert launched == [21]

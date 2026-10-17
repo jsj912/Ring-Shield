@@ -22,13 +22,28 @@ from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
 from api.schemas import (DriftEventPage, DriftEventSummary, ModelVersionPage,
                          ModelVersionSummary, RetrainRunCreated, RetrainRunStatusResponse,
-                         DriftActedOnUpdate, DriftSeriesResponse, DailyDriftStatistic)
+                         DriftActedOnUpdate, DriftSeriesResponse, DailyDriftStatistic,
+                         RetrainRunPage, RetrainRunSummary, DriftCheckStarted)
 from db.models import DriftEvent, EdgeScore, ModelVersion, RetrainRun, Transaction
 from db.session import db_session
 from settings import load_platform_config
 
 router = APIRouter(tags=["operations"])
 ModelComponent = Literal["expansion", "affinity", "typing", "detector"]
+
+
+def launch_drift_process(tenant_id: int) -> None:
+    command = [sys.executable, "-m", "jobs.drift_monitor_worker", str(int(tenant_id))]
+    options = {
+        "cwd": str(Path(__file__).resolve().parents[2]),
+        "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL, "close_fds": True,
+    }
+    if os.name == "nt":
+        options["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        options["start_new_session"] = True
+    subprocess.Popen(command, **options)
 
 
 @contextmanager
@@ -152,6 +167,17 @@ def get_drift_series(tenant_id: int, principal: Principal = Depends(get_principa
     )
 
 
+@router.post("/tenants/{tenant_id}/drift/check", response_model=DriftCheckStarted,
+             status_code=status.HTTP_202_ACCEPTED)
+def start_drift_check(tenant_id: int, principal: Principal = Depends(get_principal)) -> DriftCheckStarted:
+    _require_supervisor_tenant(tenant_id, principal)
+    try:
+        launch_drift_process(tenant_id)
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail="Drift monitor could not be started") from exc
+    return DriftCheckStarted(status="queued")
+
+
 @router.patch("/tenants/{tenant_id}/drift/{event_id}", response_model=DriftEventSummary)
 def set_drift_acted_on(
     tenant_id: int,
@@ -270,3 +296,23 @@ def get_retrain_status(
             log_lines=retrain_log_lines(run.log_path),
         )
     return response
+
+
+@router.get("/tenants/{tenant_id}/retrain", response_model=RetrainRunPage)
+def list_retrain_runs(
+    tenant_id: int,
+    limit: int = Query(default=50, ge=1, le=100),
+    principal: Principal = Depends(get_principal),
+) -> RetrainRunPage:
+    _require_supervisor_tenant(tenant_id, principal)
+    with db_session(tenant_id=tenant_id, role="supervisor") as session:
+        query = select(RetrainRun).where(RetrainRun.tenant_id == tenant_id)
+        rows = list(session.scalars(
+            query.order_by(RetrainRun.started_at.desc(), RetrainRun.run_id.desc()).limit(limit)
+        ))
+    return RetrainRunPage(
+        items=[RetrainRunSummary(
+            run_id=row.run_id, status=row.status, started_at=row.started_at,
+            finished_at=row.finished_at, model_version_id=row.model_version_id,
+        ) for row in rows],
+    )

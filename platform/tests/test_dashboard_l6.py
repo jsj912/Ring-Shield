@@ -58,6 +58,7 @@ def test_models_page_empty_state_and_supervisor_control(view):
     fake_st = view("supervisor", lambda *_args, **_kwargs: {"items": [], "next_before_id": None})
     dashboard._model_versions(210)
     assert any("No model versions" in message for message in fake_st.infos)
+    assert any("No retraining runs yet" in message for message in fake_st.infos)
     assert "Retrain now" in fake_st.buttons
 
 

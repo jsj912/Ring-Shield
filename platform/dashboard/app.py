@@ -289,6 +289,17 @@ def _model_versions(tenant_id: int) -> None:
     if result is None:
         return
     if st.session_state["role"] == "supervisor":
+        runs = _api("GET", f"/tenants/{tenant_id}/retrain", params={"limit": "50"})
+        if runs is not None:
+            if not runs["items"]:
+                st.info("No retraining runs yet.")
+            else:
+                st.dataframe(
+                    [{"Run ID": row["run_id"], "Status": row["status"],
+                      "Started (UTC)": row["started_at"], "Finished (UTC)": row["finished_at"],
+                      "Model version": row["model_version_id"]} for row in runs["items"]],
+                    use_container_width=True, hide_index=True,
+                )
         if st.button("Retrain now", key=f"retrain_{tenant_id}"):
             queued = _api("POST", f"/tenants/{tenant_id}/retrain")
             if queued:

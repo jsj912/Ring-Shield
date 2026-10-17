@@ -38,31 +38,46 @@ def daily_statistics(rows: Iterable[tuple[int, float | None]]) -> list[tuple[int
 def detect_events(daily: list[tuple[int, float, float]], *, delta: float,
                   tenant_id: int) -> list[dict]:
     """Run independent ADWIN streams and describe each detected window."""
-    events: list[dict] = []
-    for statistic_index, monitor in ((1, MONITORS["mean"]), (2, MONITORS["p99"])):
-        detector = ADWIN(delta=float(delta))
-        observed_days: list[int] = []
-        for day, mean, p99 in daily:
-            observed_days.append(day)
-            statistic = mean if statistic_index == 1 else p99
+    stream = DriftStream(delta=delta, tenant_id=tenant_id)
+    return [event for point in daily for event in stream.update(*point)]
+
+
+class DriftStream:
+    """Incremental two-series ADWIN state for chronological replay experiments."""
+
+    def __init__(self, *, delta: float, tenant_id: int):
+        self.delta = float(delta)
+        self.tenant_id = int(tenant_id)
+        self.detectors = {
+            MONITORS["mean"]: ADWIN(delta=self.delta),
+            MONITORS["p99"]: ADWIN(delta=self.delta),
+        }
+        self.days: list[int] = []
+
+    def update(self, day: int, mean: float, p99: float) -> list[dict]:
+        self.days.append(int(day))
+        events = []
+        for monitor, statistic in ((MONITORS["mean"], float(mean)),
+                                   (MONITORS["p99"], float(p99))):
+            detector = self.detectors[monitor]
             detector.update(statistic)
             if not detector.drift_detected:
                 continue
             window_size = max(1, int(detector.width))
-            start_day = observed_days[max(0, len(observed_days) - window_size)]
+            start_day = self.days[max(0, len(self.days) - window_size)]
             window_start = datetime.fromtimestamp(
                 start_day * SECONDS_PER_DAY + SIMULATED_TIME_ORIGIN, tz=timezone.utc
             )
             window_end = datetime.fromtimestamp(
-                (day + 1) * SECONDS_PER_DAY + SIMULATED_TIME_ORIGIN, tz=timezone.utc
+                (int(day) + 1) * SECONDS_PER_DAY + SIMULATED_TIME_ORIGIN, tz=timezone.utc
             )
             events.append({
-                "tenant_id": int(tenant_id), "monitor": monitor,
+                "tenant_id": self.tenant_id, "monitor": monitor,
                 "detected_at": window_end, "window_start": window_start,
                 "window_end": window_end, "statistic": statistic,
-                "threshold": float(delta), "acted_on": False,
+                "threshold": self.delta, "acted_on": False,
             })
-    return events
+        return events
 
 
 def read_daily_scores(tenant_id: int, *, model_id: str, seed: int) -> list[tuple[int, float, float]]:
