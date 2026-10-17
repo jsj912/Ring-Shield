@@ -60,9 +60,12 @@ def get_ring_explanation(
             key: raw_provenance[key]
             for key in ("aggregator_id", "model_id", "seed", "explainer_version",
                         "currency_policy", "rings_schema_version", "mixing", "loo",
-                        "flow_partial", "features_degraded")
+                        "flow_partial", "features_degraded", "feature_scope",
+                        "fx_rates_sha256")
             if key in raw_provenance
         }
+        if explanation.fx_rates_sha256:
+            public_provenance["fx_rates_sha256"] = explanation.fx_rates_sha256
         return RingExplanation(
             tenant_id=tenant_id,
             ring_id=ring_id,
