@@ -36,7 +36,9 @@ def _snapshot(engine, table: str, tenant_id: int) -> list[str]:
         ), {"tenant_id": tenant_id}).scalars())
 
 
-def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(monkeypatch, tmp_path):
+@pytest.mark.parametrize(("candidate_f1", "promoted"), [(0.95, True), (0.45, False)])
+def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
+        monkeypatch, tmp_path, candidate_f1, promoted):
     admin_url = os.environ["RINGSHIELD_TEST_ADMIN_URL"]
     admin = create_engine(admin_url)
     run_id = uuid4().hex
@@ -96,6 +98,13 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(monkeypatc
         monkeypatch.setattr("jobs.retrain.load_l6_config", lambda _config: l6)
         monkeypatch.setattr("jobs.retrain._validate_inputs", lambda _l6, _config: paths)
         monkeypatch.setattr("jobs.retrain._run_log_path", lambda _run_id: log_path)
+        refresh_steps = []
+
+        def fail_refresh(**kwargs):
+            refresh_steps.append(kwargs)
+            raise RuntimeError("injected refresh failure")
+
+        monkeypatch.setattr("jobs.retrain._run_ring_refresh_process", fail_refresh)
 
         class FakeCLI:
             def train(self, **kwargs):
@@ -105,9 +114,14 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(monkeypatc
                 return RingRunResult(rings_path=kwargs["out"], run_log={"command": "run"}, ring_count=1)
 
             def eval_rings(self, **kwargs):
-                return EvalResult(metrics_path=kwargs["out"], metrics={"ring_f1": 0.95}, ring_f1=0.95)
+                return EvalResult(metrics_path=kwargs["out"], metrics={"ring_f1": candidate_f1},
+                                  ring_f1=candidate_f1)
 
         run_retrain_job(TENANT_A, run_id, cli=FakeCLI())
+        assert len(refresh_steps) == int(promoted)
+        if promoted:
+            assert refresh_steps[0]["tenant_id"] == TENANT_A
+            assert refresh_steps[0]["run_id"] == run_id
 
         after_b = {table: _snapshot(admin, table, TENANT_B) for table in tenant_tables}
         after_a_protected = {table: _snapshot(admin, table, TENANT_A) for table in PROTECTED_TABLES}
@@ -149,9 +163,12 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(monkeypatc
                 WHERE tenant_id = :tenant_id AND component = 'expansion'
                 ORDER BY model_version_id
             """), {"tenant_id": TENANT_A}).all()
-        assert state == "succeeded"
-        assert versions[-1].version_tag.startswith("v2-") and versions[-1].promoted is True
-        assert versions[0].promoted is False
+        assert state == ("failed" if promoted else "succeeded")
+        assert versions[-1].version_tag.startswith("v2-")
+        assert versions[-1].promoted is promoted
+        assert versions[0].promoted is (not promoted)
+        if promoted:
+            assert "injected refresh failure" in log_path.read_text(encoding="utf-8")
         with app_engine.connect() as connection:
             assert connection.execute(text("SELECT current_user")).scalar_one() == "ringshield_api"
         with loader_db_session(tenant_id=TENANT_A) as session:
