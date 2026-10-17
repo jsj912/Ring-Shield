@@ -167,3 +167,27 @@ def test_eval_and_holdout(work):
     assert rc == 0, err
     h = json.loads((d / "metrics_holdout.json").read_text())
     assert h["holdout"]["n_truth_listed"] == 5 and h["n_truth"] <= 5 and h["window"] == "whole"
+
+
+def test_tenant_id_equals_the_matching_edge_subset(work, tmp_path):
+    """--tenant-id N is the tenant's edges and nothing else: identical rings to --edge-subset with
+    exactly the edge ids whose tenant_id is N, and the tenant recorded in the run log."""
+    d = work["dir"]
+    se = pd.read_parquet(d / "scored_edges_dryrun.parquet")
+    tenant = int(se["tenant_id"].value_counts().index[0])          # the busiest tenant in the sample
+    se.loc[se["tenant_id"] == tenant, ["edge_id"]].to_parquet(tmp_path / "subset.parquet", index=False)
+    rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "model_cc",
+                       "--tenant-id", tenant, "--out", tmp_path / "t.parquet")
+    assert rc == 0, err
+    rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "model_cc",
+                       "--edge-subset", tmp_path / "subset.parquet", "--out", tmp_path / "s.parquet")
+    assert rc == 0, err
+    a = pd.read_parquet(tmp_path / "t.parquet", columns=["member_edges"])["member_edges"]
+    b = pd.read_parquet(tmp_path / "s.parquet", columns=["member_edges"])["member_edges"]
+    key = lambda c: sorted(tuple(sorted(int(e) for e in m)) for m in c)  # noqa: E731
+    assert key(a) == key(b)
+    log = json.loads((tmp_path / "t.parquet.log.json").read_text())
+    assert log["tenant_id"] == tenant and log["n_edges_tenant"] == int((se["tenant_id"] == tenant).sum())
+    rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "model_cc",
+                       "--tenant-id", -12345, "--out", tmp_path / "none.parquet")
+    assert rc == 2 and "no edges with that tenant_id" in err

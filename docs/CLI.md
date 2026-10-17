@@ -88,6 +88,16 @@ Tenant-scoped inference — restrict the input to a set of edges:
   re-attached before rings are formed). Example: `models/artifacts/full_gine_causal_seed1`.
 * **Determinism.** Same input, same model dir → identical output (the clustering seed is in `model.json`).
 
+### One tenant: `--tenant-id N`
+
+`run --tenant-id N` keeps only the edges whose `tenant_id` is `N` — in the contract that is the
+**sending bank** (`from_bank`) — before anything else, so the seed quantile, expansion and grouping
+all see the tenant's own edges only. That is the tenant arm of R10 (tenant vs pooled): run once per
+tenant with `--tenant-id`, once without for the pooled model. The tenant and its edge count are in
+the run log (`tenant_id`, `n_edges_tenant`). It intersects with `--edge-subset` when both are given.
+A tenant's view here excludes the edges it only *received*; if R10 needs "edges touching bank N on
+either side", that is `--edge-subset` with those edge ids.
+
 ## 2. `train` — analyst verdicts in, new model directory out
 
 `expansion` and `affinity` are **retrained** (`ringshield/retrain.py`); `typing` still copies the

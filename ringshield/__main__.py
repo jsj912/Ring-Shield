@@ -146,6 +146,17 @@ def cmd_run(a) -> int:
         subset_n = int(len(ids))
         if se.empty:
             raise UsageError("--edge-subset leaves no edges")
+    tenant_n = None
+    if a.tenant_id is not None:
+        # One tenant's view: the edges whose contract `tenant_id` is N (= the sending bank). Applied
+        # BEFORE seed selection, so the seed quantile is computed within the tenant's own edges --
+        # the same rule as --edge-subset, and what a tenant-only deployment would actually do.
+        if "tenant_id" not in se.columns:
+            raise UsageError("--tenant-id needs a scored_edges file with a tenant_id column")
+        se = se[se["tenant_id"].astype(np.int64) == int(a.tenant_id)].reset_index(drop=True)
+        tenant_n = int(len(se))
+        if se.empty:
+            raise UsageError(f"--tenant-id {a.tenant_id}: no edges with that tenant_id")
     params = dict(model["params"])
     for k in ("seed_frac_pct", "min_size", "max_gap_hours"):
         v = getattr(a, k.replace("-", "_"), None)
@@ -177,7 +188,9 @@ def cmd_run(a) -> int:
     write_rings_parquet(out_rings, out)
     log = {"created_utc": _now(), "git_commit": _git_commit(), "command": "run", "scores": str(a.scores),
            "contract_version": f"rings.parquet v{RINGS_SCHEMA_VERSION}", "currency_v2": ccy,
-           "edge_subset": str(a.edge_subset) if a.edge_subset else None, "n_edges_in_file": n_in,
+           "edge_subset": str(a.edge_subset) if a.edge_subset else None,
+           "tenant_id": int(a.tenant_id) if a.tenant_id is not None else None, "n_edges_tenant": tenant_n,
+           "n_edges_in_file": n_in,
            "n_edge_subset_ids": subset_n, "n_edges_used": int(len(se)), "n_scored": int(se[SELECT_COL].notna().sum()),
            "model_dir": str(a.model_dir), "model": {k: model.get(k) for k in ("model_id", "seed", "aggregator", "version", "feature_set")},
            "aggregator": aggregator, "params": params, "selection_column": SELECT_COL,
@@ -368,6 +381,9 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("run", help="score edges -> rings.parquet (contract schema)")
     r.add_argument("--scores", required=True, help="scored_edges parquet (contract columns)")
     r.add_argument("--edge-subset", default=None, help="parquet with an edge_id column; restricts the input (tenant scope)")
+    r.add_argument("--tenant-id", type=int, default=None,
+                   help="run on one tenant's edges only: scored_edges.tenant_id == N (the sending bank); seeds are "
+                        "selected within the tenant. Combines with --edge-subset (intersection)")
     r.add_argument("--model-dir", required=True)
     r.add_argument("--aggregator", choices=AGGREGATORS, default=None, help="default: the model dir's aggregator")
     r.add_argument("--out", required=True, help="rings.parquet; a .log.json is written beside it")
