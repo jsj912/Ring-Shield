@@ -6,7 +6,9 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any
 
@@ -259,6 +261,34 @@ def _ensure_baseline(*, tenant_id: int, component: str, base_dir: Path,
         ))
 
 
+def _run_ring_refresh_process(*, tenant_id: int, model_version_id: int, run_id: str,
+                              log_path: Path) -> None:
+    """Run refresh after the promotion transaction has committed, in a child process."""
+    command = [
+        sys.executable, "-m", "jobs.refresh_rings",
+        str(int(tenant_id)), str(int(model_version_id)), run_id,
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=PLATFORM_ROOT,
+            env=os.environ.copy(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception as exc:
+        _write_log(log_path, f"ring refresh failed to start: {type(exc).__name__}: {exc}")
+        raise RetrainError(f"ring refresh failed to start: {exc}") from exc
+    output = (result.stdout or "").strip()
+    error = (result.stderr or "").strip()
+    if result.returncode != 0:
+        reason = error or output or f"worker exited with code {result.returncode}"
+        _write_log(log_path, f"ring refresh failed: {reason}")
+        raise RetrainError(f"ring refresh failed: {reason}")
+    _write_log(log_path, f"ring refresh completed: {output or 'worker returned successfully'}")
+
+
 def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
     log_path = _run_log_path(run_id)
     relative_log_path = log_path.relative_to(REPO_ROOT)
@@ -326,7 +356,13 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
                 )
                 _write_log(log_path, f"{component}: {reason}")
                 if promote:
-                    _write_log(log_path, f"{component}: promoted candidate; ring refresh is separate")
+                    assert last_version_id is not None
+                    _run_ring_refresh_process(
+                        tenant_id=tenant_id,
+                        model_version_id=last_version_id,
+                        run_id=run_id,
+                        log_path=log_path,
+                    )
             _set_run_state(tenant_id, run_id, status="succeeded", model_version_id=last_version_id, finished=True)
     except Exception as exc:
         _write_log(log_path, f"run failed: {type(exc).__name__}: {exc}")

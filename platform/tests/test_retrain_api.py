@@ -102,7 +102,7 @@ def test_retrain_post_creates_a_run_and_starts_a_separate_worker(monkeypatch):
     assert launched == [(21, result.run_id)]
 
 
-def test_retrain_launcher_passes_loader_url_only_to_child(monkeypatch):
+def test_retrain_launcher_starts_a_child_without_reading_job_credentials(monkeypatch):
     captured = {}
 
     def fake_popen(command, **kwargs):
@@ -110,17 +110,16 @@ def test_retrain_launcher_passes_loader_url_only_to_child(monkeypatch):
         captured.update(kwargs)
         return object()
 
-    monkeypatch.setenv("RINGSHIELD_LOADER_DATABASE_URL", "postgresql://loader:secret@db/ring")
     monkeypatch.setattr(operations.subprocess, "Popen", fake_popen)
     operations.launch_retrain_process(21, "run-a")
 
     assert captured["command"][-3:] == ["jobs.retrain_worker", "21", "run-a"]
-    assert captured["env"]["RINGSHIELD_LOADER_DATABASE_URL"] == "postgresql://loader:secret@db/ring"
+    assert "env" not in captured  # child gets its own process environment from the runtime
     assert captured["stdin"] is operations.subprocess.DEVNULL
     assert captured["stdout"] is operations.subprocess.DEVNULL
 
 
-def test_api_modules_do_not_read_or_import_loader_credentials_outside_launcher():
+def test_api_modules_never_read_or_import_loader_credentials():
     import ast
 
     api_root = PLATFORM_ROOT / "api"
@@ -128,18 +127,11 @@ def test_api_modules_do_not_read_or_import_loader_credentials_outside_launcher()
     for path in api_root.rglob("*.py"):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))
-        launcher = next((node for node in ast.walk(tree)
-                         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                         and node.name == "launch_retrain_process"), None)
-        allowed_lines = set()
-        if launcher is not None:
-            allowed_lines.update(range(launcher.lineno, launcher.end_lineno + 1))
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and node.value == "RINGSHIELD_LOADER_DATABASE_URL":
-                if node.lineno not in allowed_lines:
-                    violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: loader URL reference")
+                violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: loader URL reference")
             if isinstance(node, ast.ImportFrom) and node.module and node.module.endswith("db.session"):
-                if any(alias.name == "loader_db_session" for alias in node.names):
+                if any(alias.name in {"loader_db_session", "get_loader_engine"} for alias in node.names):
                     violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: loader session import")
     assert violations == []
 

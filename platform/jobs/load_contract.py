@@ -210,26 +210,37 @@ def _ring_metadata(session, tenant_id: int, ring_row: dict, config: dict) -> tup
     return str(model_id), int(seed)
 
 
-def load_rings(path: Path, *, scope: str) -> dict[str, int]:
+def load_rings(path: Path, *, scope: str, tenant_id: int | None = None) -> dict[str, int]:
     parquet, _run_log = _check_file(path, RINGS_ORDER)
+    if tenant_id is not None and scope != "tenant":
+        raise ContractLoadError("tenant_id can only be supplied for a tenant-scoped ring load")
+    expected_tenant_id = tenant_id
     config = load_platform_config()
     counts = defaultdict(int)
     seen_ring_ids: set[tuple[int, str]] = set()
-    with loader_db_session() as session:
-        loaded_tenants = set(session.scalars(select(Tenant.tenant_id).where(Tenant.is_loaded.is_(True))))
+    with loader_db_session(tenant_id=expected_tenant_id) as session:
+        loaded_query = select(Tenant.tenant_id).where(Tenant.is_loaded.is_(True))
+        if expected_tenant_id is not None:
+            loaded_query = loaded_query.where(Tenant.tenant_id == expected_tenant_id)
+        loaded_tenants = set(session.scalars(loaded_query))
         for record_batch in parquet.iter_batches(batch_size=2_000):
             for raw in record_batch.to_pylist():
                 row = {key: _python_value(value) for key, value in raw.items()}
                 source_tenant_id = int(row["tenant_id"])
-                tenant_id = -1 if scope == "pooled" else source_tenant_id
-                row["tenant_id"] = tenant_id
-                identity = (tenant_id, str(row["ring_id"]))
+                if expected_tenant_id is not None and source_tenant_id != expected_tenant_id:
+                    raise ContractLoadError(
+                        f"{row['ring_id']}: tenant-scoped input contains tenant {source_tenant_id}; "
+                        f"expected {expected_tenant_id}"
+                    )
+                destination_tenant_id = -1 if scope == "pooled" else source_tenant_id
+                row["tenant_id"] = destination_tenant_id
+                identity = (destination_tenant_id, str(row["ring_id"]))
                 if identity in seen_ring_ids:
                     raise ContractLoadError(f"duplicate ring key in input: {identity}")
                 seen_ring_ids.add(identity)
-                if scope == "tenant" and tenant_id not in loaded_tenants:
+                if scope == "tenant" and destination_tenant_id not in loaded_tenants:
                     raise ContractLoadError(
-                        f"{row['ring_id']}: tenant_id {tenant_id} is not marked is_loaded; "
+                        f"{row['ring_id']}: tenant_id {destination_tenant_id} is not marked is_loaded; "
                         "tenant ring files must come from a run with --tenant-id"
                     )
                 member_edges = [int(edge_id) for edge_id in (row.get("member_edges") or [])]
@@ -247,28 +258,29 @@ def load_rings(path: Path, *, scope: str) -> dict[str, int]:
                     raise ContractLoadError(f"{row['ring_id']}: seed and expanded edges must be disjoint")
                 visible = set(session.scalars(
                     select(Transaction.edge_id).where(
-                        Transaction.tenant_id == tenant_id,
+                        Transaction.tenant_id == destination_tenant_id,
                         Transaction.edge_id.in_(member_edges),
                     )
                 ))
                 if visible != set(member_edges):
                     missing = sorted(set(member_edges) - visible)
                     raise ContractLoadError(
-                        f"{row['ring_id']}: member edges are not all visible to tenant {tenant_id}: {missing[:8]}"
+                        f"{row['ring_id']}: member edges are not all visible to tenant "
+                        f"{destination_tenant_id}: {missing[:8]}"
                     )
                 bank_pairs = session.execute(
                     select(Transaction.from_bank, Transaction.to_bank).where(
-                        Transaction.tenant_id == tenant_id,
+                        Transaction.tenant_id == destination_tenant_id,
                         Transaction.edge_id.in_(member_edges),
                     )
                 ).all()
                 member_banks = {int(bank) for pair in bank_pairs for bank in pair}
-                counterparties = member_banks - ({tenant_id} if scope == "tenant" else set())
+                counterparties = member_banks - ({destination_tenant_id} if scope == "tenant" else set())
                 row["cross_bank"] = len(member_banks) > 1
                 row["counterparty_banks"] = [f"Bank {bank}" for bank in sorted(counterparties)]
                 currency_rows = session.execute(
                     select(Transaction.currency_sent, Transaction.currency_received).where(
-                        Transaction.tenant_id == tenant_id, Transaction.edge_id.in_(member_edges),
+                        Transaction.tenant_id == destination_tenant_id, Transaction.edge_id.in_(member_edges),
                     )
                 ).all()
                 currencies = {int(currency) for pair in currency_rows for currency in pair if currency is not None}
@@ -276,13 +288,13 @@ def load_rings(path: Path, *, scope: str) -> dict[str, int]:
                 if len(currencies) > 1:
                     row["total_amount"] = None
                     row["total_currency"] = None
-                model_id, seed = _ring_metadata(session, tenant_id, row, config)
+                model_id, seed = _ring_metadata(session, destination_tenant_id, row, config)
                 if (model_id, seed) != (config["active_model_id"], int(config["active_seed"])):
                     raise ContractLoadError(
                         f"{row['ring_id']}: ring does not match active_model_id/active_seed in platform config"
                     )
                 values = {
-                    "tenant_id": tenant_id,
+                    "tenant_id": destination_tenant_id,
                     "ring_id": str(row["ring_id"]),
                     "model_id": model_id,
                     "aggregator_id": str(row["aggregator_id"]),

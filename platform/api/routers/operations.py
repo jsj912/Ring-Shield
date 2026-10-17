@@ -144,16 +144,10 @@ def retrain_log_lines(log_path: str | None, *, limit: int = 50) -> list[str]:
 
 
 def launch_retrain_process(tenant_id: int, run_id: str) -> None:
-    """Start retraining in a child process with loader credentials scoped to that child."""
-    child_env = os.environ.copy()
-    loader_url = os.environ.get("RINGSHIELD_LOADER_DATABASE_URL")
-    if not loader_url:
-        raise RuntimeError("RINGSHIELD_LOADER_DATABASE_URL is required to launch retraining")
-    child_env["RINGSHIELD_LOADER_DATABASE_URL"] = loader_url
+    """Start retraining in a child process; API code does not inspect job credentials."""
     command = [sys.executable, "-m", "jobs.retrain_worker", str(int(tenant_id)), run_id]
     options = {
         "cwd": str(Path(__file__).resolve().parents[2]),
-        "env": child_env,
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.DEVNULL,
         "stderr": subprocess.DEVNULL,
