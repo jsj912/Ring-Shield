@@ -121,12 +121,17 @@ def auth_db_session() -> Iterator[Session]:
 
 
 @contextmanager
-def loader_db_session() -> Iterator[Session]:
+def loader_db_session(*, tenant_id: int | None = None) -> Iterator[Session]:
     """Use the separate restricted ingestion role for contract loading."""
     get_loader_engine()
     assert _loader_sessions is not None
     with _loader_sessions() as session:
         with session.begin():
+            if tenant_id is not None:
+                session.execute(
+                    text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                    {"tenant_id": str(int(tenant_id))},
+                )
             session.execute(text("SELECT set_config('app.user_role', 'loader', true)"))
             yield session
 

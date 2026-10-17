@@ -36,47 +36,56 @@ def _token(email: str, tenant_id: int) -> str:
     return token
 
 
-def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(tmp_path):
+def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
+        tmp_path, register_db_test_ids):
     fixture_dir = Path(os.environ["RINGSHIELD_TEST_FIXTURE_DIR"])
     source = pq.read_table(fixture_dir / "rings.parquet")
     common_ring_id = f"shared-demo-model-7-{uuid4().hex[:8]}"
-    for tenant_id, confidence in ((210, 0.71), (220, 0.82)):
-        row = next(row for row in source.to_pylist() if row["tenant_id"] == tenant_id)
-        row["ring_id"] = common_ring_id
-        row["confidence"] = confidence
-        ring_path = tmp_path / f"tenant-{tenant_id}-rings.parquet"
-        pq.write_table(pa.Table.from_pylist([row], schema=source.schema), ring_path)
-        Path(str(ring_path) + ".log.json").write_text(json.dumps({"split": "test"}), encoding="utf-8")
-        assert load_rings(ring_path, scope="tenant")["rings_loaded"] == 1
-
+    register_db_test_ids(common_ring_id)
     admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
     try:
+        for tenant_id, confidence in ((210, 0.71), (220, 0.82)):
+            row = next(row for row in source.to_pylist() if row["tenant_id"] == tenant_id)
+            row["ring_id"] = common_ring_id
+            row["confidence"] = confidence
+            ring_path = tmp_path / f"tenant-{tenant_id}-rings.parquet"
+            pq.write_table(pa.Table.from_pylist([row], schema=source.schema), ring_path)
+            Path(str(ring_path) + ".log.json").write_text(
+                json.dumps({"split": "test"}), encoding="utf-8",
+            )
+            assert load_rings(ring_path, scope="tenant")["rings_loaded"] == 1
+
         with admin.connect() as connection:
             rows = connection.execute(text("""
                 SELECT tenant_id, confidence FROM rings
                 WHERE ring_id = :ring_id ORDER BY tenant_id
             """), {"ring_id": common_ring_id}).all()
+        assert [(row.tenant_id, row.confidence) for row in rows] == [(210, 0.71), (220, 0.82)]
+
+        client = TestClient(app)
+        for tenant_id, confidence in ((210, 0.71), (220, 0.82)):
+            token = _token(f"analyst-{tenant_id}@test.invalid", tenant_id)
+            response = client.get(
+                f"/tenants/{tenant_id}/rings/{common_ring_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert response.status_code == 200
+            assert response.json()["tenant_id"] == tenant_id
+            assert response.json()["confidence"] == confidence
     finally:
+        with admin.begin() as connection:
+            connection.execute(text("""
+                DELETE FROM rings WHERE tenant_id IN (210, 220) AND ring_id = :ring_id
+            """), {"ring_id": common_ring_id})
         admin.dispose()
-    assert [(row.tenant_id, row.confidence) for row in rows] == [(210, 0.71), (220, 0.82)]
-
-    client = TestClient(app)
-    for tenant_id, confidence in ((210, 0.71), (220, 0.82)):
-        token = _token(f"analyst-{tenant_id}@test.invalid", tenant_id)
-        response = client.get(
-            f"/tenants/{tenant_id}/rings/{common_ring_id}",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 200
-        assert response.json()["tenant_id"] == tenant_id
-        assert response.json()["confidence"] == confidence
 
 
-def test_ring_upsert_counts_writes_and_preserves_closed_ring(tmp_path):
+def test_ring_upsert_counts_writes_and_preserves_closed_ring(tmp_path, register_db_test_ids):
     fixture_dir = Path(os.environ["RINGSHIELD_TEST_FIXTURE_DIR"])
     source = pq.read_table(fixture_dir / "rings.parquet")
     row = next(item for item in source.to_pylist() if item["tenant_id"] == 210)
     ring_id = f"demo-model-7-upsert-{uuid4().hex[:8]}"
+    register_db_test_ids(ring_id)
     row["ring_id"] = ring_id
     ring_path = tmp_path / "tenant-210-ring-upsert.parquet"
     Path(str(ring_path) + ".log.json").write_text(json.dumps({"split": "test"}), encoding="utf-8")

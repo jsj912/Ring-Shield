@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
+import os
 import re
 from pathlib import Path, PureWindowsPath
+import subprocess
+import sys
 from typing import Iterator, Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from sqlalchemy import or_, select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_principal, require_tenant_access
@@ -140,11 +143,27 @@ def retrain_log_lines(log_path: str | None, *, limit: int = 50) -> list[str]:
             for line in lines]
 
 
+def launch_retrain_process(tenant_id: int, run_id: str) -> None:
+    """Start retraining in a child process; API code does not inspect job credentials."""
+    command = [sys.executable, "-m", "jobs.retrain_worker", str(int(tenant_id)), run_id]
+    options = {
+        "cwd": str(Path(__file__).resolve().parents[2]),
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "close_fds": True,
+    }
+    if os.name == "nt":
+        options["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        options["start_new_session"] = True
+    subprocess.Popen(command, **options)
+
+
 @router.post("/tenants/{tenant_id}/retrain", response_model=RetrainRunCreated,
              status_code=status.HTTP_202_ACCEPTED)
 def start_retrain(
     tenant_id: int,
-    background_tasks: BackgroundTasks,
     principal: Principal = Depends(get_principal),
 ) -> RetrainRunCreated:
     """Queue tenant retraining; candidates are gated against the fixed holdout."""
@@ -161,8 +180,14 @@ def start_retrain(
             log_path=relative_log,
         ))
         session.flush()
-    from jobs.retrain import run_retrain_job
-    background_tasks.add_task(run_retrain_job, tenant_id, run_id)
+    try:
+        launch_retrain_process(tenant_id, run_id)
+    except Exception as exc:
+        with db_session(tenant_id=tenant_id, role="supervisor") as session:
+            session.execute(update(RetrainRun).where(
+                RetrainRun.tenant_id == tenant_id, RetrainRun.run_id == run_id,
+            ).values(status="failed", finished_at=datetime.now(timezone.utc)))
+        raise HTTPException(status_code=503, detail="Retrain worker could not be started") from exc
     return RetrainRunCreated(run_id=run_id)
 
 

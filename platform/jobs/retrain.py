@@ -6,13 +6,15 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text, update
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PLATFORM_ROOT.parent
@@ -101,40 +103,6 @@ def build_label_rows(verdict_ring_rows, transaction_endpoints: dict[int, tuple[i
     return output
 
 
-def assign_roll_forward_ring_ids(records: list[dict[str, Any]], existing_rows,
-                                 *, model_id: str, seed: int, version: str) -> list[dict[str, Any]]:
-    """Match only open rings by member Jaccard; give all other rings fresh IDs."""
-    available = {
-        str(row.ring_id): set(map(int, row.member_accounts or []))
-        for row in existing_rows if row.status == "open"
-    }
-    all_ids = {str(row.ring_id) for row in existing_rows}
-    assigned: set[str] = set()
-    ordered = sorted(records, key=lambda item: (-float(item["confidence"]), str(item["ring_id"])))
-    for idx, record in enumerate(ordered):
-        members = set(map(int, record["members"]))
-        candidates = []
-        for old_id, old_members in available.items():
-            if old_id in assigned:
-                continue
-            union = members | old_members
-            score = len(members & old_members) / len(union) if union else 1.0
-            if score >= 0.5:
-                candidates.append((score, old_id))
-        if candidates:
-            _, identity = max(candidates, key=lambda item: (item[0], item[1]))
-            assigned.add(identity)
-        else:
-            counter = idx
-            identity = f"full-{model_id}-{seed}-v{version}-{counter}"
-            while identity in all_ids:
-                counter += 1
-                identity = f"full-{model_id}-{seed}-v{version}-{counter}"
-            all_ids.add(identity)
-        record["ring_id"] = identity
-    return records
-
-
 def _validate_inputs(l6: dict[str, Any], config: dict[str, Any]) -> dict[str, Path]:
     paths: dict[str, Path] = l6["paths"]
     for key, path in paths.items():
@@ -168,30 +136,38 @@ def _write_log(path: Path, message: str) -> None:
 @contextmanager
 def _tenant_lock(tenant_id: int):
     """Hold a PostgreSQL session advisory lock for this tenant's full job."""
-    key = f"ringshield-l6-retrain:{int(tenant_id)}"
+    key = "ringshield-l6-retrain"
     with get_engine().connect() as connection:
-        connection.execute(text("SELECT pg_advisory_lock(hashtextextended(:key, 0))"), {"key": key})
+        connection.execute(text("SELECT set_config('app.tenant_id', :tenant_id, false)"),
+                           {"tenant_id": str(int(tenant_id))})
+        connection.execute(text("SELECT pg_advisory_lock(hashtextextended(:key || ':' || :tenant_id, 0))"),
+                           {"key": key, "tenant_id": int(tenant_id)})
         connection.commit()
         try:
             yield
         finally:
-            connection.execute(text("SELECT pg_advisory_unlock(hashtextextended(:key, 0))"), {"key": key})
+            connection.execute(text("SELECT pg_advisory_unlock(hashtextextended(:key || ':' || :tenant_id, 0))"),
+                               {"key": key, "tenant_id": int(tenant_id)})
+            connection.commit()
+            connection.execute(text("SELECT set_config('app.tenant_id', '', false)"))
             connection.commit()
 
 
 def _set_run_state(tenant_id: int, run_id: str, *, status: str,
                    model_version_id: int | None = None, finished: bool = False) -> None:
     with db_session(tenant_id=tenant_id, role="supervisor") as session:
-        run = session.get(RetrainRun, run_id)
-        if run is None or run.tenant_id != tenant_id:
-            raise RetrainError("retrain run disappeared or tenant scope changed")
-        run.status = status
-        if run.started_at is None:
-            run.started_at = datetime.now(timezone.utc)
+        values: dict[str, Any] = {"status": status}
+        if status == "running":
+            values["started_at"] = datetime.now(timezone.utc)
         if model_version_id is not None:
-            run.model_version_id = model_version_id
+            values["model_version_id"] = model_version_id
         if finished:
-            run.finished_at = datetime.now(timezone.utc)
+            values["finished_at"] = datetime.now(timezone.utc)
+        result = session.execute(update(RetrainRun).where(
+            RetrainRun.tenant_id == tenant_id, RetrainRun.run_id == run_id,
+        ).values(**values))
+        if result.rowcount != 1:
+            raise RetrainError("retrain run disappeared or tenant scope changed")
 
 
 def _promoted_version(session, tenant_id: int, component: str) -> ModelVersion | None:
@@ -205,11 +181,13 @@ def _promoted_version(session, tenant_id: int, component: str) -> ModelVersion |
 def _insert_model_version(*, tenant_id: int, component: str, version_tag: str,
                           trained_at: datetime, label_count: int, f1: float | None,
                           promoted: bool, gate_reason: str | None, artifact_path: Path | None) -> int:
-    with loader_db_session() as session:
+    with loader_db_session(tenant_id=tenant_id) as session:
         old = _promoted_version(session, tenant_id, component)
         if promoted and old is not None:
-            old.promoted = False
-            session.flush()
+            session.execute(update(ModelVersion).where(
+                ModelVersion.tenant_id == tenant_id,
+                ModelVersion.model_version_id == old.model_version_id,
+            ).values(promoted=False))
         version = ModelVersion(
             tenant_id=tenant_id, component=component, version_tag=version_tag,
             trained_at=trained_at, train_label_count=label_count,
@@ -264,7 +242,7 @@ def _new_verdicts(session, tenant_id: int, since: datetime):
 def _ensure_baseline(*, tenant_id: int, component: str, base_dir: Path,
                      l6: dict[str, Any], paths: dict[str, Path], run_dir: Path,
                      cli, log_path: Path) -> ModelVersion:
-    with loader_db_session() as session:
+    with loader_db_session(tenant_id=tenant_id) as session:
         promoted = _promoted_version(session, tenant_id, component)
         if promoted is not None:
             return promoted
@@ -276,37 +254,39 @@ def _ensure_baseline(*, tenant_id: int, component: str, base_dir: Path,
         promoted=True, gate_reason="initial holdout baseline", artifact_path=base_dir,
     )
     _write_log(log_path, f"{component}: recorded initial base holdout baseline ({score:.4f})")
-    with loader_db_session() as session:
-        return session.get(ModelVersion, version_id)
+    with loader_db_session(tenant_id=tenant_id) as session:
+        return session.scalar(select(ModelVersion).where(
+            ModelVersion.tenant_id == tenant_id,
+            ModelVersion.model_version_id == version_id,
+        ))
 
 
-def _roll_forward(*, tenant_id: int, model_dir: Path, version_tag: str,
-                  run_dir: Path, config: dict[str, Any]) -> None:
-    from jobs.build_tenant_rings import build_tenant_rings
-    from jobs.load_contract import load_rings
-
-    paths = {key: Path(config[key]) for key in ("scored_edges", "model_dir", "gfp", "embeddings")}
-    output_dir = run_dir / "tenant-test-rings"
-    results = build_tenant_rings(
-        scores_path=paths["scored_edges"], model_dir=model_dir,
-        gfp_path=paths["gfp"], embeddings_path=paths["embeddings"],
-        tenant_ids=[tenant_id], output_dir=output_dir, config=config,
-    )
-    ring_path = Path(results[0]["rings_path"])
-    table = pq.read_table(ring_path)
-    records = table.to_pylist()
-    with db_session(tenant_id=tenant_id, role="supervisor") as session:
-        existing = list(session.scalars(select(Ring).where(Ring.tenant_id == tenant_id)))
-    model = json.loads((model_dir / "model.json").read_text(encoding="utf-8"))
-    model_id = str(model["model_id"])
-    seed = int(model["seed"])
-    assign_roll_forward_ring_ids(records, existing, model_id=model_id, seed=seed, version=version_tag)
-    if records:
-        ring_id_column = table.schema.get_field_index("ring_id")
-        table = table.set_column(ring_id_column, "ring_id",
-                                 pa.array([row["ring_id"] for row in records], type=pa.string()))
-        pq.write_table(table, ring_path)
-    load_rings(ring_path, scope="tenant")
+def _run_ring_refresh_process(*, tenant_id: int, model_version_id: int, run_id: str,
+                              log_path: Path) -> None:
+    """Run refresh after the promotion transaction has committed, in a child process."""
+    command = [
+        sys.executable, "-m", "jobs.refresh_rings",
+        str(int(tenant_id)), str(int(model_version_id)), run_id,
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=PLATFORM_ROOT,
+            env=os.environ.copy(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception as exc:
+        _write_log(log_path, f"ring refresh failed to start: {type(exc).__name__}: {exc}")
+        raise RetrainError(f"ring refresh failed to start: {exc}") from exc
+    output = (result.stdout or "").strip()
+    error = (result.stderr or "").strip()
+    if result.returncode != 0:
+        reason = error or output or f"worker exited with code {result.returncode}"
+        _write_log(log_path, f"ring refresh failed: {reason}")
+        raise RetrainError(f"ring refresh failed: {reason}")
+    _write_log(log_path, f"ring refresh completed: {output or 'worker returned successfully'}")
 
 
 def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
@@ -325,7 +305,7 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
             components = l6["retrain"]["components"]
             for component in components:
                 base_dir = paths["base_model_dir"]
-                with loader_db_session() as session:
+                with loader_db_session(tenant_id=tenant_id) as session:
                     current = _promoted_version(session, tenant_id, component)
                     if current is not None and current.artifact_path:
                         candidate_base = Path(current.artifact_path)
@@ -376,9 +356,13 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
                 )
                 _write_log(log_path, f"{component}: {reason}")
                 if promote:
-                    _roll_forward(tenant_id=tenant_id, model_dir=output_model,
-                                  version_tag=str(model_version), run_dir=run_dir, config=config)
-                    _write_log(log_path, f"{component}: promoted candidate and refreshed open rings")
+                    assert last_version_id is not None
+                    _run_ring_refresh_process(
+                        tenant_id=tenant_id,
+                        model_version_id=last_version_id,
+                        run_id=run_id,
+                        log_path=log_path,
+                    )
             _set_run_state(tenant_id, run_id, status="succeeded", model_version_id=last_version_id, finished=True)
     except Exception as exc:
         _write_log(log_path, f"run failed: {type(exc).__name__}: {exc}")
@@ -390,8 +374,8 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
         # DB stores a repository-relative path; the API never returns machine paths.
         try:
             with db_session(tenant_id=tenant_id, role="supervisor") as session:
-                run = session.get(RetrainRun, run_id)
-                if run is not None:
-                    run.log_path = relative_log_path.as_posix()
+                session.execute(update(RetrainRun).where(
+                    RetrainRun.tenant_id == tenant_id, RetrainRun.run_id == run_id,
+                ).values(log_path=relative_log_path.as_posix()))
         except Exception:
             pass
