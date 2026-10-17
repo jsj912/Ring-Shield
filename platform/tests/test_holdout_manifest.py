@@ -14,14 +14,17 @@ from scripts.make_holdout_manifest import make_manifest
 
 
 def test_fixture_manifest_sha256_matches_committed_sidecar():
-    fixture = PLATFORM_ROOT / "tests/fixtures/holdout_manifest_fixture.json"
-    checksum = PLATFORM_ROOT / "tests/fixtures/holdout_manifest_fixture.sha256"
+    manifest = PLATFORM_ROOT / "holdout/holdout_manifest.json"
+    checksum = PLATFORM_ROOT / "holdout/holdout_manifest.sha256"
+    if not manifest.exists() and not checksum.exists():
+        manifest = PLATFORM_ROOT / "tests/fixtures/holdout_manifest_fixture.json"
+        checksum = PLATFORM_ROOT / "tests/fixtures/holdout_manifest_fixture.sha256"
     expected = checksum.read_text(encoding="ascii").split()[0]
 
-    assert hashlib.sha256(fixture.read_bytes()).hexdigest() == expected
-    manifest = json.loads(fixture.read_text(encoding="utf-8"))
-    assert manifest["truth_ring_ids"] == sorted(manifest["truth_ring_ids"])
-    assert manifest["n"] == len(manifest["truth_ring_ids"])
+    assert hashlib.sha256(manifest.read_bytes()).hexdigest() == expected
+    contents = json.loads(manifest.read_text(encoding="utf-8"))
+    assert contents["truth_ring_ids"] == sorted(contents["truth_ring_ids"])
+    assert contents["n"] == len(contents["truth_ring_ids"])
 
 
 def test_holdout_builder_refuses_overwrite(tmp_path):
