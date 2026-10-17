@@ -238,19 +238,62 @@ class DriftEventPage(BaseModel):
     next_before_id: int | None = None
 
 
+class DailyDriftStatistic(BaseModel):
+    day: datetime
+    mean: float
+    p99: float
+
+
+class DriftSeriesResponse(BaseModel):
+    tenant_id: int
+    active_model_id: str
+    active_seed: int
+    items: list[DailyDriftStatistic]
+
+
+class DriftActedOnUpdate(BaseModel):
+    acted_on: bool
+
+
+class DriftCheckStarted(BaseModel):
+    status: str
+
+
+class ExperimentJobResponse(BaseModel):
+    job_id: str
+    status: str
+    message: str | None = None
+    results: dict | None = None
+
+
+class ExperimentJobResponse(BaseModel):
+    job_id: str
+    status: str
+    message: str | None = None
+    results: dict | None = None
+
+
+class ExperimentJobResponse(BaseModel):
+    job_id: str
+    status: str
+    message: str | None = None
+    results: dict | None = None
+
+
 class RetrainRunCreated(BaseModel):
     run_id: str
 
 
-class RetrainRunStatusResponse(BaseModel):
+class RetrainRunSummary(BaseModel):
     run_id: str
     status: str
+    started_at: datetime | None
+    finished_at: datetime | None
     model_version_id: int | None
-    log_lines: list[str]
 
 
-class RetrainRunCreated(BaseModel):
-    run_id: str
+class RetrainRunPage(BaseModel):
+    items: list[RetrainRunSummary]
 
 
 class RetrainRunStatusResponse(BaseModel):

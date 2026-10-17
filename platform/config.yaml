@@ -4,6 +4,7 @@ active_seed: 1
 model_dir: models/artifacts/full_gine_causal_seed1
 scored_edges: contract/out/scored_edges_gine_causal_1.parquet
 gfp: data/processed/amlworld_gfp_features_test.parquet
+account_map: data/processed/account_bank.parquet
 embeddings: experiments/R1_gine_causal/embeddings_test_seed1.parquet
 # Fixed score_raw cut from the pooled test score log. Never infer a tenant-local cut.
 seed_score_cutoff: 0.9295209672451074
@@ -36,3 +37,10 @@ l6:
     base_model_dir: models/artifacts/full_gine_causal_seed1
   drift:
     delta: 0.002
+
+scheduler:
+  enabled: false
+
+r12:
+  pattern: BIPARTITE
+  model_dir: null

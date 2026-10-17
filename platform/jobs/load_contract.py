@@ -96,19 +96,25 @@ def _account_upserts(session, accounts: dict[tuple[int, int], tuple[int, int, in
     ))
 
 
-def load_edges(path: Path, *, scope: str, batch_size: int = BATCH_SIZE) -> dict[str, int]:
+def load_edges(path: Path, *, scope: str, tenant_id: int | None = None,
+               batch_size: int = BATCH_SIZE) -> dict[str, int]:
+    if tenant_id is not None and scope != "tenant":
+        raise ContractLoadError("tenant_id can only be supplied with tenant scope")
     parquet, run_log = _check_file(path, SCORED_EDGES_ORDER)
     if "tenant_id" not in parquet.schema_arrow.names:
         raise ContractLoadError(f"{path}: scored_edges requires tenant_id in its contract")
 
     counts = defaultdict(int)
-    with loader_db_session() as session:
+    with loader_db_session(tenant_id=tenant_id) as session:
         if scope == "pooled":
             tenant_ids = {-1}
             if session.get(Tenant, -1) is None:
                 raise ContractLoadError("reserved pooled tenant is missing; apply the platform migration")
         else:
-            tenant_ids = set(session.scalars(select(Tenant.tenant_id).where(Tenant.is_loaded.is_(True))))
+            tenant_query = select(Tenant.tenant_id).where(Tenant.is_loaded.is_(True))
+            if tenant_id is not None:
+                tenant_query = tenant_query.where(Tenant.tenant_id == tenant_id)
+            tenant_ids = set(session.scalars(tenant_query))
             if not tenant_ids:
                 raise ContractLoadError("no tenants are marked is_loaded; provision the selected tenant registry first")
 
@@ -338,11 +344,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rings", type=Path)
     parser.add_argument("--scope", choices=("tenant", "pooled"), default="tenant",
                         help="tenant copies visible edges per loaded bank; pooled stores a full graph under internal tenant -1")
+    parser.add_argument("--tenant-id", type=int,
+                        help="optional explicit tenant filter for isolated tenant-scoped data loads")
     args = parser.parse_args(argv)
     try:
-        result = {"edges": load_edges(args.scored_edges, scope=args.scope)}
+        result = {"edges": load_edges(args.scored_edges, scope=args.scope, tenant_id=args.tenant_id)}
         if args.rings:
-            result["rings"] = load_rings(args.rings, scope=args.scope)
+            result["rings"] = load_rings(args.rings, scope=args.scope, tenant_id=args.tenant_id)
     except (ContractLoadError, OSError, RuntimeError) as exc:
         parser.error(str(exc))
     print(result)

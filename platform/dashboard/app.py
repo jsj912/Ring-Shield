@@ -8,6 +8,7 @@ from datetime import datetime, time, timezone
 from pathlib import Path
 
 import httpx
+import plotly.graph_objects as go
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -287,6 +288,31 @@ def _model_versions(tenant_id: int) -> None:
     result = _api("GET", f"/tenants/{tenant_id}/models", params={"limit": "100"})
     if result is None:
         return
+    if st.session_state["role"] == "supervisor":
+        runs = _api("GET", f"/tenants/{tenant_id}/retrain", params={"limit": "50"})
+        if runs is not None:
+            if not runs["items"]:
+                st.info("No retraining runs yet.")
+            else:
+                st.dataframe(
+                    [{"Run ID": row["run_id"], "Status": row["status"],
+                      "Started (UTC)": row["started_at"], "Finished (UTC)": row["finished_at"],
+                      "Model version": row["model_version_id"]} for row in runs["items"]],
+                    use_container_width=True, hide_index=True,
+                )
+        if st.button("Retrain now", key=f"retrain_{tenant_id}"):
+            queued = _api("POST", f"/tenants/{tenant_id}/retrain")
+            if queued:
+                st.session_state[f"retrain_run_{tenant_id}"] = queued["run_id"]
+        run_id = st.session_state.get(f"retrain_run_{tenant_id}")
+        if run_id:
+            status_result = _api("GET", f"/tenants/{tenant_id}/retrain/{run_id}")
+            if status_result:
+                st.write(f"Retrain run: {status_result['status']}")
+                if status_result["log_lines"]:
+                    st.code("\n".join(status_result["log_lines"]), language="text")
+                else:
+                    st.caption("No retraining log output yet.")
     if not result["items"]:
         st.info("No model versions are registered for this tenant.")
         return
@@ -304,6 +330,10 @@ def _model_versions(tenant_id: int) -> None:
 
 def _drift_events(tenant_id: int) -> None:
     st.header("Score drift")
+    if st.session_state["role"] != "supervisor":
+        st.info("Drift review is available to tenant supervisors.")
+        return
+    series = _api("GET", f"/tenants/{tenant_id}/drift/series")
     monitor = st.selectbox("Monitor", ["All", "adwin_score_mean", "adwin_score_p99"])
     params = {"limit": "100"}
     if monitor != "All":
@@ -311,16 +341,46 @@ def _drift_events(tenant_id: int) -> None:
     result = _api("GET", f"/tenants/{tenant_id}/drift", params=params)
     if result is None:
         return
+    if series and series["items"]:
+        figure = go.Figure()
+        for field, label in (("mean", "Daily mean"), ("p99", "Daily 99th percentile")):
+            figure.add_trace(go.Scatter(
+                x=[item["day"] for item in series["items"]],
+                y=[item[field] for item in series["items"]],
+                mode="lines", name=label,
+            ))
+        for monitor_id, field, label in (
+            ("adwin_score_mean", "statistic", "Mean drift detected"),
+            ("adwin_score_p99", "statistic", "P99 drift detected"),
+        ):
+            detected = [item for item in result["items"] if item["monitor"] == monitor_id]
+            if detected:
+                figure.add_trace(go.Scatter(
+                    x=[item["window_end"] for item in detected],
+                    y=[item[field] for item in detected],
+                    mode="markers", marker={"symbol": "diamond", "size": 11}, name=label,
+                ))
+        st.plotly_chart(figure, use_container_width=True)
+    elif series:
+        st.info("No daily score statistics are available for this tenant.")
     if not result["items"]:
         st.info("No drift events have been recorded for this tenant.")
         return
-    st.dataframe(
-        [{"Detected (UTC)": item["detected_at"], "Monitor": item["monitor"],
-          "Window start (UTC)": item["window_start"], "Window end (UTC)": item["window_end"],
-          "Statistic": item["statistic"], "Threshold": item["threshold"],
-          "Acted on": item["acted_on"]} for item in result["items"]],
-        use_container_width=True, hide_index=True,
-    )
+    for item in result["items"]:
+        left, right = st.columns([5, 1])
+        left.write(
+            f"{item['detected_at']} · {item['monitor']} · "
+            f"window {item['window_start']} to {item['window_end']} · "
+            f"statistic {item['statistic']:.4f} · delta {item['threshold']}"
+        )
+        action = "Mark reviewed" if not item["acted_on"] else "Mark unreviewed"
+        if right.button(action, key=f"drift_{tenant_id}_{item['event_id']}"):
+            updated = _api(
+                "PATCH", f"/tenants/{tenant_id}/drift/{item['event_id']}",
+                body={"acted_on": not item["acted_on"]},
+            )
+            if updated:
+                st.rerun()
     if result.get("next_before_id") is not None:
         st.caption("More drift events are available through the API cursor.")
     st.caption("Drift events are informational and do not trigger automatic retraining.")

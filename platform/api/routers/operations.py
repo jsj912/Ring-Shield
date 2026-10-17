@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import os
@@ -13,19 +14,36 @@ from typing import Iterator, Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+import numpy as np
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
 from api.schemas import (DriftEventPage, DriftEventSummary, ModelVersionPage,
-                         ModelVersionSummary, RetrainRunCreated, RetrainRunStatusResponse)
-from db.models import DriftEvent, ModelVersion, RetrainRun
+                         ModelVersionSummary, RetrainRunCreated, RetrainRunStatusResponse,
+                         DriftActedOnUpdate, DriftSeriesResponse, DailyDriftStatistic,
+                         RetrainRunPage, RetrainRunSummary, DriftCheckStarted)
+from db.models import DriftEvent, EdgeScore, ModelVersion, RetrainRun, Transaction
 from db.session import db_session
 from settings import load_platform_config
 
 router = APIRouter(tags=["operations"])
 ModelComponent = Literal["expansion", "affinity", "typing", "detector"]
+
+
+def launch_drift_process(tenant_id: int) -> None:
+    command = [sys.executable, "-m", "jobs.drift_monitor_worker", str(int(tenant_id))]
+    options = {
+        "cwd": str(Path(__file__).resolve().parents[2]),
+        "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL, "close_fds": True,
+    }
+    if os.name == "nt":
+        options["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        options["start_new_session"] = True
+    subprocess.Popen(command, **options)
 
 
 @contextmanager
@@ -97,6 +115,7 @@ def list_drift_events(
     principal: Principal = Depends(get_principal),
 ) -> DriftEventPage:
     """Return newest tenant drift events; this endpoint never triggers retraining."""
+    _require_supervisor_tenant(tenant_id, principal)
     with _tenant_session(tenant_id, principal) as session:
         query = select(DriftEvent).where(DriftEvent.tenant_id == tenant_id)
         if monitor is not None:
@@ -114,6 +133,72 @@ def list_drift_events(
         items=items,
         next_before_id=items[-1].event_id if has_more and items else None,
     )
+
+
+@router.get("/tenants/{tenant_id}/drift/series", response_model=DriftSeriesResponse)
+def get_drift_series(tenant_id: int, principal: Principal = Depends(get_principal)) -> DriftSeriesResponse:
+    """Return tenant daily score statistics for supervisor drift review."""
+    _require_supervisor_tenant(tenant_id, principal)
+    config = load_platform_config()
+    with db_session(tenant_id=tenant_id, role="supervisor") as session:
+        rows = session.execute(
+            select(Transaction.timestamp, EdgeScore.score_calibrated)
+            .join(EdgeScore, (EdgeScore.tenant_id == Transaction.tenant_id)
+                  & (EdgeScore.edge_id == Transaction.edge_id))
+            .where(Transaction.tenant_id == tenant_id, EdgeScore.tenant_id == tenant_id,
+                   EdgeScore.model_id == config["active_model_id"],
+                   EdgeScore.seed == int(config["active_seed"]),
+                   EdgeScore.score_calibrated.is_not(None))
+            .order_by(Transaction.timestamp, Transaction.edge_id)
+        ).all()
+    by_day: dict[int, list[float]] = defaultdict(list)
+    for timestamp, score in rows:
+        value = float(score)
+        if np.isfinite(value):
+            by_day[(int(timestamp) - 10) // 86_400].append(value)
+    points = [(day, float(np.mean(values)), float(np.percentile(values, 99)))
+              for day, values in sorted(by_day.items())]
+    return DriftSeriesResponse(
+        tenant_id=tenant_id, active_model_id=config["active_model_id"],
+        active_seed=int(config["active_seed"]),
+        items=[DailyDriftStatistic(
+            day=datetime.fromtimestamp(day * 86_400 + 10, tz=timezone.utc), mean=mean, p99=p99,
+        ) for day, mean, p99 in points],
+    )
+
+
+@router.post("/tenants/{tenant_id}/drift/check", response_model=DriftCheckStarted,
+             status_code=status.HTTP_202_ACCEPTED)
+def start_drift_check(tenant_id: int, principal: Principal = Depends(get_principal)) -> DriftCheckStarted:
+    _require_supervisor_tenant(tenant_id, principal)
+    try:
+        launch_drift_process(tenant_id)
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail="Drift monitor could not be started") from exc
+    return DriftCheckStarted(status="queued")
+
+
+@router.patch("/tenants/{tenant_id}/drift/{event_id}", response_model=DriftEventSummary)
+def set_drift_acted_on(
+    tenant_id: int,
+    event_id: int,
+    payload: DriftActedOnUpdate,
+    principal: Principal = Depends(get_principal),
+) -> DriftEventSummary:
+    _require_supervisor_tenant(tenant_id, principal)
+    with db_session(tenant_id=tenant_id, role="supervisor") as session:
+        event = session.scalar(select(DriftEvent).where(
+            DriftEvent.tenant_id == tenant_id,
+            DriftEvent.event_id == event_id,
+        ))
+        if event is None:
+            raise HTTPException(status_code=404, detail="Drift event not found")
+        session.execute(update(DriftEvent).where(
+            DriftEvent.tenant_id == tenant_id,
+            DriftEvent.event_id == event_id,
+        ).values(acted_on=payload.acted_on))
+        event.acted_on = payload.acted_on
+        return DriftEventSummary.model_validate(event)
 
 
 def _require_supervisor_tenant(tenant_id: int, principal: Principal) -> None:
@@ -211,3 +296,23 @@ def get_retrain_status(
             log_lines=retrain_log_lines(run.log_path),
         )
     return response
+
+
+@router.get("/tenants/{tenant_id}/retrain", response_model=RetrainRunPage)
+def list_retrain_runs(
+    tenant_id: int,
+    limit: int = Query(default=50, ge=1, le=100),
+    principal: Principal = Depends(get_principal),
+) -> RetrainRunPage:
+    _require_supervisor_tenant(tenant_id, principal)
+    with db_session(tenant_id=tenant_id, role="supervisor") as session:
+        query = select(RetrainRun).where(RetrainRun.tenant_id == tenant_id)
+        rows = list(session.scalars(
+            query.order_by(RetrainRun.started_at.desc(), RetrainRun.run_id.desc()).limit(limit)
+        ))
+    return RetrainRunPage(
+        items=[RetrainRunSummary(
+            run_id=row.run_id, status=row.status, started_at=row.started_at,
+            finished_at=row.finished_at, model_version_id=row.model_version_id,
+        ) for row in rows],
+    )

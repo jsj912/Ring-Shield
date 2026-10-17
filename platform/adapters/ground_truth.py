@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import pandas as pd
+
 from ringshield.truth import load_ground_truth
 from ringshield.windows import load_windows
 
@@ -17,15 +19,47 @@ class TruthMatch:
     verdict: str
 
 
-def load_val_truth(truth_parquet: Path) -> dict[int | str, frozenset[int]]:
-    """Load val days 6-7 under the fixed test-visible membership rule."""
+def load_window_truth(truth_parquet: Path, *, window_name: str,
+                      scope: str = "test_visible") -> dict[int | str, frozenset[int]]:
+    """Load one named evaluation window under the requested truth visibility rule."""
     windows = load_windows()
     try:
-        window = windows["val"]
+        window = windows[window_name]
     except KeyError as exc:
-        raise RuntimeError("evaluation config has no val window") from exc
-    truth, _ = load_ground_truth(Path(truth_parquet), *window.bounds, "test_visible", verbose=False)
+        raise RuntimeError(f"evaluation config has no {window_name} window") from exc
+    truth, _ = load_ground_truth(Path(truth_parquet), *window.bounds, scope, verbose=False)
     return {ring_id: frozenset(map(int, members)) for ring_id, members in truth.items()}
+
+
+def load_window_truth_details(truth_parquet: Path, *, window_name: str,
+                              scope: str = "test_visible") -> tuple[dict, dict, pd.DataFrame]:
+    """Return canonical truth memberships, patterns, and in-window truth rows."""
+    windows = load_windows()
+    try:
+        window = windows[window_name]
+    except KeyError as exc:
+        raise RuntimeError(f"evaluation config has no {window_name} window") from exc
+    path = Path(truth_parquet)
+    try:
+        rows = pd.read_parquet(path)
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(f"could not read configured truth artifact: {path.name}") from exc
+    required = {"ring_id", "from_id", "to_id", "timestamp_int"}
+    if not required <= set(rows.columns):
+        raise RuntimeError(f"ground truth is missing required transaction columns: {sorted(required - set(rows.columns))}")
+    lower, upper = window.bounds
+    in_window = (rows["timestamp_int"] >= lower) & (rows["timestamp_int"] <= upper)
+    scoped = rows.loc[in_window].copy() if scope == "test_visible" else rows.copy()
+    truth, patterns = load_ground_truth(path, lower, upper, scope, verbose=False)
+    selected_ids = set(truth)
+    scoped = scoped.loc[scoped["ring_id"].isin(selected_ids)].copy()
+    return ({ring_id: frozenset(map(int, members)) for ring_id, members in truth.items()},
+            patterns, scoped)
+
+
+def load_val_truth(truth_parquet: Path) -> dict[int | str, frozenset[int]]:
+    """Load val days 6-7 under the fixed test-visible membership rule."""
+    return load_window_truth(truth_parquet, window_name="val", scope="test_visible")
 
 
 def match_ring(members: set[int] | frozenset[int], truth_rings: dict,

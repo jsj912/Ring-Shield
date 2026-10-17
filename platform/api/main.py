@@ -1,5 +1,6 @@
 """FastAPI application entry point for the RingShield platform."""
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from api.request_context import RequestContextMiddleware
@@ -8,15 +9,30 @@ from api.routers.rings import router as rings_router
 from api.routers.admin import router as admin_router
 from api.routers.verdicts import router as verdicts_router
 from api.routers.operations import router as operations_router
+from api.scheduler import start_scheduler
 from api.errors import install_error_handlers
 from db.session import check_database
 from pathlib import Path
 import os
 
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    from settings import load_platform_config
+
+    scheduler = start_scheduler(load_platform_config())
+    application.state.scheduler = scheduler
+    try:
+        yield
+    finally:
+        if scheduler is not None:
+            scheduler.shutdown(wait=False)
+
+
 app = FastAPI(
     title="RingShield Platform API",
     version="0.1.0",
     description="Tenant-scoped ring investigation and model operations API.",
+    lifespan=lifespan,
 )
 app.add_middleware(RequestContextMiddleware)
 app.include_router(auth_router)
