@@ -6,7 +6,7 @@ on:
 
 jobs:
   platform-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
       postgres:
@@ -75,7 +75,7 @@ jobs:
           python -m pytest platform/tests -rA 2>&1 | tee /tmp/platform-pytest.log
           pytest_status=${PIPESTATUS[0]}
           set -e
-          passed=$(sed -nE 's/.*([0-9]+) passed.*/\1/p' /tmp/platform-pytest.log | tail -n 1)
+          passed=$(grep -oE '[0-9]+ passed' /tmp/platform-pytest.log | tail -n 1 | grep -oE '[0-9]+' || true)
           rls_count=$(sed -nE 's/.*RLS_POSTGRES_TESTS_EXECUTED=([0-9]+).*/\1/p' /tmp/platform-pytest.log | tail -n 1)
           passed=${passed:-0}
           rls_count=${rls_count:-0}
