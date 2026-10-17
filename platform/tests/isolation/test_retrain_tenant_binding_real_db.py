@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 import re
@@ -15,15 +16,71 @@ from sqlalchemy.exc import DBAPIError
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PLATFORM_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from adapters.research_cli import EvalResult, RingRunResult, TrainResult
 from db.session import get_engine, get_loader_engine, loader_db_session
 from jobs.retrain import run_retrain_job
+from tenant_row_cleanup import delete_tenant_rows_added_since, snapshot_tenant_row_keys
 
 
 TENANT_A = 210
 TENANT_B = 220
 PROTECTED_TABLES = ("verdicts", "rings", "users", "explanations")
+
+
+def _delete_stale_owned_retrain_rows(engine) -> None:
+    """Remove rows from interrupted runs of this acceptance before seeding baselines."""
+    owned_model_sql = """
+        SELECT model_version_id FROM model_versions
+        WHERE tenant_id IN (210, 220) AND component = 'expansion'
+          AND ((version_tag LIKE 'retrain-test-%'
+                AND trained_at = TIMESTAMPTZ '2000-01-01 00:00:00+00')
+               OR artifact_path LIKE '%/out/retrain/%/expansion-candidate')
+    """
+    with engine.begin() as connection:
+        connection.execute(text(f"""
+            DELETE FROM retrain_runs
+            WHERE tenant_id IN (210, 220)
+              AND (run_id LIKE 'fixture-retrain-%' OR run_id LIKE '%-rt'
+                   OR model_version_id IN ({owned_model_sql}))
+        """))
+        connection.execute(text(f"""
+            DELETE FROM model_versions
+            WHERE tenant_id IN (210, 220) AND model_version_id IN ({owned_model_sql})
+        """))
+
+
+def _delete_current_retrain_rows(engine, *, run_id, baseline_ids, test_started_at, candidate_path):
+    fixture_run_ids = (f"fixture-retrain-{run_id}-{TENANT_A}",
+                       f"fixture-retrain-{run_id}-{TENANT_B}")
+    with engine.begin() as connection:
+        connection.execute(text("""
+            DELETE FROM retrain_runs
+            WHERE tenant_id IN (:tenant_a, :tenant_b)
+              AND (run_id = :run_id OR run_id IN (:fixture_a, :fixture_b)
+                   OR model_version_id IN (:base_a, :base_b)
+                   OR model_version_id IN (
+                       SELECT model_version_id FROM model_versions
+                       WHERE tenant_id IN (:tenant_a, :tenant_b)
+                         AND component = 'expansion' AND trained_at >= :started_at
+                         AND artifact_path = :candidate_path))
+        """), {
+            "tenant_a": TENANT_A, "tenant_b": TENANT_B,
+            "run_id": run_id, "fixture_a": fixture_run_ids[0], "fixture_b": fixture_run_ids[1],
+            "base_a": baseline_ids.get(TENANT_A, -1), "base_b": baseline_ids.get(TENANT_B, -1),
+            "started_at": test_started_at, "candidate_path": str(candidate_path),
+        })
+        connection.execute(text("""
+            DELETE FROM model_versions
+            WHERE tenant_id IN (:tenant_a, :tenant_b) AND component = 'expansion'
+              AND (model_version_id IN (:base_a, :base_b)
+                   OR (trained_at >= :started_at AND artifact_path = :candidate_path))
+        """), {
+            "tenant_a": TENANT_A, "tenant_b": TENANT_B,
+            "base_a": baseline_ids.get(TENANT_A, -1), "base_b": baseline_ids.get(TENANT_B, -1),
+            "started_at": test_started_at, "candidate_path": str(candidate_path),
+        })
 
 
 def _snapshot(engine, table: str, tenant_id: int) -> list[str]:
@@ -38,12 +95,17 @@ def _snapshot(engine, table: str, tenant_id: int) -> list[str]:
 
 @pytest.mark.parametrize(("candidate_f1", "promoted"), [(0.95, True), (0.45, False)])
 def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
-        monkeypatch, tmp_path, candidate_f1, promoted):
+        monkeypatch, tmp_path, candidate_f1, promoted, register_db_test_ids):
     admin_url = os.environ["RINGSHIELD_TEST_ADMIN_URL"]
     admin = create_engine(admin_url)
-    run_id = uuid4().hex
+    test_started_at = datetime.now(timezone.utc)
+    run_id = f"{uuid4().hex}-rt"
+    register_db_test_ids(run_id, f"fixture-retrain-{run_id}", f"retrain-test-{run_id}",
+                         f"v2-{run_id[:8]}")
     log_path = PLATFORM_ROOT / "out" / "retrain" / f"{run_id}.log"
+    candidate_path = log_path.parent / run_id / "expansion-candidate"
     version_tags = (f"retrain-test-{run_id}-a", f"retrain-test-{run_id}-b")
+    baseline_ids = {}
     app_engine = get_engine()
     loader_engine = get_loader_engine()
     observed_statements: list[tuple[str, object]] = []
@@ -53,7 +115,10 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
 
     event.listen(app_engine, "before_cursor_execute", record_dml)
     event.listen(loader_engine, "before_cursor_execute", record_dml)
+    baseline_row_keys = None
     try:
+        _delete_stale_owned_retrain_rows(admin)
+        baseline_row_keys = snapshot_tenant_row_keys(admin, (TENANT_A, TENANT_B))
         with admin.connect() as connection:
             tenant_tables = tuple(connection.execute(text("""
                 SELECT table_name FROM information_schema.columns
@@ -71,6 +136,7 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
                     VALUES (:tenant_id, 'expansion', :tag, '2000-01-01T00:00:00Z', 0, 0.5, true)
                     RETURNING model_version_id
                 """), {"tenant_id": tenant_id, "tag": tag}).scalar_one()
+                baseline_ids[tenant_id] = version_ids[tenant_id]
                 connection.execute(text("""
                     INSERT INTO retrain_runs (run_id, tenant_id, triggered_by, status, model_version_id)
                     VALUES (:run_id, :tenant_id, 'supervisor', 'completed', :version_id)
@@ -184,13 +250,19 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
     finally:
         event.remove(app_engine, "before_cursor_execute", record_dml)
         event.remove(loader_engine, "before_cursor_execute", record_dml)
-        with admin.begin() as connection:
-            connection.execute(text("DELETE FROM retrain_runs WHERE tenant_id = :tenant_id AND run_id = :run_id"),
-                               {"tenant_id": TENANT_A, "run_id": run_id})
-            connection.execute(text("DELETE FROM retrain_runs WHERE run_id LIKE :prefix"),
-                               {"prefix": f"fixture-retrain-{run_id}-%"})
-            connection.execute(text("DELETE FROM model_versions WHERE version_tag IN (:tag_a, :tag_b)"),
-                               {"tag_a": version_tags[0], "tag_b": version_tags[1]})
-        log_path.unlink(missing_ok=True)
-        shutil.rmtree(log_path.parent / run_id, ignore_errors=True)
-        admin.dispose()
+        try:
+            _delete_current_retrain_rows(
+                admin, run_id=run_id, baseline_ids=baseline_ids,
+                test_started_at=test_started_at, candidate_path=candidate_path,
+            )
+        finally:
+            try:
+                if baseline_row_keys is not None:
+                    delete_tenant_rows_added_since(
+                        admin, baseline_row_keys, (TENANT_A, TENANT_B),
+                        exclude_tables={"retrain_runs", "model_versions"},
+                    )
+            finally:
+                log_path.unlink(missing_ok=True)
+                shutil.rmtree(log_path.parent / run_id, ignore_errors=True)
+                admin.dispose()
