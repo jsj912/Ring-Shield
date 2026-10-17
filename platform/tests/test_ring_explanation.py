@@ -54,7 +54,9 @@ def test_explanation_is_tenant_scoped_and_hides_artifact_paths(monkeypatch):
         account_weights=[{"account_id": 101}], feature_weights=[],
         narrative="Example", evidence_summary={"template": "FAN-OUT"}, latency_ms=12,
         provenance={"aggregator_id": "full", "model_id": "gine_causal",
+                    "feature_scope": "tenant_view", "fx_rates_sha256": "a" * 64,
                     "feature_model": "private/model.json", "name_maps": {"bank": "private/map.json"}},
+        fx_rates_sha256="a" * 64,
         created_at=datetime.now(timezone.utc),
     )
     _install_session(monkeypatch, _FakeSession(SimpleNamespace(scope="tenant"), explanation))
@@ -63,7 +65,10 @@ def test_explanation_is_tenant_scoped_and_hides_artifact_paths(monkeypatch):
 
     assert result.narrative == "Example"
     assert result.edge_weights == [{"edge_id": 11}]
-    assert result.provenance == {"aggregator_id": "full", "model_id": "gine_causal"}
+    assert result.provenance == {
+        "aggregator_id": "full", "model_id": "gine_causal",
+        "feature_scope": "tenant_view", "fx_rates_sha256": "a" * 64,
+    }
 
 
 def test_explanation_rejects_cross_tenant_access_before_database_query(monkeypatch):

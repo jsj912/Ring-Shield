@@ -62,16 +62,67 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
             """), {"ring_id": common_ring_id}).all()
         assert [(row.tenant_id, row.confidence) for row in rows] == [(210, 0.71), (220, 0.82)]
 
+        with admin.begin() as connection:
+            for tenant_id in (210, 220):
+                provenance = {
+                    "aggregator_id": "full", "model_id": "demo-model", "seed": 7,
+                    "feature_scope": "tenant_view", "fx_rates_sha256": "a" * 64,
+                }
+                connection.execute(text("""
+                    INSERT INTO explanations
+                      (tenant_id, ring_id, explainer_version, edge_weights,
+                       account_weights, feature_weights, narrative, evidence_summary,
+                       latency_ms, provenance, fx_rates_sha256)
+                    VALUES (:tenant_id, :ring_id, 'collision-test', '[]'::jsonb,
+                            '[]'::jsonb, '[]'::jsonb, :narrative, '{}'::jsonb,
+                            1, CAST(:provenance AS jsonb), :fx_hash)
+                """), {
+                    "tenant_id": tenant_id, "ring_id": common_ring_id,
+                    "narrative": f"tenant-{tenant_id}-explanation",
+                    "provenance": json.dumps(provenance), "fx_hash": "a" * 64,
+                })
+                user_id = connection.execute(text("""
+                    SELECT user_id FROM users
+                    WHERE tenant_id = :tenant_id AND email = :email
+                """), {"tenant_id": tenant_id,
+                      "email": f"analyst-{tenant_id}@test.invalid"}).scalar_one()
+                connection.execute(text("""
+                    INSERT INTO verdicts
+                      (tenant_id, ring_id, user_id, verdict, corrected_members,
+                       corrected_edges, is_simulated)
+                    VALUES (:tenant_id, :ring_id, :user_id, :verdict,
+                            ARRAY[]::bigint[], ARRAY[]::bigint[], false)
+                """), {"tenant_id": tenant_id, "ring_id": common_ring_id,
+                      "user_id": user_id,
+                      "verdict": "confirm" if tenant_id == 210 else "reject"})
+
         client = TestClient(app)
         for tenant_id, confidence in ((210, 0.71), (220, 0.82)):
             token = _token(f"analyst-{tenant_id}@test.invalid", tenant_id)
+            headers = {"Authorization": f"Bearer {token}"}
             response = client.get(
                 f"/tenants/{tenant_id}/rings/{common_ring_id}",
-                headers={"Authorization": f"Bearer {token}"},
+                headers=headers,
             )
             assert response.status_code == 200
             assert response.json()["tenant_id"] == tenant_id
             assert response.json()["confidence"] == confidence
+            explanation = client.get(
+                f"/tenants/{tenant_id}/rings/{common_ring_id}/explanation",
+                headers=headers,
+            )
+            assert explanation.status_code == 200
+            assert explanation.json()["narrative"] == f"tenant-{tenant_id}-explanation"
+            assert explanation.json()["provenance"]["feature_scope"] == "tenant_view"
+            assert explanation.json()["provenance"]["fx_rates_sha256"] == "a" * 64
+            verdicts = client.get(
+                f"/tenants/{tenant_id}/rings/{common_ring_id}/verdicts",
+                headers=headers,
+            )
+            assert verdicts.status_code == 200
+            assert [item["verdict"] for item in verdicts.json()["items"]] == [
+                "confirm" if tenant_id == 210 else "reject"
+            ]
     finally:
         with admin.begin() as connection:
             connection.execute(text("""
