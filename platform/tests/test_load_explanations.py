@@ -169,3 +169,20 @@ def test_old_pooled_handoff_is_refused_for_tenant_loading(tmp_path):
     parquet_path, log_path, rings_log_path = _files(tmp_path, pooled=True)
     with pytest.raises(ExplanationLoadError, match="scope=tenant"):
         read_handoff(parquet_path, log_path, rings_log_path)
+
+
+def test_identity_provenance_must_match_across_all_rows(tmp_path):
+    parquet_path, log_path, rings_log_path = _files(tmp_path)
+    rows = pq.read_table(parquet_path).to_pylist()
+    second = dict(rows[0])
+    second["ring_id"] = "full-gine_causal-1-1"
+    second_provenance = json.loads(second["provenance"])
+    second_provenance["seed"] = 2
+    second["provenance"] = json.dumps(second_provenance)
+    pq.write_table(pa.Table.from_pylist([rows[0], second]), parquet_path)
+    log = json.loads(log_path.read_text(encoding="utf-8"))
+    log.update({"n_rings": 2, "n_explained": 2, "n_reproduces_shipped_ring": 2})
+    log_path.write_text(json.dumps(log), encoding="utf-8")
+
+    with pytest.raises(ExplanationLoadError, match="row provenance differs across explanation rows"):
+        read_handoff(parquet_path, log_path, rings_log_path)

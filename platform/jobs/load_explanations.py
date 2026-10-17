@@ -205,6 +205,11 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
                 raise ExplanationLoadError(f"duplicate explanation key: {identity}")
             seen.add(identity)
             row_provenance = _json_object(source["provenance"], field="provenance", ring_id=ring_id)
+            forbidden_provenance = _forbidden_path(row_provenance)
+            if forbidden_provenance:
+                raise ExplanationLoadError(
+                    f"label/ground-truth paths are forbidden: {forbidden_provenance}"
+                )
             if shared_provenance is None:
                 shared_provenance = {key: row_provenance.get(key) for key in shared_fields}
             elif any(row_provenance.get(key) != shared_provenance[key] for key in shared_fields):
