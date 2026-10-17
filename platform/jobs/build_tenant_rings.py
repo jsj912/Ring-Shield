@@ -22,8 +22,18 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "platform"))
 
-from ringshield.aggregators.cc import SELECT_COL, threshold_for_pct  # noqa: E402
 from settings import configured_path, load_platform_config  # noqa: E402
+
+SELECT_COL = "score_raw"
+
+
+def threshold_for_pct(scores: np.ndarray, seed_frac_pct: float) -> float:
+    """Match the research CLI's NumPy linear-percentile, strict seed cut."""
+    values = np.asarray(scores, dtype=float)
+    values = values[~np.isnan(values)]
+    if not len(values):
+        raise TenantRingBuildError("cannot compute a seed quantile without finite scores")
+    return float(np.percentile(values, 100 - seed_frac_pct))
 
 
 class TenantRingBuildError(ValueError):

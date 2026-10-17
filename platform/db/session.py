@@ -17,6 +17,10 @@ _auth_engine: Engine | None = None
 _auth_sessions: sessionmaker[Session] | None = None
 _loader_engine: Engine | None = None
 _loader_sessions: sessionmaker[Session] | None = None
+_simulator_engine: Engine | None = None
+_simulator_sessions: sessionmaker[Session] | None = None
+_simulator_engine: Engine | None = None
+_simulator_sessions: sessionmaker[Session] | None = None
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
@@ -52,6 +56,28 @@ def get_loader_engine() -> Engine:
         _loader_engine = create_engine(url, pool_pre_ping=True, pool_size=2, max_overflow=3)
         _loader_sessions = sessionmaker(bind=_loader_engine, expire_on_commit=False)
     return _loader_engine
+
+
+def get_simulator_engine() -> Engine:
+    global _simulator_engine, _simulator_sessions
+    if _simulator_engine is None:
+        url = os.environ.get("RINGSHIELD_SIMULATOR_DATABASE_URL")
+        if not url:
+            raise RuntimeError("RINGSHIELD_SIMULATOR_DATABASE_URL is not configured")
+        _simulator_engine = create_engine(url, pool_pre_ping=True, pool_size=2, max_overflow=3)
+        _simulator_sessions = sessionmaker(bind=_simulator_engine, expire_on_commit=False)
+    return _simulator_engine
+
+
+def get_simulator_engine() -> Engine:
+    global _simulator_engine, _simulator_sessions
+    if _simulator_engine is None:
+        url = os.environ.get("RINGSHIELD_SIMULATOR_DATABASE_URL")
+        if not url:
+            raise RuntimeError("RINGSHIELD_SIMULATOR_DATABASE_URL is not configured")
+        _simulator_engine = create_engine(url, pool_pre_ping=True, pool_size=2, max_overflow=3)
+        _simulator_sessions = sessionmaker(bind=_simulator_engine, expire_on_commit=False)
+    return _simulator_engine
 
 
 @contextmanager
@@ -102,4 +128,32 @@ def loader_db_session() -> Iterator[Session]:
     with _loader_sessions() as session:
         with session.begin():
             session.execute(text("SELECT set_config('app.user_role', 'loader', true)"))
+            yield session
+
+
+@contextmanager
+def simulator_db_session(*, tenant_id: int) -> Iterator[Session]:
+    """Use the restricted simulator database role with transaction-local tenant scope."""
+    get_simulator_engine()
+    assert _simulator_sessions is not None
+    with _simulator_sessions() as session:
+        with session.begin():
+            session.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                            {"tenant_id": str(int(tenant_id))})
+            session.execute(text("SELECT set_config('app.user_role', 'analyst', true)"))
+            yield session
+
+
+@contextmanager
+def simulator_db_session(*, tenant_id: int) -> Iterator[Session]:
+    """Use the restricted simulator role with transaction-local tenant scope."""
+    get_simulator_engine()
+    assert _simulator_sessions is not None
+    with _simulator_sessions() as session:
+        with session.begin():
+            session.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                            {"tenant_id": str(int(tenant_id))})
+            # This role is additionally constrained by the simulator-specific DB
+            # grants and the verdicts_simulator_insert RLS policy.
+            session.execute(text("SELECT set_config('app.user_role', 'analyst', true)"))
             yield session

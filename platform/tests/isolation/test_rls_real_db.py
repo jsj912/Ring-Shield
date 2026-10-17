@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from threading import Event
 from uuid import uuid4
 
 import pytest
@@ -164,6 +167,45 @@ def test_admin_reads_across_tenants_but_cannot_mutate_verdicts(connection):
             connection.execute(text("DELETE FROM verdicts WHERE tenant_id = 210"))
 
 
+def test_simulator_role_can_insert_only_in_its_local_tenant_context():
+    admin_engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    simulator_url = os.environ.get("RINGSHIELD_SIMULATOR_DATABASE_URL")
+    if not simulator_url:
+        raise RuntimeError("RINGSHIELD_SIMULATOR_DATABASE_URL is required for simulator RLS acceptance")
+    simulator_engine = create_engine(simulator_url)
+    try:
+        with admin_engine.connect() as admin:
+            user_a = admin.execute(text("SELECT user_id FROM users WHERE tenant_id = :tenant LIMIT 1"),
+                                   {"tenant": TENANT_A}).scalar_one()
+            user_b = admin.execute(text("SELECT user_id FROM users WHERE tenant_id = :tenant LIMIT 1"),
+                                   {"tenant": TENANT_B}).scalar_one()
+        with simulator_engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                assert connection.execute(text("SELECT current_user")).scalar_one() == "ringshield_simulator"
+                _set_context(connection, TENANT_A, role="analyst")
+                with pytest.raises(DBAPIError):
+                    with connection.begin_nested():
+                        connection.execute(text("""
+                            INSERT INTO verdicts (tenant_id, ring_id, user_id, verdict,
+                                                  corrected_members, corrected_edges, is_simulated)
+                            VALUES (:tenant, 'demo-cycle', :user_id, 'reject',
+                                    ARRAY[]::bigint[], ARRAY[]::bigint[], true)
+                        """), {"tenant": TENANT_B, "user_id": user_b})
+                with connection.begin_nested():
+                    connection.execute(text("""
+                        INSERT INTO verdicts (tenant_id, ring_id, user_id, verdict,
+                                              corrected_members, corrected_edges, is_simulated)
+                        VALUES (:tenant, 'demo-cycle', :user_id, 'reject',
+                                ARRAY[]::bigint[], ARRAY[]::bigint[], true)
+                    """), {"tenant": TENANT_A, "user_id": user_a})
+            finally:
+                transaction.rollback()
+    finally:
+        simulator_engine.dispose()
+        admin_engine.dispose()
+
+
 def test_cross_bank_transaction_is_visible_to_both_endpoint_tenants_only(connection):
     for tenant_id in (TENANT_A, TENANT_B):
         _set_context(connection, tenant_id)
@@ -183,3 +225,54 @@ def test_edge_scores_keeps_rows_from_multiple_models(connection):
     """), {"tenant_id": TENANT_A}).all()
     assert [(row.model_id, row.seed) for row in rows] == [("alternate-model", 99), ("demo-model", 7)]
     assert rows[1].score_raw == pytest.approx(0.97)
+
+
+def test_concurrent_promotions_cannot_create_two_active_component_versions():
+    loader_url = os.environ.get("RINGSHIELD_LOADER_DATABASE_URL")
+    if not loader_url:
+        raise RuntimeError("RINGSHIELD_LOADER_DATABASE_URL is required for promotion uniqueness acceptance")
+    loader_engine = create_engine(loader_url)
+    admin_engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    tag = f"concurrent-promotion-{uuid4().hex}"
+    second_started = Event()
+
+    def insert_second() -> None:
+        with loader_engine.begin() as connection:
+            second_started.set()
+            connection.execute(text("""
+                INSERT INTO model_versions
+                  (tenant_id, component, version_tag, trained_at, train_label_count,
+                   holdout_ring_f1, promoted)
+                VALUES (:tenant, 'affinity', :tag, :trained_at, 0, 0.7, true)
+            """), {"tenant": TENANT_A, "tag": tag + "-second",
+                  "trained_at": datetime.now(timezone.utc)})
+
+    try:
+        with loader_engine.connect() as first:
+            transaction = first.begin()
+            first.execute(text("""
+                INSERT INTO model_versions
+                  (tenant_id, component, version_tag, trained_at, train_label_count,
+                   holdout_ring_f1, promoted)
+                VALUES (:tenant, 'affinity', :tag, :trained_at, 0, 0.7, true)
+            """), {"tenant": TENANT_A, "tag": tag + "-first",
+                  "trained_at": datetime.now(timezone.utc)})
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(insert_second)
+                assert second_started.wait(timeout=5)
+                transaction.commit()
+                with pytest.raises(DBAPIError):
+                    future.result(timeout=10)
+        with loader_engine.connect() as connection:
+            count = connection.execute(text("""
+                SELECT count(*) FROM model_versions
+                WHERE tenant_id = :tenant AND component = 'affinity' AND promoted IS TRUE
+                  AND version_tag LIKE :prefix
+            """), {"tenant": TENANT_A, "prefix": f"{tag}-%"}).scalar_one()
+            assert count == 1
+    finally:
+        with admin_engine.begin() as connection:
+            connection.execute(text("DELETE FROM model_versions WHERE tenant_id = :tenant AND version_tag LIKE :prefix"),
+                               {"tenant": TENANT_A, "prefix": f"{tag}-%"})
+        loader_engine.dispose()
+        admin_engine.dispose()

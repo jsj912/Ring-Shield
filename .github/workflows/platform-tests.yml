@@ -30,6 +30,7 @@ jobs:
       RINGSHIELD_DATABASE_URL: postgresql+psycopg://ringshield_test_app:test-app-only@localhost:5432/ringshield?options=-c%20role%3Dringshield_api
       RINGSHIELD_AUTH_DATABASE_URL: postgresql+psycopg://ringshield_test_auth:test-auth-only@localhost:5432/ringshield?options=-c%20role%3Dringshield_auth
       RINGSHIELD_LOADER_DATABASE_URL: postgresql+psycopg://ringshield_test_loader:test-loader-only@localhost:5432/ringshield?options=-c%20role%3Dringshield_loader
+      RINGSHIELD_SIMULATOR_DATABASE_URL: postgresql+psycopg://ringshield_test_simulator:test-simulator-only@localhost:5432/ringshield?options=-c%20role%3Dringshield_simulator
       RINGSHIELD_JWT_SECRET: ringshield-test-secret-that-is-long-enough
       RINGSHIELD_TIME_ORIGIN_UTC: '2020-01-01T00:00:00+00:00'
       RINGSHIELD_PLATFORM_CONFIG: platform/tests/isolation/config.test.yaml

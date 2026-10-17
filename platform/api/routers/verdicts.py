@@ -6,8 +6,9 @@ from sqlalchemy import select
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
 from api.schemas import VerdictHistoryPage, VerdictRequest, VerdictResponse, VerdictKind
-from db.models import AuditLog, Ring as PlatformRing, User, Verdict
+from db.models import Ring as PlatformRing, User, Verdict
 from db.session import db_session
+from services.verdicts import record_verdict
 
 router = APIRouter(tags=["verdicts"])
 
@@ -87,28 +88,16 @@ def submit_verdict(
         if user_email is None:
             raise HTTPException(status_code=401, detail="Session expired or invalid")
 
-        verdict = Verdict(
+        verdict = record_verdict(
+            session,
+            ring=ring,
             tenant_id=tenant_id,
             ring_id=ring_id,
             user_id=principal.user_id,
             verdict=payload.verdict.value,
-            corrected_members=[],
-            corrected_edges=[],
             note=payload.note,
             is_simulated=False,
         )
-        ring.status = payload.verdict.value
-        session.add(verdict)
-        session.flush()
-        session.add(AuditLog(
-            tenant_id=tenant_id,
-            user_id=principal.user_id,
-            action="ring.verdict_recorded",
-            object_type="ring",
-            object_id=ring_id,
-            details={"verdict_id": verdict.verdict_id, "verdict": payload.verdict.value},
-        ))
-        session.flush()
         return VerdictResponse(
             verdict_id=verdict.verdict_id,
             ring_id=ring_id,

@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from datetime import datetime, timezone
+import re
+from pathlib import Path, PureWindowsPath
 from typing import Iterator, Literal
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
 from api.schemas import (DriftEventPage, DriftEventSummary, ModelVersionPage,
-                         ModelVersionSummary)
-from db.models import DriftEvent, ModelVersion
+                         ModelVersionSummary, RetrainRunCreated, RetrainRunStatusResponse)
+from db.models import DriftEvent, ModelVersion, RetrainRun
 from db.session import db_session
 from settings import load_platform_config
 
@@ -107,3 +111,78 @@ def list_drift_events(
         items=items,
         next_before_id=items[-1].event_id if has_more and items else None,
     )
+
+
+def _require_supervisor_tenant(tenant_id: int, principal: Principal) -> None:
+    if principal.role != "supervisor":
+        raise HTTPException(status_code=403, detail="Only a tenant supervisor can access retraining")
+    require_tenant_access(tenant_id, principal)
+
+
+def retrain_log_lines(log_path: str | None, *, limit: int = 50) -> list[str]:
+    if not log_path:
+        return []
+    root = Path(__file__).resolve().parents[3]
+    path = Path(log_path)
+    if path.is_absolute():
+        return []
+    resolved = (root / path).resolve()
+    allowed = (root / "platform" / "out" / "retrain").resolve()
+    try:
+        resolved.relative_to(allowed)
+        lines = resolved.read_text(encoding="utf-8").splitlines()[-limit:]
+    except (OSError, ValueError):
+        return []
+    windows_path = re.compile(r"(?i)\b[A-Z]:\\(?:[^\\\s]+\\)*[^\\\s]*")
+    unix_path = re.compile(r"(?<![\w])/(?:[^/\s]+/)*[^/\s]+")
+    return [unix_path.sub(lambda match: Path(match.group()).name,
+                          windows_path.sub(lambda match: PureWindowsPath(match.group()).name, line))
+            for line in lines]
+
+
+@router.post("/tenants/{tenant_id}/retrain", response_model=RetrainRunCreated,
+             status_code=status.HTTP_202_ACCEPTED)
+def start_retrain(
+    tenant_id: int,
+    background_tasks: BackgroundTasks,
+    principal: Principal = Depends(get_principal),
+) -> RetrainRunCreated:
+    """Queue tenant retraining; candidates are gated against the fixed holdout."""
+    _require_supervisor_tenant(tenant_id, principal)
+    run_id = uuid4().hex
+    relative_log = f"platform/out/retrain/{run_id}.log"
+    with db_session(tenant_id=tenant_id, role="supervisor") as session:
+        session.add(RetrainRun(
+            run_id=run_id,
+            tenant_id=tenant_id,
+            triggered_by="supervisor",
+            started_at=datetime.now(timezone.utc),
+            status="running",
+            log_path=relative_log,
+        ))
+        session.flush()
+    from jobs.retrain import run_retrain_job
+    background_tasks.add_task(run_retrain_job, tenant_id, run_id)
+    return RetrainRunCreated(run_id=run_id)
+
+
+@router.get("/tenants/{tenant_id}/retrain/{run_id}", response_model=RetrainRunStatusResponse)
+def get_retrain_status(
+    tenant_id: int,
+    run_id: str,
+    principal: Principal = Depends(get_principal),
+) -> RetrainRunStatusResponse:
+    _require_supervisor_tenant(tenant_id, principal)
+    with db_session(tenant_id=tenant_id, role="supervisor") as session:
+        run = session.scalar(select(RetrainRun).where(
+            RetrainRun.tenant_id == tenant_id, RetrainRun.run_id == run_id,
+        ))
+        if run is None:
+            raise HTTPException(status_code=404, detail="Retrain run not found")
+        response = RetrainRunStatusResponse(
+            run_id=run.run_id,
+            status=run.status,
+            model_version_id=run.model_version_id,
+            log_lines=retrain_log_lines(run.log_path),
+        )
+    return response

@@ -91,3 +91,84 @@ This file records findings and changes in the order requested for the platform h
 - Added exact platform dependency pins, including `bcrypt==5.0.0`, and separate pinned pytest/httpx development dependencies. CI, Docker test image, and the Windows database test script install from `requirements-dev.txt`.
 - Added a database-free test that imports `api.main`, hashes and verifies a password, and checks the 72-byte boundary.
 - `python -m compileall platform` passed. The available virtual environment lacks SQLAlchemy, so pytest collection could not run locally; CI must execute the new test.
+
+## L6-A retraining and simulator setup - 2026-10-17
+
+### Findings
+
+- `ringshield/__main__.py::cmd_train` validates the documented label columns, copies the base model, appends confirmed labels to `extra_labels.parquet`, increments the version, and writes `version.json` with `retrained: false`; it does not learn new weights. Any platform candidate from this command must remain unpromoted.
+- The research CLI `run` accepts `--scores`, `--model-dir`, `--aggregator full`, `--gfp`, `--embeddings`, and `--out`; its run log is JSON. `eval` accepts `--rings`, `--truth`, `--holdout`, `--window`, `--scope`, and `--out`, and writes a metrics JSON containing `ring_f1`. The holdout filter uses truth ring IDs.
+- `ModelVersion` has a partial unique index on `(tenant_id, component)` where `promoted IS TRUE`. `Verdict` and `Ring` use tenant-scoped keys; the loader uses `RETURNING` to count preserved non-open rings.
+- The active pair remains `gine_causal` / seed `1`. The repository contains `contract/out/scored_edges_gine_causal_1_val.parquet` and its sibling log, whose split is `val`. It does not contain a validation GFP parquet, validation embeddings for seed 1, or an `amlworld_ring_ground_truth.parquet` file. The base model configured for this pair exists at `models/artifacts/full_gine_causal_seed1`.
+- Typing is excluded from retraining because verdict rows do not carry a pattern-type label.
+
+### Changes
+
+- Added the `l6` config values from the task. Unavailable validation GFP, validation embeddings, and truth paths are explicit `null` values. The holdout manifest targets are configured but will not be created until the real validation truth file is available.
+- Added `load_l6_config`, which validates required numeric settings, supported components, required evaluation window/scope, and presence of each artifact path without guessing or silently substituting a different input.
+
+### Verification and blockers
+
+- No ground-truth file was found in the repository, so `platform/holdout/holdout_manifest.json` and its checksum have not been generated. The exact missing files are listed above; no placeholder manifest is treated as the dataset holdout.
+- Postgres is unavailable in this environment. L6 database integration tests will be written for CI and are not claimed to have run here.
+
+## L6-A adapters - 2026-10-17
+
+### Changes
+
+- Added typed, subprocess-only wrappers for research `run`, `train`, and `eval`. Each fails on a nonzero exit, validates its JSON artifact, and returns a dataclass; training reads the actual `version.json.retrained` flag rather than assuming success means learning occurred.
+- Added a read-only validation truth adapter using the existing days 6-7 `val` window and `test_visible` rule, plus deterministic best-Jaccard matching. The adapter returns corrected truth members and the true simulator label without putting truth access in API code.
+- Added database-free tests for the three CLI wrappers, their failure behavior, the `retrained=false` result, and truth matching.
+
+### Verification
+
+- `platform/tests/test_l6_adapters.py` and full database-free platform tests are pending the current implementation pass; no Postgres execution is claimed.
+
+## L6 truth holdout preparation - 2026-10-17
+
+- Added `platform/scripts/make_holdout_manifest.py`. It uses the truth adapter's val-window/test-visible ring IDs, sorts IDs, records source name and count, writes a SHA-256 sidecar, and refuses to overwrite either output.
+- The real manifest and checksum were not created because the required validation truth parquet is absent. Added a clearly labeled fixture manifest/checksum and database-free tests for digest integrity, overwrite refusal, and missing-input behavior; the fixture is not a substitute for the AMLWorld holdout.
+
+## L6 research import boundary - 2026-10-17
+
+- Added a source scanner that rejects research-library imports and literal ground-truth paths outside `platform/adapters/`, `platform/jobs/simulate_verdicts.py`, `platform/experiments/`, and `platform/scripts/`. Its negative-control test verifies it catches both kinds of violation.
+- `platform/jobs/build_tenant_rings.py` previously imported the research CC module for a constant and a one-line NumPy percentile calculation. It now uses the same score column and NumPy linear percentile locally, keeping output behavior unchanged while satisfying the requested boundary.
+- The scanner test is database-free; the Postgres suite remains unavailable locally.
+
+## L6 simulated verdict cycle - 2026-10-17
+
+### Changes
+
+- Added a deterministic `simulate_cycle` job. It selects open tenant rings whose start times fall in the configured cycle day, orders by confidence descending, reviews `ceil(review_fraction * open_count)`, matches only through the ground-truth adapter, and applies seeded accuracy noise. Partial corrections use truth members intersected with the ring and keep only member edges whose two endpoints are corrected.
+- Added a dedicated per-tenant simulated analyst account to the tenant seeder. The CLI requires that account and a tenant-matching non-admin actor; its function rejects admins before reading truth or opening a DB session.
+- Refactored API verdict persistence into `platform/services/verdicts.py`; API and simulator share status update, verdict insert, and audit-log behavior.
+- Added a separate simulator connection URL and no-login simulator role. It can select tenant-scoped ring/transaction data, select limited analyst identity columns, update only `rings.status`, and insert verdict rows. Migration 0004 tightens `verdicts_simulator_insert` so both `app.tenant_id` and analyst role are required in addition to the simulator role and `is_simulated=true`.
+- Added database-free tests for perfect/noisy outcomes, deterministic seeds, review rounding, simulator flags, shared persistence, and admin rejection. Added a real-Postgres test that proves the simulator can write simulated verdicts only for its transaction-local tenant; CI provisions its restricted login.
+
+### Security review and verification
+
+- The first simulator grant draft was rejected by automatic review because its simulated insert policy was not tenant-bound. The final migration adds the tenant check and analyst-role check to the policy before granting the role; the former broad simulator policy is not retained.
+- `pytest platform/tests --ignore=platform/tests/isolation -q` passed: **52 passed**. `python -m compileall platform -q` and `git diff --check` passed. Postgres checks have not run locally.
+
+## L6-A retraining job and API - 2026-10-17
+
+### Changes
+
+- Added a tenant advisory lock, fixed holdout SHA verification, validation split/model/seed provenance checks, latest-per-ring verdict selection (including simulated rows), and verdict-specific label export.
+- Per component, the job records a baseline if no promoted version exists, skips below `min_new_labels`, calls the adapter, refuses any `retrained=false` candidate without evaluation, and gates learned candidates at `candidate_f1 >= current_f1 - epsilon`. A successful promotion demotes the prior row and inserts the new promoted row in one database transaction.
+- Promoted candidates are run through the existing tenant ring builder. New rings match only open rings at member Jaccard >= 0.5; unmatched rings receive versioned IDs checked against every existing ring ID. Existing verdict-bearing rings are excluded from matching, and the loader's `status=open` upsert condition remains in force.
+- Added supervisor-only POST and GET routes. Cross-tenant and admin requests are rejected before retrain-run queries. Status returns only the last 50 redacted log lines and never exposes artifact or absolute log paths.
+- The existing supervisor app role is read-only on `model_versions`; this implementation writes model-version rows through the already-provisioned restricted loader role, while retrain-run state changes use the supervisor role. No new model-registry RLS policy or grant was added. This is an implementation deviation from a supervisor-only DB workflow; it uses the current schema's established model-version writer.
+- Added database-free tests for holdout verification, gate boundaries, false retraining, label construction, roll-forward identity, API authorization, log redaction, and the simulator's shared verdict service. Added a real-Postgres concurrency test for the partial unique promoted-version index.
+
+### Verification and blockers
+
+- Database-free suite: **65 passed**. `python -m compileall platform -q` and `git diff --check` passed.
+- Postgres was unavailable. The new simulator cross-tenant write test and concurrent model-promotion test are written for CI but have not run locally.
+- The default L6 job currently fails fast at `l6.retrain.val_gfp`, because that input path is not supplied. No model training or promotion was run.
+
+### L6-A final verification note
+
+- Added fake-adapter orchestration tests for accepted, refused, and `retrained=false` candidates. They verify that only an accepted promotion invokes tenant roll-forward.
+- The first full test attempt had one incorrect test assertion key (`holdout_ring_f1` instead of the helper argument `f1`); that assertion was corrected. The final database-free suite passed **68 tests**. Windows pytest's default temp folder was access denied in this sandbox, so test runs used the workspace-local ignored `platform/out/pytest-tmp` directory.
+- `python -m compileall platform -q` and `git diff --check` passed. No Postgres tests executed here; the RLS and concurrent-promotion checks remain CI-only.

@@ -1,0 +1,6 @@
+{
+  "created_utc": "fixture-only",
+  "n": 3,
+  "source": "fixture_truth.parquet",
+  "truth_ring_ids": [12, 38, 104]
+}

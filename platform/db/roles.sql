@@ -36,6 +36,10 @@ GRANT INSERT ON audit_log TO ringshield_loader;
 GRANT SELECT (user_id, tenant_id, email, password_hash, role, created_at, disabled) ON users TO ringshield_auth;
 GRANT SELECT ON tenants TO ringshield_auth;
 GRANT INSERT ON verdicts TO ringshield_simulator;
+GRANT SELECT ON rings, transactions TO ringshield_simulator;
+GRANT SELECT (user_id, tenant_id, email, role, disabled) ON users TO ringshield_simulator;
+GRANT UPDATE (status) ON rings TO ringshield_simulator;
+GRANT INSERT ON audit_log TO ringshield_simulator;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ringshield_api, ringshield_loader, ringshield_simulator;
 
 -- Create separate LOGIN roles outside this script, set their passwords from a

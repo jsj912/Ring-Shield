@@ -159,3 +159,21 @@ Set `RINGSHIELD_TIME_ORIGIN_UTC` to the UTC instant represented by loader timest
 zero before using ring routes. L4 explanations are available after the verified batch
 loader runs; partial verdict regeneration still needs a callable L4 regeneration
 interface before the platform can safely make that workflow atomic.
+
+### Simulated verdict cycles (L6-A)
+
+The simulator uses the configured `l6.simulator` values and the validation truth adapter. It requires the validation truth parquet, a seeded per-tenant `simulated.analyst@tenant<ID>.local` account, and `RINGSHIELD_SIMULATOR_DATABASE_URL` configured for the restricted `ringshield_simulator` role. Example:
+
+```powershell
+python platform/jobs/simulate_verdicts.py --tenant-id 210 --cycle-day 6
+```
+
+Optional `--seed`, `--accuracy`, and `--review-fraction` override the configured defaults. The simulator role is separate from the API and its RLS policy binds simulated inserts to the active tenant context. The Postgres acceptance test verifies cross-tenant writes are rejected.
+
+### L6-A retraining
+
+Retraining can be started with `POST /tenants/{tenant_id}/retrain` by a supervisor of that tenant. Poll `GET /tenants/{tenant_id}/retrain/{run_id}` for status and the most recent log lines. Administrators cannot start or inspect tenant retraining runs. API responses omit model artifact paths, and log lines replace absolute paths with file names.
+
+The job verifies the committed holdout checksum before using labels. It promotes a candidate only when `ring_f1 >= current_ring_f1 - l6.retrain.epsilon`; a research CLI result with `retrained: false` is always stored as unpromoted and is not evaluated. A promoted candidate refreshes open tenant rings through the existing tenant builder; rings with verdict history remain unchanged.
+
+The real holdout is not included in this checkout. Before running L6, supply the validation GFP file, the active detector/seed's validation embeddings file, and `amlworld_ring_ground_truth.parquet`; set their exact paths in `platform/config.yaml`, then run `python platform/scripts/make_holdout_manifest.py --truth <actual-truth-file>`. The script refuses to overwrite a manifest or checksum. The checked-in test manifest is a fixture only.

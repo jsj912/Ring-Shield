@@ -237,3 +237,25 @@ class DriftEventPage(BaseModel):
     items: list[DriftEventSummary]
     next_before_id: int | None = None
 
+
+class RetrainRunCreated(BaseModel):
+    run_id: str
+
+
+class RetrainRunStatusResponse(BaseModel):
+    run_id: str
+    status: str
+    model_version_id: int | None
+    log_lines: list[str]
+
+
+class RetrainRunCreated(BaseModel):
+    run_id: str
+
+
+class RetrainRunStatusResponse(BaseModel):
+    run_id: str
+    status: str
+    model_version_id: int | None
+    log_lines: list[str]
+
