@@ -112,7 +112,7 @@ def test_run_rejects_unknown_and_future_aggregators(work):
     assert rc == 2 and "model directory" in err
 
 
-def test_train_copies_and_appends(work):
+def test_train_typing_copies_and_appends(work):
     d = work["dir"]
     rings = work["rings"]
     rows = [{"ring_id": rings.iloc[0]["ring_id"], "member_accounts": list(rings.iloc[0]["members"]),
@@ -124,12 +124,17 @@ def test_train_copies_and_appends(work):
     schema = pa.schema([("ring_id", pa.string()), ("member_accounts", pa.list_(pa.int64())),
                         ("member_edges", pa.list_(pa.int64())), ("verdict", pa.string())])
     pq.write_table(pa.Table.from_pylist(rows, schema=schema), d / "labels.parquet")
+    # expansion / affinity are RETRAINED now (tests/test_retrain.py); a cc model dir has neither
     rc, out, err = cli("train", "--component", "expansion", "--labels", d / "labels.parquet",
+                       "--base-model-dir", d / "model_cc", "--out-model-dir", d / "model_x")
+    assert rc == 2 and "no policy/" in err
+    # typing is still copy-and-append
+    rc, out, err = cli("train", "--component", "typing", "--labels", d / "labels.parquet",
                        "--base-model-dir", d / "model_cc", "--out-model-dir", d / "model_v2")
     assert rc == 0, err
     assert read_model(d / "model_v2")["version"] == 2
     v = json.loads((d / "model_v2" / "version.json").read_text())
-    assert v["n_labels"] == {"confirm": 1, "reject": 1, "partial": 1} and v["retrained"] is False and v["component"] == "expansion"
+    assert v["n_labels"] == {"confirm": 1, "reject": 1, "partial": 1} and v["retrained"] is False and v["component"] == "typing"
     extra = pd.read_parquet(d / "model_v2" / "extra_labels.parquet")
     assert len(extra) == 1 and extra.iloc[0]["verdict"] == "confirm" and extra.iloc[0]["ring_id"] == rows[0]["ring_id"]
     # second round appends and bumps the version

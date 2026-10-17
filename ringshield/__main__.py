@@ -227,12 +227,43 @@ def validate_labels(path: Path) -> pd.DataFrame:
     return df
 
 
+def _cmd_retrain(a, base: Path, model: dict, labels: pd.DataFrame) -> int:
+    """Real retraining (ringshield/retrain.py): rows from the verdicts, appended to the original
+    training set, the component retrained with its shipped settings and grouped CV."""
+    from ringshield.retrain import HOLDOUT_MANIFEST, RetrainError, retrain
+    out = Path(a.out_model_dir)
+    if out.resolve() == base.resolve():
+        raise UsageError("--out-model-dir must differ from --base-model-dir")
+    prev = json.loads((base / "version.json").read_text(encoding="utf-8")) if (base / "version.json").exists() else {}
+    try:
+        v = retrain(a.component, labels=labels, labels_path=Path(a.labels), base_dir=base, out_dir=out,
+                    scores=Path(a.scores) if a.scores else None, rings=Path(a.rings) if a.rings else None,
+                    gfp=Path(a.gfp) if a.gfp else None, embeddings=Path(a.embeddings) if a.embeddings else None,
+                    holdout_manifest=Path(a.holdout_manifest) if a.holdout_manifest else HOLDOUT_MANIFEST,
+                    allow_holdout_overlap=bool(a.allow_holdout_overlap),
+                    training_set=Path(a.training_set) if a.training_set else None,
+                    train_seed=int(a.train_seed), version_base=prev or {"version": model.get("version", 1)},
+                    git_commit=_git_commit())
+    except RetrainError as e:
+        raise UsageError(str(e)) from None
+    cv = v["cv"]
+    fmt = lambda d: f"{d['cv_auc_pr_mean']:.4f}" if d and d.get("cv_auc_pr_mean") is not None else "?"  # noqa: E731
+    print(f"[ringshield train] {a.component} RETRAINED -> {out} (version {v['version']}): "
+          f"{v['appended']['n_rows_new']:,} new rows ({v['appended']['n_positive_new']} positive) from "
+          f"{sum(v['labels']['n_by_verdict'].values())} labels, {v['appended']['n_rows_total_trained_on']:,} rows in total; "
+          f"CV AUC-PR {fmt(cv['old'])} -> {fmt(cv['new'])}; holdout check "
+          f"{'passed' if v['holdout_check']['passed'] else 'OVERRIDDEN by --allow-holdout-overlap'}")
+    return 0
+
+
 def cmd_train(a) -> int:
     if a.component not in COMPONENTS:
         raise UsageError(f"--component must be one of {COMPONENTS}")
     base = Path(a.base_model_dir)
     model = read_model(base)  # validates the base dir
     labels = validate_labels(Path(a.labels))
+    if a.component in ("expansion", "affinity"):
+        return _cmd_retrain(a, base, model, labels)
     out = Path(a.out_model_dir)
     if out.resolve() == base.resolve():
         raise UsageError("--out-model-dir must differ from --base-model-dir")
@@ -258,9 +289,9 @@ def cmd_train(a) -> int:
                "n_labels": {v: int(counts.get(v, 0)) for v in VERDICTS},
                "n_extra_labels_total": int(len(confirmed)),
                "retrained": False,
-               "note": "no learned component exists yet (Steps 6-8 add the expansion policy, affinity and typing head "
-                       "behind this same command); the base model was copied unchanged and the confirmed rings appended "
-                       "to extra_labels.parquet"}
+               "note": "typing is not retrained by this command: the base model was copied unchanged and the "
+                       "confirmed rings appended to extra_labels.parquet. expansion and affinity ARE retrained "
+                       "(ringshield/retrain.py)"}
     (out / "version.json").write_text(json.dumps(version, indent=2), encoding="utf-8")
     m = json.loads((out / "model.json").read_text(encoding="utf-8"))
     m["version"] = version["version"]
@@ -349,11 +380,20 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--embeddings", default=None, help="expand: R1 embeddings parquet of the same detector seed and split")
     r.set_defaults(fn=cmd_run)
 
-    t = sub.add_parser("train", help="feed analyst verdicts back (copies the base model; no retraining yet)")
+    t = sub.add_parser("train", help="retrain a component from analyst verdicts (expansion, affinity); typing: copy + append")
     t.add_argument("--component", required=True, choices=COMPONENTS)
     t.add_argument("--labels", required=True, help="parquet: ring_id, member_accounts, member_edges, verdict")
     t.add_argument("--base-model-dir", required=True)
     t.add_argument("--out-model-dir", required=True)
+    t.add_argument("--scores", default=None, help="scored_edges of the period the labels were made on (features, edge days)")
+    t.add_argument("--rings", default=None, help="the rings parquet the labels refer to (seed / expanded edges)")
+    t.add_argument("--gfp", default=None, help="that split's GFP parquet")
+    t.add_argument("--embeddings", default=None, help="that split's embeddings for the base model's detector seed")
+    t.add_argument("--holdout-manifest", default=None, help="default configs/holdout_manifest.json")
+    t.add_argument("--allow-holdout-overlap", action="store_true",
+                   help="train on labels that touch the holdout anyway (recorded in version.json)")
+    t.add_argument("--training-set", default=None, help="override the original training set path recorded in the model")
+    t.add_argument("--train-seed", type=int, default=1, help="LightGBM / fold-shuffle seed (the shipped models used 1)")
     t.set_defaults(fn=cmd_train)
 
     e = sub.add_parser("eval", help="rings.parquet vs ground truth -> metrics.json")
