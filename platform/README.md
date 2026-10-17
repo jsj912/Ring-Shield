@@ -66,6 +66,36 @@ unset and no AMLWorld ground-truth parquet is present. R10 therefore cannot yet
 produce real comparison metrics; it fails clearly until you provide that test
 truth path (and any missing seed inputs). No values are filled from the fixture.
 
+### R11 gated retraining experiment
+
+Run one accuracy condition on a dedicated loaded experiment tenant with:
+
+```powershell
+python -m experiments.r11_gated_retrain --tenant-id 210 --accuracy 0.90
+python -m experiments.r11_gated_retrain --tenant-id 210 --accuracy 0.70
+```
+
+Each command replays test-window days 8-17, calls the existing simulated analyst
+cycle for open tenant rings, and invokes the existing holdout-gated retrain job
+once per day. It records cycle verdict counts, holdout F1, promotions/refusals,
+and a static no-retrain control that keeps the initial promoted holdout F1. If
+the tenant has no promoted baseline yet, the control evaluates the configured
+base artifact through the research adapter; it never runs training. Reports and
+`run.json` go to
+`results/platform/r11/accuracy_<condition>/`. `run.json` hashes the configured
+truth, holdout, validation, model and config inputs. The committed holdout
+manifest/checksum are read-only.
+
+Use a dedicated, disposable experiment tenant and restore its known baseline
+before running the second accuracy condition; the simulator and retrain job
+intentionally write simulated verdicts and model history. The report begins
+with **“Retraining was not real in this run; no improvement is claimed.”** if
+the research train adapter reports `retrained: false`. This experiment needs
+the real test truth, validation truth, validation GFP/embeddings and manifest
+inputs in `platform/config.yaml`, plus `RINGSHIELD_SIMULATOR_DATABASE_URL`,
+app and loader credentials. Those artifacts are not all present in this
+checkout, so no R11 result is claimed yet.
+
 The implementation is being built in vertical slices, beginning with the API and
 database foundation described in `directions/RingShield_L5_L6_Platform_Spec.docx`.
 
