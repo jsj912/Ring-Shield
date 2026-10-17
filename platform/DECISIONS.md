@@ -111,3 +111,15 @@ This file records findings and changes in the order requested for the platform h
 
 - No ground-truth file was found in the repository, so `platform/holdout/holdout_manifest.json` and its checksum have not been generated. The exact missing files are listed above; no placeholder manifest is treated as the dataset holdout.
 - Postgres is unavailable in this environment. L6 database integration tests will be written for CI and are not claimed to have run here.
+
+## L6-A adapters - 2026-10-17
+
+### Changes
+
+- Added typed, subprocess-only wrappers for research `run`, `train`, and `eval`. Each fails on a nonzero exit, validates its JSON artifact, and returns a dataclass; training reads the actual `version.json.retrained` flag rather than assuming success means learning occurred.
+- Added a read-only validation truth adapter using the existing days 6-7 `val` window and `test_visible` rule, plus deterministic best-Jaccard matching. The adapter returns corrected truth members and the true simulator label without putting truth access in API code.
+- Added database-free tests for the three CLI wrappers, their failure behavior, the `retrained=false` result, and truth matching.
+
+### Verification
+
+- `platform/tests/test_l6_adapters.py` and full database-free platform tests are pending the current implementation pass; no Postgres execution is claimed.
