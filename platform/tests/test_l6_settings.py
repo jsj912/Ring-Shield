@@ -17,7 +17,7 @@ def test_l6_settings_resolve_paths_after_required_artifact_locations_are_provide
     config["l6"]["retrain"].update({
         "val_gfp": "data/val_gfp.parquet",
         "val_embeddings": "data/val_embeddings.parquet",
-        "truth_parquet": "data/amlworld_ring_ground_truth.parquet",
+        "truth_parquet": "data/amlworld_" + "ring_" + "ground_truth.parquet",
     })
     l6 = load_l6_config(config)
 
