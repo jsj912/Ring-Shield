@@ -5,6 +5,41 @@ tenant isolation, authentication, API contracts, verdicts, model operations, dri
 events, and the investigator dashboard. Model inference and ring aggregation remain
 behind adapters to the existing research CLI and explainability functions.
 
+## L6-B drift monitoring and scheduling
+
+River is pinned at `river==0.22.0` in `platform/requirements.txt` (the project
+dependency file included by `requirements-platform.txt`). Run one tenant's score
+monitor manually with `python -m jobs.drift_monitor_worker <tenant-id>` from
+`platform/`, or use `python platform/jobs/drift_monitor.py <tenant-id>` from the
+repository root. The job reads calibrated scores for the active model and seed in
+`platform/config.yaml`, groups by the simulated day `(timestamp - 10) // 86400`,
+and independently monitors each day's mean and 99th percentile. It stores
+informational events only; a detection never starts retraining.
+
+The API exposes the supervisor-only daily series at
+`GET /tenants/{tenant_id}/drift/series`, the event history at
+`GET /tenants/{tenant_id}/drift`, and the supervisor-only review toggle at
+`PATCH /tenants/{tenant_id}/drift/{event_id}` with `{"acted_on": true|false}`.
+The dashboard charts the two series and marks detected windows; supervisors can
+review events. Analysts can view the model registry but cannot start retraining
+or change drift review state. Drift event inserts are deduplicated on
+`(tenant_id, monitor, window_end)` by a database unique constraint.
+
+APScheduler is part of the pinned runtime dependencies. The API's scheduler is
+disabled by default (`scheduler.enabled: false` in `platform/config.yaml`). To
+enable daily drift checks and nightly per-tenant gated retraining, set that value
+to `true` and restart the API. The scheduler launches separate worker processes;
+drift and retraining remain separate jobs. Scheduled retraining records
+`triggered_by=schedule`. The scheduler was smoke-tested with APScheduler's date
+trigger; production cron times are 02:00 UTC for retraining and 03:00 UTC for
+drift.
+
+Current input status: drift needs loaded `transactions` and `edge_scores` rows
+for the configured active model/seed. Real retraining still needs the validation
+GFP, validation embeddings and validation ground-truth parquet; the holdout
+manifest must be generated from that supplied truth file. Missing inputs fail
+with their configured key/path rather than substituting fixture numbers.
+
 The implementation is being built in vertical slices, beginning with the API and
 database foundation described in `directions/RingShield_L5_L6_Platform_Spec.docx`.
 

@@ -14,6 +14,7 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 
 from api.identity import Principal
 from api.routers import operations
+from api.schemas import DriftActedOnUpdate
 from db.models import DriftEvent
 
 pytestmark = pytest.mark.usefixtures("repo_platform_config")
@@ -114,5 +115,56 @@ def test_operations_views_reject_other_tenant_before_query(monkeypatch):
         operations.list_drift_events(21, monitor=None, before_id=None, limit=50,
                                      principal=_principal(tenant_id=22))
 
+    assert exc_info.value.status_code == 403
+    assert session.queries == []
+
+
+def test_drift_series_is_supervisor_only_and_tenant_scoped_before_query(monkeypatch):
+    session = _FakeSession([])
+    _install_session(monkeypatch, session)
+    with pytest.raises(HTTPException) as exc_info:
+        operations.get_drift_series(
+            21, Principal(user_id=14, tenant_id=21, role="analyst", email="analyst@example.test"),
+        )
+    assert exc_info.value.status_code == 403
+    assert session.queries == []
+
+
+def test_drift_action_update_checks_tenant_and_uses_explicit_predicates(monkeypatch):
+    event = SimpleNamespace(
+        event_id=9, monitor="adwin_score_mean",
+        detected_at=datetime(2026, 1, 3, tzinfo=timezone.utc),
+        window_start=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        window_end=datetime(2026, 1, 3, tzinfo=timezone.utc),
+        statistic=0.4, threshold=0.002, acted_on=False,
+    )
+
+    class UpdateSession(_FakeSession):
+        def scalar(self, statement):
+            self.queries.append(statement)
+            compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+            assert "drift_events.tenant_id = 21" in compiled
+            assert "drift_events.event_id = 9" in compiled
+            return event
+
+        def execute(self, statement):
+            self.queries.append(statement)
+            compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+            assert "drift_events.tenant_id = 21" in compiled
+            assert "drift_events.event_id = 9" in compiled
+            return None
+
+    session = UpdateSession([])
+    _install_session(monkeypatch, session)
+    result = operations.set_drift_acted_on(
+        21, 9, DriftActedOnUpdate(acted_on=True), principal=_principal(),
+    )
+    assert result.acted_on is True
+
+    session.queries.clear()
+    with pytest.raises(HTTPException) as exc_info:
+        operations.set_drift_acted_on(
+            21, 9, DriftActedOnUpdate(acted_on=False), principal=_principal(tenant_id=22),
+        )
     assert exc_info.value.status_code == 403
     assert session.queries == []

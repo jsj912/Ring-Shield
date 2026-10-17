@@ -235,6 +235,8 @@ class DriftEvent(Base):
     __table_args__ = (
         ForeignKeyConstraint(["tenant_id"], ["tenants.tenant_id"]),
         CheckConstraint("monitor IN ('adwin_score_mean', 'adwin_score_p99')", name="ck_drift_events_monitor"),
+        UniqueConstraint("tenant_id", "monitor", "window_end",
+                         name="uq_drift_events_tenant_monitor_window_end"),
         Index("ix_drift_events_tenant_detected", "tenant_id", "detected_at"),
     )
 

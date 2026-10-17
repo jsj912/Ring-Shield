@@ -36,3 +36,6 @@ l6:
     base_model_dir: models/artifacts/full_gine_causal_seed1
   drift:
     delta: 0.002
+
+scheduler:
+  enabled: false

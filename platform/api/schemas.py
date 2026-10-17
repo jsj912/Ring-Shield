@@ -238,6 +238,23 @@ class DriftEventPage(BaseModel):
     next_before_id: int | None = None
 
 
+class DailyDriftStatistic(BaseModel):
+    day: datetime
+    mean: float
+    p99: float
+
+
+class DriftSeriesResponse(BaseModel):
+    tenant_id: int
+    active_model_id: str
+    active_seed: int
+    items: list[DailyDriftStatistic]
+
+
+class DriftActedOnUpdate(BaseModel):
+    acted_on: bool
+
+
 class RetrainRunCreated(BaseModel):
     run_id: str
 
