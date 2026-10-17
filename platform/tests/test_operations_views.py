@@ -16,6 +16,8 @@ from api.identity import Principal
 from api.routers import operations
 from db.models import DriftEvent
 
+pytestmark = pytest.mark.usefixtures("repo_platform_config")
+
 
 class _FakeSession:
     def __init__(self, rows):

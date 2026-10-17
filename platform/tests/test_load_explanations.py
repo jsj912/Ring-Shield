@@ -13,6 +13,8 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 
 from jobs.load_explanations import ExplanationLoadError, read_handoff
 
+pytestmark = pytest.mark.usefixtures("repo_platform_config")
+
 
 def _files(tmp_path, *, reproduced=True, tenant_scope=True):
     provenance = {

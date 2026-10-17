@@ -3,10 +3,26 @@
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+
+@pytest.fixture
+def repo_platform_config(monkeypatch):
+    from settings import DEFAULT_CONFIG, load_platform_config
+
+    monkeypatch.setenv("RINGSHIELD_PLATFORM_CONFIG", str(DEFAULT_CONFIG))
+    load_platform_config.cache_clear()
+    try:
+        yield
+    finally:
+        load_platform_config.cache_clear()
 
 
 def pytest_sessionstart(session) -> None:

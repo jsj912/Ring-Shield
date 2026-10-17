@@ -13,11 +13,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = Path(__file__).resolve().parent / "config.yaml"
 
 
-@lru_cache(maxsize=4)
 def load_platform_config(path: str | None = None) -> dict[str, Any]:
     config_path = Path(path or os.environ.get("RINGSHIELD_PLATFORM_CONFIG", DEFAULT_CONFIG))
     if not config_path.is_absolute():
         config_path = REPO_ROOT / config_path
+    return _load_platform_config(str(config_path.resolve()))
+
+
+@lru_cache(maxsize=4)
+def _load_platform_config(resolved_path: str) -> dict[str, Any]:
+    config_path = Path(resolved_path)
     try:
         config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
@@ -36,6 +41,10 @@ def load_platform_config(path: str | None = None) -> dict[str, Any]:
             raise RuntimeError("seed_score_cutoff_source is required with seed_score_cutoff")
     config["_path"] = config_path
     return config
+
+
+# Preserve the public cache reset hook used by tests and runtime config reloads.
+load_platform_config.cache_clear = _load_platform_config.cache_clear  # type: ignore[attr-defined]
 
 
 def configured_path(config: dict[str, Any], key: str) -> Path:
