@@ -1,0 +1,19 @@
+{
+  "experiment": "r12_injected_shift",
+  "created_utc": "2026-10-17T15:00:23.528794+00:00",
+  "git_commit": "4d7bbaa56bffebec55c3a598943576aafaccecfc",
+  "config_path": "platform/config.yaml",
+  "config_sha256": "8cf10afb0ce8be9a6195a93c826550d8877782e2a160195bd4c299a8a46cd3b4",
+  "input_sha256": {
+    "platform/experiments/r12_injected_shift.py": "904e5aa58be2e38cdcbf096d0b9ce3bdd72849d3a164b9055af6951ff27bd9c4"
+  },
+  "dry_run": true,
+  "fixture_only": true,
+  "pattern": "BIPARTITE",
+  "insertion_day": 136,
+  "detection_day": 167,
+  "detection_delay_simulated_days": 31,
+  "n_events": 2,
+  "n_truth_fixture_rings": 1,
+  "statement": "drift was injected, not observed"
+}
