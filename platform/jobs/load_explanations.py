@@ -7,8 +7,10 @@ when every explained ring reproduced the shipped full-ring output.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -68,10 +70,41 @@ def _json_object(value: Any, *, field: str, ring_id: str) -> dict:
     return _finite_json(value, path=field)
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _forbidden_path(value: Any) -> str | None:
+    if isinstance(value, dict):
+        for item in value.values():
+            found = _forbidden_path(item)
+            if found:
+                return found
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            found = _forbidden_path(item)
+            if found:
+                return found
+    elif isinstance(value, str):
+        lowered = value.replace("\\", "/").lower()
+        if "ground_truth" in lowered or any(
+                part.startswith("labels_") for part in Path(lowered).parts):
+            return value
+    return None
+
+
+def _tenant_from_rule(value: Any) -> int | None:
+    match = re.match(r"^explicit tenant_id=(\d+)(?:\s|$)", str(value or ""))
+    return int(match.group(1)) if match else None
+
+
 def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tuple[list[dict], dict]:
     for source_path in (parquet_path, log_path, rings_log_path):
-        lowered = str(source_path).replace("\\", "/").lower()
-        if any(part.startswith("labels_") for part in Path(lowered).parts) or "ground_truth" in lowered:
+        if _forbidden_path(str(source_path)):
             raise ExplanationLoadError(f"label/ground-truth paths are forbidden: {source_path}")
     if not parquet_path.is_file():
         raise ExplanationLoadError(f"explanation parquet not found: {parquet_path}")
@@ -84,13 +117,23 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
         rings_log = json.loads(rings_log_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ExplanationLoadError("could not read L4 or source rings run log") from exc
+    forbidden_input = _forbidden_path((log, rings_log))
+    if forbidden_input:
+        raise ExplanationLoadError(f"label/ground-truth paths are forbidden: {forbidden_input}")
     expected_log_path = Path(str(parquet_path) + ".log.json")
     if expected_log_path.resolve() != log_path.resolve():
         raise ExplanationLoadError("L4 run log must be the sibling .log.json for the supplied parquet")
-    if log.get("split") != "test":
-        raise ExplanationLoadError("L4 run log must declare split=test")
     if rings_log.get("split") != "test":
         raise ExplanationLoadError("source tenant rings log must declare split=test")
+    if log.get("scope") != "tenant":
+        raise ExplanationLoadError("L4 run log must declare scope=tenant")
+    tenant_id = log.get("tenant_id")
+    try:
+        tenant_id = int(tenant_id)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ExplanationLoadError("L4 run log must declare an integer tenant_id") from exc
+    if log.get("feature_scope") != "tenant_view":
+        raise ExplanationLoadError("L4 feature_scope must be tenant_view")
 
     parquet = pq.ParquetFile(parquet_path)
     names = set(parquet.schema_arrow.names)
@@ -101,36 +144,43 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
     if missing:
         raise ExplanationLoadError(f"explanation file is missing columns: {missing}")
 
-    provenance = log.get("provenance") or {}
     n_rows = parquet.metadata.num_rows
     if n_rows == 0:
         raise ExplanationLoadError("explanation parquet is empty")
     if log.get("n_explained") != n_rows or log.get("n_rings") != n_rows:
         raise ExplanationLoadError("run log counts do not match the explanation row count")
-    if log.get("n_reproduces_shipped_ring") != n_rows or log.get("not_reproduced"):
+    if (log.get("n_reproduces_shipped_ring") != log.get("n_rings")
+            or log.get("n_rings") != n_rows or log.get("not_reproduced") != []):
         raise ExplanationLoadError("L4 run contains rings that do not reproduce the shipped ring output")
-    if provenance.get("rings_schema_version") != 2:
-        raise ExplanationLoadError("L4 run must use rings schema version 2")
-    if provenance.get("aggregator_id") != "full":
-        raise ExplanationLoadError("only full-aggregator explanation runs can be loaded for tenants")
-    if log.get("policy") != "converted":
-        raise ExplanationLoadError("L4 run currency policy must be 'converted'")
     if (rings_log.get("command") != "run" or not rings_log.get("edge_subset")
-            or not str(rings_log.get("tenant_rule", "")).startswith("explicit tenant_id=")):
+            or _tenant_from_rule(rings_log.get("tenant_rule")) is None):
         raise ExplanationLoadError(
             "source rings must come from a tenant-scoped run with an explicit tenant_id"
         )
-    source_rings = (log.get("inputs") or {}).get("rings")
     output_rings = rings_log.get("out")
-    if (not source_rings or not output_rings
-            or Path(str(source_rings)).name.lower() != Path(str(output_rings)).name.lower()):
-        raise ExplanationLoadError("L4 run log does not point to the supplied tenant rings artifact")
+    if not output_rings:
+        raise ExplanationLoadError("source rings log is missing its out artifact")
+    rings_path = rings_log_path.parent / Path(str(output_rings)).name
+    if not rings_path.is_file():
+        raise ExplanationLoadError("source tenant rings parquet named by its log was not found beside the log")
+    try:
+        expected_rings_sha = (log.get("input_sha256") or {}).get("rings", {}).get("sha256")
+    except AttributeError:
+        expected_rings_sha = None
+    if not isinstance(expected_rings_sha, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_rings_sha):
+        raise ExplanationLoadError("L4 run log is missing input_sha256.rings.sha256")
+    if _sha256(rings_path).lower() != expected_rings_sha.lower():
+        raise ExplanationLoadError("tenant rings artifact SHA-256 does not match L4 input_sha256.rings")
+    rings_tenant_id = _tenant_from_rule(rings_log.get("tenant_rule"))
+    if rings_tenant_id != tenant_id:
+        raise ExplanationLoadError("tenant mismatch between L4 log and source rings log")
     ring_model = rings_log.get("model") or {}
     config = load_platform_config()
-    if (ring_model.get("aggregator") != provenance.get("aggregator_id")
-            or ring_model.get("model_id") != provenance.get("model_id")
-            or ring_model.get("seed") != provenance.get("seed")):
-        raise ExplanationLoadError("L4 and tenant rings run provenance do not match")
+    expected_fx_hash = config.get("fx_rates_sha256")
+    if not isinstance(expected_fx_hash, str) or not expected_fx_hash:
+        raise ExplanationLoadError("platform config is missing fx_rates_sha256")
+    if log.get("fx_rates_sha256") != expected_fx_hash:
+        raise ExplanationLoadError("L4 log fx_rates_sha256 does not match platform config")
     if (ring_model.get("model_id") != config["active_model_id"]
             or int(ring_model.get("seed", -1)) != int(config["active_seed"])):
         raise ExplanationLoadError("L4 handoff does not match active_model_id/active_seed in platform config")
@@ -140,21 +190,43 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
 
     rows: list[dict] = []
     seen: set[tuple[int, str]] = set()
+    shared_provenance: dict[str, Any] | None = None
+    shared_fields = ("aggregator_id", "model_id", "seed", "rings_schema_version",
+                     "currency_policy", "explainer_version", "scope", "tenant_id",
+                     "feature_scope", "fx_rates_sha256")
     for raw in parquet.iter_batches(batch_size=2_000):
         for source in raw.to_pylist():
             ring_id = str(source["ring_id"])
             tenant_id = int(source["tenant_id"])
+            if tenant_id != int(log["tenant_id"]):
+                raise ExplanationLoadError(f"{ring_id}: tenant_id does not match L4 log tenant")
             identity = tenant_id, ring_id
             if identity in seen:
                 raise ExplanationLoadError(f"duplicate explanation key: {identity}")
             seen.add(identity)
             row_provenance = _json_object(source["provenance"], field="provenance", ring_id=ring_id)
-            expected = (provenance.get("aggregator_id"), provenance.get("model_id"),
-                        provenance.get("seed"), version)
-            actual = (row_provenance.get("aggregator_id"), row_provenance.get("model_id"),
-                      row_provenance.get("seed"), row_provenance.get("explainer_version"))
-            if actual != expected:
-                raise ExplanationLoadError(f"{ring_id}: row provenance does not match the run log")
+            if shared_provenance is None:
+                shared_provenance = {key: row_provenance.get(key) for key in shared_fields}
+            elif any(row_provenance.get(key) != shared_provenance[key] for key in shared_fields):
+                raise ExplanationLoadError(f"{ring_id}: row provenance differs across explanation rows")
+            if row_provenance.get("explainer_version") != version:
+                raise ExplanationLoadError(f"{ring_id}: row explainer_version does not match the run log")
+            if row_provenance.get("scope") != "tenant":
+                raise ExplanationLoadError(f"{ring_id}: row provenance scope must be tenant")
+            if row_provenance.get("tenant_id") != int(log["tenant_id"]):
+                raise ExplanationLoadError(f"{ring_id}: row tenant_id does not match L4 log tenant")
+            if row_provenance.get("feature_scope") != "tenant_view":
+                raise ExplanationLoadError(f"{ring_id}: row feature_scope must be tenant_view")
+            if row_provenance.get("fx_rates_sha256") != expected_fx_hash:
+                raise ExplanationLoadError(f"{ring_id}: row fx_rates_sha256 does not match platform config")
+            if row_provenance.get("currency_policy") != "converted":
+                raise ExplanationLoadError(f"{ring_id}: currency_policy must be converted")
+            if row_provenance.get("aggregator_id") != "full":
+                raise ExplanationLoadError("only full-aggregator explanation runs can be loaded for tenants")
+            if (ring_model.get("aggregator") != row_provenance.get("aggregator_id")
+                    or ring_model.get("model_id") != row_provenance.get("model_id")
+                    or ring_model.get("seed") != row_provenance.get("seed")):
+                raise ExplanationLoadError("L4 and tenant rings run provenance do not match")
             loo = row_provenance.get("loo") or {}
             if loo.get("reproduces_shipped_ring") is not True:
                 raise ExplanationLoadError(f"{ring_id}: row provenance does not confirm ring reproduction")
@@ -197,8 +269,17 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
                 "evidence_summary": evidence,
                 "latency_ms": latency_ms,
                 "provenance": row_provenance,
+                "fx_rates_sha256": expected_fx_hash,
                 "_source_topology_type": str(source["topology_type"] or "UNKNOWN"),
             })
+    if shared_provenance is None:
+        raise ExplanationLoadError("explanation parquet is empty")
+    if (ring_model.get("aggregator") != shared_provenance["aggregator_id"]
+            or ring_model.get("model_id") != shared_provenance["model_id"]
+            or ring_model.get("seed") != shared_provenance["seed"]):
+        raise ExplanationLoadError("L4 and tenant rings run provenance do not match")
+    if shared_provenance["tenant_id"] != int(log["tenant_id"]):
+        raise ExplanationLoadError("row tenant_id does not match L4 log tenant")
     if len(rows) != n_rows:
         raise ExplanationLoadError("could not read all explanation rows")
     return rows, log
@@ -207,7 +288,10 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
 def load_explanations(parquet_path: Path, log_path: Path, rings_log_path: Path) -> dict[str, int]:
     rows, _log = read_handoff(parquet_path, log_path, rings_log_path)
     counts: defaultdict[str, int] = defaultdict(int)
-    with loader_db_session() as session:
+    tenant_ids = {row["tenant_id"] for row in rows}
+    if len(tenant_ids) != 1:
+        raise ExplanationLoadError("one tenant-scoped explanation handoff must contain exactly one tenant")
+    with loader_db_session(tenant_id=next(iter(tenant_ids))) as session:
         for row in rows:
             ring = session.get(PlatformRing, {
                 "tenant_id": row["tenant_id"], "ring_id": row["ring_id"],
@@ -244,6 +328,7 @@ def load_explanations(parquet_path: Path, log_path: Path, rings_log_path: Path) 
                 set_={key: getattr(stmt.excluded, key) for key in (
                     "edge_weights", "account_weights", "feature_weights", "narrative",
                     "evidence_summary", "latency_ms", "provenance",
+                    "fx_rates_sha256",
                 )},
             ).returning(Explanation.ring_id))
             if result.first() is None:
