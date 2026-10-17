@@ -48,7 +48,6 @@ def seed_tenants(account_map_path: Path, loaded_bank_codes: set[int]) -> dict[st
         "email": f"simulated.analyst@tenant{code}.local",
         "password_hash": simulated_password_hash,
         "role": "analyst",
-        "disabled": False,
     } for code in sorted(bank_codes)]
     with db_session(role="admin") as session:
         for offset in range(0, len(rows), 5_000):

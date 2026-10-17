@@ -149,3 +149,26 @@ This file records findings and changes in the order requested for the platform h
 
 - The first simulator grant draft was rejected by automatic review because its simulated insert policy was not tenant-bound. The final migration adds the tenant check and analyst-role check to the policy before granting the role; the former broad simulator policy is not retained.
 - `pytest platform/tests --ignore=platform/tests/isolation -q` passed: **52 passed**. `python -m compileall platform -q` and `git diff --check` passed. Postgres checks have not run locally.
+
+## L6-A retraining job and API - 2026-10-17
+
+### Changes
+
+- Added a tenant advisory lock, fixed holdout SHA verification, validation split/model/seed provenance checks, latest-per-ring verdict selection (including simulated rows), and verdict-specific label export.
+- Per component, the job records a baseline if no promoted version exists, skips below `min_new_labels`, calls the adapter, refuses any `retrained=false` candidate without evaluation, and gates learned candidates at `candidate_f1 >= current_f1 - epsilon`. A successful promotion demotes the prior row and inserts the new promoted row in one database transaction.
+- Promoted candidates are run through the existing tenant ring builder. New rings match only open rings at member Jaccard >= 0.5; unmatched rings receive versioned IDs checked against every existing ring ID. Existing verdict-bearing rings are excluded from matching, and the loader's `status=open` upsert condition remains in force.
+- Added supervisor-only POST and GET routes. Cross-tenant and admin requests are rejected before retrain-run queries. Status returns only the last 50 redacted log lines and never exposes artifact or absolute log paths.
+- The existing supervisor app role is read-only on `model_versions`; this implementation writes model-version rows through the already-provisioned restricted loader role, while retrain-run state changes use the supervisor role. No new model-registry RLS policy or grant was added. This is an implementation deviation from a supervisor-only DB workflow; it uses the current schema's established model-version writer.
+- Added database-free tests for holdout verification, gate boundaries, false retraining, label construction, roll-forward identity, API authorization, log redaction, and the simulator's shared verdict service. Added a real-Postgres concurrency test for the partial unique promoted-version index.
+
+### Verification and blockers
+
+- Database-free suite: **65 passed**. `python -m compileall platform -q` and `git diff --check` passed.
+- Postgres was unavailable. The new simulator cross-tenant write test and concurrent model-promotion test are written for CI but have not run locally.
+- The default L6 job currently fails fast at `l6.retrain.val_gfp`, because that input path is not supplied. No model training or promotion was run.
+
+### L6-A final verification note
+
+- Added fake-adapter orchestration tests for accepted, refused, and `retrained=false` candidates. They verify that only an accepted promotion invokes tenant roll-forward.
+- The first full test attempt had one incorrect test assertion key (`holdout_ring_f1` instead of the helper argument `f1`); that assertion was corrected. The final database-free suite passed **68 tests**. Windows pytest's default temp folder was access denied in this sandbox, so test runs used the workspace-local ignored `platform/out/pytest-tmp` directory.
+- `python -m compileall platform -q` and `git diff --check` passed. No Postgres tests executed here; the RLS and concurrent-promotion checks remain CI-only.

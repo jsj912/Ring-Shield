@@ -25,13 +25,15 @@ def upgrade() -> None:
     op.execute("GRANT SELECT (user_id, tenant_id, email, role, disabled) ON users TO ringshield_simulator")
     op.execute("GRANT UPDATE (status) ON rings TO ringshield_simulator")
     op.execute("GRANT INSERT ON verdicts TO ringshield_simulator")
-    op.execute("GRANT USAGE, SELECT ON SEQUENCE verdicts_verdict_id_seq TO ringshield_simulator")
+    op.execute("GRANT INSERT ON audit_log TO ringshield_simulator")
+    op.execute("GRANT USAGE, SELECT ON SEQUENCE verdicts_verdict_id_seq, audit_log_log_id_seq TO ringshield_simulator")
 
 
 def downgrade() -> None:
     # Keep the safer policy on downgrade; do not reintroduce its formerly broad
     # cross-tenant form. Privileges are revoked, leaving simulator disabled.
-    op.execute("REVOKE USAGE, SELECT ON SEQUENCE verdicts_verdict_id_seq FROM ringshield_simulator")
+    op.execute("REVOKE USAGE, SELECT ON SEQUENCE verdicts_verdict_id_seq, audit_log_log_id_seq FROM ringshield_simulator")
+    op.execute("REVOKE INSERT ON audit_log FROM ringshield_simulator")
     op.execute("REVOKE INSERT ON verdicts FROM ringshield_simulator")
     op.execute("REVOKE UPDATE (status) ON rings FROM ringshield_simulator")
     op.execute("REVOKE SELECT (user_id, tenant_id, email, role, disabled) ON users FROM ringshield_simulator")

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from threading import Event
 from uuid import uuid4
 
 import pytest
@@ -222,3 +225,54 @@ def test_edge_scores_keeps_rows_from_multiple_models(connection):
     """), {"tenant_id": TENANT_A}).all()
     assert [(row.model_id, row.seed) for row in rows] == [("alternate-model", 99), ("demo-model", 7)]
     assert rows[1].score_raw == pytest.approx(0.97)
+
+
+def test_concurrent_promotions_cannot_create_two_active_component_versions():
+    loader_url = os.environ.get("RINGSHIELD_LOADER_DATABASE_URL")
+    if not loader_url:
+        raise RuntimeError("RINGSHIELD_LOADER_DATABASE_URL is required for promotion uniqueness acceptance")
+    loader_engine = create_engine(loader_url)
+    admin_engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    tag = f"concurrent-promotion-{uuid4().hex}"
+    second_started = Event()
+
+    def insert_second() -> None:
+        with loader_engine.begin() as connection:
+            second_started.set()
+            connection.execute(text("""
+                INSERT INTO model_versions
+                  (tenant_id, component, version_tag, trained_at, train_label_count,
+                   holdout_ring_f1, promoted)
+                VALUES (:tenant, 'affinity', :tag, :trained_at, 0, 0.7, true)
+            """), {"tenant": TENANT_A, "tag": tag + "-second",
+                  "trained_at": datetime.now(timezone.utc)})
+
+    try:
+        with loader_engine.connect() as first:
+            transaction = first.begin()
+            first.execute(text("""
+                INSERT INTO model_versions
+                  (tenant_id, component, version_tag, trained_at, train_label_count,
+                   holdout_ring_f1, promoted)
+                VALUES (:tenant, 'affinity', :tag, :trained_at, 0, 0.7, true)
+            """), {"tenant": TENANT_A, "tag": tag + "-first",
+                  "trained_at": datetime.now(timezone.utc)})
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(insert_second)
+                assert second_started.wait(timeout=5)
+                transaction.commit()
+                with pytest.raises(DBAPIError):
+                    future.result(timeout=10)
+        with loader_engine.connect() as connection:
+            count = connection.execute(text("""
+                SELECT count(*) FROM model_versions
+                WHERE tenant_id = :tenant AND component = 'affinity' AND promoted IS TRUE
+                  AND version_tag LIKE :prefix
+            """), {"tenant": TENANT_A, "prefix": f"{tag}-%"}).scalar_one()
+            assert count == 1
+    finally:
+        with admin_engine.begin() as connection:
+            connection.execute(text("DELETE FROM model_versions WHERE tenant_id = :tenant AND version_tag LIKE :prefix"),
+                               {"tenant": TENANT_A, "prefix": f"{tag}-%"})
+        loader_engine.dispose()
+        admin_engine.dispose()

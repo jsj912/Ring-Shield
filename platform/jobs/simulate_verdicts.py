@@ -95,16 +95,23 @@ def simulate_cycle(*, tenant_id: int, cycle_day: int, actor: Principal,
                    cycle_days: int = 1) -> dict[str, int]:
     if actor.role == "admin" or actor.tenant_id != tenant_id:
         raise PermissionError("simulation requires a non-admin actor for the requested tenant")
+    if seed < 0:
+        raise ValueError("seed must be non-negative")
+    review_limit(0, review_fraction)
+    if not 0 <= accuracy <= 1:
+        raise ValueError("accuracy must be in [0, 1]")
+    if not 0 <= match_jaccard <= 1 or not 0 <= full_confirm_jaccard <= 1:
+        raise ValueError("Jaccard thresholds must be in [0, 1]")
     truth_rings = load_val_truth(truth_path)
     start, end = _cycle_bounds(cycle_day, cycle_days)
     rng = deterministic_rng(tenant_id, cycle_day, seed)
     with simulator_db_session(tenant_id=tenant_id) as session:
-        analyst = session.scalar(select(User).where(
+        analyst = session.execute(select(User.user_id).where(
             User.tenant_id == tenant_id,
             User.email == f"simulated.analyst@tenant{tenant_id}.local",
             User.role == "analyst",
             User.disabled.is_(False),
-        ))
+        )).scalar_one_or_none()
         if analyst is None:
             raise RuntimeError(f"simulated analyst is not seeded for tenant {tenant_id}")
         open_rings = list(session.scalars(
@@ -134,7 +141,7 @@ def simulate_cycle(*, tenant_id: int, cycle_day: int, actor: Principal,
                                    if int(from_id) in corrected_members and int(to_id) in corrected_members]
             record_verdict(
                 session, ring=ring, tenant_id=tenant_id, ring_id=ring.ring_id,
-                user_id=analyst.user_id, verdict=decision.verdict,
+                user_id=analyst, verdict=decision.verdict,
                 corrected_members=decision.corrected_members,
                 corrected_edges=corrected_edges, note=decision.note, is_simulated=True,
             )
@@ -158,11 +165,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("platform config l6.retrain.truth_parquet is missing or unavailable")
     try:
         with db_session(tenant_id=args.tenant_id, role="analyst") as session:
-            user = session.scalar(select(User).where(
+            user = session.execute(select(User.user_id, User.email).where(
                 User.tenant_id == args.tenant_id,
                 User.email == f"simulated.analyst@tenant{args.tenant_id}.local",
                 User.role == "analyst",
-            ))
+            )).one_or_none()
         if user is None:
             raise RuntimeError(f"simulated analyst is not seeded for tenant {args.tenant_id}")
         actor = Principal(user_id=user.user_id, tenant_id=args.tenant_id,
