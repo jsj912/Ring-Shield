@@ -40,6 +40,36 @@ class InvalidEdit(ValueError):
     """A regenerate request that names accounts / transactions not in the ring, or leaves nothing to explain."""
 
 
+def edit_ring(ring, scored_edges: "pd.DataFrame", drop_accounts: set, drop_edges: set):
+    """(edited ring, edges removed with the accounts). `ring` is a rings-file row (namedtuple), `scored_edges` indexed
+    by edge_id. Removes the accounts, every member edge touching them, and the edges; keeps the expansion probabilities
+    aligned; recomputes the time span. InvalidEdit if an id is not in the ring, or if fewer than two accounts or no
+    seed / expanded edge would be left."""
+    members, member_edges = set(map(int, ring.members)), set(map(int, ring.member_edges))
+    if not drop_accounts <= members or not drop_edges <= member_edges:
+        raise InvalidEdit(f"accounts {sorted(drop_accounts - members)} / transactions {sorted(drop_edges - member_edges)} "
+                          f"are not in ring {ring.ring_id}")
+    se = scored_edges
+    touching = set(se.index[se.index.isin(list(member_edges)) & (se["from_id"].isin(drop_accounts)
+                                                                 | se["to_id"].isin(drop_accounts))])
+    gone = drop_edges | touching
+
+    def keep(ids):
+        return [int(e) for e in ids if int(e) not in gone]
+    new_member_edges = keep(ring.member_edges)
+    exp_pairs = [(int(e), float(p)) for e, p in zip(ring.expanded_edges, ring.expanded_edge_probs) if int(e) not in gone]
+    new_seeds = keep(ring.seed_edges)
+    new_members = sorted(members - drop_accounts)
+    if len(new_members) < 2 or not (new_seeds or exp_pairs):
+        raise InvalidEdit("the edit leaves fewer than two accounts or no seed / expanded transaction to explain")
+    ts = se.loc[new_member_edges, "timestamp"] if new_member_edges else None
+    edited = ring._replace(members=new_members, n_members=len(new_members), member_edges=new_member_edges,
+                           seed_edges=new_seeds, expanded_edges=[e for e, _ in exp_pairs],
+                           expanded_edge_probs=[p for _, p in exp_pairs],
+                           duration_hours=float((ts.max() - ts.min()) / 3600) if ts is not None else 0.0)
+    return edited, touching
+
+
 def _none_if_nan(x):
     return None if x is None or (isinstance(x, float) and math.isnan(x)) else x
 
@@ -123,33 +153,12 @@ class ExplanationService:
 
     def regenerate(self, tenant_id: int, ring_id: str, request: RegenerateRequest) -> Explanation:
         from explainability.explain import build_context, explain_ring
-        ring = self._ring(tenant_id, ring_id)
-        members = set(map(int, ring["members"]))
-        member_edges = set(map(int, ring["member_edges"]))
+        self._ring(tenant_id, ring_id)
         drop_acc, drop_edges = set(request.remove_accounts), set(request.remove_edges)
-        if not drop_acc <= members or not drop_edges <= member_edges:
-            raise InvalidEdit(f"accounts {sorted(drop_acc - members)} / transactions {sorted(drop_edges - member_edges)} "
-                              f"are not in ring {ring_id}")
-        touching = set(self.se.index[self.se.index.isin(list(member_edges)) & (
-            self.se["from_id"].isin(drop_acc) | self.se["to_id"].isin(drop_acc))])
-        gone = drop_edges | touching
-
-        def keep(ids):
-            return [int(e) for e in ids if int(e) not in gone]
-        new_member_edges = keep(ring["member_edges"])
-        exp_pairs = [(int(e), float(p)) for e, p in zip(ring["expanded_edges"], ring["expanded_edge_probs"]) if int(e) not in gone]
-        new_seeds = keep(ring["seed_edges"])
-        new_members = sorted(members - drop_acc)
-        if len(new_members) < 2 or not (new_seeds or exp_pairs):
-            raise InvalidEdit("the edit leaves fewer than two accounts or no seed / expanded transaction to explain")
-        ts = self.se.loc[new_member_edges, "timestamp"] if new_member_edges else None
+        tup = next(self.rings.loc[[ring_id]].itertuples(index=False))
+        edited, touching = edit_ring(tup, self.se, drop_acc, drop_edges)
         if self._ctx is None:
             self._ctx = build_context(self.cfg, self._scores, self._rings_path, "converted", True)[0]
-        tup = next(self.rings.loc[[ring_id]].itertuples(index=False))
-        edited = tup._replace(members=new_members, n_members=len(new_members), member_edges=new_member_edges,
-                              seed_edges=new_seeds, expanded_edges=[e for e, _ in exp_pairs],
-                              expanded_edge_probs=[p for _, p in exp_pairs],
-                              duration_hours=float((ts.max() - ts.min()) / 3600) if ts is not None else 0.0)
         row, _, _ = explain_ring(edited, self._ctx)
         prov = json.loads(row["provenance"])
         prov["regenerated"] = {"removed_accounts": sorted(drop_acc), "removed_transactions": sorted(drop_edges),

@@ -28,7 +28,7 @@ import json
 import math
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
@@ -75,6 +75,7 @@ class ExplainContext:
     policy: str = "converted"           # "converted" (current) or "raw" (reproduces Week 2 exactly)
     fx: dict | None = None              # exchange-rate table (policy converted)
     fx_sha256: str | None = None
+    extra_provenance: dict = field(default_factory=dict)   # e.g. a tenant run's scope / tenant_id (empty otherwise)
     features: FeatureExplainer | None = None   # Week 3: SHAP; None = no feature weights / narrative
     phrasing: dict | None = None
     names: dict | None = None                  # Joan's code -> name maps (currency, payment format, bank)
@@ -115,7 +116,7 @@ def _row_provenance(ctx: ExplainContext, loo: pd.DataFrame, ring, extra: dict) -
             "rerun": ctx.loo.params, "features_degraded": False,
             "loo": {"c0": None if math.isnan(c0) else c0, "shipped_confidence": None if math.isnan(shipped) else shipped,
                     "reproduces_shipped_ring": reproduces},
-            **extra}
+            **extra, **ctx.extra_provenance}
     return json.dumps(prov, sort_keys=True)
 
 
@@ -281,7 +282,7 @@ def run_file(cfg: dict, scores: str, rings_path: str, out_parquet, out_csv, poli
            "rerun": ctx.loo.params, "n_rings": len(rings), "n_explained": table.num_rows,
            "n_reproduces_shipped_ring": int(sum(d["reproduces_shipped_ring"] for d in diags)),
            "not_reproduced": [d["ring_id"] for d in diags if not d["reproduces_shipped_ring"]],
-           "policy": ctx.policy, "mixing": dict(zip(("values", "source"), active_mixing(cfg, ctx.policy))),
+           "fx_rates_sha256": ctx.fx_sha256, "policy": ctx.policy, "mixing": dict(zip(("values", "source"), active_mixing(cfg, ctx.policy))),
            "n_rings_mixed_currency": int(sum(d["mixed_currency"] for d in diags)),
            "n_conversions_dropped": int(sum(d["n_conversions_dropped"] for d in diags)),
            "n_rings_with_conversions": int(sum(d["n_conversions_dropped"] > 0 for d in diags)),

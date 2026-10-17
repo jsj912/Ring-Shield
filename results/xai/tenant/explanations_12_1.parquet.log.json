@@ -1,0 +1,74 @@
+{
+  "explainer_version": "0.4.0-narrative",
+  "feature_scope": "tenant_view",
+  "fx_rates_sha256": "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6",
+  "input_sha256": {
+    "affinity": {
+      "path": "experiments/R4_partition/affinity/affinity.json",
+      "sha256": "5733605a3ebf99c17cfb9d8998716d92086a975ba8fc008f6b8706a47bcb21f1"
+    },
+    "edge_ids": {
+      "path": "results/xai/tenant/inputs/tenant_12_edge_ids.parquet",
+      "sha256": "eaa4f609480783e4161cc33b53ddfe82032c12e7570989c53162797def59e9e9"
+    },
+    "embeddings": {
+      "path": "experiments/R1_gine_causal/embeddings_test_seed1.parquet",
+      "sha256": "f32be717c132b7b320486b7131b45eb70a10bdeb112a65a7f24449460ab19dce"
+    },
+    "fx_rates": {
+      "path": "contract/fx_rates.json",
+      "sha256": "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6"
+    },
+    "gfp": {
+      "path": "data/processed/amlworld_gfp_features_test.parquet",
+      "sha256": "1bbd30f72d3419d40fa83fe8afa6931c54c704ed4e82997f033486e7a9f1e2e1"
+    },
+    "partition_config": {
+      "path": "experiments/R4_partition/runs/average/seed1/config.yaml",
+      "sha256": "359b2fff86159df09de455084e8e9193f23eba0de1c2646db1c4427e48eecf7c"
+    },
+    "rings": {
+      "path": "results/xai/tenant/inputs/tenant_12_rings.parquet",
+      "sha256": "e74cd104714d773b0d8338161b9be9c0b9628ec320fa209ee7c6593c1ff12e6a"
+    },
+    "scored_edges_shipped": {
+      "path": "contract/out/scored_edges_gine_causal_1.parquet",
+      "sha256": "19dac050b750e4af39ea104399de3916f9d5254e30f5e44d456352ca69087c68"
+    },
+    "scored_edges_visible": {
+      "path": "results/xai/tenant/inputs/scored_edges_visible_12_1.parquet",
+      "sha256": "987e5d60a4ac350929dd44cda6597a264932af3c1d2d89f07d05f5ed8393a5f8"
+    }
+  },
+  "latency_ms": {
+    "max": 475.0,
+    "p50": 365.0,
+    "p95": 461.8
+  },
+  "mixing": {
+    "alpha": 0.6,
+    "beta": 0.0,
+    "gamma": 0.4
+  },
+  "n_explained": 5,
+  "n_reproduces_shipped_ring": 5,
+  "n_rings": 5,
+  "n_tenant_seed_edges_with_changed_graph_features": 19,
+  "not_reproduced": [],
+  "outputs": {
+    "explanations": "results/xai/tenant/explanations_12_1.parquet"
+  },
+  "rerun": {
+    "affinity_dir": "experiments/R4_partition/affinity",
+    "aggregator_id": "full",
+    "cut": 0.5,
+    "embeddings": "experiments/R1_gine_causal/embeddings_test_seed1.parquet",
+    "gfp": "data/processed/amlworld_gfp_features_test.parquet",
+    "method": "average",
+    "min_size": 3,
+    "partition_config": "experiments/R4_partition/runs/average/seed1/config.yaml"
+  },
+  "scope": "tenant",
+  "tenant_id": 12,
+  "visibility": "edges with from_bank or to_bank == tenant_id"
+}

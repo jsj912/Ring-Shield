@@ -163,5 +163,20 @@ review:
   reviewers: [R1, R2, R3]        # anonymised ids; who is who is kept outside the repo
   out_dir: results/xai/review
 
+# Tenant-scoped explanations for the platform (Kashish; Week 9 integration done early). A tenant (bank) sees an edge
+# only if from_bank or to_bank is that bank. Inputs are the platform's tenant rings and edge-id files (verified against
+# her SHA-256 lists) under results/xai/tenant/inputs/; the visible scored-edges file is a filtered copy of the shipped
+# one, written by explainability/tenant.py. history = the research GFP's edge history (train + val + test).
+tenants:
+  seed: 1
+  banks: [20, 12]
+  rings: results/xai/tenant/inputs/tenant_{bank}_rings.parquet
+  edge_ids: results/xai/tenant/inputs/tenant_{bank}_edge_ids.parquet
+  scored_edges: results/xai/tenant/inputs/scored_edges_visible_{bank}_{seed}.parquet
+  out: results/xai/tenant/explanations_{bank}_{seed}.parquet
+  history: [data/processed/amlworld_train.parquet, data/processed/amlworld_val.parquet, data/processed/amlworld_test.parquet]
+  gfp_check_sample: 2000
+  gfp_check_seed: 20261017
+
 contract_checks:
   topology_probs_sum_tolerance: 1.0e-6

@@ -19,10 +19,12 @@ fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Wee
 - **Week 5** (sections 17–18): typology, latency, the API and its samples, role accuracy, and the whole layer run
   unchanged on all three detectors (Multi-GINe, GFP+XGBoost, MEGA-GNN).
 - **Week 6** (section 19): the 30-explanation review is sampled and its packets and answer sheets are ready to send;
-  the scoring script (Fleiss' kappa) is built and tested; the review itself is Week 7. **Typology finding:** the research typing table (0.219) types the wrong ring for 316 of 401
+  the scoring script (Fleiss' kappa) is built and tested; the review itself is Week 7.
+- **Tenant-scoped explanations for the platform** (section 20; Week 9 integration done early): banks 20 and 12, nothing
+  the bank cannot see is counted or mentioned; tenant regenerate for partial verdicts. **Typology finding:** the research typing table (0.219) types the wrong ring for 316 of 401
   matches; the narrated shape is right about 60 % of the time on both windows (pending Joan's confirmation).
-- **268 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
-  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6.
+- **278 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
+  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6, 10 for the tenant run.
 - Every ring of all five detector seeds, plus the old stub file, has an explanation.
 
 This document is written so that someone with basic technical knowledge can understand what was built,
@@ -126,6 +128,7 @@ explainability/                 the L4 layer
   schemas/                      WEEK 5: the exported JSON schemas, one file per shape (for the platform)
   schemas/examples/             WEEK 5: real sample responses of the four functions on the stub data
   review/                       WEEK 6: sample.py (the 30 rings, packets, sheets), aggregate.py (scoring, Fleiss' kappa)
+  tenant.py                     tenant-scoped explanations for the platform, incl. tenant regenerate (section 20)
   evaluate.py                   fidelity, the policy comparison report, the XR-05 tuning, WEEK 4 fidelity.json
   stats.py                      WEEK 4: bootstrap confidence intervals and paired tests (mirrors Joan's ring_stats)
   feature_weights.py            WEEK 3: the detector-feature model's inputs, SHAP, the top-10 feature weights
@@ -147,6 +150,7 @@ explainability/                 the L4 layer
     test_week5_eval.py          11 tests: WEEK 5, no attention, typology, latency, role accuracy, three detectors
     test_api.py                 12 tests: WEEK 5, the API shapes, every real row, the endpoints, the sample fixtures
     test_review.py               6 tests: WEEK 6, Fleiss' kappa, the sampling rule, the packets, the scoring
+    test_tenant.py              10 tests: tenant run: inputs verified, nothing hidden mentioned, tenant-view SHAP, regenerate
 results/xai/                    our results (kept apart from Joan's results/tables/)
   fidelity_week1_seed{1..5}.json, fidelity_week1_stub_cc_seed1.json        Week 1 (policy raw, v1 rings)
   explanations_week2_seed{1..5}.parquet (+ .log.json), ..._stub_cc_seed1    Week 2 (policy raw, v1 rings)
@@ -168,6 +172,7 @@ results/xai/                    our results (kept apart from Joan's results/tabl
   xr36_detectors.json                         WEEK 5: the three detectors side by side
   review/                                     WEEK 6: packet_R{1,2,3}.md, answers_R{1,2,3}.csv, sample_manifest.json
                                               (+ answer_key.parquet, git-ignored on purpose; review.csv in Week 7)
+  tenant/                                     explanations_{20,12}_1.parquet (+ .log.json); inputs/ = Kashish's files
 ```
 
 `.parquet` files are ignored by git in this repository (Joan's convention); the small `.json` / `.csv` /
@@ -580,7 +585,7 @@ Test fidelity, mean over seeds:
 
 ---
 
-## 9. The tests (268 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4)
+## 9. The tests (278 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4, tenant in 20.4)
 
 **`test_contract_io.py` (73)**
 - All real files load and validate: v2 rings for 5 seeds plus the stub, **and** the v1 originals, each
@@ -1460,3 +1465,87 @@ US Dollar). Only currency **conversions** (sent and received currencies differ) 
 are not conversions. They are almost never laundering (5 of 4,817 in the test split), but not never, so they stay
 in. In seed 1 they are 17 of 951 evidence transactions, 3 of them in a top-3 slot. If reviewers find them
 misleading (q4), that is a narrative fix for Week 7–8, to be agreed with Joan.
+
+---
+
+## 20. Tenant-scoped explanations for the platform (Kashish's request; Week 9 integration, done early)
+
+**What it is.** In the platform each bank (tenant) may only see its own slice of the data. Kashish's platform rebuilt
+rings per bank on the transactions that bank can see. This layer explains those rings **without counting or
+mentioning anything the bank can't see**.
+
+- **The rule:** a bank sees a transaction if the sending or receiving bank is that bank. Its own accounts are fully
+  visible; another bank's account appears only as the counterparty on those visible transactions.
+- **Run it with:** `python -m explainability.tenant --bank 20` (then `--bank 12`).
+- **Output:** `results/xai/tenant/explanations_<bank>_1.parquet` + `.log.json`, in the same file layout as the
+  shipped explanations.
+
+**Spec note:** the L4 spec puts tenant scoping in the platform layer ("not here"). This is integration work for her
+per-tenant inference step, not a new L4 requirement. In the plan it belongs to Week 9; it was done while the review
+sheets are out.
+
+### 20.1 Inputs, and how they were checked
+
+| input | from | check |
+|---|---|---|
+| `tenant_{12,20}_rings.parquet` (+ logs) | Kashish's platform (rings contract v1, 5 rings each) | SHA-256 equals her list; our contract reader accepts them against the bank's visible transactions; no member transaction is hidden from its bank |
+| `tenant_{12,20}_edge_ids.parquet` | Kashish | SHA-256 equals her list; the ids are **exactly** the "sending or receiving bank = the bank" set (20,039 and 10,315) |
+| shared inputs: transactions, graph features, embeddings, GNN model / affinity / policy | Joan's files, as Kashish's rings used them | SHA-256 equal to her list (the model files once Windows line endings are ignored) |
+
+Copies of her files and fingerprint lists are in `results/xai/tenant/inputs/`.
+
+### 20.2 What is computed on the bank's view, and how
+
+| part | tenant run |
+|---|---|
+| transactions | the shipped scored-transactions file **filtered** to the visible ones (`scored_edges_visible_<bank>_1.parquet`, same columns and types). Roles, money totals, closure and every count come from these |
+| account weight | an account's activity is now counted over visible transactions only (Kashish 4a), so another bank's activity can't inflate or deflate it |
+| leave-one-out | the shared graph features and embeddings, restricted to the ring's transactions: exactly what her rings were built with. **All 10 rings rebuild identically** |
+| SHAP signals | the reference model's 10 graph features are **recomputed on the bank's visible history** (Kashish 4b), using Joan's own per-transaction functions (`graph/motif_features.py`) over all visible train + val + test transactions. The 7 transaction fields are the transaction's own. Recorded as `feature_scope: "tenant_view"`, with a note that SHAP on a subgraph is less faithful to a model trained on full-graph features. The graph features differ from the full-graph ones for 10 of 11 seed transactions (bank 20) and 19 of 19 (bank 12) |
+| shape | Kashish's rings carry no shape (`UNKNOWN`), so narratives open with "Suspected ring: …" |
+
+**Why the recomputed features can be trusted:**
+- The fast history index used here equals Joan's `build_adjacency` exactly.
+- On the full history, it reproduces the shipped `amlworld_gfp_features_test.parquet` **exactly** for 2,000 random
+  test transactions plus every tenant seed transaction.
+- Window, hops and look-back are read from the shipped file's own metadata, not retyped.
+
+### 20.3 What goes back to the platform
+
+**The log** records:
+- `scope: "tenant"`, `tenant_id`, the visibility rule;
+- `input_sha256` (every input file, path and fingerprint);
+- `fx_rates_sha256`, `feature_scope`, how many seed transactions had different graph features;
+- `n_reproduces_shipped_ring`, `not_reproduced`, latency.
+
+**Every row's provenance** also carries `scope`, `tenant_id`, `feature_scope` and `fx_rates_sha256`.
+
+**`fx_rates_sha256` is now in every run log**, shipped and tenant: `ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6`.
+Kashish pins it and rejects explanations whose fingerprint differs.
+
+**Regenerate after a partial verdict:** `TenantExplainer(cfg, bank).regenerate(ring_id, tenant_id,
+excluded_members=(), excluded_edges=())`.
+- It returns one row with the explanation-file columns, JSON-safe (NaN → null).
+- Its provenance adds `regenerated: true`, the excluded ids, the transactions removed with excluded accounts, `scope`,
+  `tenant_id` and `fx_rates_sha256`.
+- It uses the same editing rules as the API's regenerate (shared `api.edit_ring`).
+- Another bank's ring is "not found"; excluding nothing is refused.
+
+### 20.4 Tests (`test_tenant.py`, 10)
+
+- The fast history index equals Joan's.
+- The full-history features equal the shipped file (300 random + every tenant seed).
+- The inputs match Kashish's fingerprints, and her edge ids are exactly the visibility rule.
+- **Nothing hidden is mentioned (×2 banks):** every transaction listed, every feature's top transaction, every
+  account, every role list, every account a shape sentence can name and every `A→B` in the narrative is on the
+  bank's visible transactions.
+- Log and provenance carry scope, tenant, fx and input fingerprints that re-hash correctly (×2).
+- Account activity and SHAP inputs come from the visible view only.
+- `regenerate`: JSON-safe, the right columns and provenance, deterministic, refuses another tenant and an empty edit.
+- The shipped explanations carry no tenant fields, so the reviewed narratives are untouched.
+
+### 20.5 Open with Kashish
+
+- Her ring ids repeat the shipped ones (`full-gine_causal-1-0 …`), and bank 12 and bank 20 share them too. A tenant
+  prefix on her side would avoid mix-ups in shared tables.
+- No shape on her rings; attaching the typing model in her build would give narratives a shape.
