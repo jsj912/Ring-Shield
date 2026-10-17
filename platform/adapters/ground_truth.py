@@ -17,15 +17,21 @@ class TruthMatch:
     verdict: str
 
 
-def load_val_truth(truth_parquet: Path) -> dict[int | str, frozenset[int]]:
-    """Load val days 6-7 under the fixed test-visible membership rule."""
+def load_window_truth(truth_parquet: Path, *, window_name: str,
+                      scope: str = "test_visible") -> dict[int | str, frozenset[int]]:
+    """Load one named evaluation window under the requested truth visibility rule."""
     windows = load_windows()
     try:
-        window = windows["val"]
+        window = windows[window_name]
     except KeyError as exc:
-        raise RuntimeError("evaluation config has no val window") from exc
-    truth, _ = load_ground_truth(Path(truth_parquet), *window.bounds, "test_visible", verbose=False)
+        raise RuntimeError(f"evaluation config has no {window_name} window") from exc
+    truth, _ = load_ground_truth(Path(truth_parquet), *window.bounds, scope, verbose=False)
     return {ring_id: frozenset(map(int, members)) for ring_id, members in truth.items()}
+
+
+def load_val_truth(truth_parquet: Path) -> dict[int | str, frozenset[int]]:
+    """Load val days 6-7 under the fixed test-visible membership rule."""
+    return load_window_truth(truth_parquet, window_name="val", scope="test_visible")
 
 
 def match_ring(members: set[int] | frozenset[int], truth_rings: dict,

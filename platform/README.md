@@ -40,6 +40,32 @@ GFP, validation embeddings and validation ground-truth parquet; the holdout
 manifest must be generated from that supplied truth file. Missing inputs fail
 with their configured key/path rather than substituting fixture numbers.
 
+### R10 tenant versus pooled experiment
+
+The repeatable CLI is `python -m experiments.r10_tenant_vs_pooled --truth <test-truth.parquet>`
+from the `platform/` directory. An optional `--account-map` selects the account to
+bank mapping, and repeated `--seed N` limits which detector seeds are considered.
+Without explicit seed flags, it checks seeds 1 through 5 and runs only seeds with
+the test scores/log, full model directory, GFP file and matching embeddings file;
+the selected seed list and count are recorded. It also requires loaded tenants in
+PostgreSQL. `POST /admin/experiments/tenant-vs-pooled` starts the same job in a
+background process; poll `GET /admin/experiments/tenant-vs-pooled/{job_id}`.
+
+For each tenant, truth rings containing at least one account mapped to that bank
+form the shared evaluation subset. Both the tenant and pooled ring files are
+evaluated against that same subset through the research CLI adapter. The report
+contains per-tenant and mean recall/member coverage, ring-bootstrap 95% intervals
+from 1000 seeded resamples, tenant truth cross-bank share, and overall truth
+cross-bank fraction and average banks per ring. Outputs are
+`results/platform/r10/r10_table.csv`, `r10_table.md`, and `run.json`; run
+provenance records the Git commit plus config and input SHA-256 hashes.
+
+This checkout has test scores for seeds 1-5, but a full model directory and test
+embeddings are available only for seed 1. The validation truth path is still
+unset and no AMLWorld ground-truth parquet is present. R10 therefore cannot yet
+produce real comparison metrics; it fails clearly until you provide that test
+truth path (and any missing seed inputs). No values are filled from the fixture.
+
 The implementation is being built in vertical slices, beginning with the API and
 database foundation described in `directions/RingShield_L5_L6_Platform_Spec.docx`.
 
