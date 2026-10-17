@@ -245,8 +245,10 @@ def load_explanations(parquet_path: Path, log_path: Path, rings_log_path: Path) 
                     "edge_weights", "account_weights", "feature_weights", "narrative",
                     "evidence_summary", "latency_ms", "provenance",
                 )},
-            ))
-            counts["explanations_loaded"] += result.rowcount or 0
+            ).returning(Explanation.ring_id))
+            if result.first() is None:
+                raise ExplanationLoadError(f"{row['ring_id']}: explanation was not written")
+            counts["explanations_loaded"] += 1
     counts["rows_validated"] = len(rows)
     return dict(counts)
 

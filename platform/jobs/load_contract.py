@@ -312,9 +312,11 @@ def load_rings(path: Path, *, scope: str) -> dict[str, int]:
                     index_elements=[PlatformRing.tenant_id, PlatformRing.ring_id],
                     set_=updates,
                     where=PlatformRing.status == "open",
-                ))
-                counts["rings_loaded"] += result.rowcount or 0
-                counts["rings_preserved_after_verdict"] += 0 if result.rowcount else 1
+                ).returning(PlatformRing.ring_id))
+                if result.first() is not None:
+                    counts["rings_loaded"] += 1
+                else:
+                    counts["rings_preserved_after_verdict"] += 1
     return dict(counts)
 
 

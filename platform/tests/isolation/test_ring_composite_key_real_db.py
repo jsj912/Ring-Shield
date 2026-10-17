@@ -70,3 +70,52 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(tmp_path):
         assert response.status_code == 200
         assert response.json()["tenant_id"] == tenant_id
         assert response.json()["confidence"] == confidence
+
+
+def test_ring_upsert_counts_writes_and_preserves_closed_ring(tmp_path):
+    fixture_dir = Path(os.environ["RINGSHIELD_TEST_FIXTURE_DIR"])
+    source = pq.read_table(fixture_dir / "rings.parquet")
+    row = next(item for item in source.to_pylist() if item["tenant_id"] == 210)
+    ring_id = f"demo-model-7-upsert-{uuid4().hex[:8]}"
+    row["ring_id"] = ring_id
+    ring_path = tmp_path / "tenant-210-ring-upsert.parquet"
+    Path(str(ring_path) + ".log.json").write_text(json.dumps({"split": "test"}), encoding="utf-8")
+
+    def write_ring(confidence: float) -> None:
+        row["confidence"] = confidence
+        pq.write_table(pa.Table.from_pylist([row], schema=source.schema), ring_path)
+
+    admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    try:
+        write_ring(0.61)
+        first = load_rings(ring_path, scope="tenant")
+        assert first["rings_loaded"] == 1
+        assert first.get("rings_preserved_after_verdict", 0) == 0
+
+        write_ring(0.72)
+        second = load_rings(ring_path, scope="tenant")
+        assert second["rings_loaded"] == 1
+        with admin.begin() as connection:
+            open_confidence = connection.execute(text("""
+                SELECT confidence FROM rings WHERE tenant_id = 210 AND ring_id = :ring_id
+            """), {"ring_id": ring_id}).scalar_one()
+            connection.execute(text("""
+                UPDATE rings SET status = 'confirmed'
+                WHERE tenant_id = 210 AND ring_id = :ring_id
+            """), {"ring_id": ring_id})
+        assert open_confidence == 0.72
+
+        write_ring(0.99)
+        third = load_rings(ring_path, scope="tenant")
+        assert third.get("rings_loaded", 0) == 0
+        assert third["rings_preserved_after_verdict"] == 1
+        with admin.connect() as connection:
+            stored_confidence = connection.execute(text("""
+                SELECT confidence FROM rings WHERE tenant_id = 210 AND ring_id = :ring_id
+            """), {"ring_id": ring_id}).scalar_one()
+        assert stored_confidence == 0.72
+    finally:
+        with admin.begin() as connection:
+            connection.execute(text("DELETE FROM rings WHERE tenant_id = 210 AND ring_id = :ring_id"),
+                               {"ring_id": ring_id})
+        admin.dispose()
