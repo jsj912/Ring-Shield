@@ -19,11 +19,18 @@ From the repository root, run:
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1 `
   -Tenants 12,20 `
+  -TimeOriginUtc '2022-08-31T23:59:50Z' `
   -RingsDir .\data\platform_tenant_runs\gine_causal_seed1 `
   -EdgeIdsDir .\data\platform_tenant_runs\gine_causal_seed1 `
   -ScoredEdges .\contract\out\scored_edges_gine_causal_1.parquet `
   -ExplanationsDir .\data\platform_explanations
 ```
+
+`-TimeOriginUtc` is required. It is the UTC instant represented by loader
+timestamp 0: the first transaction day's 00:00 UTC minus 10 seconds. Supply a
+full ISO-8601 instant with `Z` or an explicit UTC offset, for example
+`2022-08-31T23:59:50Z`. The runner prints the chosen origin in its summary, and
+the dashboard sidebar displays the same value for screenshots.
 
 The compose project is separate from the test database and uses its own persistent
 volume. Its default host port is `55433`; set `RINGSHIELD_DEMO_POSTGRES_PORT` to

@@ -279,3 +279,10 @@ This file records findings and changes in the order requested for the platform h
 - Added `platform/jobs/check_explanations.py`, which invokes the loader's `read_handoff` validator for one or more explanation/run-log/rings-log triples and prints `OK <n> rows` or `REFUSED <reason>`. It performs no database access. `scripts/run-demo.ps1` runs this check after file preflight and before checking/starting Docker, so invalid real handoffs fail before the demo database is touched.
 - Read-only check run against the provided local files: bank 12 `OK 5 rows`; bank 20 `OK 5 rows`. This validates the handoff files only; the demo load, Docker and PostgreSQL were not run.
 - Added database-free CLI tests for success and refusal output. Full database-free suite: **129 passed**; PowerShell path validation: **6 passed**; compileall passed. No relaxation was made to tenant scope/identity, source-ring SHA-256/schema, active model/seed, FX pin, reproduction, pooled-log, or label-path checks.
+
+## Demo dataset time origin - 2026-10-19
+
+- Removed the demo's implicit `2020-01-01` time anchor. Normal and `-ValidateOnly` runs require `-TimeOriginUtc`, an ISO-8601 instant with an explicit UTC offset or `Z`. It represents loader timestamp 0: first transaction day 00:00 UTC minus 10 seconds. The demo passes this exact value to the API, displays it in its startup summary, and the dashboard sidebar displays the inherited value. `-Down` remains available without an origin so teardown does not depend on application data configuration.
+- The fixed `2020-01-01T00:00:00+00:00` value remains only in `scripts/test-db.ps1`, labeled as a deterministic test-only anchor.
+- Added PowerShell validation for a missing origin, an origin without a UTC offset, and valid `Z`/offset formats. Updated the documented demo invocation and definition in `platform/README.md`.
+- Validation: PowerShell checks **8 passed**; database-free platform suite **129 passed**; `compileall` passed. Docker and PostgreSQL were not run.
