@@ -23,8 +23,8 @@ fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Wee
 - **Tenant-scoped explanations for the platform** (section 20; Week 9 integration done early): banks 20 and 12, nothing
   the bank cannot see is counted or mentioned; tenant regenerate for partial verdicts. **Typology finding:** the research typing table (0.219) types the wrong ring for 316 of 401
   matches; the narrated shape is right about 60 % of the time on both windows (pending Joan's confirmation).
-- **283 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
-  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6, 10 for the tenant run, 5 for Week 7.
+- **284 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
+  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6, 10 for the tenant run, 6 for Week 7.
 - Every ring of all five detector seeds, plus the old stub file, has an explanation.
 
 This document is written so that someone with basic technical knowledge can understand what was built,
@@ -149,7 +149,7 @@ explainability/                 the L4 layer
     test_stats.py                6 tests: WEEK 4, the statistics, checked against Joan's own functions
     test_week5_eval.py          11 tests: WEEK 5, no attention, typology, latency, role accuracy, three detectors
     test_api.py                 12 tests: WEEK 5, the API shapes, every real row, the endpoints, the sample fixtures
-    test_review.py              11 tests: WEEKS 6-7, Fleiss' kappa, sampling, packets, scoring, the analysis plan
+    test_review.py              12 tests: WEEKS 6-7, Fleiss' kappa, sampling, packets, scoring, the analysis plan, the summary
     test_tenant.py              10 tests: tenant run: inputs verified, nothing hidden mentioned, tenant-view SHAP, regenerate
 results/xai/                    our results (kept apart from Joan's results/tables/)
   fidelity_week1_seed{1..5}.json, fidelity_week1_stub_cc_seed1.json        Week 1 (policy raw, v1 rings)
@@ -173,6 +173,7 @@ results/xai/                    our results (kept apart from Joan's results/tabl
   review/                                     WEEK 6: packet_R{1,2,3}.md, answers_R{1,2,3}.csv, sample_manifest.json
                                               (+ answer_key.parquet, git-ignored on purpose; review.csv in Week 7)
                                               analysis_plan.md: WEEK 7, how the review is read, written before scoring
+                                              review.csv, review_summary.json / .md, fix_proposals.md: WEEK 7, the scored review
   tenant/                                     explanations_{20,12}_1.parquet (+ .log.json); inputs/ = Kashish's files
 ```
 
@@ -586,7 +587,7 @@ Test fidelity, mean over seeds:
 
 ---
 
-## 9. The tests (283 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4, tenant in 20.4, Week 7 in 21)
+## 9. The tests (284 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4, tenant in 20.4, Week 7 in 21-22)
 
 **`test_contract_io.py` (73)**
 - All real files load and validate: v2 rings for 5 seeds plus the stub, **and** the v1 originals, each
@@ -702,7 +703,7 @@ Run: `python -m pytest explainability/tests -q` (about 15 minutes).
 | XR-33 functions + schemas, endpoints return 200 on stub data | **met** (Week 5; handoff to Kashish after part 2) |
 | XR-34 regenerate after member edits | **met** |
 | XR-35 no attention weights | **met** (test) |
-| XR-29 thirty-ring internal review, Fleiss' kappa | Week 6: sample, packets and scoring built; the review itself in Week 7 |
+| XR-29 thirty-ring internal review, Fleiss' kappa | **met** (Weeks 6-7, sections 19, 21, 22): scored, kappa computed, summary written |
 | XR-26 role precision / recall vs ground-truth-derived roles | **met** (Week 5, section 18.1) |
 | XR-36 runs unchanged on any detector's files | **met** (Week 5, section 18.2: three detectors, no code difference) |
 
@@ -1590,3 +1591,41 @@ being valid, yes / no).
 
 **Still to come (when Joan's and Kashish's sheets are in, about 6 November):** score the review, the human-readable
 `review_summary.md`, and the fix list.
+---
+
+## 22. Week 7 (part 2) — the review, scored
+
+All three sheets are in. They were scored by `python -m explainability.review.aggregate` with the rules committed in
+advance (`analysis_plan.md`, committed before R2's and R3's sheets existed).
+- **Outputs:** `review.csv` (90 rows: item × reviewer, anonymised), `review_summary.json` and the plain-language
+  `review_summary.md`.
+- **Fix list:** `fix_proposals.md`, for sign-off.
+
+| question | yes | all agree | Fleiss' κ |
+|---|---|---|---|
+| q1 the stated shape is plausible | 0.53 | 70 % | 0.60 (moderate) |
+| q2 the named accounts matter | 0.91 | 97 % | 0.86 (almost perfect) |
+| q3 enough to start an investigation | 1.00 | 100 % | undefined (unanimous) |
+| q4 something is misleading | **0.61** | 80 % | 0.72 (substantial) |
+
+**What the review found:**
+- **The evidence works.** Reviewers always found the evidence transactions enough to start an investigation, and
+  almost always agreed the named accounts are the ones that matter.
+- **The shape claim is the problem.**
+  - Four pre-registered triggers fired.
+  - Behind them (exploratory, labelled so): **every one of the 13 narratives that names a shape without a shape
+    sentence was judged misleading**, whether or not the shape was actually right (6 of the 13 were).
+  - With a shape sentence, 6 of 17 were judged misleading.
+- **The reveal:** the narrated shape was right for 50 % of these items, and the reviewers' "plausible" matched the
+  truth 63 % of the time.
+
+**Proposed fixes** (`fix_proposals.md`; applied in Week 8 after sign-off):
+- **A:** without a shape sentence, open with "Suspected ring" and state the typing model's shape as a guess that the
+  transactions don't show.
+- **B:** ask the reviewers what was misleading on the 6 shape-sentence items before changing them.
+
+The bank list (confounded with A) and the single self-payment item (below the thresholds) are not changed.
+
+XR-29 is **met**: thirty-ring review, Section 7 protocol, Fleiss' κ, `review.csv` and the summary.
+
+**Tests (`test_review.py`, +1):** `review_summary.md` is exactly what the scored JSON renders.

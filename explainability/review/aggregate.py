@@ -187,10 +187,83 @@ def aggregate(review_dir: Path, reviewers: list[str], cfg: dict | None = None) -
     cfg = cfg or load_config()
     for q in QCOLS:
         per_q[q]["kappa_band"] = kappa_band(per_q[q]["fleiss_kappa"], cfg["review"]["rules"]["kappa_bands"])
-    summary["analysis"] = flags_breakdowns_triggers(review, item_features(cfg, key), key, cfg["review"]["rules"],
-                                                    len(reviewers))
-    summary["analysis_plan"] = "results/xai/review/analysis_plan.md (written before scoring)"
+    feats = item_features(cfg, key)
+    summary["analysis"] = flags_breakdowns_triggers(review, feats, key, cfg["review"]["rules"], len(reviewers))
+    summary["exploratory"] = exploratory(review, feats, cfg["review"]["rules"])
+    summary["analysis_plan"] = "results/xai/review/analysis_plan.md"
     return review, summary
+
+
+def exploratory(review: pd.DataFrame, feats: pd.DataFrame, rules: dict) -> dict:
+    """NOT pre-registered: how the q1 / q4 flags split by shape sentence x bank list, the overlap behind the
+    pre-registered triggers. Reported separately and labelled as exploratory."""
+    m = int(rules["flag_majority"])
+    q4 = review.groupby("item_id")["q4_misleading"].sum() >= m
+    q1 = (1 - review.set_index("item_id")["q1_topology_plausible"]).groupby(level=0).sum() >= m
+    f = feats.assign(q4_flag=q4, q1_flag=q1)
+    cells = []
+    for (s, b), g in f.groupby(["shape_sentence", "bank_list"]):
+        cells.append({"shape_sentence": int(s), "bank_list": int(b), "n_items": int(len(g)),
+                      "q4_flagged": int(g["q4_flag"].sum()), "q1_flagged": int(g["q1_flag"].sum()),
+                      "narrated_shape_correct": int(g["narrated_shape_correct"].sum())})
+    return {"label": "exploratory -- not in the analysis plan", "cells": cells}
+
+
+def summary_markdown(s: dict) -> str:
+    """review_summary.md: a plain-language reading of review_summary.json. Every number comes from `s`."""
+    pq_ = s["per_question"]
+    a = s["analysis"]
+    names = {"q1_topology_plausible": "q1  the stated shape is plausible",
+             "q2_named_accounts_matter": "q2  the named accounts are the ones that matter",
+             "q3_evidence_enough": "q3  the evidence is enough to start an investigation",
+             "q4_misleading": "q4  something in the sentence is misleading (1 = a problem)"}
+
+    def k(v):
+        return "n/a (every answer the same)" if v["fleiss_kappa"] is None else f"{v['fleiss_kappa']:.3f} ({v['kappa_band']})"
+    lines = ["# Review of 30 explanations — summary", "",
+             "A structured check by the three team members (spec section 7), **not an analyst study**. Reviewer R1 also "
+             "built the explanations. The rules for reading the answers were written and committed before two of the "
+             f"three sheets came back (`{s['analysis_plan']}`).", "",
+             f"{s['n_items']} items, reviewers {', '.join(s['reviewers'])}, four yes/no questions each.", "",
+             "## 1. Answers and agreement", "",
+             "| question | yes-rate | all three agree | Fleiss' κ |", "|---|---|---|---|"]
+    for q, v in pq_.items():
+        lines.append(f"| {names[q]} | {v['yes_rate']:.2f} | {v['all_agree_rate']:.0%} | {k(v)} |")
+    lines += ["", "Fleiss' κ is agreement beyond chance (Landis & Koch bands). Where every reviewer gave the same answer "
+              "to every item, κ is undefined.", "",
+              "## 2. What triggered a fix (rules from the analysis plan)", ""]
+    if not a["triggers"]:
+        lines.append("No rule fired.")
+    for t in a["triggers"]:
+        what = (f"yes-rate {t['yes_rate']:.2f}" if "yes_rate" in t else f"{t['n_flagged']} of {t['n_items']} items flagged")
+        lines.append(f"- **{t['rule']}** — {t['question']}" + (f", feature `{t['feature']}`" if t.get("feature") else "")
+                     + f": {what}; items {', '.join(t['items'])}")
+    lines += ["", "## 3. Breakdown by narrative feature", "",
+              "| feature | items | q1 yes | q2 yes | q3 yes | q4 yes (misleading) | q4 flagged |", "|---|---|---|---|---|---|---|"]
+    for f, b in a["by_feature"].items():
+        if b["n_items"]:
+            r = [b[q]["yes_rate"] for q in pq_]
+            lines.append(f"| `{f}` | {b['n_items']} | {r[0]:.2f} | {r[1]:.2f} | {r[2]:.2f} | {r[3]:.2f} | "
+                         f"{b['q4_misleading']['n_flagged']} |")
+    ex = s.get("exploratory")
+    if ex:
+        lines += ["", "## 4. Exploratory (not in the analysis plan): shape sentence × bank list", "",
+                  "| shape sentence | bank list | items | flagged misleading (q4) | flagged implausible (q1) | narrated shape correct |",
+                  "|---|---|---|---|---|---|"]
+        for c in ex["cells"]:
+            lines.append(f"| {'yes' if c['shape_sentence'] else 'no'} | {'yes' if c['bank_list'] else 'no'} | "
+                         f"{c['n_items']} | {c['q4_flagged']} | {c['q1_flagged']} | {c['narrated_shape_correct']} |")
+    rv = s["reveal"]
+    lines += ["", "## 5. The reveal", "",
+              f"- The narrated shape was the true pattern type for **{rv['narrated_shape_correct_rate']:.0%}** of the 30 items.",
+              f"- Reviewers' \"plausible\" answer matched that (plausible when right, implausible when wrong) "
+              f"**{rv['reviewer_q1_matches_truth_rate']:.0%}** of the time; the majority answer **{rv['majority_q1_matches_truth_rate']:.0%}**.",
+              "", "| true type | items | narrated shape correct |", "|---|---|---|"]
+    for t, v in rv["by_true_type"].items():
+        lines.append(f"| {t} | {v['n']} | {v['narrated_correct']:.0%} |")
+    n_comments = sum(len(c) for c in a["comments"].values())
+    lines += ["", f"Reviewer comments: {n_comments}.", ""]
+    return "\n".join(lines)
 
 
 def main(argv=None) -> int:
@@ -201,6 +274,8 @@ def main(argv=None) -> int:
     d = repo_path(a.dir)
     review, summary = aggregate(d, list(cfg["review"]["reviewers"]), cfg)
     review.to_csv(d / "review.csv", index=False, lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
+    stored = json.loads(json.dumps(summary, sort_keys=True))           # render exactly what review_summary.json holds
+    (d / "review_summary.md").write_text(summary_markdown(stored), encoding="utf-8", newline="\n")
     (d / "review_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8",
                                            newline="\n")
     for q, v in summary["per_question"].items():

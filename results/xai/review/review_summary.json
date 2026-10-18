@@ -1,0 +1,447 @@
+{
+  "analysis": {
+    "by_feature": {
+      "bank_list": {
+        "n_items": 16,
+        "q1_topology_plausible": {
+          "n_flagged": 12,
+          "yes_rate": 0.35416666666666663
+        },
+        "q2_named_accounts_matter": {
+          "n_flagged": 1,
+          "yes_rate": 0.9375
+        },
+        "q3_evidence_enough": {
+          "n_flagged": 0,
+          "yes_rate": 1.0
+        },
+        "q4_misleading": {
+          "n_flagged": 13,
+          "yes_rate": 0.7708333333333333
+        }
+      },
+      "narrated_shape_correct": {
+        "n_items": 15,
+        "q1_topology_plausible": {
+          "n_flagged": 5,
+          "yes_rate": 0.6666666666666665
+        },
+        "q2_named_accounts_matter": {
+          "n_flagged": 0,
+          "yes_rate": 1.0
+        },
+        "q3_evidence_enough": {
+          "n_flagged": 0,
+          "yes_rate": 1.0
+        },
+        "q4_misleading": {
+          "n_flagged": 9,
+          "yes_rate": 0.5777777777777777
+        }
+      },
+      "partial_currency": {
+        "n_items": 0,
+        "q1_topology_plausible": {
+          "n_flagged": 0,
+          "yes_rate": null
+        },
+        "q2_named_accounts_matter": {
+          "n_flagged": 0,
+          "yes_rate": null
+        },
+        "q3_evidence_enough": {
+          "n_flagged": 0,
+          "yes_rate": null
+        },
+        "q4_misleading": {
+          "n_flagged": 0,
+          "yes_rate": null
+        }
+      },
+      "self_payment_top3": {
+        "n_items": 1,
+        "q1_topology_plausible": {
+          "n_flagged": 1,
+          "yes_rate": 0.0
+        },
+        "q2_named_accounts_matter": {
+          "n_flagged": 1,
+          "yes_rate": 0.3333333333333333
+        },
+        "q3_evidence_enough": {
+          "n_flagged": 0,
+          "yes_rate": 1.0
+        },
+        "q4_misleading": {
+          "n_flagged": 1,
+          "yes_rate": 1.0
+        }
+      },
+      "shape_sentence": {
+        "n_items": 17,
+        "q1_topology_plausible": {
+          "n_flagged": 3,
+          "yes_rate": 0.784313725490196
+        },
+        "q2_named_accounts_matter": {
+          "n_flagged": 2,
+          "yes_rate": 0.9019607843137254
+        },
+        "q3_evidence_enough": {
+          "n_flagged": 0,
+          "yes_rate": 1.0
+        },
+        "q4_misleading": {
+          "n_flagged": 6,
+          "yes_rate": 0.37254901960784315
+        }
+      },
+      "undetermined_named": {
+        "n_items": 0,
+        "q1_topology_plausible": {
+          "n_flagged": 0,
+          "yes_rate": null
+        },
+        "q2_named_accounts_matter": {
+          "n_flagged": 0,
+          "yes_rate": null
+        },
+        "q3_evidence_enough": {
+          "n_flagged": 0,
+          "yes_rate": null
+        },
+        "q4_misleading": {
+          "n_flagged": 0,
+          "yes_rate": null
+        }
+      }
+    },
+    "by_true_type": {
+      "BIPARTITE": {
+        "n_items": 1,
+        "q1_topology_plausible": 0.0,
+        "q2_named_accounts_matter": 0.0,
+        "q3_evidence_enough": 1.0,
+        "q4_misleading": 1.0
+      },
+      "CYCLE": {
+        "n_items": 4,
+        "q1_topology_plausible": 0.3333333333333333,
+        "q2_named_accounts_matter": 0.75,
+        "q3_evidence_enough": 1.0,
+        "q4_misleading": 0.8333333333333334
+      },
+      "FAN-IN": {
+        "n_items": 4,
+        "q1_topology_plausible": 0.25,
+        "q2_named_accounts_matter": 0.8333333333333333,
+        "q3_evidence_enough": 1.0,
+        "q4_misleading": 0.75
+      },
+      "FAN-OUT": {
+        "n_items": 4,
+        "q1_topology_plausible": 0.8333333333333333,
+        "q2_named_accounts_matter": 1.0,
+        "q3_evidence_enough": 1.0,
+        "q4_misleading": 0.25
+      },
+      "GATHER-SCATTER": {
+        "n_items": 6,
+        "q1_topology_plausible": 0.6666666666666666,
+        "q2_named_accounts_matter": 1.0,
+        "q3_evidence_enough": 1.0,
+        "q4_misleading": 0.611111111111111
+      },
+      "RANDOM": {
+        "n_items": 4,
+        "q1_topology_plausible": 0.41666666666666663,
+        "q2_named_accounts_matter": 1.0,
+        "q3_evidence_enough": 1.0,
+        "q4_misleading": 0.5833333333333333
+      },
+      "SCATTER-GATHER": {
+        "n_items": 6,
+        "q1_topology_plausible": 0.611111111111111,
+        "q2_named_accounts_matter": 1.0,
+        "q3_evidence_enough": 1.0,
+        "q4_misleading": 0.6666666666666666
+      },
+      "STACK": {
+        "n_items": 1,
+        "q1_topology_plausible": 1.0,
+        "q2_named_accounts_matter": 1.0,
+        "q3_evidence_enough": 1.0,
+        "q4_misleading": 0.0
+      }
+    },
+    "comments": {},
+    "flagged_items": {
+      "q1_topology_plausible": [
+        "R-02",
+        "R-03",
+        "R-04",
+        "R-06",
+        "R-07",
+        "R-08",
+        "R-09",
+        "R-10",
+        "R-11",
+        "R-13",
+        "R-14",
+        "R-16",
+        "R-19",
+        "R-22",
+        "R-29"
+      ],
+      "q2_named_accounts_matter": [
+        "R-02",
+        "R-04",
+        "R-07"
+      ],
+      "q3_evidence_enough": [],
+      "q4_misleading": [
+        "R-02",
+        "R-03",
+        "R-04",
+        "R-06",
+        "R-07",
+        "R-08",
+        "R-09",
+        "R-10",
+        "R-11",
+        "R-12",
+        "R-13",
+        "R-14",
+        "R-16",
+        "R-19",
+        "R-22",
+        "R-25",
+        "R-27",
+        "R-29",
+        "R-30"
+      ]
+    },
+    "item_features": {
+      "bank_list": 16,
+      "narrated_shape_correct": 15,
+      "partial_currency": 0,
+      "self_payment_top3": 1,
+      "shape_sentence": 17,
+      "undetermined_named": 0
+    },
+    "rules": {
+      "flag_majority": 2,
+      "kappa_bands": [
+        [
+          0.0,
+          "poor"
+        ],
+        [
+          0.2,
+          "slight"
+        ],
+        [
+          0.4,
+          "fair"
+        ],
+        [
+          0.6,
+          "moderate"
+        ],
+        [
+          0.8,
+          "substantial"
+        ],
+        [
+          1.0,
+          "almost perfect"
+        ]
+      ],
+      "low_yes_rate": 0.5,
+      "min_group_items": 5,
+      "q4_pattern_min_items": 3,
+      "q4_pattern_min_share": 0.2,
+      "q4_share_min_items": 2
+    },
+    "triggers": [
+      {
+        "feature": "bank_list",
+        "items": [
+          "R-03",
+          "R-07",
+          "R-08",
+          "R-09",
+          "R-10",
+          "R-11",
+          "R-13",
+          "R-14",
+          "R-16",
+          "R-19",
+          "R-22",
+          "R-29"
+        ],
+        "n_items": 16,
+        "question": "q1_topology_plausible",
+        "rule": "q1-q3 within a feature",
+        "yes_rate": 0.35416666666666663
+      },
+      {
+        "feature": "shape_sentence",
+        "items": [
+          "R-02",
+          "R-04",
+          "R-06",
+          "R-12",
+          "R-25",
+          "R-30"
+        ],
+        "n_flagged": 6,
+        "n_items": 17,
+        "question": "q4_misleading",
+        "rule": "q4 within a feature"
+      },
+      {
+        "feature": "bank_list",
+        "items": [
+          "R-03",
+          "R-07",
+          "R-08",
+          "R-09",
+          "R-10",
+          "R-11",
+          "R-13",
+          "R-14",
+          "R-16",
+          "R-19",
+          "R-22",
+          "R-27",
+          "R-29"
+        ],
+        "n_flagged": 13,
+        "n_items": 16,
+        "question": "q4_misleading",
+        "rule": "q4 within a feature"
+      },
+      {
+        "feature": "narrated_shape_correct",
+        "items": [
+          "R-09",
+          "R-11",
+          "R-12",
+          "R-13",
+          "R-19",
+          "R-22",
+          "R-25",
+          "R-27",
+          "R-30"
+        ],
+        "n_flagged": 9,
+        "n_items": 15,
+        "question": "q4_misleading",
+        "rule": "q4 within a feature"
+      }
+    ]
+  },
+  "analysis_plan": "results/xai/review/analysis_plan.md",
+  "exploratory": {
+    "cells": [
+      {
+        "bank_list": 1,
+        "n_items": 13,
+        "narrated_shape_correct": 6,
+        "q1_flagged": 12,
+        "q4_flagged": 13,
+        "shape_sentence": 0
+      },
+      {
+        "bank_list": 0,
+        "n_items": 14,
+        "narrated_shape_correct": 7,
+        "q1_flagged": 3,
+        "q4_flagged": 6,
+        "shape_sentence": 1
+      },
+      {
+        "bank_list": 1,
+        "n_items": 3,
+        "narrated_shape_correct": 2,
+        "q1_flagged": 0,
+        "q4_flagged": 0,
+        "shape_sentence": 1
+      }
+    ],
+    "label": "exploratory -- not in the analysis plan"
+  },
+  "n_items": 30,
+  "per_question": {
+    "q1_topology_plausible": {
+      "all_agree_rate": 0.7,
+      "fleiss_kappa": 0.5982142857142856,
+      "kappa_band": "moderate",
+      "yes_rate": 0.5333333333333333
+    },
+    "q2_named_accounts_matter": {
+      "all_agree_rate": 0.9666666666666667,
+      "fleiss_kappa": 0.8628048780487803,
+      "kappa_band": "almost perfect",
+      "yes_rate": 0.9111111111111111
+    },
+    "q3_evidence_enough": {
+      "all_agree_rate": 1.0,
+      "fleiss_kappa": null,
+      "kappa_band": null,
+      "yes_rate": 1.0
+    },
+    "q4_misleading": {
+      "all_agree_rate": 0.8,
+      "fleiss_kappa": 0.7194805194805193,
+      "kappa_band": "substantial",
+      "yes_rate": 0.6111111111111112
+    }
+  },
+  "reveal": {
+    "by_true_type": {
+      "BIPARTITE": {
+        "n": 1,
+        "narrated_correct": 0.0
+      },
+      "CYCLE": {
+        "n": 4,
+        "narrated_correct": 0.5
+      },
+      "FAN-IN": {
+        "n": 4,
+        "narrated_correct": 0.25
+      },
+      "FAN-OUT": {
+        "n": 4,
+        "narrated_correct": 0.75
+      },
+      "GATHER-SCATTER": {
+        "n": 6,
+        "narrated_correct": 0.5
+      },
+      "RANDOM": {
+        "n": 4,
+        "narrated_correct": 0.0
+      },
+      "SCATTER-GATHER": {
+        "n": 6,
+        "narrated_correct": 0.8333333333333334
+      },
+      "STACK": {
+        "n": 1,
+        "narrated_correct": 1.0
+      }
+    },
+    "majority_q1_matches_truth_rate": 0.6666666666666666,
+    "narrated_shape_correct_rate": 0.5,
+    "reviewer_q1_matches_truth_rate": 0.6333333333333333
+  },
+  "reviewers": [
+    "R1",
+    "R2",
+    "R3"
+  ],
+  "what": "XR-29 internal review of explanations (spec 7): a structured check by the three team members, not an analyst study"
+}

@@ -211,3 +211,18 @@ def test_triggers_fire_by_the_written_rules(tmp_path):
     assert ("q1-q3 within a feature", "q2_named_accounts_matter", "shape_sentence") in got
     assert ("q4 within a feature", "q4_misleading", "bank_list") in got
     assert all(t["items"] for t in a["triggers"] if t["rule"] != "q1-q3 overall")
+
+
+def test_review_summary_markdown_follows_the_scored_json():
+    """review_summary.md is generated from review_summary.json: every question's yes-rate and every triggered item list
+    appears as computed; the exploratory section is labelled as not in the plan."""
+    s = json.loads((DIR / "review_summary.json").read_text(encoding="utf-8"))
+    md = (DIR / "review_summary.md").read_text(encoding="utf-8")
+    from explainability.review.aggregate import summary_markdown
+    assert md == summary_markdown(s)
+    for v in s["per_question"].values():
+        assert f"{v['yes_rate']:.2f}" in md
+    for t in s["analysis"]["triggers"]:
+        assert ", ".join(t["items"]) in md
+    assert "not in the analysis plan" in md and "not an analyst study" in md
+    assert len(pd.read_csv(DIR / "review.csv")) == 90
