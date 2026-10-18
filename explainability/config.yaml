@@ -162,6 +162,17 @@ review:
   top_edges: 5                   # spec 7: the top-5 evidence edges
   reviewers: [R1, R2, R3]        # anonymised ids; who is who is kept outside the repo
   out_dir: results/xai/review
+  # Week 7: the rules for reading the review, fixed BEFORE the sheets are scored (results/xai/review/analysis_plan.md
+  # repeats this block; a test keeps the two identical).
+  rules:
+    flag_majority: 2               # an item is flagged on a question when at least this many of the 3 reviewers flag it
+    low_yes_rate: 0.5              # q1-q3: a yes-rate below this is a problem
+    min_group_items: 5             # ... judged within a narrative feature only if it has at least this many items
+    q4_pattern_min_items: 3        # q4: a feature triggers a fix if at least this many of its items are flagged ...
+    q4_pattern_min_share: 0.2      # ... or at least this share of its items, with at least q4_share_min_items flagged
+    q4_share_min_items: 2
+    kappa_bands: [[0.0, "poor"], [0.2, "slight"], [0.4, "fair"], [0.6, "moderate"], [0.8, "substantial"],
+                  [1.0, "almost perfect"]]   # Landis & Koch (1977): kappa <= upper bound -> label; below 0 = poor
 
 # Tenant-scoped explanations for the platform (Kashish; Week 9 integration done early). A tenant (bank) sees an edge
 # only if from_bank or to_bank is that bank. Inputs are the platform's tenant rings and edge-id files (verified against

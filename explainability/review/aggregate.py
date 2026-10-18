@@ -8,6 +8,8 @@
    0 = chance level, < 0 = worse than chance).
 3. Reveal the truth: per item, whether the narrated shape is the true pattern type, and whether each reviewer's
    "plausible" (q1) judgement matched that -- 1 when they called a correct shape plausible or a wrong one implausible.
+3b. The analysis plan (results/xai/review/analysis_plan.md, written before scoring; rules in config review.rules):
+   flagged items, yes-rates by narrative feature and by true type, and the fix triggers.
 4. Write review.csv (one row per item and reviewer, reviewer ids anonymised, free-text comments kept) and
    review_summary.json.
 """
@@ -64,7 +66,90 @@ def read_sheet(path: Path, items: set[str]) -> pd.DataFrame:
     return df[["item_id", *QCOLS, "comment"]]
 
 
-def aggregate(review_dir: Path, reviewers: list[str]) -> tuple[pd.DataFrame, dict]:
+FEATURES = ("shape_sentence", "self_payment_top3", "partial_currency", "bank_list", "undetermined_named",
+            "narrated_shape_correct")
+PROBLEM_WHEN = {"q1_topology_plausible": 0, "q2_named_accounts_matter": 0, "q3_evidence_enough": 0, "q4_misleading": 1}
+
+
+def kappa_band(kappa: float | None, bands) -> str | None:
+    """Landis & Koch label: below 0 'poor', else the first band whose upper bound is >= kappa."""
+    if kappa is None:
+        return None
+    if kappa < 0:
+        return bands[0][1]
+    for upper, label in bands[1:]:
+        if kappa <= upper:
+            return label
+    return bands[-1][1]
+
+
+def item_features(cfg: dict, key: pd.DataFrame) -> pd.DataFrame:
+    """The analysis plan's narrative features per item, read from each item's own explanation (never the answers)."""
+    import pyarrow.parquet as pq
+    from explainability.evaluate import SHAPE_CLAUSES
+    rows = {}
+    for s in sorted(key["seed"].unique()):
+        tbl = pq.read_table(repo_path(cfg["output_dir"]) / cfg["explanations_name_week3"].format(seed=int(s)),
+                            columns=["ring_id", "evidence_summary"]).to_pylist()
+        rows.update({(int(s), r["ring_id"]): json.loads(r["evidence_summary"]) for r in tbl})
+    out = []
+    for it in key.itertuples(index=False):
+        es = rows[(int(it.seed), it.ring_id)]
+        cl, v = set(es["clauses"]), es["values"]
+        out.append({"item_id": it.item_id,
+                    "shape_sentence": int(bool(cl & set(SHAPE_CLAUSES))),
+                    "self_payment_top3": int(any(e["from_id"] == e["to_id"] for e in v["top_edges"])),
+                    "partial_currency": int("money_partial" in cl),
+                    "bank_list": int("banks" in cl),
+                    "undetermined_named": int(bool(cl & {"undet_one", "undet_many"})),
+                    "narrated_shape_correct": int(it.narrated_type == it.true_pattern_type)})
+    return pd.DataFrame(out).set_index("item_id")
+
+
+def flags_breakdowns_triggers(review: pd.DataFrame, feats: pd.DataFrame, key: pd.DataFrame, rules: dict,
+                              n_reviewers: int) -> dict:
+    """The analysis plan, section 3: flagged items, yes-rates by feature and by true type, and the fix triggers."""
+    problem = {q: review.assign(p=(review[q] == bad).astype(int)).pivot(index="item_id", columns="reviewer", values="p")
+               .sum(axis=1) for q, bad in PROBLEM_WHEN.items()}
+    flagged = {q: sorted(problem[q].index[problem[q] >= int(rules["flag_majority"])]) for q in QCOLS}
+    yes = {q: review.pivot(index="item_id", columns="reviewer", values=q).mean(axis=1) for q in QCOLS}
+    by_feature = {}
+    for f in FEATURES:
+        ids = feats.index[feats[f] == 1]
+        by_feature[f] = {"n_items": int(len(ids)),
+                         **{q: {"yes_rate": float(yes[q].loc[ids].mean()) if len(ids) else None,
+                                "n_flagged": int(len(set(flagged[q]) & set(ids)))} for q in QCOLS}}
+    tt = key.set_index("item_id")["true_pattern_type"]
+    by_type = {t: {"n_items": int((tt == t).sum()), **{q: float(yes[q].loc[tt.index[tt == t]].mean()) for q in QCOLS}}
+               for t in sorted(tt.unique())}
+    triggers = []
+    low = float(rules["low_yes_rate"])
+    for q in QCOLS[:3]:
+        if float(yes[q].mean()) < low:
+            triggers.append({"rule": "q1-q3 overall", "question": q, "yes_rate": float(yes[q].mean()),
+                             "items": flagged[q]})
+        for f in FEATURES:
+            b = by_feature[f]
+            if b["n_items"] >= int(rules["min_group_items"]) and b[q]["yes_rate"] is not None and b[q]["yes_rate"] < low:
+                triggers.append({"rule": "q1-q3 within a feature", "question": q, "feature": f,
+                                 "n_items": b["n_items"], "yes_rate": b[q]["yes_rate"],
+                                 "items": sorted(set(flagged[q]) & set(feats.index[feats[f] == 1]))})
+    q4 = QCOLS[3]
+    for f in FEATURES:
+        b = by_feature[f]
+        n_flag, n = b[q4]["n_flagged"], b["n_items"]
+        if n_flag >= int(rules["q4_pattern_min_items"]) or (
+                n and n_flag >= int(rules["q4_share_min_items"]) and n_flag / n >= float(rules["q4_pattern_min_share"])):
+            triggers.append({"rule": "q4 within a feature", "question": q4, "feature": f, "n_items": n,
+                             "n_flagged": n_flag, "items": sorted(set(flagged[q4]) & set(feats.index[feats[f] == 1]))})
+    comments = {i: [c for c in g["comment"].tolist() if isinstance(c, str) and c.strip()]
+                for i, g in review.groupby("item_id")}
+    return {"flagged_items": flagged, "by_feature": by_feature, "by_true_type": by_type, "triggers": triggers,
+            "comments": {i: c for i, c in sorted(comments.items()) if c}, "rules": rules,
+            "item_features": {f: int(feats[f].sum()) for f in FEATURES}}
+
+
+def aggregate(review_dir: Path, reviewers: list[str], cfg: dict | None = None) -> tuple[pd.DataFrame, dict]:
     key = pd.read_parquet(review_dir / "answer_key.parquet")
     items = set(key["item_id"])
     sheets = {r: read_sheet(review_dir / f"answers_{r}.csv", items) for r in reviewers}
@@ -99,6 +184,12 @@ def aggregate(review_dir: Path, reviewers: list[str]) -> tuple[pd.DataFrame, dic
                    "by_true_type": {t: {"n": int(len(g)), "narrated_correct": float(g["narrated_correct"].mean())}
                                     for t, g in key.groupby("true_pattern_type")}},
     }
+    cfg = cfg or load_config()
+    for q in QCOLS:
+        per_q[q]["kappa_band"] = kappa_band(per_q[q]["fleiss_kappa"], cfg["review"]["rules"]["kappa_bands"])
+    summary["analysis"] = flags_breakdowns_triggers(review, item_features(cfg, key), key, cfg["review"]["rules"],
+                                                    len(reviewers))
+    summary["analysis_plan"] = "results/xai/review/analysis_plan.md (written before scoring)"
     return review, summary
 
 
@@ -108,13 +199,15 @@ def main(argv=None) -> int:
     ap.add_argument("--dir", default=cfg["review"]["out_dir"])
     a = ap.parse_args(argv)
     d = repo_path(a.dir)
-    review, summary = aggregate(d, list(cfg["review"]["reviewers"]))
+    review, summary = aggregate(d, list(cfg["review"]["reviewers"]), cfg)
     review.to_csv(d / "review.csv", index=False, lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
     (d / "review_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8",
                                            newline="\n")
     for q, v in summary["per_question"].items():
         k = "n/a" if v["fleiss_kappa"] is None else f"{v['fleiss_kappa']:.3f}"
         print(f"{q:26s} yes {v['yes_rate']:.2f}  all agree {v['all_agree_rate']:.2f}  Fleiss kappa {k}")
+    for t in summary["analysis"]["triggers"]:
+        print(f"TRIGGER {t['rule']}: {t['question']} {t.get('feature', '')} items {t['items']}")
     print(f"reveal: {summary['reveal']['narrated_shape_correct_rate']:.2f} of narrated shapes correct; reviewers' "
           f"plausibility matched the truth {summary['reveal']['reviewer_q1_matches_truth_rate']:.2f}")
     print(f"-> {d / 'review.csv'}, {d / 'review_summary.json'}")

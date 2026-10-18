@@ -23,8 +23,8 @@ fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Wee
 - **Tenant-scoped explanations for the platform** (section 20; Week 9 integration done early): banks 20 and 12, nothing
   the bank cannot see is counted or mentioned; tenant regenerate for partial verdicts. **Typology finding:** the research typing table (0.219) types the wrong ring for 316 of 401
   matches; the narrated shape is right about 60 % of the time on both windows (pending Joan's confirmation).
-- **278 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
-  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6, 10 for the tenant run.
+- **283 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
+  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6, 10 for the tenant run, 5 for Week 7.
 - Every ring of all five detector seeds, plus the old stub file, has an explanation.
 
 This document is written so that someone with basic technical knowledge can understand what was built,
@@ -149,7 +149,7 @@ explainability/                 the L4 layer
     test_stats.py                6 tests: WEEK 4, the statistics, checked against Joan's own functions
     test_week5_eval.py          11 tests: WEEK 5, no attention, typology, latency, role accuracy, three detectors
     test_api.py                 12 tests: WEEK 5, the API shapes, every real row, the endpoints, the sample fixtures
-    test_review.py               6 tests: WEEK 6, Fleiss' kappa, the sampling rule, the packets, the scoring
+    test_review.py              11 tests: WEEKS 6-7, Fleiss' kappa, sampling, packets, scoring, the analysis plan
     test_tenant.py              10 tests: tenant run: inputs verified, nothing hidden mentioned, tenant-view SHAP, regenerate
 results/xai/                    our results (kept apart from Joan's results/tables/)
   fidelity_week1_seed{1..5}.json, fidelity_week1_stub_cc_seed1.json        Week 1 (policy raw, v1 rings)
@@ -172,6 +172,7 @@ results/xai/                    our results (kept apart from Joan's results/tabl
   xr36_detectors.json                         WEEK 5: the three detectors side by side
   review/                                     WEEK 6: packet_R{1,2,3}.md, answers_R{1,2,3}.csv, sample_manifest.json
                                               (+ answer_key.parquet, git-ignored on purpose; review.csv in Week 7)
+                                              analysis_plan.md: WEEK 7, how the review is read, written before scoring
   tenant/                                     explanations_{20,12}_1.parquet (+ .log.json); inputs/ = Kashish's files
 ```
 
@@ -585,7 +586,7 @@ Test fidelity, mean over seeds:
 
 ---
 
-## 9. The tests (278 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4, tenant in 20.4)
+## 9. The tests (283 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4, tenant in 20.4, Week 7 in 21)
 
 **`test_contract_io.py` (73)**
 - All real files load and validate: v2 rings for 5 seeds plus the stub, **and** the v1 originals, each
@@ -1549,3 +1550,43 @@ excluded_members=(), excluded_edges=())`.
 - Her ring ids repeat the shipped ones (`full-gine_causal-1-0 …`), and bank 12 and bank 20 share them too. A tenant
   prefix on her side would avoid mix-ups in shared tables.
 - No shape on her rings; attaching the typing model in her build would give narratives a shape.
+---
+
+## 21. Week 7 (part 1) — the analysis plan, written before scoring
+
+`results/xai/review/analysis_plan.md` fixes, **before** any answer is read, how the review will be read:
+- **What is computed:** the yes-rate, the all-agree rate and Fleiss' κ per question, with κ read on the Landis &
+  Koch bands; then the reveal.
+- **How items are broken down:** by narrative feature (shape sentence stated, a self-payment among the three
+  strongest transactions, partial currency, bank names listed, an undetermined account named, narrated shape right)
+  and by true pattern type.
+- **Exactly when a result triggers a proposed fix:**
+  - a q1–q3 yes-rate below 0.5, overall or within a feature that has at least 5 items;
+  - or, for q4, at least 3 of a feature's items flagged misleading (or at least 20 % of them, with at least 2
+    flagged).
+
+  An item counts as flagged when at least 2 of the 3 reviewers flag it.
+- **What a fix may change:** wording and templates (Week 8, with Joan's sign-off). A change to the evidence itself is
+  a separate decision with Joan.
+
+The rule numbers live in `config.yaml` (`review.rules`), the plan repeats them, and a test keeps the two identical. The
+plan is committed before R2 and R3 return their sheets; R1's sheet was filled but only format-checked.
+
+`aggregate.py` now also writes all of that to `review_summary.json` (`analysis`):
+- the flagged items per question;
+- the yes-rates by feature and by true type;
+- the triggered fixes, with their items;
+- the reviewers' comments per item.
+
+**Tests (`test_review.py`, +5):**
+- the plan's rules equal the config;
+- the κ bands;
+- the item features agree with the packets;
+- no trigger fires when every answer is ideal;
+- the triggers fire by the written rules on made-up sheets.
+
+All review tests use made-up sheets; they never read a reviewer's real answers (a filled sheet is only checked for
+being valid, yes / no).
+
+**Still to come (when Joan's and Kashish's sheets are in, about 6 November):** score the review, the human-readable
+`review_summary.md`, and the fix list.
