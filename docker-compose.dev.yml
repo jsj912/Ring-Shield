@@ -1,0 +1,19 @@
+services:
+  postgres-demo:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ringshield
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${RINGSHIELD_DEMO_POSTGRES_PASSWORD:-ringshield-demo-local}
+    ports:
+      - "127.0.0.1:${RINGSHIELD_DEMO_POSTGRES_PORT:-55433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ringshield"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - ringshield-demo-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  ringshield-demo-postgres-data:
