@@ -270,9 +270,11 @@ Load a verified L4 explanation batch after loading its rings:
 python platform/jobs/load_explanations.py --explanations <explanations.parquet> --run-log <explanations.parquet.log.json> --rings-log <tenant-rings.parquet.log.json>
 ```
 
-The loader requires the adjacent L4 and tenant-rings logs, rings schema version 2,
-an explicit tenant-scoped ring run, matching model/seed/aggregator, converted-currency
-policy, and complete ring reproduction. It rejects global or stub outputs and any
+The loader requires the adjacent L4 and tenant-rings logs, the configured rings schema
+version (`l4.rings_schema_version`, currently version 1 for this repository's exact
+22-column `contract/schema.py` contract), an explicit tenant-scoped ring run, matching
+model/seed/aggregator, converted-currency policy, and complete ring reproduction. It
+rejects unknown ring column layouts, global or stub outputs, and any
 batch with non-reproduced rings. It matches each explanation to an existing tenant
 ring and checks that weighted edges and accounts are members before upserting. The
 API exposes the newest saved explanation at

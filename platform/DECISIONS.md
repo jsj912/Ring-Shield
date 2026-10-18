@@ -260,3 +260,10 @@ This file records findings and changes in the order requested for the platform h
 - Audited external process calls: Python and Docker commands check `$LASTEXITCODE` and identify their step on failure; Postgres readiness polls `pg_isready` inside the demo container with a timeout. Compose calls continue to pass the quoted compose path as a single argument, with the isolated `ringshield-demo` project and its own named volume.
 - Reruns now continue migrations from any recognized/intermediate revision by upgrading to head, and idempotent loaders, seed upserts, persistent credentials, and prior-process cleanup are retained. The API child environment removes loader and administrative credentials before launch.
 - Docker/Postgres was not run. Static parsing and database-free validation are the only checks for these Windows runtime paths.
+
+## L4 source ring schema version correction - 2026-10-18
+
+- The earlier expectation that tenant explanation provenance must declare ring schema version 2 was incorrect for this checkout. `contract/schema.py` defines the shipped 22-column `RINGS_ORDER`, which is schema version 1; the real L4 rows correctly declare version 1. `platform/config.yaml` now requires `l4.rings_schema_version: 1`.
+- The explanation loader derives the source ring version from the source parquet: exact `RINGS_ORDER` is version 1, a unique 30-column layout is version 2, and other layouts are refused. The detected source version must equal configuration and every explanation row's version. Mismatch errors report both versions; the previous tenant, hash, active model/seed, FX, reproduction, and label-path checks remain.
+- Updated the database-free handoff fixtures and the CI-only real-Postgres fixture from assumed version 2 to the exact version 1 ring shape. Added cases for v2 rows against v1 rings, mixed row versions, v1 rows against 30-column rings, and an unknown ring column set. The older pooled-format refusal remains covered.
+- Database-free suite: **120 passed**; `compileall` and `git diff --check` passed. Docker/Postgres was not run; CI remains responsible for the database-backed handoff test.

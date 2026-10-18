@@ -15,8 +15,10 @@ from sqlalchemy import create_engine, text
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PLATFORM_ROOT))
+sys.path.insert(0, str(PLATFORM_ROOT.parent))
 
 from jobs.load_explanations import load_explanations
+from contract.schema import RINGS_ORDER
 
 TENANT_ID = 210
 FX_HASH = "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6"
@@ -44,9 +46,9 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
             """), {"tenant_id": TENANT_ID, "ring_id": ring_id})
 
         rings_path = tmp_path / "rings-210.parquet"
-        pq.write_table(pa.Table.from_pylist([{
-            "ring_id": ring_id, "tenant_id": TENANT_ID,
-        }]), rings_path)
+        ring_row = {column: None for column in RINGS_ORDER}
+        ring_row.update({"ring_id": ring_id, "tenant_id": TENANT_ID})
+        pq.write_table(pa.Table.from_pylist([ring_row]), rings_path)
         rings_log_path = tmp_path / "rings-210.parquet.log.json"
         rings_log_path.write_text(json.dumps({
             "split": "test", "command": "run", "edge_subset": "edges-210.parquet",
@@ -57,7 +59,7 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
 
         provenance = {
             "aggregator_id": "full", "model_id": "gine_causal", "seed": 1,
-            "explainer_version": "0.4.0-narrative", "rings_schema_version": 2,
+            "explainer_version": "0.4.0-narrative", "rings_schema_version": 1,
             "currency_policy": "converted", "scope": "tenant", "tenant_id": TENANT_ID,
             "feature_scope": "tenant_view", "fx_rates_sha256": FX_HASH,
             "loo": {"reproduces_shipped_ring": True},
