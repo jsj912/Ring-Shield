@@ -45,6 +45,25 @@ foreach ($syntaxFile in $syntaxFiles) {
 }
 $passed = 1
 
+try {
+    Assert-TimeOriginUtc ''
+    throw 'Missing TimeOriginUtc was unexpectedly accepted.'
+} catch {
+    if ($_.Exception.Message -notmatch '-TimeOriginUtc is required.*first transaction day 00:00 UTC minus 10 seconds') { throw }
+    $passed++
+}
+
+try {
+    Assert-TimeOriginUtc '2022-08-31T23:59:50'
+    throw 'TimeOriginUtc without a UTC offset was unexpectedly accepted.'
+} catch {
+    if ($_.Exception.Message -notmatch 'ISO-8601 instant with a UTC offset or Z') { throw }
+    $passed++
+}
+
+Assert-TimeOriginUtc '2022-08-31T23:59:50Z'
+Assert-TimeOriginUtc '2022-08-31T23:59:50+00:00'
+
 $scratch = Join-Path ([System.IO.Path]::GetTempPath()) ("ringshield-demo-validation-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $scratch -Force -ErrorAction Stop | Out-Null
 try {
@@ -70,7 +89,7 @@ try {
     $valid = Assert-DemoInputs -SelectedTenants @(12, 20) -RingFolder $rings `
         -EdgeFolder $edges -ScoreFile $scores -ExplanationFolder $explanations
     if ($valid.Inputs.Count -ne 7) { throw 'Valid input set returned an unexpected file count.' }
-    & $demoScript -ValidateOnly -Tenants @(12, 20) -RingsDir $rings `
+    & $demoScript -ValidateOnly -Tenants @(12, 20) -TimeOriginUtc '2022-08-31T23:59:50Z' -RingsDir $rings `
         -EdgeIdsDir $edges -ScoredEdges $scores -ExplanationsDir $explanations | Out-Null
     $passed++
 

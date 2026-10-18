@@ -10,6 +10,7 @@
 [CmdletBinding()]
 param(
     [int[]]$Tenants = @(12, 20),
+    [string]$TimeOriginUtc,
     [string]$RingsDir,
     [string]$EdgeIdsDir,
     [string]$ScoredEdges = 'contract/out/scored_edges_gine_causal_1.parquet',
@@ -34,6 +35,25 @@ function Resolve-DemoPath {
         return [System.IO.Path]::GetFullPath($Path)
     }
     return [System.IO.Path]::GetFullPath((Join-Path $script:RepoRoot $Path))
+}
+
+function Assert-TimeOriginUtc {
+    param([AllowNull()][string]$Value)
+    $definition = 'the UTC instant of loader timestamp 0: first transaction day 00:00 UTC minus 10 seconds (for example 2022-08-31T23:59:50Z).'
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        throw "-TimeOriginUtc is required and must be an ISO-8601 instant with a UTC offset or Z. It means $definition"
+    }
+    $isoInstant = '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$'
+    $parsedOrigin = [DateTimeOffset]::MinValue
+    $validDate = [DateTimeOffset]::TryParse(
+        $Value,
+        [Globalization.CultureInfo]::InvariantCulture,
+        [Globalization.DateTimeStyles]::None,
+        [ref]$parsedOrigin
+    )
+    if ($Value -notmatch $isoInstant -or -not $validDate) {
+        throw "Invalid -TimeOriginUtc '$Value'. Supply an ISO-8601 instant with a UTC offset or Z. It means $definition"
+    }
 }
 
 function Get-PlatformConfigPath {
@@ -465,6 +485,9 @@ if ($Down) {
     return
 }
 
+try { Assert-TimeOriginUtc $TimeOriginUtc }
+catch { Write-Error $_; exit 1 }
+
 Push-Location -LiteralPath $script:RepoRoot -ErrorAction Stop
 $script:LocationPushed = $true
 try {
@@ -608,7 +631,7 @@ try {
     $env:RINGSHIELD_DATABASE_URL = $urls.App
     $env:RINGSHIELD_AUTH_DATABASE_URL = $urls.Auth
     $env:RINGSHIELD_JWT_SECRET = $credentials.jwt_secret
-    $env:RINGSHIELD_TIME_ORIGIN_UTC = if ($env:RINGSHIELD_TIME_ORIGIN_UTC) { $env:RINGSHIELD_TIME_ORIGIN_UTC } else { '2020-01-01T00:00:00+00:00' }
+    $env:RINGSHIELD_TIME_ORIGIN_UTC = $TimeOriginUtc
     $env:RINGSHIELD_PLATFORM_CONFIG = 'platform/config.yaml'
     $env:PYTHON_DOTENV_DISABLED = '1'
     $env:RINGSHIELD_ARTIFACT_DIR = $modelDir
@@ -663,6 +686,7 @@ try {
     if (-not $dashboardReady) { throw "Step 'wait for dashboard readiness' timed out; inspect $dashboardStderr." }
 
     Write-Host 'Demo services are ready.'
+    Write-Host "Time origin: $TimeOriginUtc"
     Write-Host 'API:       http://127.0.0.1:8000'
     Write-Host 'Dashboard: http://127.0.0.1:8501'
     Write-Host "Logins are in $script:CredentialsPath (passwords are not printed)."
