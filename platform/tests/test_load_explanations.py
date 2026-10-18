@@ -13,6 +13,7 @@ PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
 sys.path.insert(0, str(PLATFORM_ROOT.parent))
 
+from jobs.check_explanations import main as check_explanations_main
 from jobs.load_explanations import ExplanationLoadError, read_handoff
 from contract.schema import RINGS_ORDER
 
@@ -98,6 +99,84 @@ def test_read_handoff_converts_json_and_nonfinite_values(tmp_path):
     assert rows[0]["fx_rates_sha256"] == FX_HASH
     assert rows[0]["provenance"]["feature_scope"] == "tenant_view"
     assert rows[0]["provenance"]["rings_schema_version"] == 1
+
+
+def test_read_only_explanation_check_reports_row_count(tmp_path, capsys):
+    parquet_path, log_path, rings_log_path = _files(tmp_path)
+
+    assert check_explanations_main([
+        "--explanations", str(parquet_path),
+        "--run-log", str(log_path),
+        "--rings-log", str(rings_log_path),
+    ]) == 0
+    assert capsys.readouterr().out.startswith("OK 1 rows:")
+
+
+def test_read_only_explanation_check_reports_refusal_without_stopping_other_files(tmp_path, capsys):
+    good_dir = tmp_path / "good"
+    good_dir.mkdir()
+    good = _files(good_dir)
+    bad_dir = tmp_path / "bad"
+    bad_dir.mkdir()
+    bad = _files(bad_dir, log_updates={"scope": "pooled"})
+
+    assert check_explanations_main([
+        "--explanations", str(good[0]), "--explanations", str(bad[0]),
+        "--run-log", str(good[1]), "--run-log", str(bad[1]),
+        "--rings-log", str(good[2]), "--rings-log", str(bad[2]),
+    ]) == 1
+    output = capsys.readouterr().out
+    assert "OK 1 rows:" in output
+    assert "REFUSED" in output and "scope=tenant" in output
+
+
+def test_unknown_topology_accepts_nan_probability_and_uses_ring_metadata(tmp_path):
+    parquet_path, log_path, rings_log_path = _files(
+        tmp_path, row_updates={"topology_type": "UNKNOWN", "topology_prob": float("nan")},
+    )
+
+    rows, _ = read_handoff(parquet_path, log_path, rings_log_path)
+
+    assert rows[0]["_source_topology_type"] is None
+
+
+def test_unknown_topology_accepts_null_probability(tmp_path):
+    parquet_path, log_path, rings_log_path = _files(
+        tmp_path, row_updates={"topology_type": "UNKNOWN", "topology_prob": None},
+    )
+
+    rows, _ = read_handoff(parquet_path, log_path, rings_log_path)
+
+    assert rows[0]["_source_topology_type"] is None
+
+
+def test_known_topology_rejects_nan_probability(tmp_path):
+    parquet_path, log_path, rings_log_path = _files(
+        tmp_path, row_updates={"topology_type": "FAN-OUT", "topology_prob": float("nan")},
+    )
+
+    with pytest.raises(ExplanationLoadError, match="may be NaN only when topology_type is UNKNOWN"):
+        read_handoff(parquet_path, log_path, rings_log_path)
+
+
+@pytest.mark.parametrize("probability", [float("inf"), float("-inf")])
+def test_topology_rejects_infinity(tmp_path, probability):
+    parquet_path, log_path, rings_log_path = _files(
+        tmp_path, row_updates={"topology_type": "UNKNOWN", "topology_prob": probability},
+    )
+
+    with pytest.raises(ExplanationLoadError, match="topology_prob must not be infinite"):
+        read_handoff(parquet_path, log_path, rings_log_path)
+
+
+@pytest.mark.parametrize("probability", [-0.01, 1.01])
+def test_known_topology_rejects_probability_outside_unit_interval(tmp_path, probability):
+    parquet_path, log_path, rings_log_path = _files(
+        tmp_path, row_updates={"topology_type": "FAN-OUT", "topology_prob": probability},
+    )
+
+    with pytest.raises(ExplanationLoadError, match="topology_prob must be finite and between 0 and 1"):
+        read_handoff(parquet_path, log_path, rings_log_path)
 
 
 def test_version_2_explanation_is_refused_for_version_1_rings(tmp_path):

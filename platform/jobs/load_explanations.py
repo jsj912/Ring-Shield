@@ -288,12 +288,32 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
             evidence = _json_object(source["evidence_summary"], field="evidence_summary", ring_id=ring_id)
             try:
                 latency_ms = int(source["latency_ms"])
-                topology_prob = float(source["topology_prob"])
             except (TypeError, ValueError, OverflowError) as exc:
-                raise ExplanationLoadError(f"{ring_id}: invalid latency or topology probability") from exc
+                raise ExplanationLoadError(f"{ring_id}: invalid latency") from exc
             if latency_ms < 0:
                 raise ExplanationLoadError(f"{ring_id}: latency_ms cannot be negative")
-            if not math.isfinite(topology_prob) or not 0 <= topology_prob <= 1:
+            topology_type = str(source["topology_type"] or "UNKNOWN").strip().upper()
+            raw_topology_prob = source["topology_prob"]
+            if raw_topology_prob is None:
+                topology_prob = None
+            else:
+                try:
+                    topology_prob = float(raw_topology_prob)
+                except (TypeError, ValueError, OverflowError) as exc:
+                    raise ExplanationLoadError(f"{ring_id}: invalid topology_prob") from exc
+            if topology_prob is not None and math.isinf(topology_prob):
+                raise ExplanationLoadError(f"{ring_id}: topology_prob must not be infinite")
+            if topology_prob is not None and math.isnan(topology_prob):
+                if topology_type != "UNKNOWN":
+                    raise ExplanationLoadError(
+                        f"{ring_id}: topology_prob may be NaN only when topology_type is UNKNOWN"
+                    )
+                topology_prob = None
+            elif topology_prob is None and topology_type != "UNKNOWN":
+                raise ExplanationLoadError(
+                    f"{ring_id}: topology_prob may be null only when topology_type is UNKNOWN"
+                )
+            elif topology_prob is not None and not 0 <= topology_prob <= 1:
                 raise ExplanationLoadError(f"{ring_id}: topology_prob must be finite and between 0 and 1")
             rows.append({
                 "tenant_id": tenant_id,
@@ -307,7 +327,7 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
                 "latency_ms": latency_ms,
                 "provenance": row_provenance,
                 "fx_rates_sha256": expected_fx_hash,
-                "_source_topology_type": str(source["topology_type"] or "UNKNOWN"),
+                "_source_topology_type": None if topology_type == "UNKNOWN" else topology_type,
             })
     if shared_provenance is None:
         raise ExplanationLoadError("explanation parquet is empty")
@@ -342,7 +362,8 @@ def load_explanations(parquet_path: Path, log_path: Path, rings_log_path: Path) 
                 provenance["aggregator_id"], provenance["model_id"], provenance["seed"],
             ):
                 raise ExplanationLoadError(f"{row['ring_id']}: row does not match loaded ring metadata")
-            if row["_source_topology_type"] != ring.topology_type:
+            if (row["_source_topology_type"] is not None
+                    and row["_source_topology_type"] != ring.topology_type):
                 raise ExplanationLoadError(f"{row['ring_id']}: explanation topology does not match loaded ring")
             member_accounts = set(map(int, ring.member_accounts or []))
             member_edges = set(map(int, ring.member_edges or []))
