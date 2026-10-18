@@ -487,10 +487,18 @@ try {
     }
 
     $docker = Get-Command docker -ErrorAction Stop
-    & $docker.Source info *> $null
-    if ($LASTEXITCODE -ne 0) { throw "Step 'check Docker Desktop' failed with exit code $LASTEXITCODE. Start Docker Desktop, then retry." }
     $pythonCommand = Get-Command python -ErrorAction Stop
     $python = $pythonCommand.Source
+    $explanationCheckArguments = @('platform/jobs/check_explanations.py')
+    foreach ($tenantId in $Tenants) {
+        $explanationFile = Join-Path $validated.ExplanationsDir "explanations_${tenantId}_1.parquet"
+        $ringsLog = Join-Path $validated.RingsDir "tenant_${tenantId}_rings.parquet.log.json"
+        $explanationCheckArguments += @('--explanations', $explanationFile,
+            '--run-log', "$explanationFile.log.json", '--rings-log', $ringsLog)
+    }
+    Invoke-Checked $python $explanationCheckArguments 'validate tenant explanation handoffs (read-only)'
+    & $docker.Source info *> $null
+    if ($LASTEXITCODE -ne 0) { throw "Step 'check Docker Desktop' failed with exit code $LASTEXITCODE. Start Docker Desktop, then retry." }
     if ($PostgresTimeoutSeconds -lt 10) { throw '-PostgresTimeoutSeconds must be at least 10.' }
     $portText = if ($env:RINGSHIELD_DEMO_POSTGRES_PORT) { $env:RINGSHIELD_DEMO_POSTGRES_PORT } else { '55433' }
     $port = 0

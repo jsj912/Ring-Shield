@@ -267,3 +267,15 @@ This file records findings and changes in the order requested for the platform h
 - The explanation loader derives the source ring version from the source parquet: exact `RINGS_ORDER` is version 1, a unique 30-column layout is version 2, and other layouts are refused. The detected source version must equal configuration and every explanation row's version. Mismatch errors report both versions; the previous tenant, hash, active model/seed, FX, reproduction, and label-path checks remain.
 - Updated the database-free handoff fixtures and the CI-only real-Postgres fixture from assumed version 2 to the exact version 1 ring shape. Added cases for v2 rows against v1 rings, mixed row versions, v1 rows against 30-column rings, and an unknown ring column set. The older pooled-format refusal remains covered.
 - Database-free suite: **120 passed**; `compileall` and `git diff --check` passed. Docker/Postgres was not run; CI remains responsible for the database-backed handoff test.
+
+## Tenant L4 UNKNOWN topology values and read-only preflight - 2026-10-18
+
+- The received tenant L4 files have no typing head: their source rows use `topology_type=UNKNOWN` and `topology_prob=NaN`. The loader now accepts null/NaN probability only for `UNKNOWN`; infinities are always refused, and every named topology still requires a finite probability in `[0, 1]`. For `UNKNOWN`, it does not compare or persist that explanation topology value; the loaded ring's topology remains authoritative. Existing optional nested numeric handling continues to convert NaN values such as optional account hold time to JSON null.
+- Added database-free tests for UNKNOWN with NaN and null, named topology with NaN, positive/negative infinity, and out-of-range probabilities. Existing pooled and other handoff refusal cases remain in place.
+- Explanation handoff tests: **32 passed**. Docker/Postgres was not run.
+
+## Read-only L4 handoff preflight - 2026-10-18
+
+- Added `platform/jobs/check_explanations.py`, which invokes the loader's `read_handoff` validator for one or more explanation/run-log/rings-log triples and prints `OK <n> rows` or `REFUSED <reason>`. It performs no database access. `scripts/run-demo.ps1` runs this check after file preflight and before checking/starting Docker, so invalid real handoffs fail before the demo database is touched.
+- Read-only check run against the provided local files: bank 12 `OK 5 rows`; bank 20 `OK 5 rows`. This validates the handoff files only; the demo load, Docker and PostgreSQL were not run.
+- Added database-free CLI tests for success and refusal output. Full database-free suite: **129 passed**; PowerShell path validation: **6 passed**; compileall passed. No relaxation was made to tenant scope/identity, source-ring SHA-256/schema, active model/seed, FX pin, reproduction, pooled-log, or label-path checks.
