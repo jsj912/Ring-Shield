@@ -21,7 +21,6 @@ param(
     [int]$PostgresTimeoutSeconds = 120
 )
 
-$ErrorActionPreference = 'Stop'
 $script:RepoRoot = Split-Path -Parent $PSScriptRoot
 $script:ComposeFile = Join-Path $script:RepoRoot 'docker-compose.dev.yml'
 $script:ProjectName = 'ringshield-demo'
@@ -40,8 +39,8 @@ function Resolve-DemoPath {
 function Get-PlatformConfigPath {
     param([string]$Key)
     $configPath = Join-Path $script:RepoRoot 'platform/config.yaml'
-    $match = Select-String -LiteralPath $configPath -Pattern ("^\s*" + [regex]::Escape($Key) + ":\s*(.+?)\s*$") |
-        Select-Object -First 1
+    $match = Select-String -LiteralPath $configPath -Pattern ("^\s*" + [regex]::Escape($Key) + ":\s*(.+?)\s*$") -ErrorAction Stop |
+        Select-Object -First 1 -ErrorAction Stop
     if (-not $match) { throw "platform/config.yaml is missing '$Key'." }
     $value = $match.Matches[0].Groups[1].Value.Trim().Trim([char]'"').Trim([char]"'")
     if ([string]::IsNullOrWhiteSpace($value)) { throw "platform/config.yaml has an empty '$Key'." }
@@ -91,7 +90,7 @@ function Assert-SafeDemoPath {
 function Read-DemoJson {
     param([string]$Path, [string]$Description)
     try {
-        return (Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop)
+        return (Get-Content -LiteralPath $Path -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop)
     } catch {
         throw "Could not read $Description JSON: $Path ($($_.Exception.Message))"
     }
@@ -100,7 +99,7 @@ function Read-DemoJson {
 function Get-ParquetRowCount {
     param([string]$Python, [string]$Path)
     $result = & $Python -c 'import sys, pyarrow.parquet as pq; print(pq.ParquetFile(sys.argv[1]).metadata.num_rows)' $Path
-    if ($LASTEXITCODE -ne 0) { throw "Could not read parquet row count: $Path" }
+    if ($LASTEXITCODE -ne 0) { throw "Step 'read parquet row count' failed for input: $Path" }
     $parsed = 0
     if (-not [int]::TryParse(($result | Out-String).Trim(), [ref]$parsed)) {
         throw "Could not parse parquet row count for: $Path"
@@ -140,7 +139,7 @@ function Assert-DemoInputs {
         if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
             throw "Input directory does not exist: $directory"
         }
-        Get-ChildItem -LiteralPath $directory -File -Recurse | ForEach-Object {
+        Get-ChildItem -LiteralPath $directory -File -Recurse -ErrorAction Stop | ForEach-Object {
             Assert-SafeDemoPath $_.FullName
         }
     }
@@ -161,8 +160,8 @@ function Assert-DemoInputs {
         throw "Scored-edges run log must declare split=test: $scoreLogPath"
     }
 
-    $inputs = [System.Collections.Generic.List[object]]::new()
-    $inputs.Add([pscustomobject]@{ Kind = 'scored edges'; Path = $scoresPath; Log = $scoreLogPath })
+    $inputFiles = [System.Collections.Generic.List[object]]::new()
+    $inputFiles.Add([pscustomobject]@{ Kind = 'scored edges'; Path = $scoresPath; Log = $scoreLogPath })
     foreach ($tenantId in $SelectedTenants) {
         $ring = Join-Path $ringsPath "tenant_${tenantId}_rings.parquet"
         $edgeIds = Join-Path $edgePath "tenant_${tenantId}_edge_ids.parquet"
@@ -186,32 +185,32 @@ function Assert-DemoInputs {
                 throw "Refusing label/ground-truth path in run log: $forbiddenValue"
             }
         }
-        $inputs.Add([pscustomobject]@{ Kind = "tenant $tenantId rings"; Path = $ring; Log = $ringLog })
-        $inputs.Add([pscustomobject]@{ Kind = "tenant $tenantId edge IDs"; Path = $edgeIds; Log = $null })
-        $inputs.Add([pscustomobject]@{ Kind = "tenant $tenantId explanations"; Path = $explanation; Log = $explanationLog })
+        $inputFiles.Add([pscustomobject]@{ Kind = "tenant $tenantId rings"; Path = $ring; Log = $ringLog })
+        $inputFiles.Add([pscustomobject]@{ Kind = "tenant $tenantId edge IDs"; Path = $edgeIds; Log = $null })
+        $inputFiles.Add([pscustomobject]@{ Kind = "tenant $tenantId explanations"; Path = $explanation; Log = $explanationLog })
     }
     return [pscustomobject]@{ Tenants = $SelectedTenants; RingsDir = $ringsPath;
         EdgeIdsDir = $edgePath; ScoredEdges = $scoresPath; ExplanationsDir = $explanationsPath;
-        Inputs = @($inputs) }
+        Inputs = @($inputFiles) }
 }
 
 function Invoke-Checked {
-    param([string]$File, [string[]]$Arguments)
+    param([string]$File, [string[]]$Arguments, [string]$StepName = $File)
     & $File @Arguments
     if ($LASTEXITCODE -ne 0) {
-        throw "Command failed ($LASTEXITCODE): $File $($Arguments -join ' ')"
+        throw "Step '$StepName' failed with exit code $LASTEXITCODE. Command: $File $($Arguments -join ' ')"
     }
 }
 
 function Invoke-DemoCompose {
-    param([string[]]$Arguments)
-    Invoke-Checked 'docker' (@('compose', '-p', $script:ProjectName, '-f', $script:ComposeFile) + $Arguments)
+    param([string[]]$ComposeArgs, [string]$StepName = 'Docker Compose')
+    Invoke-Checked 'docker' (@('compose', '-p', $script:ProjectName, '-f', $script:ComposeFile) + $ComposeArgs) $StepName
 }
 
 function Stop-DemoProcesses {
     $pidFile = Join-Path $script:RuntimeDir 'processes.json'
     if (-not (Test-Path -LiteralPath $pidFile)) { return }
-    try { $processes = Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json }
+    try { $processes = Get-Content -LiteralPath $pidFile -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
     catch { Write-Warning 'Could not read demo process list; leaving local processes untouched.'; return }
     foreach ($entry in @($processes)) {
         $process = Get-Process -Id ([int]$entry.Id) -ErrorAction SilentlyContinue
@@ -230,9 +229,9 @@ function Stop-DemoProcesses {
 
 function Invoke-DemoDown {
     Stop-DemoProcesses
-    $args = @('down', '--remove-orphans')
-    if ($DropVolume) { $args += '--volumes' }
-    Invoke-DemoCompose $args
+    $composeArgs = @('down', '--remove-orphans')
+    if ($DropVolume) { $composeArgs += '--volumes' }
+    Invoke-DemoCompose -ComposeArgs $composeArgs -StepName 'stop demo containers'
     if ($DropVolume) {
         Remove-Item -LiteralPath $script:CredentialsPath -Force -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath $script:RuntimeDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -251,8 +250,9 @@ function New-DemoPassword {
 function Get-DemoCredentials {
     $values = [ordered]@{}
     if (Test-Path -LiteralPath $script:CredentialsPath) {
-        foreach ($line in Get-Content -LiteralPath $script:CredentialsPath -Encoding UTF8) {
-            if ($line -match '^([^=]+)=(.*)$') { $values[$Matches[1]] = $Matches[2] }
+        foreach ($line in Get-Content -LiteralPath $script:CredentialsPath -Encoding UTF8 -ErrorAction Stop) {
+            $credentialMatch = [regex]::Match($line, '^([^=]+)=(.*)$')
+            if ($credentialMatch.Success) { $values[$credentialMatch.Groups[1].Value] = $credentialMatch.Groups[2].Value }
         }
     }
     $added = [System.Collections.Generic.List[string]]::new()
@@ -279,11 +279,11 @@ function Get-DemoCredentials {
         }
     }
     if ($added.Count -gt 0) {
-        New-Item -ItemType Directory -Path (Split-Path -Parent $script:CredentialsPath) -Force | Out-Null
+        New-Item -ItemType Directory -Path (Split-Path -Parent $script:CredentialsPath) -Force -ErrorAction Stop | Out-Null
         if (Test-Path -LiteralPath $script:CredentialsPath) {
-            Add-Content -LiteralPath $script:CredentialsPath -Value $added -Encoding UTF8
+            Add-Content -LiteralPath $script:CredentialsPath -Value $added -Encoding UTF8 -ErrorAction Stop
         } else {
-            Set-Content -LiteralPath $script:CredentialsPath -Value $added -Encoding UTF8
+            Set-Content -LiteralPath $script:CredentialsPath -Value $added -Encoding UTF8 -ErrorAction Stop
         }
     }
     return $values
@@ -310,26 +310,26 @@ finally:
     $output = $code | & $Python -
     $pythonExitCode = $LASTEXITCODE
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
-    if ($pythonExitCode -ne 0) { throw 'Could not inspect the demo migration revision.' }
+    if ($pythonExitCode -ne 0) { throw "Step 'inspect demo migration revision' failed with exit code $pythonExitCode." }
     return ($output | Out-String).Trim()
 }
 
 function Invoke-PsqlFile {
     param([string]$FilePath)
-    $sql = Get-Content -LiteralPath $FilePath -Raw -Encoding UTF8
+    $sql = Get-Content -LiteralPath $FilePath -Raw -Encoding UTF8 -ErrorAction Stop
     $sql | & docker compose -p $script:ProjectName -f $script:ComposeFile exec -T postgres-demo psql -U postgres -d ringshield -v ON_ERROR_STOP=1
-    if ($LASTEXITCODE -ne 0) { throw "Postgres role setup failed while applying $FilePath" }
+    if ($LASTEXITCODE -ne 0) { throw "Step 'apply Postgres role setup' failed while applying $FilePath (exit code $LASTEXITCODE)." }
 }
 
 function Get-DemoDatabaseUrls {
     param([int]$Port, [string]$PostgresPassword)
     $escapedPassword = [System.Uri]::EscapeDataString($PostgresPassword)
-    $host = "127.0.0.1:$Port"
+    $dbHostPort = "127.0.0.1:$Port"
     return @{
-        Admin = "postgresql+psycopg://postgres:${escapedPassword}@${host}/ringshield"
-        App = "postgresql+psycopg://ringshield_test_app:test-app-only@${host}/ringshield?options=-c%20role%3Dringshield_api"
-        Auth = "postgresql+psycopg://ringshield_test_auth:test-auth-only@${host}/ringshield?options=-c%20role%3Dringshield_auth"
-        Loader = "postgresql+psycopg://ringshield_test_loader:test-loader-only@${host}/ringshield?options=-c%20role%3Dringshield_loader"
+        Admin = "postgresql+psycopg://postgres:${escapedPassword}@${dbHostPort}/ringshield"
+        App = "postgresql+psycopg://ringshield_test_app:test-app-only@${dbHostPort}/ringshield?options=-c%20role%3Dringshield_api"
+        Auth = "postgresql+psycopg://ringshield_test_auth:test-auth-only@${dbHostPort}/ringshield?options=-c%20role%3Dringshield_auth"
+        Loader = "postgresql+psycopg://ringshield_test_loader:test-loader-only@${dbHostPort}/ringshield?options=-c%20role%3Dringshield_loader"
     }
 }
 
@@ -373,7 +373,7 @@ finally:
     $pythonExitCode = $LASTEXITCODE
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_DEMO_USERS_JSON -ErrorAction SilentlyContinue
-    if ($pythonExitCode -ne 0) { throw 'Could not provision demo login users.' }
+    if ($pythonExitCode -ne 0) { throw "Step 'provision demo login users' failed with exit code $pythonExitCode." }
 }
 
 function Assert-AppRoleIsRestricted {
@@ -395,7 +395,7 @@ finally:
     $code | & $Python -
     $pythonExitCode = $LASTEXITCODE
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
-    if ($pythonExitCode -ne 0) { throw 'Restricted app-role verification failed.' }
+    if ($pythonExitCode -ne 0) { throw "Step 'verify restricted app role' failed with exit code $pythonExitCode." }
 }
 
 function Write-DemoCounts {
@@ -444,7 +444,7 @@ finally:
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_DEMO_TENANTS -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_DEMO_EXPECTED_ROWS -ErrorAction SilentlyContinue
-    if ($pythonExitCode -ne 0) { throw 'Could not query demo row counts.' }
+    if ($pythonExitCode -ne 0) { throw "Step 'query demo row counts' failed with exit code $pythonExitCode." }
     foreach ($tenantId in $SelectedTenants) {
         $expected = $ExpectedEdges[[string]$tenantId]
         if ($null -ne $expected -and $InputEdgeCounts[$tenantId] -ne $expected) {
@@ -465,14 +465,14 @@ if ($Down) {
     return
 }
 
-Push-Location $script:RepoRoot
+Push-Location -LiteralPath $script:RepoRoot -ErrorAction Stop
 $script:LocationPushed = $true
 try {
     $validated = Assert-DemoInputs -SelectedTenants $Tenants -RingFolder $RingsDir `
         -EdgeFolder $EdgeIdsDir -ScoreFile $ScoredEdges -ExplanationFolder $ExplanationsDir
-    foreach ($input in $validated.Inputs) { Write-Host ("Preflight found {0}: {1}" -f $input.Kind, $input.Path) }
+    foreach ($inputFile in $validated.Inputs) { Write-Host ("Preflight found {0}: {1}" -f $inputFile.Kind, $inputFile.Path) }
     if ($ValidateOnly) {
-        foreach ($input in $validated.Inputs) { Write-Host ("Found {0}: {1}" -f $input.Kind, $input.Path) }
+        foreach ($inputFile in $validated.Inputs) { Write-Host ("Found {0}: {1}" -f $inputFile.Kind, $inputFile.Path) }
         Write-Host 'Demo arguments and handoff paths are valid; Docker was not started.'
         return
     }
@@ -488,7 +488,7 @@ try {
 
     $docker = Get-Command docker -ErrorAction Stop
     & $docker.Source info *> $null
-    if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop is not running. Start Docker Desktop, then retry.' }
+    if ($LASTEXITCODE -ne 0) { throw "Step 'check Docker Desktop' failed with exit code $LASTEXITCODE. Start Docker Desktop, then retry." }
     $pythonCommand = Get-Command python -ErrorAction Stop
     $python = $pythonCommand.Source
     if ($PostgresTimeoutSeconds -lt 10) { throw '-PostgresTimeoutSeconds must be at least 10.' }
@@ -503,9 +503,9 @@ try {
     $urls = Get-DemoDatabaseUrls -Port $port -PostgresPassword $postgresPassword
 
     Write-Host 'Installing pinned platform and test dependencies...'
-    Invoke-Checked $python @('-m', 'pip', 'install', '-r', 'requirements-dev.txt')
+    Invoke-Checked $python @('-m', 'pip', 'install', '-r', 'requirements-dev.txt') 'install pinned dependencies'
     Write-Host "Starting isolated demo Postgres on 127.0.0.1:$port..."
-    Invoke-DemoCompose @('up', '-d', 'postgres-demo')
+    Invoke-DemoCompose -ComposeArgs @('up', '-d', 'postgres-demo') -StepName 'start demo Postgres'
     $deadline = [DateTime]::UtcNow.AddSeconds($PostgresTimeoutSeconds)
     $ready = $false
     while ([DateTime]::UtcNow -lt $deadline) {
@@ -513,21 +513,21 @@ try {
         if ($LASTEXITCODE -eq 0) { $ready = $true; break }
         Start-Sleep -Seconds 2
     }
-    if (-not $ready) { throw "Demo Postgres did not become ready within $PostgresTimeoutSeconds seconds." }
+    if (-not $ready) {
+        throw "Step 'wait for Postgres readiness' timed out after $PostgresTimeoutSeconds seconds (pg_isready exit code $LASTEXITCODE)."
+    }
 
     $env:RINGSHIELD_MIGRATION_DATABASE_URL = $urls.Admin
     $currentRevision = Get-DemoCurrentRevision -Python $python -AdminUrl $urls.Admin
     if ($currentRevision -eq 'base' -or $currentRevision -eq '0001_platform_schema') {
-        Invoke-Checked $python @('-m', 'alembic', '-c', 'platform/alembic.ini', 'upgrade', '0002_role_ownership_force_rls')
+        Invoke-Checked $python @('-m', 'alembic', '-c', 'platform/alembic.ini', 'upgrade', '0002_role_ownership_force_rls') 'migrate schema through role ownership revision'
         Invoke-PsqlFile (Join-Path $script:RepoRoot 'platform/tests/isolation/provision_migration_role.sql')
     } elseif ($currentRevision -eq '0002_role_ownership_force_rls') {
         Invoke-PsqlFile (Join-Path $script:RepoRoot 'platform/tests/isolation/provision_migration_role.sql')
-    } elseif ($currentRevision -ne 'head') {
-        throw "Demo database is at unexpected migration revision '$currentRevision'; reset it with -Down -DropVolume."
     }
     $env:RINGSHIELD_MIGRATION_DATABASE_URL = "postgresql+psycopg://ringshield_test_migrator:test-migrator-only@127.0.0.1:${port}/ringshield?options=-c%20role%3Dringshield_owner"
-    Invoke-Checked $python @('-m', 'alembic', '-c', 'platform/alembic.ini', 'upgrade', 'head')
-    Invoke-Checked $python @('-m', 'alembic', '-c', 'platform/alembic.ini', 'check')
+    Invoke-Checked $python @('-m', 'alembic', '-c', 'platform/alembic.ini', 'upgrade', 'head') 'upgrade schema to head'
+    Invoke-Checked $python @('-m', 'alembic', '-c', 'platform/alembic.ini', 'check') 'check migrated schema'
     Invoke-PsqlFile (Join-Path $script:RepoRoot 'platform/db/roles.sql')
     Invoke-PsqlFile (Join-Path $script:RepoRoot 'platform/tests/isolation/provision_test_roles.sql')
     Assert-AppRoleIsRestricted -Python $python -AdminUrl $urls.Admin
@@ -537,7 +537,7 @@ try {
     $env:RINGSHIELD_PLATFORM_CONFIG = 'platform/config.yaml'
     $seedArguments = @('platform/jobs/seed_tenants.py', '--account-map', $accountMap)
     foreach ($tenantId in $Tenants) { $seedArguments += @('--loaded-bank', [string]$tenantId) }
-    Invoke-Checked $python $seedArguments
+    Invoke-Checked $python $seedArguments 'seed tenants and counterparty registry'
     Write-DemoUsers -Python $python -AdminUrl $urls.Admin -Credentials $credentials -SelectedTenants $Tenants
 
     $env:RINGSHIELD_LOADER_DATABASE_URL = $urls.Loader
@@ -556,7 +556,7 @@ try {
     foreach ($tenantId in $Tenants) {
         $ringFile = Join-Path $validated.RingsDir "tenant_${tenantId}_rings.parquet"
         Invoke-Checked $python @('platform/jobs/load_contract.py', '--scored-edges', $validated.ScoredEdges,
-            '--rings', $ringFile, '--scope', 'tenant', '--tenant-id', [string]$tenantId)
+            '--rings', $ringFile, '--scope', 'tenant', '--tenant-id', [string]$tenantId) "load tenant $tenantId transactions, scores, and rings"
     }
     $explanationCounts = @{}
     foreach ($tenantId in $Tenants) {
@@ -564,7 +564,7 @@ try {
         $ringsLog = Join-Path $validated.RingsDir "tenant_${tenantId}_rings.parquet.log.json"
         Write-Host "Loading verified explanations for tenant $tenantId..."
         Invoke-Checked $python @('platform/jobs/load_explanations.py', '--explanations', $explanationFile,
-            '--run-log', "$explanationFile.log.json", '--rings-log', $ringsLog)
+            '--run-log', "$explanationFile.log.json", '--rings-log', $ringsLog) "load tenant $tenantId explanations"
         $explanationCounts[$tenantId] = Get-ParquetRowCount -Python $python -Path $explanationFile
         if ($explanationCounts[$tenantId] -ne $ringCounts[$tenantId]) {
             throw "Tenant $tenantId has $($explanationCounts[$tenantId]) explanation rows for $($ringCounts[$tenantId]) rings."
@@ -584,10 +584,10 @@ try {
     }
 
     Stop-DemoProcesses
-    New-Item -ItemType Directory -Path $script:RuntimeDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $script:RuntimeDir -Force -ErrorAction Stop | Out-Null
     $jwtSecret = if ($credentials.Contains('jwt_secret')) { $credentials.jwt_secret } else { New-DemoPassword }
     if (-not $credentials.Contains('jwt_secret')) {
-        Add-Content -LiteralPath $script:CredentialsPath -Value "jwt_secret=$jwtSecret" -Encoding UTF8
+        Add-Content -LiteralPath $script:CredentialsPath -Value "jwt_secret=$jwtSecret" -Encoding UTF8 -ErrorAction Stop
         $credentials['jwt_secret'] = $jwtSecret
     }
     foreach ($name in @('RINGSHIELD_LOADER_DATABASE_URL', 'RINGSHIELD_DATABASE_ADMIN_URL',
@@ -608,19 +608,24 @@ try {
     $apiStderr = Join-Path $script:RuntimeDir 'api.err.log'
     $apiProcess = Start-Process -FilePath $python -ArgumentList @('-m', 'uvicorn', 'api.main:app',
         '--app-dir', 'platform', '--host', '127.0.0.1', '--port', '8000') -WorkingDirectory $script:RepoRoot `
-        -WindowStyle Hidden -PassThru -RedirectStandardOutput $apiStdout -RedirectStandardError $apiStderr
+        -WindowStyle Hidden -PassThru -RedirectStandardOutput $apiStdout -RedirectStandardError $apiStderr `
+        -ErrorAction Stop
     $processList = [System.Collections.Generic.List[object]]::new()
     $processList.Add([pscustomobject]@{ Id = $apiProcess.Id; Name = $apiProcess.ProcessName;
         StartTicks = $apiProcess.StartTime.ToUniversalTime().Ticks })
-    $processList | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:RuntimeDir 'processes.json') -Encoding UTF8
+    $processList | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:RuntimeDir 'processes.json') -Encoding UTF8 -ErrorAction Stop
     $apiReady = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
+        $apiProcess.Refresh()
+        if ($apiProcess.HasExited) {
+            throw "Step 'start API' failed with exit code $($apiProcess.ExitCode); inspect $apiStderr."
+        }
         try {
             $response = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2 -UseBasicParsing
             if ($response.StatusCode -eq 200) { $apiReady = $true; break }
         } catch { Start-Sleep -Seconds 1 }
     }
-    if (-not $apiReady) { throw "API did not become healthy; inspect $apiStderr." }
+    if (-not $apiReady) { throw "Step 'wait for API health' timed out; inspect $apiStderr." }
 
     $env:RINGSHIELD_API_URL = 'http://127.0.0.1:8000'
     Remove-Item Env:RINGSHIELD_DATABASE_URL -ErrorAction SilentlyContinue
@@ -632,18 +637,22 @@ try {
     $dashboardProcess = Start-Process -FilePath $python -ArgumentList @('-m', 'streamlit', 'run',
         'platform/dashboard/app.py', '--server.address', '127.0.0.1', '--server.port', '8501') `
         -WorkingDirectory $script:RepoRoot -WindowStyle Hidden -PassThru `
-        -RedirectStandardOutput $dashboardStdout -RedirectStandardError $dashboardStderr
+        -RedirectStandardOutput $dashboardStdout -RedirectStandardError $dashboardStderr -ErrorAction Stop
     $processList.Add([pscustomobject]@{ Id = $dashboardProcess.Id; Name = $dashboardProcess.ProcessName;
         StartTicks = $dashboardProcess.StartTime.ToUniversalTime().Ticks })
-    $processList | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:RuntimeDir 'processes.json') -Encoding UTF8
+    $processList | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:RuntimeDir 'processes.json') -Encoding UTF8 -ErrorAction Stop
     $dashboardReady = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
+        $dashboardProcess.Refresh()
+        if ($dashboardProcess.HasExited) {
+            throw "Step 'start dashboard' failed with exit code $($dashboardProcess.ExitCode); inspect $dashboardStderr."
+        }
         try {
             $response = Invoke-WebRequest -Uri 'http://127.0.0.1:8501' -TimeoutSec 2 -UseBasicParsing
             if ($response.StatusCode -eq 200) { $dashboardReady = $true; break }
         } catch { Start-Sleep -Seconds 1 }
     }
-    if (-not $dashboardReady) { throw "Dashboard did not become ready; inspect $dashboardStderr." }
+    if (-not $dashboardReady) { throw "Step 'wait for dashboard readiness' timed out; inspect $dashboardStderr." }
 
     Write-Host 'Demo services are ready.'
     Write-Host 'API:       http://127.0.0.1:8000'

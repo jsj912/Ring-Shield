@@ -44,8 +44,9 @@ written once to the ignored file `platform/demo-credentials.txt`; passwords are
 never printed in the console or service logs. Log in with an analyst or supervisor
 to see tenant rings; use the admin account for the global admin views.
 
-To check arguments and input paths without starting Docker, run the five database-free
-PowerShell checks, or invoke the runner with `-ValidateOnly`:
+To check arguments, input paths, and PowerShell automatic-variable assignments
+without starting Docker, run the six database-free PowerShell checks, or invoke
+the runner with `-ValidateOnly`:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\tests\run-demo-validation.tests.ps1
