@@ -5,6 +5,66 @@ tenant isolation, authentication, API contracts, verdicts, model operations, dri
 events, and the investigator dashboard. Model inference and ring aggregation remain
 behind adapters to the existing research CLI and explainability functions.
 
+## Run the demo
+
+On Windows, install and start Docker Desktop, and ensure `python` is on `PATH`. The
+runner installs the pinned platform/test requirements. The input folders must contain the tenant rings and
+edge-ID files produced for the active detector, plus the verified L4 explanation
+parquets. The runner checks every file and log before starting Docker and rejects
+label or ground-truth paths. The scored-edges sibling `.log.json` must declare
+`split=test`; rings and explanations are passed through the existing tenant loaders.
+
+From the repository root, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1 `
+  -Tenants 12,20 `
+  -RingsDir .\data\platform_tenant_runs\gine_causal_seed1 `
+  -EdgeIdsDir .\data\platform_tenant_runs\gine_causal_seed1 `
+  -ScoredEdges .\contract\out\scored_edges_gine_causal_1.parquet `
+  -ExplanationsDir .\data\platform_explanations
+```
+
+The compose project is separate from the test database and uses its own persistent
+volume. Its default host port is `55433`; set `RINGSHIELD_DEMO_POSTGRES_PORT` to
+change it. The script runs migrations and `alembic check`, creates the restricted
+app/loader logins, seeds selected tenants and counterparties, then loads only
+endpoint-visible transactions and scores. Tenant rings use `scope=tenant`; the L4
+loader checks each explanation log, rings-log tenant rule, artifact hash, active
+model/seed, and the pinned FX hash. The API process uses the restricted app and auth
+roles with dotenv loading disabled, so it never inherits loader credentials.
+
+For banks 12 and 20, the expected visible edge-ID and database transaction/score
+counts are **20,039** and **10,315** respectively, with **5 rings per tenant**.
+The runner verifies those counts and checks the loaded explanation count against
+the ring count. It prints per-tenant counts for every table with a `tenant_id`.
+The API is at `http://127.0.0.1:8000` and the Streamlit dashboard is at
+`http://127.0.0.1:8501`. Demo analyst, supervisor, and admin emails/passwords are
+written once to the ignored file `platform/demo-credentials.txt`; passwords are
+never printed in the console or service logs. Log in with an analyst or supervisor
+to see tenant rings; use the admin account for the global admin views.
+
+To check arguments and input paths without starting Docker, run the five database-free
+PowerShell checks, or invoke the runner with `-ValidateOnly`:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\tests\run-demo-validation.tests.ps1
+```
+
+To stop the API, dashboard, and
+containers while keeping the database volume and credentials, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1 -Down
+```
+
+To reset the demo completely, including the persistent database volume and stored
+credentials, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1 -Down -DropVolume
+```
+
 ## L6-B drift monitoring and scheduling
 
 River is pinned at `river==0.22.0` in `platform/requirements.txt` (the project
