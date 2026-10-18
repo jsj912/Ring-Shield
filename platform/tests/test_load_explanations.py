@@ -11,8 +11,10 @@ import pytest
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
+sys.path.insert(0, str(PLATFORM_ROOT.parent))
 
 from jobs.load_explanations import ExplanationLoadError, read_handoff
+from contract.schema import RINGS_ORDER
 
 pytestmark = pytest.mark.usefixtures("repo_platform_config")
 
@@ -20,10 +22,10 @@ FX_HASH = "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6"
 
 
 def _files(tmp_path, *, reproduced=True, tenant_scope=True, log_updates=None,
-           row_updates=None, rings_updates=None, pooled=False):
+           row_updates=None, rings_updates=None, pooled=False, ring_columns=None):
     provenance = {
         "aggregator_id": "full", "model_id": "gine_causal", "seed": 1,
-        "rings_schema_version": 2, "explainer_version": "0.4.0-narrative",
+        "rings_schema_version": 1, "explainer_version": "0.4.0-narrative",
         "currency_policy": "converted", "scope": "tenant", "tenant_id": 135981,
         "feature_scope": "tenant_view", "fx_rates_sha256": FX_HASH,
         "loo": {"reproduces_shipped_ring": reproduced},
@@ -42,7 +44,8 @@ def _files(tmp_path, *, reproduced=True, tenant_scope=True, log_updates=None,
     row.update(row_updates or {})
     rings_log_path = tmp_path / "rings_tenant_135981.parquet.log.json"
     rings_path = tmp_path / "rings_tenant_135981.parquet"
-    rings_path.write_bytes(b"synthetic tenant rings parquet")
+    source_columns = RINGS_ORDER if ring_columns is None else ring_columns
+    pq.write_table(pa.Table.from_pylist([{column: None for column in source_columns}]), rings_path)
     rings_log = {
         "split": "test",
         "command": "run",
@@ -75,6 +78,14 @@ def _files(tmp_path, *, reproduced=True, tenant_scope=True, log_updates=None,
     return parquet_path, log_path, rings_log_path
 
 
+def _set_row_schema_version(parquet_path, row_index, version):
+    rows = pq.read_table(parquet_path).to_pylist()
+    provenance = json.loads(rows[row_index]["provenance"])
+    provenance["rings_schema_version"] = version
+    rows[row_index]["provenance"] = json.dumps(provenance)
+    pq.write_table(pa.Table.from_pylist(rows), parquet_path)
+
+
 def test_read_handoff_converts_json_and_nonfinite_values(tmp_path):
     parquet_path, log_path, rings_log_path = _files(tmp_path)
 
@@ -86,6 +97,65 @@ def test_read_handoff_converts_json_and_nonfinite_values(tmp_path):
     assert rows[0]["provenance"]["loo"]["reproduces_shipped_ring"] is True
     assert rows[0]["fx_rates_sha256"] == FX_HASH
     assert rows[0]["provenance"]["feature_scope"] == "tenant_view"
+    assert rows[0]["provenance"]["rings_schema_version"] == 1
+
+
+def test_version_2_explanation_is_refused_for_version_1_rings(tmp_path):
+    parquet_path, log_path, rings_log_path = _files(tmp_path)
+    _set_row_schema_version(parquet_path, 0, 2)
+
+    with pytest.raises(ExplanationLoadError, match=r"row declares rings schema version 2.*rings are version 1"):
+        read_handoff(parquet_path, log_path, rings_log_path)
+
+
+def test_mixed_explanation_row_schema_versions_are_refused(tmp_path):
+    parquet_path, log_path, rings_log_path = _files(tmp_path)
+    rows = pq.read_table(parquet_path).to_pylist()
+    second = dict(rows[0])
+    second["ring_id"] = "full-gine_causal-1-1"
+    rows.append(second)
+    pq.write_table(pa.Table.from_pylist(rows), parquet_path)
+    _set_row_schema_version(parquet_path, 1, 2)
+    log = json.loads(log_path.read_text(encoding="utf-8"))
+    log.update({"n_rings": 2, "n_explained": 2, "n_reproduces_shipped_ring": 2})
+    log_path.write_text(json.dumps(log), encoding="utf-8")
+
+    with pytest.raises(ExplanationLoadError, match=r"row declares rings schema version 2.*rings are version 1"):
+        read_handoff(parquet_path, log_path, rings_log_path)
+
+
+def test_version_1_rows_are_refused_for_version_2_rings(tmp_path):
+    v2_columns = [f"rings_v2_column_{index}" for index in range(30)]
+    parquet_path, log_path, rings_log_path = _files(tmp_path, ring_columns=v2_columns)
+
+    with pytest.raises(ExplanationLoadError, match=r"source tenant rings schema version 2.*configured l4.rings_schema_version 1"):
+        read_handoff(parquet_path, log_path, rings_log_path)
+
+
+def test_source_rings_version_must_match_configured_version(tmp_path, monkeypatch):
+    import yaml
+
+    from settings import load_platform_config
+
+    config = yaml.safe_load((PLATFORM_ROOT / "config.yaml").read_text(encoding="utf-8"))
+    config["l4"]["rings_schema_version"] = 2
+    config_path = tmp_path / "platform-config.yaml"
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    monkeypatch.setenv("RINGSHIELD_PLATFORM_CONFIG", str(config_path))
+    load_platform_config.cache_clear()
+    parquet_path, log_path, rings_log_path = _files(tmp_path)
+
+    with pytest.raises(ExplanationLoadError, match=r"source tenant rings schema version 1.*configured l4.rings_schema_version 2"):
+        read_handoff(parquet_path, log_path, rings_log_path)
+
+
+def test_wrong_rings_column_set_is_refused(tmp_path):
+    wrong_columns = list(RINGS_ORDER)
+    wrong_columns[-1] = "unexpected_role_column"
+    parquet_path, log_path, rings_log_path = _files(tmp_path, ring_columns=wrong_columns)
+
+    with pytest.raises(ExplanationLoadError, match="columns do not match schema version"):
+        read_handoff(parquet_path, log_path, rings_log_path)
 
 
 def test_read_handoff_rejects_stub_or_nonreproduced_batch(tmp_path):
@@ -100,7 +170,7 @@ def test_read_handoff_rejects_unreproduced_per_row_provenance(tmp_path):
     table = pq.read_table(parquet_path).to_pylist()
     table[0]["provenance"] = json.dumps({
         "aggregator_id": "full", "model_id": "gine_causal", "seed": 1,
-        "rings_schema_version": 2, "explainer_version": "0.4.0-narrative",
+        "rings_schema_version": 1, "explainer_version": "0.4.0-narrative",
         "currency_policy": "converted", "scope": "tenant", "tenant_id": 135981,
         "feature_scope": "tenant_view", "fx_rates_sha256": FX_HASH,
         "loo": {"reproduces_shipped_ring": False},
@@ -125,7 +195,7 @@ def test_read_handoff_rejects_global_ring_run(tmp_path):
     ({"row_updates": {"tenant_id": 999}}, "tenant_id does not match L4 log tenant"),
     ({"row_updates": {"provenance": json.dumps({
         "aggregator_id": "full", "model_id": "gine_causal", "seed": 1,
-        "rings_schema_version": 2, "explainer_version": "0.4.0-narrative",
+        "rings_schema_version": 1, "explainer_version": "0.4.0-narrative",
         "currency_policy": "converted", "scope": "tenant", "tenant_id": 999,
         "feature_scope": "tenant_view", "fx_rates_sha256": FX_HASH,
         "loo": {"reproduces_shipped_ring": True},
@@ -134,7 +204,7 @@ def test_read_handoff_rejects_global_ring_run(tmp_path):
     ({"log_updates": {"fx_rates_sha256": "0" * 64}}, "L4 log fx_rates_sha256 does not match"),
     ({"row_updates": {"provenance": json.dumps({
         "aggregator_id": "full", "model_id": "gine_causal", "seed": 1,
-        "rings_schema_version": 2, "explainer_version": "0.4.0-narrative",
+        "rings_schema_version": 1, "explainer_version": "0.4.0-narrative",
         "currency_policy": "converted", "scope": "tenant", "tenant_id": 135981,
         "feature_scope": "pooled", "fx_rates_sha256": FX_HASH,
         "loo": {"reproduces_shipped_ring": True},
@@ -142,7 +212,7 @@ def test_read_handoff_rejects_global_ring_run(tmp_path):
     ({"log_updates": {"feature_scope": "pooled_view"}}, "feature_scope must be tenant_view"),
     ({"row_updates": {"provenance": json.dumps({
         "aggregator_id": "full", "model_id": "gine_causal", "seed": 1,
-        "rings_schema_version": 2, "explainer_version": "0.4.0-narrative",
+        "rings_schema_version": 1, "explainer_version": "0.4.0-narrative",
         "currency_policy": "converted", "scope": "tenant", "tenant_id": 135981,
         "feature_scope": "tenant_view", "fx_rates_sha256": "0" * 64,
         "loo": {"reproduces_shipped_ring": True},

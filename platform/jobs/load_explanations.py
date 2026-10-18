@@ -27,6 +27,7 @@ sys.path.insert(0, str(REPO_ROOT / "platform"))
 from db.models import Explanation, Ring as PlatformRing  # noqa: E402
 from db.session import loader_db_session  # noqa: E402
 from settings import load_platform_config  # noqa: E402
+from contract.schema import RINGS_ORDER  # noqa: E402
 
 REQUIRED_COLUMNS = {
     "ring_id", "tenant_id", "edge_weights", "account_weights", "feature_weights",
@@ -76,6 +77,22 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _rings_schema_version(path: Path) -> int:
+    """Identify the supported source ring layout from its parquet columns."""
+    try:
+        columns = pq.ParquetFile(path).schema_arrow.names
+    except Exception as exc:
+        raise ExplanationLoadError("source tenant rings parquet has an unreadable schema") from exc
+    if columns == RINGS_ORDER:
+        return 1
+    if len(columns) == 30 and len(set(columns)) == 30:
+        return 2
+    raise ExplanationLoadError(
+        "source tenant rings parquet columns do not match schema version 1 "
+        "(the exact 22 contract columns) or schema version 2 (the 30-column layout)"
+    )
 
 
 def _forbidden_path(value: Any) -> str | None:
@@ -171,11 +188,18 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
         raise ExplanationLoadError("L4 run log is missing input_sha256.rings.sha256")
     if _sha256(rings_path).lower() != expected_rings_sha.lower():
         raise ExplanationLoadError("tenant rings artifact SHA-256 does not match L4 input_sha256.rings")
+    source_rings_schema_version = _rings_schema_version(rings_path)
     rings_tenant_id = _tenant_from_rule(rings_log.get("tenant_rule"))
     if rings_tenant_id != tenant_id:
         raise ExplanationLoadError("tenant mismatch between L4 log and source rings log")
     ring_model = rings_log.get("model") or {}
     config = load_platform_config()
+    configured_rings_schema_version = config["l4"]["rings_schema_version"]
+    if source_rings_schema_version != configured_rings_schema_version:
+        raise ExplanationLoadError(
+            f"source tenant rings schema version {source_rings_schema_version} does not match "
+            f"configured l4.rings_schema_version {configured_rings_schema_version}"
+        )
     expected_fx_hash = config.get("fx_rates_sha256")
     if not isinstance(expected_fx_hash, str) or not expected_fx_hash:
         raise ExplanationLoadError("platform config is missing fx_rates_sha256")
@@ -210,6 +234,16 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
                 raise ExplanationLoadError(
                     f"label/ground-truth paths are forbidden: {forbidden_provenance}"
                 )
+            row_rings_schema_version = row_provenance.get("rings_schema_version")
+            if (not isinstance(row_rings_schema_version, int)
+                    or isinstance(row_rings_schema_version, bool)
+                    or row_rings_schema_version != source_rings_schema_version):
+                raise ExplanationLoadError(
+                    f"{ring_id}: explanation row declares rings schema version "
+                    f"{row_rings_schema_version!r}, but source tenant rings are version "
+                    f"{source_rings_schema_version} (configured version "
+                    f"{configured_rings_schema_version})"
+                )
             if shared_provenance is None:
                 shared_provenance = {key: row_provenance.get(key) for key in shared_fields}
             elif any(row_provenance.get(key) != shared_provenance[key] for key in shared_fields):
@@ -235,8 +269,6 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
             loo = row_provenance.get("loo") or {}
             if loo.get("reproduces_shipped_ring") is not True:
                 raise ExplanationLoadError(f"{ring_id}: row provenance does not confirm ring reproduction")
-            if row_provenance.get("rings_schema_version") != 2:
-                raise ExplanationLoadError(f"{ring_id}: row provenance does not declare rings schema version 2")
             edges = _finite_json(source["edge_weights"], path=f"{ring_id}.edge_weights") or []
             accounts = _finite_json(source["account_weights"], path=f"{ring_id}.account_weights") or []
             features = _finite_json(source["feature_weights"], path=f"{ring_id}.feature_weights") or []
