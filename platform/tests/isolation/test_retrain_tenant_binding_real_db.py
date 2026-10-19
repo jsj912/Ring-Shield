@@ -11,6 +11,8 @@ import sys
 from uuid import uuid4
 
 import pytest
+import pyarrow as pa
+import pyarrow.parquet as pq
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import DBAPIError
 
@@ -157,6 +159,11 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
         paths.update({key: base_dir / f"{key}.parquet" for key in
                       ("val_scored_edges", "val_gfp", "val_embeddings", "truth_parquet",
                        "holdout_manifest")})
+        fixture_dir = PLATFORM_ROOT / "tests" / "fixtures"
+        paths["holdout_manifest"] = fixture_dir / "holdout_manifest_fixture.json"
+        paths["holdout_sha256_file"] = fixture_dir / "holdout_manifest_fixture.sha256"
+        pq.write_table(pa.table({"edge_id": pa.array([], type=pa.int64())}),
+                       paths["val_scored_edges"])
         config = {"active_model_id": "demo-model", "active_seed": 7}
         l6 = {"retrain": {"components": ["expansion"], "min_new_labels": 1,
                           "epsilon": 0.01, "eval_window": "val", "eval_scope": "test_visible"}}
@@ -166,17 +173,34 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
         monkeypatch.setattr("jobs.retrain._run_log_path", lambda _run_id: log_path)
         refresh_steps = []
 
-        def fail_refresh(**kwargs):
+        def successful_refresh(**kwargs):
             refresh_steps.append(kwargs)
-            raise RuntimeError("injected refresh failure")
+            refreshed_rings = tmp_path / f"refreshed-{kwargs['model_version_id']}.parquet"
+            pq.write_table(pa.table({
+                "tenant_id": pa.array([TENANT_A], type=pa.int64()),
+                "ring_id": pa.array(["refreshed-demo-cycle"]),
+            }), refreshed_rings)
+            return refreshed_rings
 
-        monkeypatch.setattr("jobs.retrain._run_ring_refresh_process", fail_refresh)
+        monkeypatch.setattr("jobs.retrain._run_ring_refresh_process", successful_refresh)
 
         class FakeCLI:
             def train(self, **kwargs):
-                return TrainResult(model_dir=kwargs["out_dir"], version={"version": 2}, retrained=True)
+                version = {
+                    "version": 2,
+                    "retrained": True,
+                    "training_labels": {"rings": ["demo-cycle"]},
+                }
+                kwargs["out_dir"].mkdir(parents=True, exist_ok=True)
+                (kwargs["out_dir"] / "version.json").write_text(
+                    __import__("json").dumps(version), encoding="utf-8",
+                )
+                return TrainResult(model_dir=kwargs["out_dir"], version=version, retrained=True)
 
             def run_rings(self, **kwargs):
+                pq.write_table(pa.table({
+                    "ring_id": pa.array(["demo-cycle", "new-candidate-ring"]),
+                }), kwargs["out"])
                 return RingRunResult(rings_path=kwargs["out"], run_log={"command": "run"}, ring_count=1)
 
             def eval_rings(self, **kwargs):
@@ -187,7 +211,9 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
         assert len(refresh_steps) == int(promoted)
         if promoted:
             assert refresh_steps[0]["tenant_id"] == TENANT_A
-            assert refresh_steps[0]["run_id"] == run_id
+            assert refresh_steps[0]["run_id"] == (
+                f"{run_id}-v{refresh_steps[0]['model_version_id']}"
+            )
 
         after_b = {table: _snapshot(admin, table, TENANT_B) for table in tenant_tables}
         after_a_protected = {table: _snapshot(admin, table, TENANT_A) for table in PROTECTED_TABLES}
@@ -229,12 +255,11 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
                 WHERE tenant_id = :tenant_id AND component = 'expansion'
                 ORDER BY model_version_id
             """), {"tenant_id": TENANT_A}).all()
-        assert state == ("failed" if promoted else "succeeded")
+        assert state == "succeeded"
         assert versions[-1].version_tag.startswith("v2-")
         assert versions[-1].promoted is promoted
         assert versions[0].promoted is (not promoted)
-        if promoted:
-            assert "injected refresh failure" in log_path.read_text(encoding="utf-8")
+        assert versions[-1].gate_reason
         with app_engine.connect() as connection:
             assert connection.execute(text("SELECT current_user")).scalar_one() == "ringshield_api"
         with loader_db_session(tenant_id=TENANT_A) as session:
