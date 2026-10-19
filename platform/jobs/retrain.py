@@ -23,6 +23,10 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 from adapters import research_cli  # noqa: E402
 from db.models import ModelVersion, RetrainRun, Ring, Transaction, Verdict  # noqa: E402
 from db.session import db_session, get_engine, loader_db_session  # noqa: E402
+from jobs.training_evaluation import (TrainingEvaluationError, make_evaluation_manifest,
+                                     training_ring_ids_from_version,
+                                     validate_labels_disjoint_from_holdout)  # noqa: E402
+from jobs.promotion_artifacts import write_manifest  # noqa: E402
 from settings import load_l6_config, load_platform_config  # noqa: E402
 
 
@@ -159,7 +163,7 @@ def _set_run_state(tenant_id: int, run_id: str, *, status: str,
         values: dict[str, Any] = {"status": status}
         if status == "running":
             values["started_at"] = datetime.now(timezone.utc)
-        if model_version_id is not None:
+        if model_version_id is not None or status in {"succeeded", "failed"}:
             values["model_version_id"] = model_version_id
         if finished:
             values["finished_at"] = datetime.now(timezone.utc)
@@ -200,20 +204,53 @@ def _insert_model_version(*, tenant_id: int, component: str, version_tag: str,
 
 
 def _evaluate(cli, *, model_dir: Path, paths: dict[str, Path], l6: dict[str, Any],
-              run_dir: Path, label: str) -> float:
-    config = load_platform_config()
+              run_dir: Path, label: str,
+              excluded_ring_ids: set[str] | None = None) -> float:
     output = run_dir / f"{label}-rings.parquet"
     run_result = cli.run_rings(
         scores=paths["val_scored_edges"], model_dir=model_dir, aggregator="full",
         gfp=paths["val_gfp"], embeddings=paths["val_embeddings"], out=output,
     )
+    holdout_path = paths["holdout_manifest"]
+    excluded = excluded_ring_ids or set()
+    if excluded:
+        manifest = verify_holdout(paths["holdout_manifest"], paths["holdout_sha256_file"])
+        try:
+            predicted_ids = pq.read_table(run_result.rings_path, columns=["ring_id"])[
+                "ring_id"
+            ].to_pylist()
+        except (OSError, ValueError, KeyError) as exc:
+            raise RetrainError("evaluation rings are missing their ring_id column") from exc
+        filtered = make_evaluation_manifest(
+            truth_ring_ids=manifest["truth_ring_ids"],
+            predicted_ring_ids=predicted_ids,
+            excluded_ring_ids=excluded,
+        )
+        if not filtered["truth_ring_ids"]:
+            raise RetrainError("no holdout truth rings remain after excluding training labels")
+        holdout_path = run_dir / f"{label}-evaluation-holdout.json"
+        holdout_path.write_text(json.dumps(filtered, sort_keys=True), encoding="utf-8")
     evaluation = cli.eval_rings(
         rings=run_result.rings_path, truth=paths["truth_parquet"],
-        holdout=paths["holdout_manifest"],
+        holdout=holdout_path,
         window=l6["retrain"]["eval_window"], scope=l6["retrain"]["eval_scope"],
         out=run_dir / f"{label}-metrics.json",
     )
     return evaluation.ring_f1
+
+
+def _validation_edge_ids(path: Path) -> set[int]:
+    """Read only edge IDs from the validated day-6/7 scored-edge parquet."""
+    try:
+        parquet = pq.ParquetFile(path)
+        if "edge_id" not in parquet.schema_arrow.names:
+            raise RetrainError("validation scored edges are missing edge_id")
+        edge_ids: set[int] = set()
+        for batch in parquet.iter_batches(columns=["edge_id"], batch_size=100_000):
+            edge_ids.update(map(int, batch.column(0).to_pylist()))
+        return edge_ids
+    except (OSError, ValueError) as exc:
+        raise RetrainError("could not read validation scored-edge IDs") from exc
 
 
 def _new_verdicts(session, tenant_id: int, since: datetime):
@@ -262,7 +299,7 @@ def _ensure_baseline(*, tenant_id: int, component: str, base_dir: Path,
 
 
 def _run_ring_refresh_process(*, tenant_id: int, model_version_id: int, run_id: str,
-                              log_path: Path) -> None:
+                              log_path: Path) -> Path:
     """Run refresh after the promotion transaction has committed, in a child process."""
     command = [
         sys.executable, "-m", "jobs.refresh_rings",
@@ -286,20 +323,38 @@ def _run_ring_refresh_process(*, tenant_id: int, model_version_id: int, run_id: 
         reason = error or output or f"worker exited with code {result.returncode}"
         _write_log(log_path, f"ring refresh failed: {reason}")
         raise RetrainError(f"ring refresh failed: {reason}")
-    _write_log(log_path, f"ring refresh completed: {output or 'worker returned successfully'}")
+    try:
+        response = json.loads(output)
+        if not isinstance(response, dict):
+            raise TypeError("refresh response must be an object")
+        rings_path = Path(response["rings_path"])
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise RetrainError("ring refresh returned no valid rings_path") from exc
+    if (response.get("tenant_id") != int(tenant_id)
+            or response.get("model_version_id") != int(model_version_id)
+            or not rings_path.is_file()):
+        raise RetrainError("ring refresh output does not match the promoted version or is missing")
+    _write_log(log_path, f"ring refresh completed: {rings_path.name}")
+    return rings_path.resolve()
 
 
 def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
     log_path = _run_log_path(run_id)
     relative_log_path = log_path.relative_to(REPO_ROOT)
     _write_log(log_path, f"tenant {tenant_id}: retrain run started")
-    last_version_id = None
+    last_promoted_version_id = None
+    promotions: list[dict[str, Any]] = []
+    run_dir = log_path.parent / run_id
     try:
         config = load_platform_config()
         l6 = load_l6_config(config)
         paths = _validate_inputs(l6, config)
-        run_dir = log_path.parent / run_id
+        holdout = verify_holdout(paths["holdout_manifest"], paths["holdout_sha256_file"])
+        validation_edge_ids = _validation_edge_ids(paths["val_scored_edges"])
         run_dir.mkdir(parents=True, exist_ok=True)
+        manifest = {"tenant_id": int(tenant_id), "run_id": run_id,
+                    "status": "running", "promotions": promotions}
+        write_manifest(run_dir, manifest)
         _set_run_state(tenant_id, run_id, status="running")
         with _tenant_lock(tenant_id):
             components = l6["retrain"]["components"]
@@ -317,6 +372,13 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
                 )
                 with db_session(tenant_id=tenant_id, role="supervisor") as session:
                     labels = _new_verdicts(session, tenant_id, current.trained_at)
+                try:
+                    validate_labels_disjoint_from_holdout(
+                        labels, holdout_ring_ids=holdout["truth_ring_ids"],
+                        validation_edge_ids=validation_edge_ids,
+                    )
+                except TrainingEvaluationError as exc:
+                    raise RetrainError(str(exc)) from exc
                 if len(labels) < int(l6["retrain"]["min_new_labels"]):
                     _write_log(log_path, f"{component}: skipped; only {len(labels)} new ring labels")
                     continue
@@ -335,39 +397,63 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
                 should_evaluate, disabled_reason = candidate_evaluation_policy(train_result.retrained)
                 if not should_evaluate:
                     assert disabled_reason is not None
-                    last_version_id = _insert_model_version(
+                    _insert_model_version(
                         tenant_id=tenant_id, component=component, version_tag=version_tag,
                         trained_at=trained_at, label_count=len(labels), f1=None,
                         promoted=False, gate_reason=disabled_reason, artifact_path=output_model,
                     )
                     _write_log(log_path, f"{component}: candidate not promoted: {disabled_reason}")
                     continue
+                try:
+                    training_ring_ids = training_ring_ids_from_version(train_result.version)
+                except TrainingEvaluationError as exc:
+                    raise RetrainError(str(exc)) from exc
                 candidate_f1 = _evaluate(
                     cli, model_dir=output_model, paths=paths, l6=l6,
                     run_dir=run_dir, label=f"{component}-candidate",
+                    excluded_ring_ids=training_ring_ids,
                 )
                 promote, reason = should_promote(
                     candidate_f1, float(current.holdout_ring_f1), float(l6["retrain"]["epsilon"]),
                 )
-                last_version_id = _insert_model_version(
+                candidate_version_id = _insert_model_version(
                     tenant_id=tenant_id, component=component, version_tag=version_tag,
                     trained_at=trained_at, label_count=len(labels), f1=candidate_f1,
                     promoted=promote, gate_reason=reason, artifact_path=output_model,
                 )
                 _write_log(log_path, f"{component}: {reason}")
                 if promote:
-                    assert last_version_id is not None
-                    _run_ring_refresh_process(
+                    last_promoted_version_id = candidate_version_id
+                    refresh_run_id = f"{run_id}-v{candidate_version_id}"
+                    refreshed_rings = _run_ring_refresh_process(
                         tenant_id=tenant_id,
-                        model_version_id=last_version_id,
-                        run_id=run_id,
+                        model_version_id=candidate_version_id,
+                        run_id=refresh_run_id,
                         log_path=log_path,
                     )
-            _set_run_state(tenant_id, run_id, status="succeeded", model_version_id=last_version_id, finished=True)
+                    promotions.append({
+                        "component": component,
+                        "model_version_id": candidate_version_id,
+                        "version_tag": version_tag,
+                        "training_ring_ids": sorted(training_ring_ids),
+                        "rings_path": str(refreshed_rings),
+                    })
+                    manifest["promotions"] = promotions
+                    write_manifest(run_dir, manifest)
+            manifest["status"] = "succeeded"
+            write_manifest(run_dir, manifest)
+            _set_run_state(tenant_id, run_id, status="succeeded",
+                           model_version_id=last_promoted_version_id, finished=True)
     except Exception as exc:
+        manifest = {"tenant_id": int(tenant_id), "run_id": run_id,
+                    "status": "failed", "promotions": promotions,
+                    "failure": f"{type(exc).__name__}: {exc}"}
+        if run_dir.is_dir():
+            write_manifest(run_dir, manifest)
         _write_log(log_path, f"run failed: {type(exc).__name__}: {exc}")
         try:
-            _set_run_state(tenant_id, run_id, status="failed", model_version_id=last_version_id, finished=True)
+            _set_run_state(tenant_id, run_id, status="failed",
+                           model_version_id=last_promoted_version_id, finished=True)
         except Exception as state_error:
             _write_log(log_path, f"could not persist failed state: {type(state_error).__name__}")
     finally:

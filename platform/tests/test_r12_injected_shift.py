@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sys
+from contextlib import contextmanager
 
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from types import SimpleNamespace
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
@@ -77,3 +79,127 @@ def test_drift_streaming_replay_matches_batch_detector_events():
     online = [event for point in daily for event in stream.update(*point)]
     assert online == detect_events(daily, delta=0.002, tenant_id=21)
     assert {event["monitor"] for event in online} == {"adwin_score_mean", "adwin_score_p99"}
+
+
+def test_r12_evaluation_excludes_training_ring_ids_from_truth_and_predictions(tmp_path, monkeypatch):
+    rings_path = tmp_path / "rings.parquet"
+    pq.write_table(pa.table({"ring_id": ["12", "38", "104", "trained-prediction"]}), rings_path)
+    observed = {}
+
+    def evaluate(**kwargs):
+        observed.update(json.loads(kwargs["holdout"].read_text(encoding="utf-8")))
+        return SimpleNamespace(metrics={"ring_recall": 0.75, "member_coverage": 0.9})
+
+    monkeypatch.setattr(r12.research_cli, "eval_rings", evaluate)
+    result = r12._eval_pattern(
+        rings_path, tmp_path / "truth.parquet", {12, 38},
+        tmp_path / "metrics.json", excluded_ring_ids={"38", "trained-prediction"},
+    )
+
+    assert observed == {"pred_ring_ids": ["12", "104"], "truth_ring_ids": [12]}
+    assert result["ring_recall"] == 0.75
+    assert result["n_truth_rings"] == 1
+    assert result["n_excluded_truth_rings"] == 1
+
+
+def test_r12_reports_undefined_recall_when_training_excludes_all_truth(tmp_path, monkeypatch):
+    rings_path = tmp_path / "rings.parquet"
+    pq.write_table(pa.table({"ring_id": ["38"]}), rings_path)
+    monkeypatch.setattr(
+        r12.research_cli, "eval_rings",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("must not evaluate empty truth")),
+    )
+
+    result = r12._eval_pattern(
+        rings_path, tmp_path / "truth.parquet", {38}, tmp_path / "metrics.json",
+        excluded_ring_ids={"38"},
+    )
+
+    assert result["ring_recall"] is None
+    assert result["n_truth_rings"] == 0
+    assert result["undefined_reason"] == "no truth rings remain after training-ring exclusion"
+
+
+def test_r12_promotion_orchestration_keeps_component_version_rings_and_training_ids_paired(
+        tmp_path, monkeypatch):
+    from jobs.promotion_artifacts import write_manifest
+
+    promotions = []
+    versions = []
+    for component, version_id, training_ids in (
+            ("expansion", 101, ["trained-exp"]),
+            ("affinity", 202, ["trained-aff", "trained-aff-2"])):
+        model_dir = tmp_path / f"model-{version_id}"
+        model_dir.mkdir()
+        (model_dir / "version.json").write_text(json.dumps({
+            "retrained": True, "training_labels": {"rings": training_ids},
+        }), encoding="utf-8")
+        rings_path = tmp_path / f"rings-{version_id}.parquet"
+        pq.write_table(pa.table({
+            "tenant_id": [21, 21], "ring_id": [f"ring-{version_id}", training_ids[0]],
+        }), rings_path)
+        promotions.append({
+            "component": component, "model_version_id": version_id,
+            "version_tag": f"v{version_id}", "training_ring_ids": training_ids,
+            "rings_path": str(rings_path),
+        })
+        versions.append(SimpleNamespace(
+            artifact_path=str(model_dir), component=component,
+            version_tag=f"v{version_id}", promoted=True,
+        ))
+    run_dir = tmp_path / "run"
+    write_manifest(run_dir, {
+        "tenant_id": 21, "run_id": "r12-test", "status": "succeeded",
+        "promotions": promotions,
+    })
+
+    @contextmanager
+    def fake_db_session(**kwargs):
+        assert kwargs == {"tenant_id": 21, "role": "supervisor"}
+        version = versions.pop(0)
+        yield SimpleNamespace(scalar=lambda _query: version)
+
+    evaluations = []
+
+    def fake_eval(rings_path, _truth_path, ids, out, *, excluded_ring_ids=None):
+        evaluations.append((Path(rings_path), set(ids), set(excluded_ring_ids or set())))
+        return {"ring_recall": 0.7, "member_coverage": 0.8,
+                "n_truth_rings": len(ids) - len(excluded_ring_ids or set())}
+
+    monkeypatch.setattr(r12, "db_session", fake_db_session)
+    monkeypatch.setattr(r12, "_eval_pattern", fake_eval)
+    results = r12._evaluate_promoted_artifacts(
+        run_dir=run_dir, tenant_id=21, run_id="r12-test", truth_path=tmp_path / "truth.parquet",
+        pattern_ids={1, 2, 3}, cycle_truth_ids={2, 3}, output_dir=tmp_path / "metrics",
+    )
+
+    assert [(row["component"], row["model_version_id"]) for row in results] == [
+        ("expansion", 101), ("affinity", 202),
+    ]
+    assert len(evaluations) == 4
+    for row in results:
+        own_path = Path(row["rings_path"])
+        assert [evaluation[0] for evaluation in evaluations if evaluation[0] == own_path] == [
+            own_path, own_path,
+        ]
+        assert all(evaluation[2] == set(row["training_ring_ids"])
+                   for evaluation in evaluations if evaluation[0] == own_path)
+
+
+def test_r12_no_promotion_report_has_no_post_retrain_baseline_metrics():
+    rows = r12._promotion_report_rows(
+        before_metrics={"ring_recall": 0.2},
+        after_metrics={"ring_recall": 0.6},
+        cycle_before_metrics={"ring_recall": 0.3},
+        promotions=[],
+    )
+
+    assert rows[0]["lane"] == "no_retrain_control"
+    assert rows[0]["recall_after_insertion_without_retrain"] == 0.6
+    assert rows[0]["recall_after_gated_retrain"] is None
+    assert rows[1] == {
+        "lane": "gated_retrain_no_promotion", "recall_after_gated_retrain": None,
+        "cycle_recall_after_gated_retrain": None,
+        "cycle_truth_rings_after_training_exclusion": None, "promotion_status": "none",
+    }
+    assert all("rings_path" not in row for row in rows)

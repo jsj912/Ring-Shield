@@ -35,6 +35,34 @@ def test_build_edge_subset_includes_edges_touching_either_endpoint_bank(tmp_path
     assert pq.read_table(subset)["edge_id"].to_pylist() == [1, 2, 3]
 
 
+def test_build_edge_subset_deduplicates_and_sorts_visible_edges(tmp_path):
+    scores = tmp_path / "scores.parquet"
+    pq.write_table(pa.table({
+        "edge_id": pa.array([8, 2, 8, 9, 5], type=pa.int64()),
+        "from_bank": pa.array([20, 10, 20, 30, 40], type=pa.int64()),
+        "to_bank": pa.array([10, 20, 10, 40, 10], type=pa.int64()),
+        "score_raw": pa.array([0.8, 0.7, 0.8, 0.6, 0.5]),
+    }), scores)
+    score_by_id = {}
+
+    count = job.build_edge_subset(scores, 10, tmp_path / "subset.parquet", score_by_id)
+
+    assert count == 3
+    assert pq.read_table(tmp_path / "subset.parquet")["edge_id"].to_pylist() == [2, 5, 8]
+    assert set(score_by_id) == {2, 5, 8}
+
+
+def test_build_edge_subset_rejects_conflicting_duplicate_edge_ids(tmp_path):
+    scores = tmp_path / "scores.parquet"
+    pq.write_table(pa.table({
+        "edge_id": [3, 3], "from_bank": [10, 10], "to_bank": [20, 30],
+        "score_raw": [0.9, 0.9],
+    }), scores)
+
+    with pytest.raises(job.TenantRingBuildError, match="conflicting duplicate edge_id 3"):
+        job.build_edge_subset(scores, 10, tmp_path / "subset.parquet")
+
+
 def test_build_edge_subset_rejects_sensitive_input_columns(tmp_path):
     scores = tmp_path / "scores.parquet"
     pq.write_table(pa.table({
@@ -113,6 +141,7 @@ def test_build_tenant_rings_preserves_scoped_run_contract(tmp_path, monkeypatch)
         subset_path = Path(command[command.index("--edge-subset") + 1])
         subset_ids = pq.read_table(subset_path)["edge_id"].to_pylist()
         pq.write_table(pa.table({
+            "ring_id": pa.array([f"tenant-{tenant_id}-ring"], type=pa.string()),
             "tenant_id": pa.array([tenant_id], type=pa.int64()),
             "member_edges": pa.array([subset_ids[:1]], type=pa.list_(pa.int64())),
             "seed_edges": pa.array([subset_ids[:1]], type=pa.list_(pa.int64())),
@@ -125,7 +154,9 @@ def test_build_tenant_rings_preserves_scoped_run_contract(tmp_path, monkeypatch)
             "n_edges_used": len(subset_ids), "aggregator": "full",
             "model": {"model_id": "gine_causal", "seed": 1, "aggregator": "full"},
             "params": {"seed_frac_pct": float(command[command.index("--seed-frac-pct") + 1])},
-            "quantile_cut": {"q": 0.8, "n_seeds": 1},
+            "quantile_cut": {"q": 0.8, "n_seeds": sum(
+                1 for edge_id in subset_ids if {1: 0.9, 2: 0.8, 3: 0.7, 4: 0.1}[edge_id] > 0.8
+            )},
         }
         Path(str(rings_path) + ".log.json").write_text(json.dumps(log), encoding="utf-8")
 
@@ -133,7 +164,7 @@ def test_build_tenant_rings_preserves_scoped_run_contract(tmp_path, monkeypatch)
 
     results = job.build_tenant_rings(
         scores_path=scores, model_dir=model_dir, gfp_path=gfp,
-        embeddings_path=embeddings, tenant_ids=[10], output_dir=output_dir,
+        embeddings_path=embeddings, tenant_ids=[10, 20, 30], output_dir=output_dir,
         config={
             "active_model_id": "gine_causal", "active_seed": 1,
             "seed_score_cutoff": 0.8,
@@ -142,11 +173,21 @@ def test_build_tenant_rings_preserves_scoped_run_contract(tmp_path, monkeypatch)
         },
     )
 
-    assert results[0]["tenant_id"] == 10
-    assert results[0]["visible_edges"] == 3
-    assert results[0]["rings"] == 1
-    assert results[0]["seed_edges"] == 1
-    assert Path(results[0]["rings_log_path"]).is_file()
-    written_log = json.loads(Path(results[0]["rings_log_path"]).read_text(encoding="utf-8"))
+    assert [row["tenant_id"] for row in results] == [10, 20, 30]
+    by_tenant = {row["tenant_id"]: row for row in results}
+    assert {tenant: row["visible_edges"] for tenant, row in by_tenant.items()} == {
+        10: 3, 20: 2, 30: 1,
+    }
+    for tenant_id, result in by_tenant.items():
+        assert result["rings"] == 1
+        assert Path(result["rings_log_path"]).is_file()
+        ring = pq.read_table(result["rings_path"]).to_pylist()[0]
+        assert ring["tenant_id"] == tenant_id
+        assert ring["ring_id"] == f"tenant-{tenant_id}-ring"
+        assert set(ring["member_edges"]) <= {10: {1, 2, 3}, 20: {1, 2}, 30: {4}}[tenant_id]
+    assert 1 in pq.read_table(output_dir / "tenant_10_edge_ids.parquet")["edge_id"].to_pylist()
+    assert 1 in pq.read_table(output_dir / "tenant_20_edge_ids.parquet")["edge_id"].to_pylist()
+    assert 1 not in pq.read_table(output_dir / "tenant_30_edge_ids.parquet")["edge_id"].to_pylist()
+    written_log = json.loads(Path(by_tenant[10]["rings_log_path"]).read_text(encoding="utf-8"))
     assert written_log["split"] == "test"
     assert written_log["platform_config"]["seed_score_cutoff"] == 0.8

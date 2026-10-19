@@ -7,6 +7,8 @@ from contextlib import contextmanager, nullcontext
 from uuid import uuid4
 
 import pytest
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
@@ -100,15 +102,22 @@ def test_retrain_job_gates_candidate_and_runs_refresh_as_a_separate_step(
 
     class FakeCLI:
         eval_calls = 0
+        eval_manifests = []
 
         def train(self, **kwargs):
-            return TrainResult(model_dir=kwargs["out_dir"], version={"version": 2}, retrained=retrained)
+            version = {"version": 2, "retrained": retrained,
+                       "training_labels": {"rings": ["12", "full-model-1-0"]}}
+            return TrainResult(model_dir=kwargs["out_dir"], version=version, retrained=retrained)
 
         def run_rings(self, **kwargs):
+            kwargs["out"].parent.mkdir(parents=True, exist_ok=True)
+            pq.write_table(pa.table({"ring_id": ["12", "full-model-1-0", "fresh-ring"]}),
+                           kwargs["out"])
             return RingRunResult(rings_path=kwargs["out"], run_log={"command": "run", "n_rings": 1}, ring_count=1)
 
         def eval_rings(self, **kwargs):
             self.eval_calls += 1
+            self.eval_manifests.append(__import__("json").loads(kwargs["holdout"].read_text()))
             return EvalResult(metrics_path=kwargs["out"], metrics={"ring_f1": candidate_f1},
                               ring_f1=candidate_f1)
 
@@ -133,15 +142,23 @@ def test_retrain_job_gates_candidate_and_runs_refresh_as_a_separate_step(
 
     def fake_refresh_process(command, **kwargs):
         refresh_calls.append((command, kwargs))
+        rings_path = log_path.parent / run_id / "refreshed-rings.parquet"
+        rings_path.parent.mkdir(parents=True, exist_ok=True)
+        pq.write_table(pa.table({"ring_id": ["fresh"]}), rings_path)
         return SimpleNamespace(
             returncode=refresh_returncode,
-            stdout='{"rings_loaded":1}',
+            stdout=__import__("json").dumps({
+                "tenant_id": 21, "model_version_id": 91,
+                "rings_path": str(rings_path), "rings_loaded": 1,
+            }),
             stderr="injected refresh failure" if refresh_returncode else "",
         )
 
     monkeypatch.setattr(retrain, "load_platform_config", lambda *args, **kwargs: config)
     monkeypatch.setattr(retrain, "load_l6_config", lambda *args, **kwargs: l6)
     monkeypatch.setattr(retrain, "_validate_inputs", lambda *args, **kwargs: paths)
+    monkeypatch.setattr(retrain, "_validation_edge_ids", lambda _path: set())
+    monkeypatch.setattr(retrain, "verify_holdout", lambda *_args: {"truth_ring_ids": [12, 38, 104], "n": 3})
     monkeypatch.setattr(retrain, "_run_log_path", lambda value: log_path)
     monkeypatch.setattr(retrain, "_tenant_lock", lambda tenant: nullcontext())
     monkeypatch.setattr(retrain, "_set_run_state", lambda *args, **kwargs: states.append(kwargs["status"]))
@@ -158,8 +175,12 @@ def test_retrain_job_gates_candidate_and_runs_refresh_as_a_separate_step(
     monkeypatch.setattr(retrain, "_write_log", lambda _path, message: log_messages.append(message))
 
     fake_cli = FakeCLI()
+    promotion_manifest = None
     try:
         run_retrain_job(21, run_id, cli=fake_cli)
+        manifest_path = log_path.parent / run_id / "promotion-manifest.json"
+        if manifest_path.is_file():
+            promotion_manifest = __import__("json").loads(manifest_path.read_text(encoding="utf-8"))
     finally:
         log_path.unlink(missing_ok=True)
         run_directory = log_path.parent / run_id
@@ -172,7 +193,7 @@ def test_retrain_job_gates_candidate_and_runs_refresh_as_a_separate_step(
     assert bool(refresh_calls) is expected_promoted
     if expected_promoted:
         assert refresh_calls[0][0][1:3] == ["-m", "jobs.refresh_rings"]
-        assert refresh_calls[0][0][-3:] == ["21", "91", run_id]
+        assert refresh_calls[0][0][-3:] == ["21", "91", f"{run_id}-v91"]
         if refresh_returncode:
             assert states[-1] == "failed"
             assert any("injected refresh failure" in message for message in log_messages)
@@ -180,6 +201,88 @@ def test_retrain_job_gates_candidate_and_runs_refresh_as_a_separate_step(
             assert states[-1] == "succeeded"
     else:
         assert states[-1] == "succeeded"
+        assert all(call[0][-3:] != ["21", "91", run_id] for call in refresh_calls)
     if not retrained:
         assert inserted[0]["f1"] is None
         assert inserted[0]["gate_reason"] == "train CLI reported retrained=false; candidate identical to base"
+    else:
+        assert fake_cli.eval_manifests == [{
+            "truth_ring_ids": [38, 104], "pred_ring_ids": ["fresh-ring"],
+        }]
+    assert promotion_manifest["status"] == ("failed" if expected_promoted and refresh_returncode else "succeeded")
+    assert len(promotion_manifest["promotions"]) == int(expected_promoted and not refresh_returncode)
+
+
+def test_promotion_manifest_keeps_component_version_training_and_refresh_associated(tmp_path):
+    from jobs.promotion_artifacts import read_manifest, write_manifest
+
+    rings_a = tmp_path / "expansion.parquet"
+    rings_b = tmp_path / "affinity.parquet"
+    rings_a.touch()
+    rings_b.touch()
+    write_manifest(tmp_path, {
+        "tenant_id": 21, "run_id": "multi", "status": "succeeded",
+        "promotions": [
+            {"component": "expansion", "model_version_id": 101,
+             "version_tag": "exp-v1", "training_ring_ids": ["a", "b"],
+             "rings_path": str(rings_a)},
+            {"component": "affinity", "model_version_id": 102,
+             "version_tag": "aff-v1", "training_ring_ids": ["c"],
+             "rings_path": str(rings_b)},
+        ],
+    })
+
+    manifest = read_manifest(tmp_path, tenant_id=21, run_id="multi")
+    by_version = {item["model_version_id"]: item for item in manifest["promotions"]}
+    assert by_version[101]["training_ring_ids"] == ["a", "b"]
+    assert Path(by_version[101]["rings_path"]) == rings_a
+    assert by_version[102]["training_ring_ids"] == ["c"]
+    assert Path(by_version[102]["rings_path"]) == rings_b
+
+
+def test_promotion_manifest_refuses_missing_promoted_refresh_output(tmp_path):
+    from jobs.promotion_artifacts import PromotionArtifactError, read_manifest, write_manifest
+
+    write_manifest(tmp_path, {
+        "tenant_id": 21, "run_id": "missing", "status": "succeeded",
+        "promotions": [{"component": "expansion", "model_version_id": 101,
+                        "training_ring_ids": ["a"],
+                        "rings_path": str(tmp_path / "missing.parquet")}],
+    })
+    with pytest.raises(PromotionArtifactError, match="refreshed rings are missing"):
+        read_manifest(tmp_path, tenant_id=21, run_id="missing")
+
+
+def test_retrain_refresh_requires_existing_output_file(monkeypatch, tmp_path):
+    import json
+    import jobs.retrain as retrain
+
+    missing = tmp_path / "missing.parquet"
+    monkeypatch.setattr(retrain.subprocess, "run", lambda *_args, **_kwargs: SimpleNamespace(
+        returncode=0,
+        stdout=json.dumps({"tenant_id": 21, "model_version_id": 91,
+                           "rings_path": str(missing)}), stderr="",
+    ))
+    with pytest.raises(RetrainError, match="output does not match.*missing"):
+        retrain._run_ring_refresh_process(
+            tenant_id=21, model_version_id=91, run_id="run-v91", log_path=tmp_path / "run.log",
+        )
+
+
+def test_run_state_clears_stale_model_version_when_success_has_no_promotion(monkeypatch):
+    import jobs.retrain as retrain
+
+    statements = []
+
+    class Session:
+        def execute(self, statement):
+            statements.append(statement)
+            return SimpleNamespace(rowcount=1)
+
+    @contextmanager
+    def fake_session(**_kwargs):
+        yield Session()
+
+    monkeypatch.setattr(retrain, "db_session", fake_session)
+    retrain._set_run_state(21, "run", status="succeeded", model_version_id=None, finished=True)
+    assert statements[0].compile().params["model_version_id"] is None

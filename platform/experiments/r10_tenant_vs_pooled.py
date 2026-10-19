@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 import sys
 import tempfile
+from string import Formatter
 
 import pyarrow.parquet as pq
 from sqlalchemy import select
@@ -57,44 +59,200 @@ def tenant_truth_ids(ring_banks: dict, tenant_id: int) -> list[int]:
     return sorted(int(ring_id) for ring_id, banks in ring_banks.items() if tenant_id in banks)
 
 
-def _candidate_seed_inputs(config: dict, requested_seeds: list[int] | None) -> list[dict]:
+def _exact_int(value, *, field: str, minimum: int, maximum: int | None = None) -> int:
+    """Validate JSON/CLI integer fields without bool or lossy numeric coercion."""
+    if type(value) is not int:
+        raise ExperimentInputError(f"{field} must be an integer")
+    if value < minimum or (maximum is not None and value > maximum):
+        bound = f"{minimum}..{maximum}" if maximum is not None else f">= {minimum}"
+        raise ExperimentInputError(f"{field} must be in the range {bound}")
+    return value
+
+
+def _score_cutoff(value) -> float:
+    """Validate score_raw's predicted-probability cutoff against its [0, 1] contract."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ExperimentInputError("score run log seed_rule.q must be a finite number in [0, 1]")
+    try:
+        cutoff = float(value)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise ExperimentInputError(
+            "score run log seed_rule.q must be a finite number in [0, 1]"
+        ) from exc
+    if not math.isfinite(cutoff) or not 0.0 <= cutoff <= 1.0:
+        raise ExperimentInputError("score run log seed_rule.q must be a finite number in [0, 1]")
+    return cutoff
+
+
+def _score_log(path: Path, *, model_id: str, seed: int,
+               tenant_id: int | None = None) -> tuple[dict, Path, float]:
+    expected_seed = _exact_int(seed, field="requested seed", minimum=1, maximum=5)
+    log_path = Path(str(path) + ".log.json")
+    if not path.is_file() or not log_path.is_file():
+        raise ExperimentInputError(f"score parquet and sibling run log are required: {path}")
+    try:
+        log = json.loads(log_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ExperimentInputError(f"invalid score run log: {log_path}") from exc
+    if not isinstance(log, dict):
+        raise ExperimentInputError(f"invalid score run log: expected an object in {log_path}")
+    try:
+        seed_rule = log["seed_rule"]
+        if not isinstance(seed_rule, dict):
+            raise TypeError("seed_rule must be an object")
+        cutoff = _score_cutoff(seed_rule["q"])
+        log_seed = _exact_int(log["seed"], field="score run log seed", minimum=1, maximum=5)
+    except (KeyError, TypeError) as exc:
+        raise ExperimentInputError(f"invalid score run log fields: {log_path}") from exc
+    if (log.get("split") != "test" or log.get("model_id") != model_id
+            or log_seed != expected_seed):
+        raise ExperimentInputError(
+            f"score run log must declare split=test and match {model_id} seed {seed}: {log_path}"
+        )
+    if tenant_id is not None:
+        try:
+            expected_tenant_id = _exact_int(tenant_id, field="requested tenant_id", minimum=1)
+            logged_tenant_id = _exact_int(
+                log["tenant_id"], field="score run log tenant_id", minimum=1,
+            )
+        except (KeyError, ExperimentInputError) as exc:
+            raise ExperimentInputError(
+                f"tenant-visible score log must declare an integer tenant_id={tenant_id}"
+            ) from exc
+        if logged_tenant_id != expected_tenant_id:
+            raise ExperimentInputError(
+                f"tenant-visible score log must declare tenant_id={tenant_id}: {log_path}"
+            )
+    return log, log_path, cutoff
+
+
+def _validate_format_template(template: str, *, allowed: set[str],
+                              required: set[str], name: str) -> None:
+    fields = set()
+    try:
+        parsed = Formatter().parse(template)
+        for _literal, field_name, format_spec, conversion in parsed:
+            if field_name is None:
+                continue
+            if field_name not in allowed:
+                raise ExperimentInputError(
+                    f"{name} has unsupported field {field_name!r}"
+                )
+            if conversion is not None or format_spec:
+                raise ExperimentInputError(
+                    f"{name} does not allow conversions or format specifications"
+                )
+            fields.add(field_name)
+    except ValueError as exc:
+        raise ExperimentInputError(f"{name} is malformed") from exc
+    missing = sorted(required - fields)
+    if missing:
+        raise ExperimentInputError(
+            f"{name} must include " + ", ".join(missing)
+        )
+
+
+def _validate_visible_template(template: str) -> None:
+    required = {"tenant_id", "model_id", "seed"}
+    _validate_format_template(
+        template, allowed=required, required=required,
+        name="r10.tenant_visible_scores_template",
+    )
+
+
+def _format_visible_template(template: str, *, tenant_id: int | str,
+                             model_id: str, seed: int) -> str:
+    _validate_visible_template(template)
+    try:
+        return template.format(tenant_id=tenant_id, model_id=model_id, seed=seed)
+    except (IndexError, KeyError, ValueError, AttributeError) as exc:
+        raise ExperimentInputError("r10.tenant_visible_scores_template could not be formatted") from exc
+
+
+def _candidate_seed_inputs(config: dict, requested_seeds: list[int] | None,
+                           score_source: str | None = None) -> list[dict]:
     model_id = str(config["active_model_id"])
+    r10_config = config.get("r10") or {}
+    score_source = score_source or r10_config.get("tenant_score_source")
+    if score_source not in {"pooled", "tenant_visible"}:
+        raise ExperimentInputError(
+            "R10 tenant score source is unresolved; configure r10.tenant_score_source as "
+            "'pooled' or 'tenant_visible', or pass --tenant-score-source"
+        )
+    pooled_template = str(r10_config.get(
+        "pooled_scores_template", "contract/out/scored_edges_{model_id}_{seed}.parquet"))
+    _validate_format_template(
+        pooled_template, allowed={"model_id", "seed"}, required={"model_id", "seed"},
+        name="r10.pooled_scores_template",
+    )
+    visible_template = r10_config.get("tenant_visible_scores_template")
+    if score_source == "tenant_visible" and not visible_template:
+        raise ExperimentInputError(
+            "r10.tenant_visible_scores_template is required when tenant_score_source is tenant_visible"
+        )
+    if score_source == "tenant_visible":
+        _validate_visible_template(str(visible_template))
     seed_values = requested_seeds or list(range(1, 6))
+    seed_values = [
+        _exact_int(seed, field="R10 seed", minimum=1, maximum=5) for seed in seed_values
+    ]
     gfp_path = configured_path(config, "gfp")
     candidates = []
     missing: list[str] = []
     for seed in seed_values:
-        scores = REPO_ROOT / "contract" / "out" / f"scored_edges_{model_id}_{seed}.parquet"
+        try:
+            pooled_relative = pooled_template.format(model_id=model_id, seed=seed)
+        except (IndexError, KeyError, ValueError, AttributeError) as exc:
+            raise ExperimentInputError("r10.pooled_scores_template could not be formatted") from exc
+        pooled_scores = REPO_ROOT / pooled_relative
         model_dir = REPO_ROOT / "models" / "artifacts" / f"full_{model_id}_seed{seed}"
         embeddings = REPO_ROOT / "experiments" / f"R1_{model_id}" / f"embeddings_test_seed{seed}.parquet"
-        absent = [str(path) for path in (scores, model_dir / "model.json", gfp_path, embeddings)
+        absent = [str(path) for path in (pooled_scores, model_dir / "model.json", gfp_path, embeddings)
                   if not path.exists()]
         if absent:
             missing.extend(absent)
             continue
-        log_path = Path(str(scores) + ".log.json")
-        if not log_path.is_file():
-            missing.append(str(log_path))
-            continue
-        try:
-            log = json.loads(log_path.read_text(encoding="utf-8"))
-            cutoff = float(log["seed_rule"]["q"])
-        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-            raise ExperimentInputError(f"invalid pooled score run log: {log_path}") from exc
-        if log.get("split") != "test" or log.get("model_id") != model_id or int(log.get("seed", -1)) != seed:
-            raise ExperimentInputError(f"score run log must declare split=test and match {model_id} seed {seed}: {log_path}")
-        candidates.append({"seed": seed, "scores": scores, "model_dir": model_dir,
-                           "embeddings": embeddings, "gfp": gfp_path,
-                           "cutoff": cutoff, "log": log_path})
+        _, pooled_log_path, pooled_cutoff = _score_log(
+            pooled_scores, model_id=model_id, seed=seed)
+        visible_path = (Path(str(visible_template)) if Path(str(visible_template)).is_absolute()
+                        else REPO_ROOT / str(visible_template)) if visible_template else None
+        candidates.append({"seed": seed, "score_source": score_source,
+                           "visible_scores_template": visible_path,
+                           "pooled_scores": pooled_scores,
+                           "pooled_log_path": pooled_log_path, "pooled_cutoff": pooled_cutoff,
+                           "model_id": model_id, "model_dir": model_dir,
+                           "embeddings": embeddings, "gfp": gfp_path})
     if not candidates:
         missing_text = "\n".join(f"- {path}" for path in sorted(set(missing)))
         raise ExperimentInputError(f"no detector seed has all required R10 inputs; missing files:\n{missing_text}")
     return candidates
 
 
+def _tenant_score_path(inputs: dict, tenant_id: int) -> Path:
+    if inputs["score_source"] == "pooled":
+        return inputs["pooled_scores"]
+    tenant_id = _exact_int(tenant_id, field="requested tenant_id", minimum=1)
+    template = str(inputs["visible_scores_template"])
+    return Path(_format_visible_template(
+        template, tenant_id=tenant_id, model_id=str(inputs["model_id"]), seed=inputs["seed"],
+    ))
+
+
+def _score_cutoff_source(log_path: Path) -> str:
+    try:
+        location = log_path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+    except ValueError:
+        location = str(log_path.resolve())
+    return f"{location}:seed_rule.q"
+
+
 def run_experiment(*, truth_path: Path, account_map: Path | None = None,
-                   seeds: list[int] | None = None) -> dict:
+                   seeds: list[int] | None = None,
+                   tenant_score_source: str | None = None) -> dict:
     config = load_platform_config()
+    # Validate source, templates, seeds, and candidate input logs before touching
+    # the database or reading the experiment truth.
+    seed_inputs = _candidate_seed_inputs(config, seeds, tenant_score_source)
     truth_path = truth_path.resolve()
     account_map = (account_map or configured_path(config, "account_map")).resolve()
     for path in (truth_path, account_map):
@@ -105,7 +263,6 @@ def run_experiment(*, truth_path: Path, account_map: Path | None = None,
         raise ExperimentInputError("no loaded tenants are available in the platform database")
     truth = load_window_truth(truth_path, window_name="whole", scope="test_visible")
     ring_banks, account_banks = _truth_bank_ids(truth, account_map)
-    seed_inputs = _candidate_seed_inputs(config, seeds)
     all_rows = []
     input_paths = [truth_path, account_map]
     output_root = REPO_ROOT / "results" / "platform" / "r10"
@@ -115,22 +272,42 @@ def run_experiment(*, truth_path: Path, account_map: Path | None = None,
         seed_config = dict(config)
         seed_config.update({
             "active_seed": seed, "model_dir": str(inputs["model_dir"]),
-            "scored_edges": str(inputs["scores"]), "embeddings": str(inputs["embeddings"]),
-            "seed_score_cutoff": inputs["cutoff"],
-            "seed_score_cutoff_source": f"{inputs['log'].relative_to(REPO_ROOT).as_posix()}:seed_rule.q",
+            "embeddings": str(inputs["embeddings"]),
         })
         seed_dir = output_root / f"seed_{seed}"
-        tenant_runs = build_tenant_rings(
-            scores_path=inputs["scores"], model_dir=inputs["model_dir"],
-            gfp_path=inputs["gfp"], embeddings_path=inputs["embeddings"],
-            tenant_ids=tenants, output_dir=seed_dir / "tenant-runs", config=seed_config,
-        )
+        if inputs["score_source"] == "pooled":
+            tenant_scores_by_id = {tenant: (inputs["pooled_scores"], inputs["pooled_log_path"],
+                                           inputs["pooled_cutoff"]) for tenant in tenants}
+        else:
+            tenant_scores_by_id = {}
+            for tenant in tenants:
+                tenant_scores = _tenant_score_path(inputs, tenant)
+                _, tenant_log_path, tenant_cutoff = _score_log(
+                    tenant_scores, model_id=str(config["active_model_id"]), seed=seed,
+                    tenant_id=tenant)
+                tenant_scores_by_id[tenant] = (tenant_scores, tenant_log_path, tenant_cutoff)
+                input_paths.append(tenant_scores)
+                input_paths.append(tenant_log_path)
+        tenant_runs = []
+        for tenant in tenants:
+            tenant_scores, tenant_log_path, tenant_cutoff = tenant_scores_by_id[tenant]
+            tenant_config = dict(seed_config)
+            tenant_config.update({
+                "scored_edges": str(tenant_scores),
+                "seed_score_cutoff": tenant_cutoff,
+                "seed_score_cutoff_source": _score_cutoff_source(tenant_log_path),
+            })
+            tenant_runs.extend(build_tenant_rings(
+                scores_path=tenant_scores, model_dir=inputs["model_dir"],
+                gfp_path=inputs["gfp"], embeddings_path=inputs["embeddings"],
+                tenant_ids=[tenant], output_dir=seed_dir / "tenant-runs", config=tenant_config,
+            ))
         pooled_path = seed_dir / "pooled-rings.parquet"
         pooled_result = research_cli.run_rings(
-            scores=inputs["scores"], model_dir=inputs["model_dir"], aggregator="full",
+            scores=inputs["pooled_scores"], model_dir=inputs["model_dir"], aggregator="full",
             gfp=inputs["gfp"], embeddings=inputs["embeddings"], out=pooled_path,
         )
-        input_paths.extend(inputs[key] for key in ("scores", "gfp", "embeddings"))
+        input_paths.extend([inputs["pooled_scores"], inputs["gfp"], inputs["embeddings"]])
         input_paths.append(inputs["model_dir"] / "model.json")
         tenant_rows = []
         for run in tenant_runs:
@@ -191,7 +368,7 @@ def run_experiment(*, truth_path: Path, account_map: Path | None = None,
             mean_row.update({key: sum(float(row[key]) for row in seed_rows) / len(seed_rows)
                              for key in metric_columns})
             all_rows.append(mean_row)
-        input_paths.append(inputs["log"])
+        input_paths.append(inputs["pooled_log_path"])
 
     cross_counts = [len(banks) for banks in ring_banks.values()]
     global_stats = {
@@ -208,7 +385,8 @@ def run_experiment(*, truth_path: Path, account_map: Path | None = None,
                                   config=config, inputs=input_paths,
                                   details={"n_seeds": len(seed_inputs),
                                            "seeds": [item["seed"] for item in seed_inputs],
-                                           "tenant_ids": tenants, "metrics": global_stats})
+                                           "tenant_ids": tenants, "metrics": global_stats,
+                                           "tenant_score_source": inputs["score_source"]})
     return {"n_seeds": len(seed_inputs), "tenant_ids": tenants,
             "csv": str(csv_path), "markdown": str(md_path), "run_json": str(run_path)}
 
@@ -218,10 +396,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--truth", type=Path, required=True)
     parser.add_argument("--account-map", type=Path)
     parser.add_argument("--seed", type=int, action="append")
+    parser.add_argument("--tenant-score-source", choices=("pooled", "tenant_visible"))
     args = parser.parse_args(argv)
     try:
         print(json.dumps(run_experiment(truth_path=args.truth,
-                                        account_map=args.account_map, seeds=args.seed), indent=2))
+                                        account_map=args.account_map, seeds=args.seed,
+                                        tenant_score_source=args.tenant_score_source), indent=2))
     except (ExperimentInputError, RuntimeError, ValueError) as exc:
         parser.exit(2, f"R10 input or execution error: {exc}\n")
     return 0

@@ -19,6 +19,17 @@ class TruthMatch:
     verdict: str
 
 
+def truth_window_info(window_name: str) -> dict[str, int | str]:
+    """Expose configured window bounds/split to platform validation without redefining them."""
+    windows = load_windows()
+    try:
+        window = windows[window_name]
+    except KeyError as exc:
+        raise RuntimeError(f"evaluation config has no {window_name} window") from exc
+    return {"split": window.split, "start": int(window.bounds[0]),
+            "end": int(window.bounds[1]), "name": window_name}
+
+
 def load_window_truth(truth_parquet: Path, *, window_name: str,
                       scope: str = "test_visible") -> dict[int | str, frozenset[int]]:
     """Load one named evaluation window under the requested truth visibility rule."""

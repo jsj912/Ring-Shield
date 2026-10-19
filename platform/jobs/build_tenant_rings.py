@@ -114,7 +114,7 @@ def build_edge_subset(scores_path: Path, tenant_id: int, output_path: Path,
     if {"true_label", "account_number", "from_account_number", "to_account_number"} & columns:
         raise TenantRingBuildError("labels and account numbers are forbidden in tenant ring inputs")
 
-    edge_ids: list[int] = []
+    visible_edges: dict[int, tuple[float, int, int]] = {}
     columns_to_read = ["edge_id", "from_bank", "to_bank"]
     if score_by_id is not None:
         if SELECT_COL not in columns:
@@ -127,15 +127,26 @@ def build_edge_subset(scores_path: Path, tenant_id: int, output_path: Path,
             values["edge_id"], values["from_bank"], values["to_bank"], scores,
         ):
             if int(from_bank) == tenant_id or int(to_bank) == tenant_id:
-                edge_ids.append(int(edge_id))
-                if score_by_id is not None:
-                    score_by_id[int(edge_id)] = (
-                        float(score) if score is not None else float("nan"), int(from_bank), int(to_bank),
-                    )
-    if not edge_ids:
+                edge_id = int(edge_id)
+                row = (float(score) if score is not None else float("nan"),
+                       int(from_bank), int(to_bank))
+                previous = visible_edges.get(edge_id)
+                if previous is not None:
+                    same_score = (previous[0] == row[0]
+                                  or (math.isnan(previous[0]) and math.isnan(row[0])))
+                    if previous[1:] != row[1:] or not same_score:
+                        raise TenantRingBuildError(
+                            f"scored edges contain conflicting duplicate edge_id {edge_id}"
+                        )
+                    continue
+                visible_edges[edge_id] = row
+    if not visible_edges:
         raise TenantRingBuildError(f"tenant {tenant_id} has no visible scored edges")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    edge_ids = sorted(visible_edges)
+    if score_by_id is not None:
+        score_by_id.update(visible_edges)
     table = pa.table({"edge_id": pa.array(edge_ids, type=pa.int64())})
     pq.write_table(table, output_path, compression="zstd")
     return len(edge_ids)

@@ -124,8 +124,16 @@ with their configured key/path rather than substituting fixture numbers.
 ### R10 tenant versus pooled experiment
 
 The repeatable CLI is `python -m experiments.r10_tenant_vs_pooled --truth <test-truth.parquet>`
-from the `platform/` directory. An optional `--account-map` selects the account to
-bank mapping, and repeated `--seed N` limits which detector seeds are considered.
+from the `platform/` directory. R10 requires an operational score source to be
+selected explicitly: `r10.tenant_score_source` is `null` by default, or pass
+`--tenant-score-source pooled` / `--tenant-score-source tenant_visible` for a run.
+The research choice remains unresolved. Pooled scores are always the comparison
+baseline; the selected operational source determines which scores build each
+tenant's rings. `pooled` uses the pooled score file for every tenant before the
+tenant visibility filter; `tenant_visible` requires one test score file per bank
+with a log matching that tenant, model, seed and test split. Selecting either
+option for a run does not settle the research decision. An optional `--account-map`
+selects the account-to-bank mapping, and repeated `--seed N` limits which detector seeds are considered.
 Without explicit seed flags, it checks seeds 1 through 5 and runs only seeds with
 the test scores/log, full model directory, GFP file and matching embeddings file;
 the selected seed list and count are recorded. It also requires loaded tenants in
@@ -142,10 +150,11 @@ cross-bank fraction and average banks per ring. Outputs are
 provenance records the Git commit plus config and input SHA-256 hashes.
 
 This checkout has test scores for seeds 1-5, but a full model directory and test
-embeddings are available only for seed 1. The validation truth path is still
-unset and no AMLWorld ground-truth parquet is present. R10 therefore cannot yet
-produce real comparison metrics; it fails clearly until you provide that test
-truth path (and any missing seed inputs). No values are filled from the fixture.
+embeddings are available only for seed 1. The test truth path is still unset and
+no AMLWorld ground-truth parquet is present. R10 therefore cannot yet produce
+real comparison metrics; it fails clearly until you provide that test truth path,
+select an operational score source, and provide any missing seed inputs. No
+values are filled from the fixture.
 
 ### R11 gated retraining experiment
 
@@ -360,13 +369,23 @@ interface before the platform can safely make that workflow atomic.
 
 ### Simulated verdict cycles (L6-A)
 
-The simulator uses the configured `l6.simulator` values and the validation truth adapter. It requires the validation truth parquet, a seeded per-tenant `simulated.analyst@tenant<ID>.local` account, and `RINGSHIELD_SIMULATOR_DATABASE_URL` configured for the restricted `ringshield_simulator` role. Example:
+The simulator uses the configured `l6.simulator` values and test-visible truth.
+Review intervals must fit completely inside the permitted test window, days 8–17;
+validation truth (`val`, days 6–7) is rejected for test-window reviews. With the
+configured one-day cycle, a valid command shape is:
 
 ```powershell
-python platform/jobs/simulate_verdicts.py --tenant-id 210 --cycle-day 6
+python platform/jobs/simulate_verdicts.py --tenant-id 210 --cycle-day 8 --truth-window whole
 ```
 
-Optional `--seed`, `--accuracy`, and `--review-fraction` override the configured defaults. The simulator role is separate from the API and its RLS policy binds simulated inserts to the active tenant context. The Postgres acceptance test verifies cross-tenant writes are rejected.
+This is CLI syntax, not a claim that the command was executed. It requires a
+configured test truth parquet, a seeded per-tenant
+`simulated.analyst@tenant<ID>.local` account, and
+`RINGSHIELD_SIMULATOR_DATABASE_URL` configured for the restricted
+`ringshield_simulator` role. Optional `--seed`, `--accuracy`, and
+`--review-fraction` override configured defaults. The simulator role is separate
+from the API and its RLS policy binds simulated inserts to the active tenant
+context. The Postgres acceptance test verifies cross-tenant writes are rejected.
 
 ### L6-A retraining
 

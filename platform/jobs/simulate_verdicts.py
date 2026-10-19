@@ -15,7 +15,7 @@ PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PLATFORM_ROOT.parent
 sys.path.insert(0, str(PLATFORM_ROOT))
 
-from adapters.ground_truth import load_val_truth, load_window_truth, match_ring  # noqa: E402
+from adapters.ground_truth import load_window_truth, match_ring, truth_window_info  # noqa: E402
 from api.identity import Principal  # noqa: E402
 from db.models import Ring, Transaction, User  # noqa: E402
 from db.session import db_session, simulator_db_session  # noqa: E402
@@ -24,6 +24,8 @@ from settings import load_l6_config  # noqa: E402
 
 DAY_ZERO_TIMESTAMP = 10
 SECONDS_PER_DAY = 86_400
+FIRST_TEST_DAY = 8
+LAST_TEST_DAY = 17
 
 
 @dataclass(frozen=True)
@@ -85,17 +87,33 @@ def simulate_decision(*, ring_members: set[int], truth_rings: dict,
 def _cycle_bounds(cycle_day: int, cycle_days: int) -> tuple[int, int]:
     if cycle_day < 0 or cycle_days < 1:
         raise ValueError("cycle_day must be non-negative and cycle_days positive")
-    start = DAY_ZERO_TIMESTAMP + cycle_day * cycle_days * SECONDS_PER_DAY
+    start = DAY_ZERO_TIMESTAMP + cycle_day * SECONDS_PER_DAY
     return start, start + cycle_days * SECONDS_PER_DAY
+
+
+def validate_review_interval(cycle_day: int, cycle_days: int, truth_window: str) -> tuple[int, int]:
+    """Validate exact queried timestamps against configured test days and truth window."""
+    start, end = _cycle_bounds(cycle_day, cycle_days)
+    test_start = DAY_ZERO_TIMESTAMP + FIRST_TEST_DAY * SECONDS_PER_DAY
+    test_end = DAY_ZERO_TIMESTAMP + (LAST_TEST_DAY + 1) * SECONDS_PER_DAY
+    if start < test_start or end > test_end:
+        raise ValueError(f"simulated review cycles must stay within test days {FIRST_TEST_DAY}-{LAST_TEST_DAY}")
+    info = truth_window_info(truth_window)
+    if info["split"] != "test":
+        raise ValueError(f"truth window {truth_window!r} is split={info['split']}; simulator reviews require test truth")
+    if start < int(info["start"]) or end > int(info["end"]) + 1:
+        raise ValueError(f"review interval is not fully contained in truth window {truth_window!r}")
+    return start, end
 
 
 def simulate_cycle(*, tenant_id: int, cycle_day: int, actor: Principal,
                    truth_path: Path, seed: int, accuracy: float, review_fraction: float,
                    match_jaccard: float, full_confirm_jaccard: float,
-                   cycle_days: int = 1, truth_window: str = "val",
+                   cycle_days: int = 1, truth_window: str = "whole",
                    ring_ids: set[str] | None = None) -> dict[str, int]:
     if actor.role == "admin" or actor.tenant_id != tenant_id:
         raise PermissionError("simulation requires a non-admin actor for the requested tenant")
+    start, end = validate_review_interval(cycle_day, cycle_days, truth_window)
     if seed < 0:
         raise ValueError("seed must be non-negative")
     review_limit(0, review_fraction)
@@ -103,10 +121,8 @@ def simulate_cycle(*, tenant_id: int, cycle_day: int, actor: Principal,
         raise ValueError("accuracy must be in [0, 1]")
     if not 0 <= match_jaccard <= 1 or not 0 <= full_confirm_jaccard <= 1:
         raise ValueError("Jaccard thresholds must be in [0, 1]")
-    truth_rings = (load_val_truth(truth_path) if truth_window == "val"
-                   else load_window_truth(truth_path, window_name=truth_window,
-                                          scope="test_visible"))
-    start, end = _cycle_bounds(cycle_day, cycle_days)
+    truth_rings = load_window_truth(truth_path, window_name=truth_window,
+                                    scope="test_visible")
     rng = deterministic_rng(tenant_id, cycle_day, seed)
     with simulator_db_session(tenant_id=tenant_id) as session:
         analyst = session.execute(select(User.user_id).where(
@@ -165,8 +181,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=int(simulator["seed"]))
     parser.add_argument("--accuracy", type=float, default=float(simulator["accuracy"]))
     parser.add_argument("--review-fraction", type=float, default=float(simulator["review_fraction"]))
-    parser.add_argument("--truth-window", choices=("val", "whole"), default="val")
+    parser.add_argument("--truth-window", choices=("val", "primary", "tail", "whole"), default="whole")
     args = parser.parse_args(argv)
+    try:
+        validate_review_interval(args.cycle_day, int(simulator["cycle_days"]), args.truth_window)
+    except (RuntimeError, ValueError) as exc:
+        parser.error(str(exc))
     truth_path = config["paths"].get("truth_parquet")
     if truth_path is None or not truth_path.is_file():
         parser.error("platform config l6.retrain.truth_parquet is missing or unavailable")
