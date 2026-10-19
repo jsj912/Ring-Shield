@@ -102,6 +102,7 @@ def refresh_tenant_rings(tenant_id: int, model_version_id: int, run_id: str) -> 
         "tenant_id": tenant_id,
         "model_version_id": model_version_id,
         "version_tag": version_tag,
+        "rings_path": str(rings_path.resolve()),
         **counts,
     }
 

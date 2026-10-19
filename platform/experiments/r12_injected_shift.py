@@ -26,13 +26,16 @@ sys.path.insert(1, str(REPO_ROOT))
 from adapters import research_cli
 from adapters.ground_truth import load_window_truth_details
 from api.identity import Principal
-from db.models import Ring, Transaction, User
+from db.models import ModelVersion, Ring, Transaction, User
 from db.session import db_session
 from experiments.common import ExperimentInputError, write_csv_and_markdown, write_run_manifest
 from jobs import load_contract
 from jobs.build_tenant_rings import build_tenant_rings
 from jobs.drift_monitor import DriftStream, daily_statistics, persist_events, read_daily_scores
 from jobs.retrain import run_retrain_job
+from jobs.training_evaluation import (TrainingEvaluationError, make_evaluation_manifest,
+                                      training_ring_ids_from_path)
+from jobs.promotion_artifacts import PromotionArtifactError, read_manifest
 from jobs.simulate_verdicts import simulate_cycle
 from settings import configured_path, load_platform_config
 
@@ -209,15 +212,136 @@ def _event_rings_for_day(tenant_id: int, day: int) -> set[str]:
 
 
 def _eval_pattern(rings_path: Path, truth_path: Path, pattern_ids: set,
-                  output_path: Path) -> dict:
+                  output_path: Path, *, excluded_ring_ids: set[str] | None = None) -> dict:
+    try:
+        predicted_ids = pq.read_table(rings_path, columns=["ring_id"])["ring_id"].to_pylist()
+    except (OSError, ValueError, KeyError) as exc:
+        raise ExperimentInputError("R12 rings are missing their ring_id column") from exc
+    filtered = make_evaluation_manifest(
+        truth_ring_ids=pattern_ids,
+        predicted_ring_ids=predicted_ids,
+        excluded_ring_ids=excluded_ring_ids or set(),
+    )
+    result = {
+        "n_truth_rings": len(filtered["truth_ring_ids"]),
+        "n_predicted_rings": len(filtered["pred_ring_ids"]),
+        "n_excluded_truth_rings": len(pattern_ids) - len(filtered["truth_ring_ids"]),
+    }
+    if not filtered["truth_ring_ids"]:
+        return {**result, "ring_recall": None, "member_coverage": None,
+                "undefined_reason": "no truth rings remain after training-ring exclusion"}
     manifest = output_path.with_suffix(".holdout.json")
-    manifest.write_text(json.dumps({"truth_ring_ids": sorted(map(int, pattern_ids))}), encoding="utf-8")
+    manifest.write_text(json.dumps(filtered, sort_keys=True), encoding="utf-8")
     result = research_cli.eval_rings(
         rings=rings_path, truth=truth_path, holdout=manifest, window="whole",
         scope="test_visible", out=output_path,
     )
-    return {"ring_recall": result.metrics["ring_recall"],
-            "member_coverage": result.metrics["member_coverage"]}
+    return {**{
+        "n_truth_rings": len(filtered["truth_ring_ids"]),
+        "n_predicted_rings": len(filtered["pred_ring_ids"]),
+        "n_excluded_truth_rings": len(pattern_ids) - len(filtered["truth_ring_ids"]),
+    }, "ring_recall": result.metrics["ring_recall"],
+        "member_coverage": result.metrics["member_coverage"],
+        "undefined_reason": None}
+
+
+def _evaluate_promoted_artifacts(*, run_dir: Path, tenant_id: int, run_id: str,
+                                 truth_path: Path, pattern_ids: set,
+                                 cycle_truth_ids: set, output_dir: Path) -> list[dict]:
+    """Evaluate each promoted version only with its recorded refresh and training IDs."""
+    try:
+        promotion_manifest = read_manifest(run_dir, tenant_id=tenant_id, run_id=run_id)
+    except PromotionArtifactError as exc:
+        raise ExperimentInputError(str(exc)) from exc
+    results = []
+    for promotion in promotion_manifest["promotions"]:
+        version_id = int(promotion["model_version_id"])
+        with db_session(tenant_id=tenant_id, role="supervisor") as session:
+            model_version = session.scalar(select(ModelVersion).where(
+                ModelVersion.tenant_id == tenant_id,
+                ModelVersion.model_version_id == version_id,
+                ModelVersion.promoted.is_(True),
+            ))
+        if (model_version is None or not model_version.artifact_path
+                or model_version.component != promotion["component"]
+                or model_version.version_tag != promotion["version_tag"]):
+            raise ExperimentInputError(
+                f"R12 promoted model version {version_id} does not match its manifest entry"
+            )
+        try:
+            training_ring_ids = training_ring_ids_from_path(
+                Path(model_version.artifact_path) / "version.json"
+            )
+        except TrainingEvaluationError as exc:
+            raise ExperimentInputError(str(exc)) from exc
+        declared_training_ids = set(map(str, promotion["training_ring_ids"]))
+        if training_ring_ids != declared_training_ids:
+            raise ExperimentInputError(
+                f"R12 training ring IDs differ for promoted version {version_id}"
+            )
+        rings_path = Path(promotion["rings_path"])
+        try:
+            ring_tenants = set(map(int, pq.read_table(
+                rings_path, columns=["tenant_id"])["tenant_id"].to_pylist()))
+        except (OSError, ValueError, KeyError) as exc:
+            raise ExperimentInputError(
+                f"R12 refreshed rings for promoted version {version_id} are unreadable"
+            ) from exc
+        if ring_tenants - {int(tenant_id)}:
+            raise ExperimentInputError(
+                f"R12 refreshed rings for promoted version {version_id} contain another tenant"
+            )
+        metrics = _eval_pattern(
+            rings_path, truth_path, pattern_ids,
+            output_dir / f"after-retrain-{version_id}-metrics.json",
+            excluded_ring_ids=training_ring_ids,
+        )
+        cycle_metrics = _eval_pattern(
+            rings_path, truth_path, cycle_truth_ids,
+            output_dir / f"cycle-after-retrain-{version_id}-metrics.json",
+            excluded_ring_ids=training_ring_ids,
+        )
+        results.append({
+            "component": promotion["component"], "model_version_id": version_id,
+            "rings_path": str(rings_path), "training_ring_ids": training_ring_ids,
+            "metrics": metrics, "cycle_metrics": cycle_metrics,
+        })
+    return results
+
+
+def _promotion_report_rows(*, before_metrics: dict, after_metrics: dict,
+                           cycle_before_metrics: dict, promotions: list[dict]) -> list[dict]:
+    """Build report rows without presenting baseline rings as post-promotion output."""
+    rows = [{
+        "lane": "no_retrain_control",
+        "recall_before_insertion": before_metrics["ring_recall"],
+        "recall_after_insertion_without_retrain": after_metrics["ring_recall"],
+        "recall_after_gated_retrain": None,
+        "cycle_recall_after_insertion_without_retrain": cycle_before_metrics["ring_recall"],
+        "cycle_recall_after_gated_retrain": None,
+        "cycle_truth_rings_after_training_exclusion": None,
+    }]
+    if not promotions:
+        rows.append({
+            "lane": "gated_retrain_no_promotion",
+            "recall_after_gated_retrain": None,
+            "cycle_recall_after_gated_retrain": None,
+            "cycle_truth_rings_after_training_exclusion": None,
+            "promotion_status": "none",
+        })
+    for promotion in promotions:
+        rows.append({
+            "lane": "gated_retrain", "component": promotion["component"],
+            "model_version_id": promotion["model_version_id"],
+            "recall_before_insertion": before_metrics["ring_recall"],
+            "recall_after_insertion_without_retrain": after_metrics["ring_recall"],
+            "recall_after_gated_retrain": promotion["metrics"]["ring_recall"],
+            "cycle_recall_after_insertion_without_retrain": cycle_before_metrics["ring_recall"],
+            "cycle_recall_after_gated_retrain": promotion["cycle_metrics"]["ring_recall"],
+            "cycle_truth_rings_after_training_exclusion": promotion["cycle_metrics"]["n_truth_rings"],
+            "promotion_status": "promoted",
+        })
+    return rows
 
 
 def _real_replay(*, tenant_id: int, config: dict, pattern: str) -> dict:
@@ -338,23 +462,27 @@ def _real_replay(*, tenant_id: int, config: dict, pattern: str) -> dict:
             ))
         if retrain_state is None:
             raise RuntimeError("R12 gated retrain run disappeared")
-        after_retrain_path = Path(after_build["rings_path"])
-        if retrain_state.model_version_id is not None:
-            refresh_path = (PLATFORM_ROOT / "out" / "ring-refresh" / run_id
-                            / str(tenant_id) / f"tenant_{tenant_id}_rings.parquet")
-            if refresh_path.is_file():
-                after_retrain_path = refresh_path
-        after_retrain_metrics = _eval_pattern(
-            after_retrain_path, truth_path, shift["pattern_ids"], output_dir / "after-retrain-metrics.json",
+        if retrain_state.status != "succeeded":
+            raise ExperimentInputError(
+                f"R12 gated retrain did not succeed ({retrain_state.status}); "
+                "post-retrain metrics are not reported"
+            )
+        cycle_truth_ids = {ring_id for ring_id, kind in shift["patterns"].items()
+                           if str(kind).upper() == "CYCLE"}
+        cycle_before_retrain = _eval_pattern(
+            Path(after_build["rings_path"]), truth_path, cycle_truth_ids,
+            output_dir / "cycle-before-retrain-metrics.json",
         )
-        report_rows = [
-            {"lane": "no_retrain_control", "recall_before_insertion": before_metrics["ring_recall"],
-             "recall_after_insertion_without_retrain": after_metrics["ring_recall"],
-             "recall_after_gated_retrain": after_metrics["ring_recall"]},
-            {"lane": "gated_retrain", "recall_before_insertion": before_metrics["ring_recall"],
-             "recall_after_insertion_without_retrain": after_metrics["ring_recall"],
-             "recall_after_gated_retrain": after_retrain_metrics["ring_recall"]},
-        ]
+        promotion_results = _evaluate_promoted_artifacts(
+            run_dir=PLATFORM_ROOT / "out" / "retrain" / run_id,
+            tenant_id=tenant_id, run_id=run_id, truth_path=truth_path,
+            pattern_ids=shift["pattern_ids"], cycle_truth_ids=cycle_truth_ids,
+            output_dir=output_dir,
+        )
+        report_rows = _promotion_report_rows(
+            before_metrics=before_metrics, after_metrics=after_metrics,
+            cycle_before_metrics=cycle_before_retrain, promotions=promotion_results,
+        )
         csv_path, md_path = output_dir / "recall.csv", output_dir / "recall.md"
         write_csv_and_markdown(report_rows, csv_path, md_path)
         delay = None
@@ -380,6 +508,13 @@ def _real_replay(*, tenant_id: int, config: dict, pattern: str) -> dict:
                      "moved_edge_rows": shift["moved_edge_rows"],
                      "detection_delay_simulated_days": delay,
                      "reviewed_rings": reviewed, "retrain_status": retrain_state.status,
+                     "promotions": [{"component": row["component"],
+                                     "model_version_id": row["model_version_id"],
+                                     "n_training_ring_ids_excluded": len(row["training_ring_ids"]),
+                                     "cycle_recall_after_retrain": row["cycle_metrics"]["ring_recall"],
+                                     "cycle_truth_rings_after_training_exclusion": row["cycle_metrics"]["n_truth_rings"]}
+                                    for row in promotion_results],
+                     "promotion_status": "none" if not promotion_results else "promoted",
                      "statement": "drift was injected, not observed"},
         )
         return {"dry_run": False, "csv": str(csv_path), "markdown": str(md_path),

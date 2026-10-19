@@ -46,3 +46,11 @@ scheduler:
 r12:
   pattern: BIPARTITE
   model_dir: null
+
+# Research-lead decision required before R10 runs. Pooled scores remain the
+# comparison baseline; the operational score source is unresolved and must be selected explicitly.
+# Tenant-visible templates must contain {tenant_id}, {model_id}, and {seed}.
+r10:
+  tenant_score_source: null
+  pooled_scores_template: contract/out/scored_edges_{model_id}_{seed}.parquet
+  tenant_visible_scores_template: null
