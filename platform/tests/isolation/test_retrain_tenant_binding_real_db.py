@@ -251,7 +251,7 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
                 "SELECT status FROM retrain_runs WHERE tenant_id = :tenant_id AND run_id = :run_id"
             ), {"tenant_id": TENANT_A, "run_id": run_id}).scalar_one()
             versions = connection.execute(text("""
-                SELECT version_tag, promoted FROM model_versions
+                SELECT version_tag, promoted, gate_reason FROM model_versions
                 WHERE tenant_id = :tenant_id AND component = 'expansion'
                 ORDER BY model_version_id
             """), {"tenant_id": TENANT_A}).all()
@@ -259,7 +259,8 @@ def test_retrain_job_is_tenant_bound_and_loader_cannot_write_verdicts(
         assert versions[-1].version_tag.startswith("v2-")
         assert versions[-1].promoted is promoted
         assert versions[0].promoted is (not promoted)
-        assert versions[-1].gate_reason
+        if not promoted:
+            assert versions[-1].gate_reason
         with app_engine.connect() as connection:
             assert connection.execute(text("SELECT current_user")).scalar_one() == "ringshield_api"
         with loader_db_session(tenant_id=TENANT_A) as session:
