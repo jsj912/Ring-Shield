@@ -294,3 +294,9 @@ This file records findings and changes in the order requested for the platform h
 - Added `-ResetPasswords` to the demo runner, reusing `Write-DemoUsers` and its existing local admin database connection and direct bcrypt hashing. Reset upserts change only `password_hash` for existing users, with no role/tenant/disabled-state changes; the database transaction writes `user.password_reset` audit rows without credentials. Rotated secrets are persisted to the gitignored credentials file after the DB update and are never printed. No API/app-role permission or API loader credential changes were made. `-ResetPasswords` is rejected with `-Down` and `-ValidateOnly`; `-Down -DropVolume` remains the data wipe path.
 - Added database-free Streamlit tests for login failure, session expiry, 403 request-ID behavior, quiet 404, and 204, plus an API-level no-DB test preserving indistinguishable bad-login 401s. Added static PowerShell checks for reset switch/conflict/password output.
 - Docker, PostgreSQL, and the demo were not run. Test counts are recorded in the completion report.
+
+## Platform requirements status audit - 2026-10-19
+
+- Added `docs/REQUIREMENTS_STATUS.md`, mapping every PR-01–PR-52 and every FR-D ID in the source specification to code/test evidence, status, remaining work, blocked inputs, and the requested handoff checks.
+- Audit is read-only for implementation: no code, tests, migrations or configuration were changed. Status `TESTED` means a named automated test exists; it does not mean that this audit ran the test or verified CI. Database/RLS and R10–R12 execution were not performed.
+- Source specs used: `directions/RingShield_L5_L6_Platform_Spec.docx` and `directions/RingShield_Dashboard_Requirements.docx`. No requirement IDs were invented.

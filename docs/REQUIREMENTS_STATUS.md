@@ -118,3 +118,71 @@
 | FR-D103 | Show counterparty bank name only | PARTIAL | `platform/api/routers/rings.py::_summary`; `platform/dashboard/app.py::_ring_detail` | Current display uses bank labels/IDs; actual bank names are not available through the current registry payload. |
 | FR-D104 | Never show ground truth, pattern IDs or unreturned values | TESTED | `platform/tests/test_research_boundary.py::test_platform_research_import_and_ground_truth_boundary`; API grep in closing section | Boundary test exists and API ground-truth/label search returned no matches. |
 | FR-D105 | Help definitions for listed terms and each weight | MISSING | No glossary/help controls in `platform/dashboard/app.py` | Add two-sentence definitions for each requested term/weight. |
+## Audit commands and source-level checks
+
+**Part 3 complete: audit results, gap priority, blockers, risks, handoff facts, and execution scope are recorded below.**
+
+The source documents used were `directions/RingShield_L5_L6_Platform_Spec.docx` and `directions/RingShield_Dashboard_Requirements.docx`. IDs and requirement meanings come from those documents, not the abbreviated task summaries.
+
+### Required grep checks
+
+- FR-D102 / PR-29 command: `git grep -n -E 'sum\(|[[:alnum:]_)] *[-+*/] *[[:alnum:]_(]' -- platform/dashboard/app.py`. Result: only `platform/dashboard/app.py:166`, `:171`, and `:175`, all page/cursor navigation arithmetic (`page + 1`, `page - 1`). No sum, ratio or derived ring metric arithmetic was found.
+- PR-49 command: `git grep -n -E '(^|[[:space:]])(import|from)[[:space:]]+(torch|xgboost|lightgbm|sklearn|ringshield)([.]|[[:space:],]|$)' -- platform ':!platform/adapters'`. Result: no matches.
+- PR-50 command: `git grep -n -i -E 'ground.?truth|labels_' -- platform/api`. Result: no matches.
+
+### FR-D02, FR-D03 and FR-D05 message/search check
+
+Command run exactly as requested:
+
+```text
+git grep -n -i -E "session expired|not permitted|ResetPasswords|invalid (username|credentials)|wrong password|incorrect password" -- platform scripts
+```
+
+Relevant hits, grouped by source type:
+
+- Code: `platform/api/dependencies.py` (API session-expiry and Not permitted responses); `platform/api/errors.py` (Not permitted code/message); `platform/api/routers/auth.py` (comment preserving indistinguishable wrong-password behavior); `platform/api/routers/verdicts.py` (session-expiry response); `platform/dashboard/app.py` (generic login error, session-expiry notice, role warning); `scripts/run-demo.ps1` (`-ResetPasswords`, conflict validation and reset path).
+- Tests: `platform/tests/test_auth_bcrypt.py::test_bad_login_credentials_keep_indistinguishable_api_401_contract`; `platform/tests/test_dashboard_auth_feedback.py::test_login_401_shows_generic_error_and_preserves_unrelated_session_state`, `::test_authenticated_401_is_shown_as_notice_after_login_rerun`, `::test_403_warns_and_keeps_authenticated_session`, `::test_login_error_does_not_depend_on_response_message`; `scripts/tests/run-demo-validation.tests.ps1` checks switch declaration, `-Down` conflict and that password values are not printed.
+
+Findings: visible wrong-password feedback exists as the generic `Incorrect email or password.` message and has tests; “Session expired. Please sign in again.” exists and has a test; “Not permitted: your role cannot do this.” exists and has a test; `-ResetPasswords` exists and has static script tests.
+
+## Top gaps by importance
+
+| Rank | Requirement IDs | Why it matters | Estimate |
+|---|---|---|---|
+| 1 | PR-13, PR-14, FR-D50–53 | Partial correction is refused; the member checklist, corrected-member persistence and post-verdict L4 regeneration are absent. | L |
+| 2 | PR-28, FR-D90–93 | Admin R10 API exists but the dashboard has no tenant registry or tenant-versus-pooled workflow/results view. | L |
+| 3 | PR-24, FR-D31–38 | The required graph interaction, role/weight encodings, timeline, cross-highlighting, large-ring handling and exports are mostly absent. | L |
+| 4 | PR-10 | State changes are not consistently represented in the audit log; this weakens change accountability. | M |
+| 5 | PR-32, PR-33, PR-35, PR-36, PR-39, PR-40, PR-43 | Real R10–R12 evidence and retraining cannot be completed with the external truth and validation/model artifacts currently missing. | L |
+
+## Blocked items and who unblocks them
+
+- PR-32/33 R10 and PR-39 R11: the data owner must provide `amlworld_ring_ground_truth.parquet`; the model/artifact owner must provide complete full-model and matching test-embedding inputs for seeds 2–5 if all five seeds are required.
+- PR-35/36 real retraining and frozen production holdout: provide the ground-truth parquet, validation GFP and matching validation embeddings; the platform owner can then create the immutable holdout manifest and run the job.
+- PR-40/43 real R12: provide the ground-truth parquet and a real configured `r12.model_dir`/research model inputs; the experiment owner can then execute replay and produce the report.
+- R10–R12 status is blocked by external artifacts, not by a claim that CI/database tests failed. No such runs were performed in this audit.
+
+## Bugs or risks noticed while reading
+
+- Partial verdict requests currently return 503, while the dashboard shows a disabled partial button. This is safe against silently recording an incomplete correction, but leaves the analyst workflow unfinished (PR-13/14).
+- Queue empty state merges “no rings match” with “no rings generated”, which can mislead a newly provisioned tenant (PR-31 / FR-D15).
+- Drift events can be marked reviewed without the required supervisor note (FR-D81).
+- The verdict index is on `(tenant_id, created_at)`; the queried ring history is filtered by `(tenant_id, ring_id)` and no matching index was found (PR-04 performance risk).
+- Database and RLS tests are present for CI, but were not run for this audit. No test or CI success is asserted here.
+
+## Handoff facts check
+
+| Fact | Check |
+|---|---|
+| Tenant ring builder cutoff `0.9295209672451074` | OK — `platform/config.yaml::seed_score_cutoff`; source says pooled test log `seed_rule.q`. |
+| Pinned FX SHA-256 `ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6` | OK — `platform/config.yaml::fx_rates_sha256`. |
+| `l4.rings_schema_version = 1` | OK — `platform/config.yaml`. |
+| Migration revisions 0001–0006 and next free number | OK — `platform/db/migrations/versions/0001_platform_schema.py` through `0006_explanation_fx_hash.py` exist; next free revision number is `0007`. |
+| Retraining gate epsilon `0.005` | OK — `platform/config.yaml::l6.retrain.epsilon`. |
+| App, loader, simulator and owner roles; API process has no loader credentials | OK — roles are created in `0002_role_ownership_force_rls.py`; the API module boundary test is `platform/tests/test_retrain_api.py::test_api_modules_never_read_or_import_loader_credentials`. `platform/api` has no direct loader URL import/read. |
+| Explanation primary key and revision column | OK — primary key is `(tenant_id, ring_id, explainer_version)` in `platform/db/models.py::Explanation` and migration 0001. There is no `revision` column. |
+| Roles with INSERT/UPDATE on explanations | OK — `ringshield_api` and `ringshield_loader` each have INSERT and UPDATE grants in `platform/db/roles.sql`; auth and simulator roles do not. |
+
+## Execution scope
+
+This was a source/document audit. No code, tests, migrations or configuration were changed. No unit tests, database tests, Docker services, demo, CI workflow or real R10–R12 run were executed. Test names in the tables indicate available automated coverage only.
