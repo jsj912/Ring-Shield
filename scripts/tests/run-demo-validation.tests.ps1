@@ -45,6 +45,28 @@ foreach ($syntaxFile in $syntaxFiles) {
 }
 $passed = 1
 
+$demoSource = Get-Content -LiteralPath $demoScript -Raw -Encoding UTF8 -ErrorAction Stop
+if ($demoSource -notmatch '(?m)^\s*\[switch\]\$ResetPasswords\s*,?\s*$') {
+    throw 'run-demo.ps1 does not define the -ResetPasswords switch.'
+}
+if ($demoSource -notmatch '\$ResetPasswords\s+-and\s+\$Down') {
+    throw 'run-demo.ps1 does not reject -ResetPasswords combined with -Down.'
+}
+$passwordOutput = [regex]::Matches(
+    $demoSource,
+    '(?im)^\s*(Write-Host|Write-Output|Write-Information)\b[^\r\n]*\$(?:\w*password\w*|credentials\.(?:admin|tenant_\w+)_password)'
+)
+if ($passwordOutput.Count -gt 0) {
+    throw 'run-demo.ps1 contains an output command that interpolates a password value.'
+}
+try {
+    & $demoScript -ResetPasswords -Down
+    throw '-ResetPasswords -Down was unexpectedly accepted.'
+} catch {
+    if ($_.Exception.Message -notmatch 'cannot be combined with -Down') { throw }
+}
+$passed++
+
 try {
     Assert-TimeOriginUtc ''
     throw 'Missing TimeOriginUtc was unexpectedly accepted.'
