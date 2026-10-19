@@ -162,13 +162,17 @@ def test_kappa_bands():
     assert kappa_band(None, b) is None
 
 
-def test_item_features_come_from_the_explanations():
-    """The self-payment feature agrees with the packets: an item has it exactly when one of the narrative's three
-    strongest transactions (as printed in the packet) is an account paying itself."""
+def test_item_features_describe_the_text_the_reviewers_read():
+    """The features are frozen (review/item_features.csv), because Week 8 rewrote the narratives after the review.
+    They add up to the scored Week 7 summary, and the self-payment feature agrees with the packets: an item has it
+    exactly when one of the narrative's three strongest transactions (as printed in the packet) is an account paying
+    itself."""
     from explainability.review.aggregate import item_features
     key = pd.read_parquet(DIR / "answer_key.parquet")
     feats = item_features(CFG, key)
     assert len(feats) == 30 and set(feats.columns) >= {"shape_sentence", "self_payment_top3", "bank_list"}
+    stored = json.loads((DIR / "review_summary.json").read_text(encoding="utf-8"))["analysis"]["item_features"]
+    assert {f: int(feats[f].sum()) for f in stored} == stored
     text = (DIR / "packet_R2.md").read_text(encoding="utf-8")
     for sec in re.split(r"^## ", text, flags=re.M)[1:]:
         item = sec.split("\n", 1)[0].strip()

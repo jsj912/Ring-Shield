@@ -139,6 +139,12 @@ def shape_facts(edges: pd.DataFrame) -> dict:
     return out
 
 
+def _hub_roles(shape: dict, account_weights: list[dict]) -> dict:
+    """The money role of each hub the shape facts name (Week 8: a shape sentence must agree with the roles)."""
+    role = {int(a["account_id"]): a["role"] for a in account_weights}
+    return {f"{k}_role": role.get(shape[k]) for k in ("out_hub", "in_hub", "gs_hub")}
+
+
 def _by_weight(accounts: list[dict], roles: set[str]) -> list[int]:
     chosen = [a for a in accounts if a["role"] in roles]
     return [int(a["account_id"]) for a in sorted(chosen, key=lambda a: (-a["w_account"], a["account_id"]))]
@@ -163,9 +169,14 @@ def narrative_values(*, topology_type: str, topology_prob: float | None, type_so
 
     ev = evidence.set_index("edge_id")
     rates = (fx or {}).get("rate_to_ccy0", {})
-    top_edges = []
-    for e in edge_weights[:n_top_edges]:
+    top_edges, self_skipped = [], 0
+    for e in edge_weights:                      # strongest first; a payment from an account to itself is not cited
+        if len(top_edges) == n_top_edges:
+            break
         r = ev.loc[int(e["edge_id"])]
+        if int(r["from_id"]) == int(r["to_id"]):
+            self_skipped += 1
+            continue
         rate = rates.get(int(r["currency_received"]))
         top_edges.append({"edge_id": int(e["edge_id"]), "from_id": int(r["from_id"]), "to_id": int(r["to_id"]),
                           "amount_ccy0": None if rate is None else float(r["amount_received"]) * float(rate),
@@ -204,7 +215,8 @@ def narrative_values(*, topology_type: str, topology_prob: float | None, type_so
         "top_edges": top_edges,
         "top_features": top_features,
         "banks": banks, "bank_names": [_name(names, "bank", b) for b in banks],
-        "shape": shape_facts(evidence),
+        "shape": {**shape_facts(evidence), **_hub_roles(shape_facts(evidence), account_weights)},
+        "self_payments_skipped": self_skipped,
     }
 
 
@@ -244,12 +256,22 @@ def format_slots(v: dict, phrasing: dict, s: dict) -> dict:
         "undet_one": "yes" if len(v["undetermined"]) == 1 else None,
         "undet_many": "yes" if len(v["undetermined"]) > 1 else None,
         "hold": duration(v["hold_median_s"], dfh, sf),
-        "out_hub": n(sh["out_hub"]) if (sh["n_out"] or 0) >= 2 else None, "n_out": n(sh["n_out"]),
-        "in_hub": n(sh["in_hub"]) if (sh["n_in"] or 0) >= 2 else None, "n_in": n(sh["n_in"]),
-        "gs_hub": n(sh["gs_hub"]), "gs_n_in": n(sh["gs_n_in"]), "gs_n_out": n(sh["gs_n_out"]),
+        # a shape sentence names a hub only when the hub's money role agrees with what the sentence says (Week 8)
+        "out_hub": n(sh["out_hub"]) if (sh["n_out"] or 0) >= 2 and sh.get("out_hub_role") in SENDS else None,
+        "n_out": n(sh["n_out"]),
+        "in_hub": n(sh["in_hub"]) if (sh["n_in"] or 0) >= 2 and sh.get("in_hub_role") in RECEIVES else None,
+        "n_in": n(sh["n_in"]),
+        "gs_hub": n(sh["gs_hub"]) if sh.get("gs_hub_role") in PASSES_ON else None,
+        "gs_n_in": n(sh["gs_n_in"]), "gs_n_out": n(sh["gs_n_out"]),
+        "sg_spread": "yes" if ((sh["n_out"] or 0) >= 2 and (sh["n_in"] or 0) >= 2 and sh["out_hub"] != sh["in_hub"]
+                               and sh.get("out_hub_role") in SENDS and sh.get("in_hub_role") in RECEIVES) else None,
         "depth": n(sh["depth"]) if (sh["depth"] or 0) >= 2 else None,
         "n_pairs": n(sh["n_pairs"]) if sh["n_pairs"] >= 2 else None,
         "loop": "yes" if sh["has_cycle"] else None,
+        "type_lc": (phrasing["types"].get(v["topology_type"]) or "").lower() or None,
+        "n_self": str(v.get("self_payments_skipped", 0)) if v.get("self_payments_skipped", 0) else None,
+        "self_one": "yes" if v.get("self_payments_skipped", 0) == 1 else None,
+        "self_many": "yes" if v.get("self_payments_skipped", 0) > 1 else None,
         "top_edges": "; ".join(f"{e['from_id']}→{e['to_id']} ({amount(e['amount_ccy0'], e['currency_name'])}, "
                                f"weight {e['w_total']:.2f})" for e in v["top_edges"]) or None,
         "features_up": ", ".join(feature(f) for f in v["top_features"] if f["mean_shap"] > 0) or None,
@@ -260,6 +282,11 @@ def format_slots(v: dict, phrasing: dict, s: dict) -> dict:
     return slots
 
 
+SENDS = {"source", "mule", "holder"}           # roles that can be "paid N accounts"
+RECEIVES = {"sink", "mule", "holder"}          # roles that can be "was paid by N accounts"
+PASSES_ON = {"mule", "holder"}                 # roles that can "gather and pass on"
+
+
 # ----------------------------------------------------------------------------- clauses (step 3)
 
 # (clause id, text, required slots). Slots are written {name}; a clause is used only if every slot it names
@@ -267,12 +294,17 @@ def format_slots(v: dict, phrasing: dict, s: dict) -> dict:
 CLAUSES = {
     "head": ("{type_name} ring (most likely shape, p = {p}): {n_members} accounts, {n_edges} transactions over {window}.", ()),
     "head_untyped": ("Suspected ring: {n_members} accounts, {n_edges} transactions over {window}.", ()),
-    "fan_out": ("Account {out_hub} paid {n_out} different accounts.", ()),
-    "fan_in": ("Account {in_hub} was paid by {n_in} different accounts.", ()),
-    "gather_scatter": ("Account {gs_hub} gathered money from {gs_n_in} accounts and passed it on to {gs_n_out}.", ()),
-    "scatter_gather": ("Money spread out from {src_list}, passed through {mule_list} and came together at {sink_list}.", ()),
-    "cycle": ("Money travelled in a loop through the accounts.", ("loop",)),
-    "stack": ("Funds moved {depth} hops from {src_list} to {sink_list} through {mule_list}.", ()),
+    "type_guess": ("The typing model's most likely shape is {type_lc} (p = {p}), but the ring's transactions do not "
+                   "show that shape.", ()),
+    "type_guess_random": ("The typing model's most likely shape is irregular (p = {p}): no recognised pattern.", ()),
+    "fan_out": ("Across the ring's {n_edges} transactions, account {out_hub} paid {n_out} different accounts.", ()),
+    "fan_in": ("Across the ring's {n_edges} transactions, account {in_hub} was paid by {n_in} different accounts.", ()),
+    "gather_scatter": ("Across the ring's {n_edges} transactions, account {gs_hub} gathered money from {gs_n_in} "
+                       "accounts and passed it on to {gs_n_out}.", ()),
+    "scatter_gather": ("Across the ring's {n_edges} transactions, money spread from account {out_hub} to {n_out} "
+                       "accounts and gathered at account {in_hub}.", ("sg_spread",)),
+    "cycle": ("Across the ring's {n_edges} transactions, money travelled in a loop.", ("loop",)),
+    "stack": ("Across the ring's {n_edges} transactions, funds moved along a chain of {depth} hops.", ()),
     "stack_hold": ("Each intermediary passed money on within a median of {hold}.", ()),
     "bipartite": ("It splits into {n_pairs} separate sender-receiver pairs.", ()),
     "roles_both": ("Money starts at {src_list} and ends at {sink_list}.", ()),
@@ -283,18 +315,22 @@ CLAUSES = {
     "undet_many": ("Accounts {undet_list} use {ccy1}, which has no exchange rate, so their roles cannot be checked.", ("undet_many",)),
     "money": ("Total moved: {total} ({ccy0}).", ("no_partial",)),
     "money_partial": ("Total moved: {total} ({ccy0}), partial: transactions in {ccy1} have no exchange rate.", ("partial",)),
-    "closure": ("{closure_pct}% of the money sent by the sources reached the sinks.", ()),
+    "closure": ("Across the ring, {closure_pct}% of the sources' money reached the sinks.", ()),
     "no_closure": ("Conservation cannot be measured: no account only sends or only receives.", ("no_closure",)),
     "evidence": ("Strongest evidence: {top_edges}.", ()),
+    "self_one": ("One stronger-ranked payment from an account to itself is not cited.", ("self_one",)),
+    "self_many": ("{n_self} stronger-ranked payments from an account to itself are not cited.", ("self_many",)),
     "features_both": ("Signals from a reference transaction-level model that raised suspicion: {features_up}; that lowered it: {features_down}.", ()),
     "features_up": ("Signals from a reference transaction-level model that raised suspicion: {features_up}.", ("no_down",)),
     "features_down": ("Signals from a reference transaction-level model that lowered suspicion: {features_down}.", ("no_up",)),
+    "features_up_short": ("Signals from a reference transaction-level model that raised suspicion: {features_up}.", ()),
     "banks": ("The accounts span {n_banks} banks ({bank_list}).", ()),
     "banks_short": ("The accounts span {n_banks} banks.", ()),     # only as the shorter stand-in for "banks"
 }
 
-COMMON_TAIL = ["undet_one", "undet_many", "money", "money_partial", "closure", "no_closure", "evidence", "features_both",
-               "features_up", "features_down", "banks"]
+COMMON_TAIL = ["undet_one", "undet_many", "money", "money_partial", "closure", "no_closure", "evidence", "self_one",
+               "self_many", "features_both", "features_up", "features_down", "banks"]
+SHAPE_SENTENCES = {"fan_out", "fan_in", "gather_scatter", "scatter_gather", "cycle", "stack", "bipartite"}
 ROLE_CLAUSES = ["roles_both", "roles_src", "roles_sink", "roles_mule"]
 TEMPLATES = {
     "FAN-OUT": ["head", "fan_out", *ROLE_CLAUSES, *COMMON_TAIL],
@@ -310,10 +346,14 @@ FALLBACK = ["head_untyped", *ROLE_CLAUSES, *COMMON_TAIL]       # 'UNKNOWN' or a 
 # Dropped one at a time, in this order, while the narrative is over max_words. A clause listed in SHORTER is first
 # replaced by its shorter form (the bank count without the list) and only dropped when it comes up again.
 DROP_ORDER = ["roles_mule", "roles_both", "roles_src", "roles_sink", "stack_hold", "banks", "banks_short",
-              "features_both", "features_up", "features_down", "closure", "no_closure"]
-SHORTER = {"banks": "banks_short"}
-# Role clauses are left out where the type clause already names the roles.
-ROLES_IN_TYPE_CLAUSE = {"scatter_gather", "stack"}
+              "features_both", "features_up_short", "features_up", "features_down", "self_many", "self_one", "closure",
+              "no_closure"]
+# shorter stand-ins tried before a clause is dropped: the bank count without the list; the raised-suspicion signals
+# without the lowered ones
+SHORTER = {"banks": "banks_short", "features_both": "features_up_short"}
+# Role clauses are left out where the type clause already names the roles (since Week 8 no shape sentence does:
+# shape sentences use only the evidence graph, role clauses only the roles).
+ROLES_IN_TYPE_CLAUSE: set = set()
 
 SLOT = re.compile(r"{(\w+)}")
 
@@ -339,6 +379,11 @@ def choose_clauses(v: dict, slots: dict, max_words: int) -> list[str]:
             usable.append(c)
     if ROLES_IN_TYPE_CLAUSE & set(usable):
         usable = [c for c in usable if c not in ROLE_CLAUSES]
+    # Fix A1 (review, Week 8): a shape the ring's transactions do not show is not a headline -- open with the untyped
+    # head and state the typing model's shape as a guess
+    if "head" in usable and not SHAPE_SENTENCES & set(usable):
+        guess = "type_guess_random" if v["topology_type"] == "RANDOM" else "type_guess"
+        usable = ["head_untyped", guess] + [c for c in usable if c != "head"]
     for c in DROP_ORDER:
         if word_count(render(usable, slots)) <= max_words:
             break

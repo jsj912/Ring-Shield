@@ -59,8 +59,9 @@ def test_number_and_time_formatting():
 def test_fan_out_narrative_by_hand():
     text, summary = narrate("FAN-OUT")
     assert text == ("Fan-out ring (most likely shape, p = 0.65): 4 accounts, 3 transactions over 6 h. "
-                    "Account 1 paid 3 different accounts. Money starts at 1 and ends at 2, 3, 4. "
-                    "Total moved: 6,000 (US Dollar). 96% of the money sent by the sources reached the sinks. "
+                    "Across the ring's 3 transactions, account 1 paid 3 different accounts. Money starts at 1 and ends "
+                    "at 2, 3, 4. Total moved: 6,000 (US Dollar). Across the ring, 96% of the sources' money reached the "
+                    "sinks. "
                     "Strongest evidence: 1→2 (1,000, weight 0.90); 1→3 (2,000, weight 0.80); 1→4 (3,000, weight 0.70). "
                     "Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop "
                     "scatter-gather paths; "
@@ -71,8 +72,9 @@ def test_fan_out_narrative_by_hand():
 def test_stack_narrative_by_hand():
     text, _ = narrate("STACK", features=False)
     assert text == ("Layered chain ring (most likely shape, p = 0.65): 4 accounts, 3 transactions over 6 h. "
-                    "Funds moved 3 hops from 1 to 4 through 2, 3. Each intermediary passed money on within a median "
-                    "of 5 h. Total moved: 6,000 (US Dollar). 80% of the money sent by the sources reached the sinks. "
+                    "Across the ring's 3 transactions, funds moved along a chain of 3 hops. Each intermediary passed "
+                    "money on within a median of 5 h. Money starts at 1 and ends at 4. Intermediaries: 2, 3. "
+                    "Total moved: 6,000 (US Dollar). Across the ring, 80% of the sources' money reached the sinks. "
                     "Strongest evidence: 1→2 (1,000, weight 0.90); 2→3 (2,000, weight 0.80); 3→4 (3,000, weight 0.70).")
 
 
@@ -83,17 +85,22 @@ def test_every_type_and_the_fallback_give_a_clean_narrative(kind):
     head = PHRASING["types"][kind] + " ring (most likely shape, p = 0.65)"
     if kind == "UNKNOWN":
         assert text.startswith("Suspected ring:") and summary["template"] == "FALLBACK"
+    elif kind == "RANDOM":                      # Fix A1: an irregular shape has no shape sentence -> stated as a guess
+        assert text.startswith("Suspected ring:") and "most likely shape is irregular (p = 0.65)" in text
     else:
         assert text.startswith(head) and summary["template"] == kind
     assert "Strongest evidence:" in text
 
 
 def test_each_type_states_its_own_shape():
-    expect = {"FAN-OUT": "Account 1 paid 3 different accounts.", "FAN-IN": "Account 1 was paid by 3 different accounts.",
-              "GATHER-SCATTER": "Account 1 gathered money from 2 accounts and passed it on to 2.",
-              "SCATTER-GATHER": "Money spread out from 1, passed through 2, 3 and came together at 4.",
-              "CYCLE": "Money travelled in a loop through the accounts.",
-              "STACK": "Funds moved 3 hops from 1 to 4 through 2, 3.",
+    expect = {"FAN-OUT": "Across the ring's 3 transactions, account 1 paid 3 different accounts.",
+              "FAN-IN": "Across the ring's 3 transactions, account 1 was paid by 3 different accounts.",
+              "GATHER-SCATTER": "Across the ring's 4 transactions, account 1 gathered money from 2 accounts and passed "
+                                "it on to 2.",
+              "SCATTER-GATHER": "Across the ring's 4 transactions, money spread from account 1 to 2 accounts and "
+                                "gathered at account 4.",
+              "CYCLE": "Across the ring's 3 transactions, money travelled in a loop.",
+              "STACK": "Across the ring's 3 transactions, funds moved along a chain of 3 hops.",
               "BIPARTITE": "It splits into 2 separate sender-receiver pairs."}
     for kind, sentence in expect.items():
         assert sentence in narrate(kind)[0], kind
@@ -106,7 +113,11 @@ def test_a_shape_sentence_is_only_stated_when_the_transactions_show_it():
         case = narrative_case(kind, names=NAMES)
         case["topology_type"] = shape
         text, _ = build_narrative(narrative_values(**case), PHRASING, SETTINGS)
-        assert text.startswith(PHRASING["types"][shape]) and absent not in text, (kind, shape)
+        # Fix A1 (review): the unsupported shape is not the headline, only a stated guess
+        assert text.startswith("Suspected ring:") and absent not in text, (kind, shape)
+        guess = (f"most likely shape is {PHRASING['types'][shape].lower()} (p = 0.65), but the ring's transactions "
+                 "do not show that shape.")
+        assert guess in text
         assert_clean(text)
 
 
@@ -167,7 +178,7 @@ def test_the_bank_list_shrinks_to_a_count_before_the_bank_clause_is_dropped():
     """XR-18 under the word limit: when the bank list does not fit, the bank COUNT is kept if that fits."""
     from explainability.tests.fixtures import NARRATIVE_FEATURES
     case = narrative_case("GATHER-SCATTER", banks={2: 1000001, 3: 1000002, 4: 1000003, 5: 1000004}, names=NAMES)
-    case["feature_weights"] = NARRATIVE_FEATURES[:3]
+    case["feature_weights"] = NARRATIVE_FEATURES[:2]
     big = {a: 9_000_000 + a for a in range(1, 6)}
     e = case["evidence"]
     e["from_id"], e["to_id"] = e["from_id"].map(big), e["to_id"].map(big)
@@ -240,3 +251,55 @@ def test_code_valued_features_name_the_top_edges_value():
     v = narrative_values(**narrative_case("FAN-OUT", names=NAMES))
     pf = [f for f in v["top_features"] if f["feature"] == "Payment Format"][0]
     assert pf["detail"] == "ACH" and all(f["detail"] is None for f in v["top_features"] if f["feature"] != "Payment Format")
+
+
+# ----------------------------------------------------------------------------- Week 8: fixes from the review
+def test_fix_a1_unsupported_shape_is_a_guess_not_a_headline():
+    """Review Fix A1: a typed ring whose transactions show no shape sentence opens with "Suspected ring" and states
+    the typing model's shape as a guess; a ring whose shape sentence holds keeps its typed headline."""
+    case = narrative_case("BIPARTITE", names=NAMES)
+    case["topology_type"] = "FAN-OUT"                                    # no account pays two others here
+    text, summary = build_narrative(narrative_values(**case), PHRASING, SETTINGS)
+    assert summary["clauses"][:2] == ["head_untyped", "type_guess"]
+    assert text.startswith("Suspected ring: 4 accounts, 2 transactions over 6 h. The typing model's most likely shape "
+                           "is fan-out (p = 0.65), but the ring's transactions do not show that shape.")
+    assert narrate("FAN-OUT")[1]["clauses"][:2] == ["head", "fan_out"]
+
+
+def test_a_shape_sentence_must_agree_with_the_hub_role():
+    """Review (R-12, R-30): a hub is named only when its money role agrees with the sentence -- a 'gathering' hub must
+    pass money on, a fan-out hub must send, a fan-in hub must receive. Otherwise Fix A1 applies."""
+    case = narrative_case("GATHER-SCATTER", names=NAMES)
+    case["account_weights"][0]["role"] = "source"                      # account 1, the gather-scatter hub
+    text, summary = build_narrative(narrative_values(**case), PHRASING, SETTINGS)
+    assert "gather_scatter" not in summary["clauses"] and "gathered" not in text
+    assert summary["values"]["shape"]["gs_hub_role"] == "source"
+    case = narrative_case("FAN-OUT", names=NAMES)
+    case["account_weights"][0]["role"] = "sink"                        # account 1, the fan-out hub
+    assert "fan_out" not in build_narrative(narrative_values(**case), PHRASING, SETTINGS)[1]["clauses"]
+
+
+def test_shape_sentences_and_closure_state_their_scope():
+    """Review (R-02, R-06, R-25, R-30): counts and conservation cover the whole ring, and say so."""
+    for kind in ("FAN-OUT", "FAN-IN", "GATHER-SCATTER", "SCATTER-GATHER", "CYCLE", "STACK"):
+        text, summary = narrate(kind)
+        assert "Across the ring's " in text, kind
+        if summary["values"]["closure"] is not None:
+            assert "Across the ring, " in text, kind
+
+
+def test_a_self_payment_is_never_cited_as_evidence():
+    """Review (R-04): the narrative's strongest evidence skips a payment from an account to itself and says so; the
+    ranked edge weights themselves are untouched."""
+    import pandas as pd
+    case = narrative_case("FAN-OUT", names=NAMES)
+    ev = case["evidence"]
+    self_row = ev.iloc[[0]].assign(edge_id=99, to_id=1)                   # account 1 paying itself
+    case["evidence"] = case["member_edges"] = pd.concat([self_row, ev], ignore_index=True)
+    case["edge_weights"] = [{"edge_id": 99, "w_total": 0.99}] + case["edge_weights"]
+    v = narrative_values(**case)
+    text, summary = build_narrative(v, PHRASING, SETTINGS)
+    assert all(e["from_id"] != e["to_id"] for e in v["top_edges"]) and len(v["top_edges"]) == 3
+    assert v["self_payments_skipped"] == 1 and "1→1" not in text
+    assert "One stronger-ranked payment from an account to itself is not cited." in text
+    assert regenerate(summary_json(summary), PHRASING, SETTINGS) == text

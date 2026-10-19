@@ -84,26 +84,17 @@ def kappa_band(kappa: float | None, bands) -> str | None:
 
 
 def item_features(cfg: dict, key: pd.DataFrame) -> pd.DataFrame:
-    """The analysis plan's narrative features per item, read from each item's own explanation (never the answers)."""
-    import pyarrow.parquet as pq
-    from explainability.evaluate import SHAPE_CLAUSES
-    rows = {}
-    for s in sorted(key["seed"].unique()):
-        tbl = pq.read_table(repo_path(cfg["output_dir"]) / cfg["explanations_name_week3"].format(seed=int(s)),
-                            columns=["ring_id", "evidence_summary"]).to_pylist()
-        rows.update({(int(s), r["ring_id"]): json.loads(r["evidence_summary"]) for r in tbl})
-    out = []
-    for it in key.itertuples(index=False):
-        es = rows[(int(it.seed), it.ring_id)]
-        cl, v = set(es["clauses"]), es["values"]
-        out.append({"item_id": it.item_id,
-                    "shape_sentence": int(bool(cl & set(SHAPE_CLAUSES))),
-                    "self_payment_top3": int(any(e["from_id"] == e["to_id"] for e in v["top_edges"])),
-                    "partial_currency": int("money_partial" in cl),
-                    "bank_list": int("banks" in cl),
-                    "undetermined_named": int(bool(cl & {"undet_one", "undet_many"})),
-                    "narrated_shape_correct": int(it.narrated_type == it.true_pattern_type)})
-    return pd.DataFrame(out).set_index("item_id")
+    """The analysis plan's narrative features per item, describing the text the reviewers read (never the answers).
+
+    They are frozen in review/item_features.csv. Week 8 rewrote the narratives after the review, so the current
+    explanation files no longer hold the reviewed text; the file was rebuilt from the stored values with the reviewed
+    code (explainer 0.4.0-narrative), every rebuilt narrative was checked word for word against the packets, and the
+    totals equal the Week 7 summary."""
+    feats = pd.read_csv(repo_path(cfg["review"]["out_dir"]) / "item_features.csv", index_col="item_id")
+    k = key.set_index("item_id")
+    feats = feats.loc[sorted(k.index)]
+    feats["narrated_shape_correct"] = (k["narrated_type"] == k["true_pattern_type"]).astype(int).loc[feats.index]
+    return feats
 
 
 def flags_breakdowns_triggers(review: pd.DataFrame, feats: pd.DataFrame, key: pd.DataFrame, rules: dict,

@@ -1,14 +1,15 @@
 {
   "experiment_id": "XAI-W2",
-  "explainer_version": "0.4.0-narrative",
+  "explainer_version": "0.5.0-review",
+  "fx_rates_sha256": "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6",
   "inputs": {
     "rings": "contract/out/rings_stub_cc.parquet",
     "scored_edges": "contract/out/scored_edges_gine_causal_1.parquet"
   },
   "latency_ms": {
-    "max": 841.0,
-    "p50": 275.5,
-    "p95": 589.9999999999998,
+    "max": 563.0,
+    "p50": 242.0,
+    "p95": 378.39999999999986,
     "rings_over_5000_ms": []
   },
   "mixing": {
@@ -32,7 +33,8 @@
     "n_narratives": 98,
     "n_rings_without_shap_edges": 0,
     "rings_with_clause": {
-      "banks": 98,
+      "banks": 97,
+      "banks_short": 1,
       "closure": 94,
       "evidence": 98,
       "features_both": 82,
@@ -43,7 +45,8 @@
       "roles_both": 50,
       "roles_mule": 24,
       "roles_sink": 1,
-      "roles_src": 2
+      "roles_src": 1,
+      "self_one": 1
     },
     "templates": {
       "FALLBACK": 98

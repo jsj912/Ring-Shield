@@ -33,8 +33,8 @@
         "scored_edges": "contract/out/scored_edges_gfpxgb_{seed}.parquet"
       },
       "label": "GFP+XGBoost, own policy and affinity (trained without embeddings)",
-      "latency_max_ms": 4988.0,
-      "latency_p95_ms": 1168.3499999999997,
+      "latency_max_ms": 4727.0,
+      "latency_p95_ms": 1138.05,
       "mixing": {
         "alpha": 0.6,
         "beta": 0.0,
@@ -93,8 +93,8 @@
         "scored_edges": "contract/out/scored_edges_gine_causal_{seed}.parquet"
       },
       "label": "Multi-GINe, causal (shipped)",
-      "latency_max_ms": 2987.0,
-      "latency_p95_ms": 1239.9499999999998,
+      "latency_max_ms": 2282.0,
+      "latency_p95_ms": 1032.9499999999991,
       "mixing": {
         "alpha": 0.6,
         "beta": 0.0,
@@ -153,8 +153,8 @@
         "scored_edges": "contract/out/scored_edges_mega_{seed}.parquet"
       },
       "label": "MEGA-GNN, through the gine-trained policy and affinity with MEGA's own embeddings",
-      "latency_max_ms": 5171.0,
-      "latency_p95_ms": 1306.2,
+      "latency_max_ms": 4331.0,
+      "latency_p95_ms": 1144.1999999999998,
       "mixing": {
         "alpha": 0.6,
         "beta": 0.0,
@@ -182,7 +182,7 @@
     }
   },
   "experiment_id": "XAI-W5",
-  "explainer_version": "0.4.0-narrative",
+  "explainer_version": "0.5.0-review",
   "same_code": "explainability/ unchanged between detectors; only contract_io.detector_cfg swaps the inputs",
   "what": "XR-36: the same layer run unchanged on every detector's contract files; per detector, what was read and the headline results (latency p95 = the worst seed's p95)"
 }

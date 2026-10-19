@@ -6,7 +6,7 @@ The true pattern types are at the very end: do not read them before answering.
 
 ## FAN-OUT — `full-gine_causal-1-4` (detector seed 1, p = 0.92)
 
-> Fan-out ring (most likely shape, p = 0.92): 10 accounts, 9 transactions over 2.57 days. Account 513343 paid 9 different accounts. Total moved: 433,000 (US Dollar). 100% of the money sent by the sources reached the sinks. Strongest evidence: 513343→33859 (296,000, weight 0.87); 513343→178251 (59,200, weight 0.65); 513343→142719 (18,100, weight 0.62). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the sender paying many accounts. The accounts span 10 banks.
+> Fan-out ring (most likely shape, p = 0.92): 10 accounts, 9 transactions over 2.57 days. Across the ring's 9 transactions, account 513343 paid 9 different accounts. Total moved: 433,000 (US Dollar). Across the ring, 100% of the sources' money reached the sinks. Strongest evidence: 513343→33859 (296,000, weight 0.87); 513343→178251 (59,200, weight 0.65); 513343→142719 (18,100, weight 0.62). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the sender paying many accounts. The accounts span 10 banks.
 
 | # | transaction | amount (received) | currency | w_total | w_score | w_loo | w_flow |
 |---|---|---|---|---|---|---|---|
@@ -22,7 +22,7 @@ Reviewer answers (0/1): topology plausible __ · named accounts matter __ · evi
 
 ## FAN-IN — `full-gine_causal-2-33` (detector seed 2, p = 0.80)
 
-> Fan-in ring (most likely shape, p = 0.80): 14 accounts, 13 transactions over 3.3 days. Account 424000 was paid by 13 different accounts. Total moved: 136,000 (US Dollar). 100% of the money sent by the sources reached the sinks. Strongest evidence: 150728→424000 (9,360, weight 0.63); 201321→424000 (18,600, weight 0.62); 318762→424000 (959, weight 0.60). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the amount received. The accounts span 14 banks (Canada Bank #27, Arbor Thrift, China Bank #65 +11 more).
+> Fan-in ring (most likely shape, p = 0.80): 14 accounts, 13 transactions over 3.3 days. Across the ring's 13 transactions, account 424000 was paid by 13 different accounts. Total moved: 136,000 (US Dollar). Across the ring, 100% of the sources' money reached the sinks. Strongest evidence: 150728→424000 (9,360, weight 0.63); 201321→424000 (18,600, weight 0.62); 318762→424000 (959, weight 0.60). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the amount received. The accounts span 14 banks.
 
 | # | transaction | amount (received) | currency | w_total | w_score | w_loo | w_flow |
 |---|---|---|---|---|---|---|---|
@@ -38,7 +38,7 @@ Reviewer answers (0/1): topology plausible __ · named accounts matter __ · evi
 
 ## GATHER-SCATTER — `full-gine_causal-4-113` (detector seed 4, p = 0.91)
 
-> Gather-scatter ring (most likely shape, p = 0.91): 11 accounts, 10 transactions over 44 h. Account 101027 gathered money from 7 accounts and passed it on to 3. Total moved: 96,200 (US Dollar). 47% of the money sent by the sources reached the sinks. Strongest evidence: 359250→101027 (19,200, weight 0.67); 55735→101027 (11,800, weight 0.64); 396301→101027 (6,120, weight 0.62). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths, how many payments the receiver makes. The accounts span 11 banks.
+> Suspected ring: 11 accounts, 10 transactions over 44 h. The typing model's most likely shape is gather-scatter (p = 0.91), but the ring's transactions do not show that shape. Total moved: 96,200 (US Dollar). Across the ring, 47% of the sources' money reached the sinks. Strongest evidence: 359250→101027 (19,200, weight 0.67); 55735→101027 (11,800, weight 0.64); 396301→101027 (6,120, weight 0.62). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths, how many payments the receiver makes. The accounts span 11 banks.
 
 | # | transaction | amount (received) | currency | w_total | w_score | w_loo | w_flow |
 |---|---|---|---|---|---|---|---|
@@ -54,7 +54,7 @@ Reviewer answers (0/1): topology plausible __ · named accounts matter __ · evi
 
 ## SCATTER-GATHER — `full-gine_causal-3-64` (detector seed 3, p = 0.93)
 
-> Scatter-gather ring (most likely shape, p = 0.93): 14 accounts, 21 transactions over 3.07 days. Money spread out from 1744, 160789, 378724 +5 more, passed through 315197, 184170, 124947 +2 more and came together at 18018. Total moved: 173,000 (US Dollar). 100% of the money sent by the sources reached the sinks. Strongest evidence: 378724→124947 (19,300, weight 0.64); 124947→18018 (20,200, weight 0.64); 161906→18018 (15,300, weight 0.62). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the hour of the day.
+> Scatter-gather ring (most likely shape, p = 0.93): 14 accounts, 21 transactions over 3.07 days. Across the ring's 21 transactions, money spread from account 378724 to 5 accounts and gathered at account 18018. Total moved: 173,000 (US Dollar). Across the ring, 100% of the sources' money reached the sinks. Strongest evidence: 378724→124947 (19,300, weight 0.64); 124947→18018 (20,200, weight 0.64); 161906→18018 (15,300, weight 0.62). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the hour of the day.
 
 | # | transaction | amount (received) | currency | w_total | w_score | w_loo | w_flow |
 |---|---|---|---|---|---|---|---|
@@ -70,7 +70,7 @@ Reviewer answers (0/1): topology plausible __ · named accounts matter __ · evi
 
 ## CYCLE — `full-gine_causal-4-89` (detector seed 4, p = 0.86)
 
-> Cycle ring (most likely shape, p = 0.86): 8 accounts, 10 transactions over 41.9 h. Total moved: 89,900,000 (US Dollar). 94% of the money sent by the sources reached the sinks. Strongest evidence: 109599→29819 (13,100,000, weight 0.64); 434804→26743 (12,700,000, weight 0.57); 26743→111131 (12,700,000, weight 0.56). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the hour of the day. The accounts span 8 banks (France Bank #40, Spain Bank #23, Savings Bank of Huron +5 more).
+> Suspected ring: 8 accounts, 10 transactions over 41.9 h. The typing model's most likely shape is cycle (p = 0.86), but the ring's transactions do not show that shape. Total moved: 89,900,000 (US Dollar). Across the ring, 94% of the sources' money reached the sinks. Strongest evidence: 109599→29819 (13,100,000, weight 0.64); 434804→26743 (12,700,000, weight 0.57); 26743→111131 (12,700,000, weight 0.56). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the hour of the day. The accounts span 8 banks.
 
 | # | transaction | amount (received) | currency | w_total | w_score | w_loo | w_flow |
 |---|---|---|---|---|---|---|---|
@@ -86,7 +86,7 @@ Reviewer answers (0/1): topology plausible __ · named accounts matter __ · evi
 
 ## RANDOM — `full-gine_causal-1-74` (detector seed 1, p = 0.62)
 
-> Irregular ring (most likely shape, p = 0.62): 6 accounts, 7 transactions over 42.1 h. Total moved: 36,200 (US Dollar). 98% of the money sent by the sources reached the sinks. Strongest evidence: 254465→25691 (7,080, weight 0.64); 267241→254465 (7,080, weight 0.60); 254465→25691 (121, weight 0.56). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the hour of the day. The accounts span 6 banks (National Bank of Laramie, Saudi Arabia Bank #4, Acme Cooperative Bank +3 more).
+> Suspected ring: 6 accounts, 7 transactions over 42.1 h. The typing model's most likely shape is irregular (p = 0.62): no recognised pattern. Total moved: 36,200 (US Dollar). Across the ring, 98% of the sources' money reached the sinks. Strongest evidence: 254465→25691 (7,080, weight 0.64); 267241→254465 (7,080, weight 0.60); 254465→25691 (121, weight 0.56). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the hour of the day. The accounts span 6 banks.
 
 | # | transaction | amount (received) | currency | w_total | w_score | w_loo | w_flow |
 |---|---|---|---|---|---|---|---|
@@ -106,7 +106,7 @@ _No matched ring of this predicted type in any seed._
 
 ## STACK — `full-gine_causal-4-31` (detector seed 4, p = 0.86)
 
-> Layered chain ring (most likely shape, p = 0.86): 3 accounts, 3 transactions over 2.1 days. Funds moved 2 hops from 345917 to 338513 through 388928. Total moved: 20,900 (US Dollar). 99% of the money sent by the sources reached the sinks. Strongest evidence: 345917→388928 (10,400, weight 0.78); 388928→338513 (10,400, weight 0.70); 388928→338513 (103, weight 0.23). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the hour of the day. The accounts span 3 banks.
+> Layered chain ring (most likely shape, p = 0.86): 3 accounts, 3 transactions over 2.1 days. Across the ring's 3 transactions, funds moved along a chain of 2 hops. Total moved: 20,900 (US Dollar). Across the ring, 99% of the sources' money reached the sinks. Strongest evidence: 345917→388928 (10,400, weight 0.78); 388928→338513 (10,400, weight 0.70); 388928→338513 (103, weight 0.23). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: the hour of the day. The accounts span 3 banks.
 
 | # | transaction | amount (received) | currency | w_total | w_score | w_loo | w_flow |
 |---|---|---|---|---|---|---|---|

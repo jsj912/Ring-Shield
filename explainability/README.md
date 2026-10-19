@@ -1,4 +1,4 @@
-# L4 Explainability — Weeks 1 to 6 handoff
+# L4 Explainability — Weeks 1 to 8 handoff
 
 **Branch:** `explainability-l4`. It contains Joan's `v2` up to commit `77add7f` (merged by you), your
 fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Week 3 (`c5e2dd5`), all pushed.
@@ -23,8 +23,10 @@ fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Wee
 - **Tenant-scoped explanations for the platform** (section 20; Week 9 integration done early): banks 20 and 12, nothing
   the bank cannot see is counted or mentioned; tenant regenerate for partial verdicts. **Typology finding:** the research typing table (0.219) types the wrong ring for 316 of 401
   matches; the narrated shape is right about 60 % of the time on both windows (pending Joan's confirmation).
-- **284 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
-  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6, 10 for the tenant run, 6 for Week 7.
+- **Week 8** (section 23): the review fixes (wording only; weights and fidelity unchanged), `explainer_version`
+  `0.5.0-review`, the before/after page for the 30 reviewed narratives, and the report chapter with its Word copy.
+- **288 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
+  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6, 10 for the tenant run, 6 for Week 7, 4 for Week 8.
 - Every ring of all five detector seeds, plus the old stub file, has an explanation.
 
 This document is written so that someone with basic technical knowledge can understand what was built,
@@ -128,6 +130,8 @@ explainability/                 the L4 layer
   schemas/                      WEEK 5: the exported JSON schemas, one file per shape (for the platform)
   schemas/examples/             WEEK 5: real sample responses of the four functions on the stub data
   review/                       WEEK 6: sample.py (the 30 rings, packets, sheets), aggregate.py (scoring, Fleiss' kappa)
+                                WEEK 8: before_after.py (the 30 reviewed narratives, before and after the fixes)
+  report/                       WEEK 8: make_figures.py, figures/, xai_chapter.md + xai_chapter.docx (report chapter)
   tenant.py                     tenant-scoped explanations for the platform, incl. tenant regenerate (section 20)
   evaluate.py                   fidelity, the policy comparison report, the XR-05 tuning, WEEK 4 fidelity.json
   stats.py                      WEEK 4: bootstrap confidence intervals and paired tests (mirrors Joan's ring_stats)
@@ -174,6 +178,7 @@ results/xai/                    our results (kept apart from Joan's results/tabl
                                               (+ answer_key.parquet, git-ignored on purpose; review.csv in Week 7)
                                               analysis_plan.md: WEEK 7, how the review is read, written before scoring
                                               review.csv, review_summary.json / .md, fix_proposals.md: WEEK 7, the scored review
+                                              item_features.csv (frozen), before_after.md: WEEK 8
   tenant/                                     explanations_{20,12}_1.parquet (+ .log.json); inputs/ = Kashish's files
 ```
 
@@ -587,7 +592,7 @@ Test fidelity, mean over seeds:
 
 ---
 
-## 9. The tests (284 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4, tenant in 20.4, Week 7 in 21-22)
+## 9. The tests (288 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4, tenant in 20.4, Week 7 in 21-22, Week 8 in 23)
 
 **`test_contract_io.py` (73)**
 - All real files load and validate: v2 rings for 5 seeds plus the stub, **and** the v1 originals, each
@@ -1211,6 +1216,8 @@ same rings. Output: `results/xai/typology_eval.json` (`python -m explainability.
   recall and both confusion matrices. A test pins this, so the lookup is the whole difference.
 - **Shape sentences are informative.** When the narrative states a shape sentence (one that holds on the ring's
   transactions; 290 rings), the stated type is right **67 %** of the time. When it can't (111 rings), only **41 %**.
+  *(Week 8 update: a shape sentence now also needs its hub's money role to agree, section 23. The split is now
+  **0.649** stated (231 rings) against **0.529** not stated (170 rings), `typology_eval.json`.)*
 - Joan's other caveat stands: the typing model's role-count features were built on unconverted roles
   (`docs/PITFALLS.md`), while the narrated roles are converted.
 
@@ -1629,3 +1636,60 @@ The bank list (confounded with A) and the single self-payment item (below the th
 XR-29 is **met**: thirty-ring review, Section 7 protocol, Fleiss' κ, `review.csv` and the summary.
 
 **Tests (`test_review.py`, +1):** `review_summary.md` is exactly what the scored JSON renders.
+
+## 23. Week 8 — the review fixes, and the report chapter
+
+Joan signed off Fix A and the reviewers' follow-up comments on the six shape-sentence items (R-02, R-04, R-06,
+R-12, R-25, R-30). Every change is **wording only**. Weights, evidence ranking, feature weights and fidelity are
+byte-identical before and after (123 file fingerprints compared, 0 differ).
+
+**What the reviewers said, and what changed in `narrative.py`:**
+
+| complaint | cause | fix |
+|---|---|---|
+| a shape is named but the transactions don't show it (13 of 13 flagged) | the headline used the typing model's guess | **Fix A1:** no shape sentence → the narrative opens "Suspected ring" and says "The typing model's most likely shape is X (p = …), but the ring's transactions do not show that shape." |
+| counts and "% reached the sinks" don't match the five transactions shown (R-02, R-06, R-25, R-30) | those numbers cover the whole ring, not the evidence | **Scope words:** "Across the ring's N transactions, …" and "Across the ring, X% of the sources' money reached the sinks." |
+| the "gathering" hub is called a source (R-12) | the shape sentence and the role were computed separately | a hub is named only if its money role agrees: fan-out hub sends (source, mule, holder), fan-in hub receives (sink, mule, holder), gather-scatter hub passes money on (mule, holder). Otherwise Fix A1 applies. |
+| the scatter-gather / stack sentence mixes in role definitions (R-30) | role lists were folded into the shape sentence | those sentences now use only the transactions' own facts |
+| a payment from an account to itself is cited as evidence (R-04) | it ranked high | "Strongest evidence" skips it and says "One stronger-ranked payment from an account to itself is not cited." The ranked edge weights are unchanged. |
+
+R-12's "amounts don't match" is the euro amount shown beside the US-dollar total; both are labelled, so nothing
+changed there. The bank list stays (confounded with A1, as the analysis plan said).
+
+**The 90-word limit:** the new sentences are longer, so the drop order was updated (the self-payment note now
+outranks the feature clause, and the feature clause has a short form). Every narrative still fits.
+
+**Outputs:**
+- `explainer_version` is now **`0.5.0-review`** (`config.yaml`). The platform's cache key uses it, so Kashish's cache
+  refreshes on its own.
+- Every explanation file was regenerated: five Week 3 seeds and the stub, GFP+XGBoost and MEGA-GNN, and both tenant
+  files (`results/xai/tenant/`). Typology and XR-36 summaries were rerun; the API examples in `schemas/examples/`
+  were rebuilt.
+- `results/xai/review/before_after.md` (`python -m explainability.review.before_after`): each of the 30 reviewed
+  narratives exactly as the reviewers read it, then as it reads now. 30 of 30 changed. A1 changed 14 of the 19
+  flagged items, the scope words 18 of 19, the self-payment note 1 of 19.
+- The shape-sentence split moved (section 17): stated **0.649** (231 rings), not stated **0.529** (170 rings).
+  Fewer rings get a shape sentence, mainly because a hub whose role disagrees no longer counts.
+- The packets are **not** changed. A second review round on the new wording is future work.
+- **The review's item features are now frozen** in `results/xai/review/item_features.csv`. The scoring code used to
+  read them (shape sentence stated, bank list, self-payment…) from the current explanation files. After Week 8 those
+  files no longer hold the text the reviewers read, so re-scoring would have described the wrong text. The frozen
+  file was rebuilt from the stored values with the reviewed code (`0.4.0-narrative`). All 30 rebuilt narratives
+  match the packets word for word. Re-scoring with it reproduces `review.csv`, `review_summary.json` and
+  `review_summary.md` byte for byte.
+- `fidelity.json` was rerun (`evaluate --week4`, then `--roles`): only its `explainer_version` line changed.
+  The pilot file `narrative_samples_week3.md` was rerun (`explain --samples`): same 7 rings, new wording.
+  `latency.json` keeps `0.4.0-narrative`, because that is the version it timed.
+
+**Report chapter (W8-6), `explainability/report/`:**
+- `xai_chapter.md`: the L4 sections in the report's structure (Introduction to Conclusion), with Tables 1–3, the
+  test-case table T1–T15 and eight figures. Every number names the `results/xai/` file it comes from. It is for
+  Joan's review before it goes into the final report.
+- `xai_chapter.docx`: the Word copy (A4, Times New Roman, built-in headings, so Word's table of contents picks it
+  up). It was opened in Word and checked page by page: 13 pages.
+- `figures/` is drawn by `python -m explainability.report.make_figures` from the results files.
+
+**Tests (`test_narrative.py`, +4):** an unsupported shape is a guess, not a headline; a shape sentence must agree
+with its hub's role; shape sentences and the closure state their scope; a self-payment is never cited and the
+narrative still regenerates exactly.
+`test_review.py`: the item-features test now also checks the frozen features add up to the Week 7 summary.

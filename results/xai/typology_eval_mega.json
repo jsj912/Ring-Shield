@@ -18,7 +18,7 @@
     ]
   },
   "experiment_id": "XAI-W5",
-  "explainer_version": "0.4.0-narrative",
+  "explainer_version": "0.5.0-review",
   "primary": {
     "head": {
       "hi": 0.6244019138755981,
@@ -316,12 +316,12 @@
   "reproduction_of_r5_typing": null,
   "shape_sentence_split": {
     "not_stated": {
-      "n": 115,
-      "narrated_type_accuracy": 0.34782608695652173
+      "n": 163,
+      "narrated_type_accuracy": 0.5214723926380368
     },
     "stated": {
-      "n": 303,
-      "narrated_type_accuracy": 0.6666666666666666
+      "n": 255,
+      "narrated_type_accuracy": 0.615686274509804
     },
     "what": "narrated-type accuracy on matched primary-window rings, by whether the Week 3 narrative states a shape sentence (one that holds on the ring's transactions)"
   },

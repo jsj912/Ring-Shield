@@ -1,14 +1,15 @@
 {
   "experiment_id": "XAI-W2",
-  "explainer_version": "0.4.0-narrative",
+  "explainer_version": "0.5.0-review",
+  "fx_rates_sha256": "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6",
   "inputs": {
     "rings": "contract/out/rings_full_gfpxgb_5.parquet",
     "scored_edges": "contract/out/scored_edges_gfpxgb_5.parquet"
   },
   "latency_ms": {
-    "max": 4988.0,
-    "p50": 390.5,
-    "p95": 1168.3499999999997,
+    "max": 4727.0,
+    "p50": 382.0,
+    "p95": 1138.05,
     "rings_over_5000_ms": []
   },
   "mixing": {
@@ -32,37 +33,41 @@
     "n_narratives": 174,
     "n_rings_without_shap_edges": 0,
     "rings_with_clause": {
-      "banks": 65,
-      "banks_short": 102,
+      "banks": 7,
+      "banks_short": 142,
       "closure": 167,
       "cycle": 1,
       "evidence": 174,
-      "fan_in": 70,
-      "fan_out": 24,
-      "features_both": 113,
-      "features_up": 59,
-      "gather_scatter": 12,
-      "head": 174,
+      "fan_in": 68,
+      "fan_out": 23,
+      "features_both": 110,
+      "features_up": 55,
+      "features_up_short": 4,
+      "gather_scatter": 3,
+      "head": 127,
+      "head_untyped": 47,
       "money": 174,
       "no_closure": 7,
-      "roles_both": 4,
-      "roles_mule": 2,
       "scatter_gather": 10,
-      "stack": 22
+      "self_many": 3,
+      "self_one": 4,
+      "stack": 22,
+      "type_guess": 36,
+      "type_guess_random": 11
     },
     "templates": {
-      "CYCLE": 3,
-      "FAN-IN": 70,
-      "FAN-OUT": 24,
-      "GATHER-SCATTER": 19,
-      "RANDOM": 11,
-      "SCATTER-GATHER": 22,
-      "STACK": 25
+      "CYCLE": 1,
+      "FALLBACK": 47,
+      "FAN-IN": 68,
+      "FAN-OUT": 23,
+      "GATHER-SCATTER": 3,
+      "SCATTER-GATHER": 10,
+      "STACK": 22
     },
     "topology_source": "rings",
     "words": {
       "max": 90,
-      "p50": 85.0
+      "p50": 86.0
     }
   },
   "not_reproduced": [

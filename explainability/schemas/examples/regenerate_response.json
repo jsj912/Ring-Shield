@@ -407,17 +407,21 @@
         "n_edges": 20,
         "n_members": 21,
         "p_type": null,
+        "self_payments_skipped": 0,
         "shape": {
           "depth": 2,
           "gs_hub": 71717,
+          "gs_hub_role": "sink",
           "gs_n_in": 7,
           "gs_n_out": 13,
           "has_cycle": false,
           "in_hub": 71717,
+          "in_hub_role": "sink",
           "n_in": 7,
           "n_out": 13,
           "n_pairs": 0,
-          "out_hub": 71717
+          "out_hub": 71717,
+          "out_hub_role": "sink"
         },
         "sinks": [
           71717,
@@ -496,7 +500,7 @@
         "undetermined": []
       }
     },
-    "explainer_version": "0.4.0-narrative",
+    "explainer_version": "0.5.0-review",
     "feature_weights": [
       {
         "display_name": "the payment method",
@@ -559,8 +563,8 @@
         "top_edge_id": 5078332
       }
     ],
-    "latency_ms": 535,
-    "narrative": "Suspected ring: 21 accounts, 20 transactions over 8.13 days. Total moved: 37,600,000 (US Dollar). 100% of the money sent by the sources reached the sinks. Strongest evidence: 81796\u219271717 (24,600,000, weight 0.82); 314125\u219271717 (12,800,000, weight 0.71); 71717\u2192316570 (9,540, weight 0.60). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: how many payments the sender makes. The accounts span 20 banks (National Bank of the East, First Bank of Plattsburg, Arbor Thrift +17 more).",
+    "latency_ms": 455,
+    "narrative": "Suspected ring: 21 accounts, 20 transactions over 8.13 days. Total moved: 37,600,000 (US Dollar). Across the ring, 100% of the sources' money reached the sinks. Strongest evidence: 81796\u219271717 (24,600,000, weight 0.82); 314125\u219271717 (12,800,000, weight 0.71); 71717\u2192316570 (9,540, weight 0.60). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: how many payments the sender makes. The accounts span 20 banks (National Bank of the East, First Bank of Plattsburg, Arbor Thrift +17 more).",
     "provenance": {
       "account_weight_shares": {
         "degree_share": 0.5,
@@ -569,7 +573,7 @@
       "aggregator_id": "cc",
       "currency_policy": "converted",
       "evidence_edges": "member edges minus currency conversions",
-      "explainer_version": "0.4.0-narrative",
+      "explainer_version": "0.5.0-review",
       "feature_model": "experiments/R2_b0/gfpxgb_scores/model_seed1.json",
       "features_degraded": false,
       "flow_amount_column": "amount_received",

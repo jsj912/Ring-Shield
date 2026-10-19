@@ -1,5 +1,5 @@
 {
-  "explainer_version": "0.4.0-narrative",
+  "explainer_version": "0.5.0-review",
   "feature_scope": "tenant_view",
   "fx_rates_sha256": "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6",
   "input_sha256": {
@@ -41,9 +41,9 @@
     }
   },
   "latency_ms": {
-    "max": 469.0,
-    "p50": 383.0,
-    "p95": 452.4
+    "max": 443.0,
+    "p50": 364.0,
+    "p95": 428.0
   },
   "mixing": {
     "alpha": 0.6,
