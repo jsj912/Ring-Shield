@@ -17,6 +17,7 @@ param(
     [string]$ExplanationsDir,
     [switch]$Down,
     [switch]$DropVolume,
+    [switch]$ResetPasswords,
     [switch]$ValidateOnly,
     [switch]$DefinitionsOnly,
     [int]$PostgresTimeoutSeconds = 120
@@ -309,6 +310,32 @@ function Get-DemoCredentials {
     return $values
 }
 
+function Reset-DemoCredentials {
+    param([System.Collections.IDictionary]$Credentials)
+    foreach ($key in @($Credentials.Keys)) {
+        if ($key -eq 'admin_password' -or $key -match '^tenant_\d+_(analyst|supervisor)_password$') {
+            $Credentials[$key] = New-DemoPassword
+        }
+    }
+    return $Credentials
+}
+
+function Save-DemoCredentials {
+    param([System.Collections.IDictionary]$Credentials)
+    $lines = foreach ($key in $Credentials.Keys) { "$key=$($Credentials[$key])" }
+    Set-Content -LiteralPath $script:CredentialsPath -Value $lines -Encoding UTF8 -ErrorAction Stop
+}
+
+function Get-DemoCredentialTenants {
+    param([System.Collections.IDictionary]$Credentials)
+    $tenantIds = [System.Collections.Generic.HashSet[int]]::new()
+    foreach ($key in $Credentials.Keys) {
+        $credentialMatch = [regex]::Match($key, '^tenant_(\d+)_(analyst|supervisor)_email$')
+        if ($credentialMatch.Success) { [void]$tenantIds.Add([int]$credentialMatch.Groups[1].Value) }
+    }
+    return @($tenantIds | Sort-Object)
+}
+
 function Get-DemoCurrentRevision {
     param([string]$Python, [string]$AdminUrl)
     $env:RINGSHIELD_DEMO_ADMIN_URL = $AdminUrl
@@ -355,7 +382,8 @@ function Get-DemoDatabaseUrls {
 
 function Write-DemoUsers {
     param([string]$Python, [string]$AdminUrl,
-          [System.Collections.IDictionary]$Credentials, [int[]]$SelectedTenants)
+          [System.Collections.IDictionary]$Credentials, [int[]]$SelectedTenants,
+          [switch]$AuditPasswordReset)
     $users = [System.Collections.Generic.List[object]]::new()
     $users.Add([pscustomobject]@{ TenantId = 'None'; Email = $Credentials.admin_email;
         Password = $Credentials.admin_password; Role = 'admin' })
@@ -369,23 +397,41 @@ function Write-DemoUsers {
     $usersJson = ConvertTo-Json -InputObject @($users) -Compress
     $env:RINGSHIELD_DEMO_ADMIN_URL = $AdminUrl
     $env:RINGSHIELD_DEMO_USERS_JSON = $usersJson
+    $env:RINGSHIELD_DEMO_PASSWORD_RESET = if ($AuditPasswordReset) { '1' } else { '0' }
     $code = @'
 import json, os, bcrypt
 from sqlalchemy import create_engine, text
 engine = create_engine(os.environ["RINGSHIELD_DEMO_ADMIN_URL"])
 users = json.loads(os.environ["RINGSHIELD_DEMO_USERS_JSON"])
+password_reset = os.environ.get("RINGSHIELD_DEMO_PASSWORD_RESET") == "1"
 try:
     with engine.begin() as conn:
         for user in users:
             tenant = None if user["TenantId"] == "None" else int(user["TenantId"])
             digest = bcrypt.hashpw(user["Password"].encode("utf-8"), bcrypt.gensalt()).decode("ascii")
-            conn.execute(text("""
-                INSERT INTO users (tenant_id, email, password_hash, role, disabled)
-                VALUES (:tenant_id, :email, :password_hash, :role, false)
-                ON CONFLICT (email) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,
-                    password_hash=EXCLUDED.password_hash, role=EXCLUDED.role, disabled=false
-            """), {"tenant_id": tenant, "email": user["Email"],
-                  "password_hash": digest, "role": user["Role"]})
+            params = {"tenant_id": tenant, "email": user["Email"],
+                      "password_hash": digest, "role": user["Role"]}
+            if password_reset:
+                saved_user = conn.execute(text("""
+                    INSERT INTO users (tenant_id, email, password_hash, role, disabled)
+                    VALUES (:tenant_id, :email, :password_hash, :role, false)
+                    ON CONFLICT (email) DO UPDATE SET password_hash=EXCLUDED.password_hash
+                    RETURNING user_id, tenant_id
+                """), params).mappings().one()
+                conn.execute(text("""
+                    INSERT INTO audit_log (tenant_id, user_id, action, object_type, object_id, details)
+                    VALUES (:tenant_id, NULL, 'user.password_reset', 'user', :object_id,
+                            CAST(:details AS jsonb))
+                """), {"tenant_id": saved_user["tenant_id"],
+                      "object_id": str(saved_user["user_id"]),
+                      "details": json.dumps({"email": user["Email"], "role": user["Role"]})})
+            else:
+                conn.execute(text("""
+                    INSERT INTO users (tenant_id, email, password_hash, role, disabled)
+                    VALUES (:tenant_id, :email, :password_hash, :role, false)
+                    ON CONFLICT (email) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,
+                        password_hash=EXCLUDED.password_hash, role=EXCLUDED.role, disabled=false
+                """), params)
 finally:
     engine.dispose()
 '@
@@ -393,6 +439,7 @@ finally:
     $pythonExitCode = $LASTEXITCODE
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_DEMO_USERS_JSON -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_DEMO_PASSWORD_RESET -ErrorAction SilentlyContinue
     if ($pythonExitCode -ne 0) { throw "Step 'provision demo login users' failed with exit code $pythonExitCode." }
 }
 
@@ -477,6 +524,8 @@ finally:
 }
 
 if ($DefinitionsOnly) { return }
+if ($ResetPasswords -and $Down) { throw '-ResetPasswords cannot be combined with -Down.' }
+if ($ResetPasswords -and $ValidateOnly) { throw '-ResetPasswords cannot be combined with -ValidateOnly.' }
 if ($Down -and $ValidateOnly) { throw '-Down and -ValidateOnly cannot be combined.' }
 if ($DropVolume -and -not $Down) { throw '-DropVolume can only be used with -Down.' }
 if ($Down) {
@@ -564,12 +613,22 @@ try {
     Assert-AppRoleIsRestricted -Python $python -AdminUrl $urls.Admin
 
     $credentials = Get-DemoCredentials
+    $demoUserTenants = $Tenants
+    if ($ResetPasswords) {
+        $credentials = Reset-DemoCredentials $credentials
+        $demoUserTenants = Get-DemoCredentialTenants $credentials
+    }
     $env:RINGSHIELD_DATABASE_URL = $urls.App
     $env:RINGSHIELD_PLATFORM_CONFIG = 'platform/config.yaml'
     $seedArguments = @('platform/jobs/seed_tenants.py', '--account-map', $accountMap)
     foreach ($tenantId in $Tenants) { $seedArguments += @('--loaded-bank', [string]$tenantId) }
     Invoke-Checked $python $seedArguments 'seed tenants and counterparty registry'
-    Write-DemoUsers -Python $python -AdminUrl $urls.Admin -Credentials $credentials -SelectedTenants $Tenants
+    Write-DemoUsers -Python $python -AdminUrl $urls.Admin -Credentials $credentials `
+        -SelectedTenants $demoUserTenants -AuditPasswordReset:$ResetPasswords
+    if ($ResetPasswords) {
+        Save-DemoCredentials $credentials
+        Write-Host "Demo passwords reset. Credentials file: $script:CredentialsPath"
+    }
 
     $env:RINGSHIELD_LOADER_DATABASE_URL = $urls.Loader
     $env:RINGSHIELD_DATABASE_URL = $urls.App
@@ -698,6 +757,7 @@ try {
 } finally {
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_DEMO_USERS_JSON -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_DEMO_PASSWORD_RESET -ErrorAction SilentlyContinue
     if ($script:LocationPushed) {
         Pop-Location -ErrorAction SilentlyContinue
         $script:LocationPushed = $false

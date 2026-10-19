@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+from contextlib import contextmanager
 
 import pytest
 from fastapi import HTTPException
@@ -36,3 +37,47 @@ def test_password_byte_limit_is_enforced_at_creation_and_login():
         login(LoginRequest(email="unknown@example.test", password=too_long), request=object())
     assert exc_info.value.status_code == 422
     assert "at most 72 UTF-8 bytes" in exc_info.value.detail
+
+
+def test_bad_login_credentials_keep_indistinguishable_api_401_contract(monkeypatch):
+    from api import passwords
+    from api.routers import auth
+    from api.schemas import LoginRequest
+
+    user = type("UserRow", (), {
+        "user_id": 5,
+        "tenant_id": None,
+        "email": "demo@example.test",
+        "password_hash": passwords.hash_password("the correct password"),
+        "role": "admin",
+        "disabled": False,
+    })()
+
+    class FakeSession:
+        selected_user = None
+
+        def scalar(self, _query):
+            return self.selected_user
+
+        def get(self, _model, _key):
+            return None
+
+    fake_session = FakeSession()
+
+    @contextmanager
+    def fake_auth_session():
+        yield fake_session
+
+    monkeypatch.setattr(auth, "auth_db_session", fake_auth_session)
+    failures = []
+    for selected_user, email, submitted_password in (
+        (None, "unknown@example.test", "whatever password"),
+        (user, "demo@example.test", "wrong password"),
+    ):
+        fake_session.selected_user = selected_user
+        with pytest.raises(HTTPException) as exc_info:
+            auth.login(LoginRequest(email=email, password=submitted_password), request=object())
+        assert exc_info.value.status_code == 401
+        failures.append(exc_info.value.detail)
+
+    assert failures == ["Invalid email or password", "Invalid email or password"]

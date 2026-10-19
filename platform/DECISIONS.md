@@ -286,3 +286,11 @@ This file records findings and changes in the order requested for the platform h
 - The fixed `2020-01-01T00:00:00+00:00` value remains only in `scripts/test-db.ps1`, labeled as a deterministic test-only anchor.
 - Added PowerShell validation for a missing origin, an origin without a UTC offset, and valid `Z`/offset formats. Updated the documented demo invocation and definition in `platform/README.md`.
 - Validation: PowerShell checks **8 passed**; database-free platform suite **129 passed**; `compileall` passed. Docker and PostgreSQL were not run.
+
+## Dashboard auth feedback and demo password reset - 2026-10-19
+
+- Dashboard login 401s are now handled by request path and show the generic `Incorrect email or password.` error without clearing session state or rerunning. Other 401s clear the authenticated keys, preserve a one-time session-expiry notice across rerun, and show it at the login screen. The API's indistinguishable 401 response for unknown email and wrong password is unchanged.
+- Dashboard 403s consistently show `Not permitted: your role cannot do this.` and append a request ID only when the API response includes one. They retain the session; the explicit administrator verdict warning remains. Quiet 404s, 204s, and API-unavailable messaging retain their behavior.
+- Added `-ResetPasswords` to the demo runner, reusing `Write-DemoUsers` and its existing local admin database connection and direct bcrypt hashing. Reset upserts change only `password_hash` for existing users, with no role/tenant/disabled-state changes; the database transaction writes `user.password_reset` audit rows without credentials. Rotated secrets are persisted to the gitignored credentials file after the DB update and are never printed. No API/app-role permission or API loader credential changes were made. `-ResetPasswords` is rejected with `-Down` and `-ValidateOnly`; `-Down -DropVolume` remains the data wipe path.
+- Added database-free Streamlit tests for login failure, session expiry, 403 request-ID behavior, quiet 404, and 204, plus an API-level no-DB test preserving indistinguishable bad-login 401s. Added static PowerShell checks for reset switch/conflict/password output.
+- Docker, PostgreSQL, and the demo were not run. Test counts are recorded in the completion report.

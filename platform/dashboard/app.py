@@ -32,10 +32,22 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None,
         st.error(f"RingShield API is unavailable: {exc}")
         return None
     if response.status_code == 401:
+        if method.upper() == "POST" and path == "/auth/login":
+            st.error("Incorrect email or password.")
+            return None
         for key in ("token", "user", "tenant_id", "tenant_name", "role", "selected_tenant"):
             st.session_state.pop(key, None)
-        st.info("Session expired. Please sign in again.")
+        st.session_state["notice"] = "Session expired. Please sign in again."
         st.rerun()
+    if response.status_code == 403:
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {}
+        request_id = payload.get("request_id") if isinstance(payload, dict) else None
+        suffix = f" (request id {request_id})" if request_id else ""
+        st.warning(f"Not permitted: your role cannot do this.{suffix}")
+        return None
     if not response.is_success:
         if response.status_code == 404 and quiet_not_found:
             return None
@@ -51,6 +63,9 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None,
 
 
 def _login() -> None:
+    notice = st.session_state.pop("notice", None)
+    if notice:
+        st.info(notice)
     st.title("RingShield Investigator")
     st.caption("Sign in to view your bank's ring queue.")
     with st.form("login"):
