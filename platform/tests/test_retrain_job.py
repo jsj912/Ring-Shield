@@ -286,3 +286,39 @@ def test_run_state_clears_stale_model_version_when_success_has_no_promotion(monk
     monkeypatch.setattr(retrain, "db_session", fake_session)
     retrain._set_run_state(21, "run", status="succeeded", model_version_id=None, finished=True)
     assert statements[0].compile().params["model_version_id"] is None
+
+
+def test_retrain_missing_holdout_fails_run_with_safe_reason(monkeypatch):
+    import jobs.retrain as retrain
+
+    run_id = f"missing-holdout-{uuid4().hex}"
+    log_path = PLATFORM_ROOT / "out" / "retrain" / f"{run_id}.log"
+    states = []
+    messages = []
+
+    @contextmanager
+    def fake_db_session(**_kwargs):
+        yield SimpleNamespace(execute=lambda _statement: None)
+
+    def reject_holdout(*_args, **_kwargs):
+        raise RetrainError("holdout manifest or SHA-256 file is missing or invalid")
+
+    monkeypatch.setattr(retrain, "load_platform_config", lambda: {})
+    monkeypatch.setattr(retrain, "load_l6_config", lambda _config: {})
+    monkeypatch.setattr(retrain, "_validate_inputs", lambda *_args: {
+        "holdout_manifest": Path("missing-holdout.json"),
+        "holdout_sha256_file": Path("missing-holdout.sha256"),
+    })
+    monkeypatch.setattr(retrain, "verify_holdout", reject_holdout)
+    monkeypatch.setattr(retrain, "_run_log_path", lambda _run_id: log_path)
+    monkeypatch.setattr(retrain, "_write_log", lambda _path, message: messages.append(message))
+    monkeypatch.setattr(retrain, "_set_run_state", lambda *_args, **kwargs: states.append(kwargs))
+    monkeypatch.setattr(retrain, "db_session", fake_db_session)
+
+    run_retrain_job(21, run_id)
+
+    assert [state["status"] for state in states] == ["failed"]
+    assert states[0]["model_version_id"] is None
+    assert any("holdout manifest or SHA-256 file is missing or invalid" in message
+               for message in messages)
+    assert all(str(PLATFORM_ROOT) not in message for message in messages)
