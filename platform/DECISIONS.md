@@ -243,3 +243,46 @@ This file records findings and changes in the order requested for the platform h
 - Ring identity remains the composite `(tenant_id, ring_id)`: `rings` and `explanations` use composite primary keys, and explanations/verdicts carry composite foreign keys. Ring detail, explanation and verdict API routes constrain both keys, while dashboard calls include tenant ID in each ring URL. The isolation test now loads the same ring ID for two tenants with distinct explanations and verdicts and checks each tenant's API response.
 - Added database-free handoff acceptance/refusal cases and a real-Postgres synthetic handoff load test that checks stored provenance and FX hash. The Postgres tests, including the cross-tenant ring collision/API case, were not run locally because PostgreSQL is unavailable. Database-free suite: **110 passed**; compileall and `git diff --check` passed.
 - No research data was added to Git. The database acceptance uses a generated synthetic handoff; no claim is made about executing the received bank 20 or bank 12 artifacts in this environment.
+
+## Windows local demo runner - 2026-10-18
+
+- Added `scripts/run-demo.ps1` and a separate `docker-compose.dev.yml` project/volume, using port 55433 by default so the test Postgres port remains separate. The runner reuses the test harness migration-role and login-role SQL, `roles.sql`, `seed_tenants.py`, `load_contract.py`, and `load_explanations.py`; it runs `alembic check` before loading.
+- Each bank's edge load is invoked separately with `--tenant-id`, so the loader transaction has that tenant context and explicit tenant selection. Cross-bank edges are copied to each listed endpoint tenant by the existing loader. Rings and L4 handoffs are then loaded with the tenant-specific source logs. The runner checks source edge-ID counts, five rings per tenant, matching explanation counts, and the stored row counts for each selected tenant across every table with `tenant_id`.
+- API child environment is built from the restricted app and auth URLs; migration, admin, simulator, and loader URLs are removed, and `PYTHON_DOTENV_DISABLED=1` prevents a local `.env` file from injecting them. Application analyst/supervisor/admin passwords are generated once and stored in ignored `platform/demo-credentials.txt`; passwords are not printed. `-Down` keeps the volume and credentials; `-Down -DropVolume` removes both.
+- Added a standalone Windows PowerShell validation test for valid inputs, a missing required input directory, non-positive tenant IDs, `labels_*`, and `ground_truth` paths. Five checks passed locally. Database-free platform suite: **110 passed**; compileall and `git diff --check` passed.
+- Made the migration-role provisioning repeatable and the runner inspect the existing Alembic revision before bootstrapping, so reruns do not attempt to move a populated demo database backwards. Existing demo credentials are retained and extended if more tenants are selected later.
+- Docker Desktop and Postgres were unavailable in this environment. The compose startup, migrations, role checks, data loads/count expectations, API health check, dashboard startup, and `-Down` behavior are implemented but were not run. The expected counts in the README come from the supplied target values and are enforced at run time; they are not locally verified. No research data was added.
+
+## PowerShell demo runner correction - 2026-10-18
+
+- Renamed the `$host` and `$args` locals that collided case-insensitively with PowerShell's read-only automatic variables, changed the input iteration local, and removed explicit use of the automatic `$Matches` value by parsing credential lines with `Regex.Match`. Removed direct assignments to `$ErrorActionPreference`; file operations that must stop now use explicit `-ErrorAction Stop`.
+- Added a PowerShell AST validation that parses both the runner and validation script and rejects assignment targets matching automatic or preference variable names without regard to case. The existing input/path checks remain in the validation script.
+- Audited external process calls: Python and Docker commands check `$LASTEXITCODE` and identify their step on failure; Postgres readiness polls `pg_isready` inside the demo container with a timeout. Compose calls continue to pass the quoted compose path as a single argument, with the isolated `ringshield-demo` project and its own named volume.
+- Reruns now continue migrations from any recognized/intermediate revision by upgrading to head, and idempotent loaders, seed upserts, persistent credentials, and prior-process cleanup are retained. The API child environment removes loader and administrative credentials before launch.
+- Docker/Postgres was not run. Static parsing and database-free validation are the only checks for these Windows runtime paths.
+
+## L4 source ring schema version correction - 2026-10-18
+
+- The earlier expectation that tenant explanation provenance must declare ring schema version 2 was incorrect for this checkout. `contract/schema.py` defines the shipped 22-column `RINGS_ORDER`, which is schema version 1; the real L4 rows correctly declare version 1. `platform/config.yaml` now requires `l4.rings_schema_version: 1`.
+- The explanation loader derives the source ring version from the source parquet: exact `RINGS_ORDER` is version 1, a unique 30-column layout is version 2, and other layouts are refused. The detected source version must equal configuration and every explanation row's version. Mismatch errors report both versions; the previous tenant, hash, active model/seed, FX, reproduction, and label-path checks remain.
+- Updated the database-free handoff fixtures and the CI-only real-Postgres fixture from assumed version 2 to the exact version 1 ring shape. Added cases for v2 rows against v1 rings, mixed row versions, v1 rows against 30-column rings, and an unknown ring column set. The older pooled-format refusal remains covered.
+- Database-free suite: **120 passed**; `compileall` and `git diff --check` passed. Docker/Postgres was not run; CI remains responsible for the database-backed handoff test.
+
+## Tenant L4 UNKNOWN topology values and read-only preflight - 2026-10-18
+
+- The received tenant L4 files have no typing head: their source rows use `topology_type=UNKNOWN` and `topology_prob=NaN`. The loader now accepts null/NaN probability only for `UNKNOWN`; infinities are always refused, and every named topology still requires a finite probability in `[0, 1]`. For `UNKNOWN`, it does not compare or persist that explanation topology value; the loaded ring's topology remains authoritative. Existing optional nested numeric handling continues to convert NaN values such as optional account hold time to JSON null.
+- Added database-free tests for UNKNOWN with NaN and null, named topology with NaN, positive/negative infinity, and out-of-range probabilities. Existing pooled and other handoff refusal cases remain in place.
+- Explanation handoff tests: **32 passed**. Docker/Postgres was not run.
+
+## Read-only L4 handoff preflight - 2026-10-18
+
+- Added `platform/jobs/check_explanations.py`, which invokes the loader's `read_handoff` validator for one or more explanation/run-log/rings-log triples and prints `OK <n> rows` or `REFUSED <reason>`. It performs no database access. `scripts/run-demo.ps1` runs this check after file preflight and before checking/starting Docker, so invalid real handoffs fail before the demo database is touched.
+- Read-only check run against the provided local files: bank 12 `OK 5 rows`; bank 20 `OK 5 rows`. This validates the handoff files only; the demo load, Docker and PostgreSQL were not run.
+- Added database-free CLI tests for success and refusal output. Full database-free suite: **129 passed**; PowerShell path validation: **6 passed**; compileall passed. No relaxation was made to tenant scope/identity, source-ring SHA-256/schema, active model/seed, FX pin, reproduction, pooled-log, or label-path checks.
+
+## Demo dataset time origin - 2026-10-19
+
+- Removed the demo's implicit `2020-01-01` time anchor. Normal and `-ValidateOnly` runs require `-TimeOriginUtc`, an ISO-8601 instant with an explicit UTC offset or `Z`. It represents loader timestamp 0: first transaction day 00:00 UTC minus 10 seconds. The demo passes this exact value to the API, displays it in its startup summary, and the dashboard sidebar displays the inherited value. `-Down` remains available without an origin so teardown does not depend on application data configuration.
+- The fixed `2020-01-01T00:00:00+00:00` value remains only in `scripts/test-db.ps1`, labeled as a deterministic test-only anchor.
+- Added PowerShell validation for a missing origin, an origin without a UTC offset, and valid `Z`/offset formats. Updated the documented demo invocation and definition in `platform/README.md`.
+- Validation: PowerShell checks **8 passed**; database-free platform suite **129 passed**; `compileall` passed. Docker and PostgreSQL were not run.

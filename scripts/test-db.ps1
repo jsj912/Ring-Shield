@@ -41,6 +41,8 @@ try {
     $env:RINGSHIELD_AUTH_DATABASE_URL = 'postgresql+psycopg://ringshield_test_auth:test-auth-only@localhost:55432/ringshield?options=-c%20role%3Dringshield_auth'
     $env:RINGSHIELD_LOADER_DATABASE_URL = 'postgresql+psycopg://ringshield_test_loader:test-loader-only@localhost:55432/ringshield?options=-c%20role%3Dringshield_loader'
     $env:RINGSHIELD_JWT_SECRET = 'ringshield-test-secret-that-is-long-enough'
+    # Test-only fixed anchor for deterministic synthetic fixtures; never use as a demo origin.
+    # Test-only fixed anchor for deterministic synthetic fixtures; never use as a demo origin.
     $env:RINGSHIELD_TIME_ORIGIN_UTC = '2020-01-01T00:00:00+00:00'
     $env:RINGSHIELD_PLATFORM_CONFIG = 'platform/tests/isolation/config.test.yaml'
 

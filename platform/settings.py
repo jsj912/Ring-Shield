@@ -33,6 +33,13 @@ def _load_platform_config(resolved_path: str) -> dict[str, Any]:
         raise RuntimeError("platform config requires active_model_id")
     if not isinstance(config.get("active_seed"), int):
         raise RuntimeError("platform config requires integer active_seed")
+    l4 = config.get("l4")
+    if not isinstance(l4, dict):
+        raise RuntimeError("platform config requires l4.rings_schema_version in an l4 mapping")
+    rings_schema_version = l4.get("rings_schema_version")
+    if (not isinstance(rings_schema_version, int) or isinstance(rings_schema_version, bool)
+            or rings_schema_version not in (1, 2)):
+        raise RuntimeError("platform config requires integer l4.rings_schema_version 1 or 2")
     if "seed_score_cutoff" in config:
         cutoff = config["seed_score_cutoff"]
         if not isinstance(cutoff, (int, float)) or not 0 <= float(cutoff) <= 1:

@@ -393,6 +393,7 @@ def main() -> None:
         return
     st.sidebar.title(st.session_state.get("tenant_name", "RingShield"))
     st.sidebar.caption(f"Role: {st.session_state['role']}")
+    st.sidebar.caption(f"Time origin: {os.environ.get('RINGSHIELD_TIME_ORIGIN_UTC', 'not configured')}")
     if st.sidebar.button("Sign out"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]

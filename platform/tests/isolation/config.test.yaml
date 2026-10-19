@@ -3,3 +3,5 @@ active_seed: 7
 seed_score_cutoff: 0.42
 seed_score_cutoff_source: /tmp/ringshield-platform-fixture/scored_edges.parquet.log.json:seed_rule.q
 seed_score_column: score_raw
+l4:
+  rings_schema_version: 1

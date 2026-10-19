@@ -5,6 +5,74 @@ tenant isolation, authentication, API contracts, verdicts, model operations, dri
 events, and the investigator dashboard. Model inference and ring aggregation remain
 behind adapters to the existing research CLI and explainability functions.
 
+## Run the demo
+
+On Windows, install and start Docker Desktop, and ensure `python` is on `PATH`. The
+runner installs the pinned platform/test requirements. The input folders must contain the tenant rings and
+edge-ID files produced for the active detector, plus the verified L4 explanation
+parquets. The runner checks every file and log before starting Docker and rejects
+label or ground-truth paths. The scored-edges sibling `.log.json` must declare
+`split=test`; rings and explanations are passed through the existing tenant loaders.
+
+From the repository root, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1 `
+  -Tenants 12,20 `
+  -TimeOriginUtc '2022-08-31T23:59:50Z' `
+  -RingsDir .\data\platform_tenant_runs\gine_causal_seed1 `
+  -EdgeIdsDir .\data\platform_tenant_runs\gine_causal_seed1 `
+  -ScoredEdges .\contract\out\scored_edges_gine_causal_1.parquet `
+  -ExplanationsDir .\data\platform_explanations
+```
+
+`-TimeOriginUtc` is required. It is the UTC instant represented by loader
+timestamp 0: the first transaction day's 00:00 UTC minus 10 seconds. Supply a
+full ISO-8601 instant with `Z` or an explicit UTC offset, for example
+`2022-08-31T23:59:50Z`. The runner prints the chosen origin in its summary, and
+the dashboard sidebar displays the same value for screenshots.
+
+The compose project is separate from the test database and uses its own persistent
+volume. Its default host port is `55433`; set `RINGSHIELD_DEMO_POSTGRES_PORT` to
+change it. The script runs migrations and `alembic check`, creates the restricted
+app/loader logins, seeds selected tenants and counterparties, then loads only
+endpoint-visible transactions and scores. Tenant rings use `scope=tenant`; the L4
+loader checks each explanation log, rings-log tenant rule, artifact hash, active
+model/seed, and the pinned FX hash. The API process uses the restricted app and auth
+roles with dotenv loading disabled, so it never inherits loader credentials.
+
+For banks 12 and 20, the expected visible edge-ID and database transaction/score
+counts are **20,039** and **10,315** respectively, with **5 rings per tenant**.
+The runner verifies those counts and checks the loaded explanation count against
+the ring count. It prints per-tenant counts for every table with a `tenant_id`.
+The API is at `http://127.0.0.1:8000` and the Streamlit dashboard is at
+`http://127.0.0.1:8501`. Demo analyst, supervisor, and admin emails/passwords are
+written once to the ignored file `platform/demo-credentials.txt`; passwords are
+never printed in the console or service logs. Log in with an analyst or supervisor
+to see tenant rings; use the admin account for the global admin views.
+
+To check arguments, input paths, and PowerShell automatic-variable assignments
+without starting Docker, run the six database-free PowerShell checks, or invoke
+the runner with `-ValidateOnly`:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\tests\run-demo-validation.tests.ps1
+```
+
+To stop the API, dashboard, and
+containers while keeping the database volume and credentials, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1 -Down
+```
+
+To reset the demo completely, including the persistent database volume and stored
+credentials, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1 -Down -DropVolume
+```
+
 ## L6-B drift monitoring and scheduling
 
 River is pinned at `river==0.22.0` in `platform/requirements.txt` (the project
@@ -209,9 +277,11 @@ Load a verified L4 explanation batch after loading its rings:
 python platform/jobs/load_explanations.py --explanations <explanations.parquet> --run-log <explanations.parquet.log.json> --rings-log <tenant-rings.parquet.log.json>
 ```
 
-The loader requires the adjacent L4 and tenant-rings logs, rings schema version 2,
-an explicit tenant-scoped ring run, matching model/seed/aggregator, converted-currency
-policy, and complete ring reproduction. It rejects global or stub outputs and any
+The loader requires the adjacent L4 and tenant-rings logs, the configured rings schema
+version (`l4.rings_schema_version`, currently version 1 for this repository's exact
+22-column `contract/schema.py` contract), an explicit tenant-scoped ring run, matching
+model/seed/aggregator, converted-currency policy, and complete ring reproduction. It
+rejects unknown ring column layouts, global or stub outputs, and any
 batch with non-reproduced rings. It matches each explanation to an existing tenant
 ring and checks that weighted edges and accounts are members before upserting. The
 API exposes the newest saved explanation at
