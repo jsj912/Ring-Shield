@@ -119,3 +119,80 @@ def test_api_role_reads_only_its_tenant_audit_rows(register_db_test_ids):
                                    {"a": marker_a, "b": marker_b})
         finally:
             engine.dispose()
+
+
+def test_null_tenant_audit_rows_are_admin_only_and_schema_allows_null(register_db_test_ids):
+    tenant_a = 210
+    marker = f"audit-null-tenant-{uuid4().hex}"
+    rejected_markers = [f"{marker}-{role}" for role in (
+        "analyst", "supervisor", "loader", "simulator",
+    )]
+    register_db_test_ids(marker, *rejected_markers)
+    engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    try:
+        # The nullable ORM mapping must match the migrated schema.
+        assert AuditLog.__table__.c.tenant_id.nullable is True
+        with engine.connect() as connection:
+            tenant_nullable = connection.execute(text("""
+                SELECT is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'audit_log'
+                  AND column_name = 'tenant_id'
+            """)).scalar_one()
+        assert tenant_nullable == ("YES" if AuditLog.__table__.c.tenant_id.nullable else "NO")
+
+        # An API administrator may write a global audit row and read it back.
+        with db_session(role="admin") as session:
+            add_audit_event(session, tenant_id=None, actor="admin",
+                            action="test.global_insert", entity_type="test",
+                            entity_id=marker, details={})
+        with db_session(role="admin") as session:
+            admin_rows = session.scalars(select(AuditLog.object_id).where(
+                AuditLog.tenant_id.is_(None), AuditLog.object_id == marker,
+            )).all()
+        assert admin_rows == [marker]
+
+        # Global rows are invisible both without tenant context and from a tenant.
+        with db_session(role="analyst") as session:
+            no_context_rows = session.scalars(select(AuditLog.object_id).where(
+                AuditLog.tenant_id.is_(None), AuditLog.object_id == marker,
+            )).all()
+        with db_session(tenant_id=tenant_a, role="analyst") as session:
+            tenant_rows = session.scalars(select(AuditLog.object_id).where(
+                AuditLog.tenant_id.is_(None), AuditLog.object_id == marker,
+            )).all()
+        assert no_context_rows == []
+        assert tenant_rows == []
+
+        # Tenant API roles and both restricted job roles cannot create a global row.
+        for role, session_factory in (
+            ("analyst", lambda **kwargs: db_session(role="analyst", **kwargs)),
+            ("supervisor", lambda **kwargs: db_session(role="supervisor", **kwargs)),
+            ("loader", loader_db_session),
+            ("simulator", simulator_db_session),
+        ):
+            with pytest.raises(DBAPIError):
+                with session_factory(tenant_id=tenant_a) as session:
+                    add_audit_event(
+                        session, tenant_id=None, actor=role,
+                        action="test.global_rejected", entity_type="test",
+                        entity_id=f"{marker}-{role}", details={},
+                    )
+
+        # Admin remains read-only for mutations even though it may append rows.
+        for statement in (
+            "UPDATE audit_log SET action='test.changed' WHERE object_id=:marker",
+            "DELETE FROM audit_log WHERE object_id=:marker",
+        ):
+            with pytest.raises(DBAPIError):
+                with db_session(role="admin") as session:
+                    session.execute(text(statement), {"marker": marker})
+    finally:
+        try:
+            with engine.begin() as connection:
+                connection.execute(text(
+                    "DELETE FROM audit_log WHERE object_id = :marker "
+                    "OR object_id LIKE :rejected_prefix"
+                ), {"marker": marker, "rejected_prefix": f"{marker}-%"})
+        finally:
+            engine.dispose()
