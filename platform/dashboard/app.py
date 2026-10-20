@@ -22,6 +22,10 @@ API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip(
 
 def _api(method: str, path: str, *, body: dict | None = None, params=None,
          quiet_not_found: bool = False):
+    api_calls = st.session_state.setdefault("_api_retry_keys", [])
+    call_number = len(api_calls)
+    api_calls.append((method, path))
+    retry_key = f"retry_{method}_{path}_{call_number}"
     headers = {}
     if st.session_state.get("token"):
         headers["Authorization"] = f"Bearer {st.session_state['token']}"
@@ -31,7 +35,7 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None,
                                      json=body, params=params, timeout=20.0)
     except httpx.HTTPError as exc:
         st.error(f"RingShield API is unavailable: {exc}")
-        if st.button("Retry", key=f"retry_{method}_{path}"):
+        if st.button("Retry", key=retry_key):
             st.rerun()
         return None
     if response.status_code == 401:
@@ -63,7 +67,7 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None,
         request_id = request_id or response.headers.get("X-Request-ID")
         suffix = f" (request id {request_id})" if request_id else ""
         st.error(f"{message}{suffix}")
-        if st.button("Retry", key=f"retry_{method}_{path}"):
+        if st.button("Retry", key=retry_key):
             st.rerun()
         return None
     if response.status_code == 204:
@@ -418,6 +422,7 @@ def _clear_session_state() -> None:
 
 def main() -> None:
     st.set_page_config(page_title="RingShield Investigator", layout="wide")
+    st.session_state["_api_retry_keys"] = []
     if not st.session_state.get("token"):
         _login()
         return

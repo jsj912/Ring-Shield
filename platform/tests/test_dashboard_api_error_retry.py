@@ -65,3 +65,49 @@ def test_network_failure_keeps_unavailable_message_and_shows_retry(monkeypatch, 
 
     assert "RingShield API is unavailable: offline" in [item.value for item in app.error]
     assert any(button.label == "Retry" for button in app.button)
+
+
+def test_ring_detail_can_render_two_api_failures_with_distinct_retry_controls(monkeypatch, tmp_path):
+    class Response:
+        def __init__(self, status_code, payload, headers=None):
+            self.status_code = status_code
+            self.is_success = 200 <= status_code < 300
+            self.payload = payload
+            self.headers = headers or {}
+
+        def json(self):
+            return self.payload
+
+    def request(_method, url, **_kwargs):
+        if url.endswith("/evidence"):
+            return Response(500, {"message": "Evidence unavailable", "request_id": "evidence-req"})
+        if url.endswith("/explanation"):
+            return Response(500, {"message": "Explanation unavailable", "request_id": "explanation-req"})
+        if url.endswith("/verdicts"):
+            return Response(200, {"items": [], "next_before_id": None})
+        return Response(200, {
+            "ring_id": "ring-1", "topology_type": "CYCLE", "n_members": 2,
+            "n_edges": 1, "status": "open", "total_amount": 10.0,
+            "total_currency": "USD", "n_currencies": 1, "start_time": "t0",
+            "end_time": "t1", "confidence": 0.9, "cross_bank": False,
+            "counterparty_banks": [], "conservation_closure": 0.1,
+            "model_id": "model", "aggregator_id": "aggregator",
+            "member_accounts": [1, 2], "member_edges": [7],
+        })
+
+    monkeypatch.setattr(httpx, "request", request)
+    script = tmp_path / "ring_errors.py"
+    script.write_text(
+        "from dashboard.app import _ring_detail\n"
+        "_ring_detail(210, 'ring-1')\n",
+        encoding="utf-8",
+    )
+    app = AppTest.from_file(str(script))
+    app.session_state["token"] = "token"
+    app.session_state["role"] = "analyst"
+    app.run()
+
+    messages = [item.value for item in app.error]
+    assert "Evidence unavailable (request id evidence-req)" in messages
+    assert "Explanation unavailable (request id explanation-req)" in messages
+    assert sum(button.label == "Retry" for button in app.button) == 2
