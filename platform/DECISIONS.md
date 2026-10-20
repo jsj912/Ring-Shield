@@ -326,3 +326,134 @@ This file records findings and changes in the order requested for the platform h
 - Simulator cycle bounds now follow queried timestamps (`start = day-zero + cycle_day * seconds_per_day`) and are checked as complete intervals against days 8-17. It uses the configured `whole` test window by default. Compatible explicit test windows (`primary`, `tail`, `whole`) remain selectable; the unchanged `val` window is refused for test-period reviews. The CLI performs both interval and truth-window validation before opening its analyst session.
 - Synthetic tests exercise A/B visibility for their shared edge, absence from C, per-tenant ring stamping, deterministic duplicate handling, and conflicting duplicate refusal. These are unit tests; no Postgres or real experiment was run.
 - The simulator CLI now validates the interval and truth-window before even checking whether the configured truth parquet exists. R10 converts malformed tenant IDs in score logs into `ExperimentInputError`. Config wording distinguishes the pooled comparison baseline from the unresolved operational score source, which remains null until the research lead decides.
+# PR-04, PR-10, PR-11, PR-19 and PR-20 release hardening - 2026-10-20
+
+R10 experiment jobs remain file-backed under `platform/out/experiments`; they do not
+create a database job table. R10 lifecycle events use structured JSON process logs,
+not `audit_log`: an experiment has no tenant, while the audit contract requires a
+tenant-bound business event and must not use a pseudo-tenant. This preserves the
+committed endpoint behavior and avoids broadening audit privileges or RLS policies.
+
+## State-change inventory and audit coverage
+
+The code-path inventory was checked with searches for ORM adds/merges, SQL inserts and
+updates, subprocess job status, and direct user credential writes. Database-backed
+business changes below append safe audit events in the same transaction. R10 job state
+remains in the existing JSON files under `platform/out/experiments`; migration 0007
+does not create an R10 job table. Downgrade restores the prior audit read/insert
+policies and removes the added indexes and columns; audit UPDATE/DELETE remain revoked
+as a security invariant.
+
+| Path | State changed | Audit status / action |
+|---|---|---|
+| `platform/api/routers/admin.py` | Creates a user | Yes, `user.created`; role only, no email or password data |
+| `scripts/run-demo.ps1` | Initializes or resets demo user credentials | Yes, `user.credentials_initialized` / `user.password_reset`; role only |
+| `platform/services/verdicts.py` | Inserts verdict and updates ring status | Yes, `verdict.recorded`; includes resulting status and simulated flag |
+| `platform/api/routers/operations.py` | Changes drift `acted_on`; requests retraining; marks launch failure | Yes, `drift.acted_on`, `retrain.requested`, `retrain.failed` |
+| `platform/api/scheduler.py` | Creates scheduled retrain run and records launch failure | Yes, `retrain.requested`, `retrain.failed` |
+| `platform/jobs/retrain.py` | Run state transitions; candidate model insert and prior promotion demotion | Yes, `retrain.started/succeeded/failed`, `model_version.recorded`, `model_version.demoted`; gate outcome is retained |
+| `platform/jobs/refresh_rings.py` / `platform/jobs/load_contract.py` | Tenant ring refresh/upsert | Yes, `rings.refresh_started/completed/failed`, completion in the loader transaction |
+| `platform/jobs/load_contract.py` | Transactions, edge scores, accounts, rings | Yes, one count summary per affected tenant: `contract.load_completed`, `rings.load_completed` |
+| `platform/jobs/load_explanations.py` | Explanation upserts | Yes, one summary per tenant: `explanations.load_completed` |
+| `platform/jobs/seed_tenants.py` | Tenant registry and simulated user seed | Yes, one global `tenants.seed_completed` summary; no user identifiers or credentials |
+| `platform/jobs/drift_monitor.py` | Inserts detected drift events | Yes, one tenant summary `drift.events_persisted` per run |
+| `platform/jobs/simulate_verdicts.py` | Simulated verdicts and ring status through shared service | Yes, `verdict.recorded`, actor `simulator`, `is_simulated=true` |
+| `platform/api/routers/admin.py` / `platform/jobs/experiment_worker.py` | R10 requested/running/succeeded/failed state in JSON job files | Structured JSON process events; no tenantless audit row or database job table |
+| Password reset API | No such API endpoint exists | Not applicable; demo reset path above is audited |
+
+Audit rows now record `tenant_id`, actor, dotted action, entity type/ID, UTC DB time,
+optional request ID, and a strict allow-listed scalar JSON detail. The helper rejects
+unknown fields, unsafe strings, paths and email-shaped values. Existing rows receive a
+Historic audit rows get actor `legacy:unknown` via the column default; their `user_id` is preserved. App, loader and simulator roles
+have INSERT only; UPDATE/DELETE are explicitly revoked and no such grants are added.
+Loader and simulator grants were already present in the earlier role SQL/migration;
+0007 adds the narrow API/loader insert and sequence privileges required by the new
+events. The audit INSERT policy now requires tenant context to match the row, with a
+separate null-tenant administrator clause. Audit SELECT is tenant-bound except for
+administrator context.
+
+## Section 4 index comparison
+
+Compared each specified index against frozen migration 0001 and ORM metadata:
+
+| Required index | Before 0007 | Decision |
+|---|---|---|
+| `transactions(tenant_id, timestamp)` | Present: `ix_transactions_tenant_time` | Keep |
+| `transactions(tenant_id, from_id)` | Present: `ix_transactions_tenant_from` | Keep |
+| `transactions(tenant_id, to_id)` | Present: `ix_transactions_tenant_to` | Keep |
+| `rings(tenant_id, status, confidence DESC)` | Columns existed, but confidence direction was ascending | Recreate as explicit DESC in 0007 and match model metadata |
+| `verdicts(tenant_id, ring_id)` | Missing; only tenant/created time existed | Add `ix_verdicts_tenant_ring_created` with `created_at DESC`, covering the required leading pair and history order |
+
+The existing `rings(tenant_id, start_time)` and `verdicts(tenant_id, created_at)`
+indexes are retained because they support other current queries. Migration 0007 uses
+transactional explicit SQL and contains no `CREATE INDEX CONCURRENTLY` or model imports.
+
+## API, logging and health
+
+- `RequestContextMiddleware` writes one JSON request-completion record to stdout with
+  UTC timestamp, level, event, request ID, verified tenant/user IDs, method, route
+  template, status and duration. It does not log raw path values, query strings,
+  headers, bodies, email, credentials, evidence or local paths. Unhandled errors produce
+  a separate safe JSON event without exception text or traceback. Demo Uvicorn access
+  logging is disabled.
+- `/health` remains unauthenticated and returns only component statuses. Database
+  reachability uses the restricted application connection with a three-second
+  connect timeout; failures return the standard safe 503 error envelope.
+- `require_roles` now rejects a valid but disallowed role claim before opening the live
+  account-state query, then validates allowed principals against the database.
+- Section 6 route parity, including deferred regeneration routes, is recorded in
+  `docs/ENDPOINT_PARITY.md`; missing endpoints were not implemented in this task.
+
+Database-backed audit privilege/RLS, index round-trip, and unknown-column JSONB tests
+were added for CI but were not run locally because Docker and PostgreSQL are unavailable.
+
+## Audit migration role ordering
+
+The fresh CI bootstrap creates `ringshield_owner`, `ringshield_api`,
+`ringshield_loader`, and `ringshield_simulator` in migration 0002. The migration
+login is `ringshield_test_migrator`, granted membership in `ringshield_owner`, and
+Alembic runs with `SET ROLE ringshield_owner`. After Alembic upgrades to head,
+`platform/db/roles.sql` creates `ringshield_auth`; the test-role provisioning then
+creates `ringshield_test_app`, `ringshield_test_auth`, `ringshield_test_loader`,
+and `ringshield_test_simulator` (and idempotently ensures the migrator login).
+Thus all roles created by the fresh CI flow are `ringshield_owner`,
+`ringshield_api`, `ringshield_loader`, `ringshield_simulator`, `ringshield_auth`,
+`ringshield_test_migrator`, `ringshield_test_app`, `ringshield_test_auth`,
+`ringshield_test_loader`, and `ringshield_test_simulator`. Tables are owned by
+`ringshield_owner`; migrations connect as `ringshield_test_migrator` and execute
+as that owner. Migration 0007 grants audit INSERT only to the API and loader
+roles already created in 0002. Its UPDATE/DELETE revokes explicitly cover PUBLIC
+and loop over existing `ringshield_*` roles, excluding the table owner, so the
+migration does not depend on `ringshield_auth` existing before the later role SQL.
+The downgrade conditionally removes only the API/loader grants and leaves the
+append-only revokes in effect.
+
+## Audit writes use INSERT without RETURNING
+
+The CI seed failure was caused by ORM flush semantics, not a missing INSERT grant:
+`platform/db/roles.sql` grants INSERT on `audit_log` to the loader and simulator,
+`0004_simulator_access.py` grants it to the simulator, and `0007_audit_indexes.py`
+grants it to the API and loader. The ORM path could emit `INSERT ... RETURNING`
+for generated `log_id` and server-default `at`; PostgreSQL then also requires
+SELECT privilege on the returned columns. Loader and simulator intentionally have
+no SELECT privilege on the audit table. `add_audit_event` now uses a Core table
+INSERT with no RETURNING and does not return a generated primary key. The audit
+mapping remains unchanged and matches the migration schema. `audit_log.log_id`
+is an autoincrementing sequence-backed column (`audit_log_log_id_seq`), so its
+existing sequence USAGE privilege supports inserts without table read access.
+
+| Caller | Effective DB role | Tenant context and insert policy | Audit readback in the write path |
+|---|---|---|---|
+| Contract and explanation loaders | `ringshield_loader` | `loader_db_session` sets tenant ID and role `loader`; tenant ID must match the row | None |
+| Drift monitor persistence | `ringshield_loader` | Same tenant-bound loader session | None |
+| Retrain worker | `ringshield_loader` for model-version writes; API role for supervisor run-state writes | Loader path sets tenant ID/`loader`; supervisor path sets tenant ID/`supervisor` | None |
+| Ring refresh worker | API role for supervisor start event; `ringshield_loader` for failure/contract-load writes | Both sessions carry the tenant ID; supervisor or loader policy branch must match | None |
+| Tenant seeding | API role with `admin` context | Global event has `tenant_id IS NULL` and uses the administrator insert-policy clause | None |
+| Simulated verdicts | `ringshield_simulator` | `simulator_db_session` sets tenant ID and `analyst`; simulator-specific policy requires both | None |
+| API operations, verdicts, and user creation | API role | Tenant-bound context for tenant events; administrator clause for global admin events | These write paths do not query audit rows; the separate API SELECT grant is not used by these paths |
+| Scheduler | API role | Supervisor context and tenant ID for each scheduled-run event | None |
+
+Database-free coverage compiles the audit Core INSERT with the PostgreSQL dialect
+and checks that the helper does not use `session.add`. The CI PostgreSQL test
+checks loader/simulator tenant-bound inserts, denied cross-tenant inserts, denied
+audit-table SELECT/UPDATE/DELETE, and API visibility limited to its tenant.

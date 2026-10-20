@@ -265,9 +265,38 @@ membership as documented at the end of `platform/db/roles.sql`. The API and auth
 URLs must use those restricted non-owner roles. Start the API with:
 
 ```powershell
-uvicorn api.main:app --app-dir platform --env-file .env --reload
+uvicorn api.main:app --app-dir platform --env-file .env --reload --no-access-log
 streamlit run platform/dashboard/app.py
 ```
+
+The API writes one JSON object per request to stdout with an ISO-8601 UTC timestamp,
+level, event, request ID, verified tenant/user IDs (or null when unauthenticated),
+HTTP method, route template, status and duration in milliseconds. Request bodies,
+query strings, authorization headers, passwords, evidence, narratives and local file
+paths are not logged. Uvicorn access logging is disabled to avoid duplicate
+unstructured request lines; the Windows demo launcher uses the same setting.
+
+`GET /health` is unauthenticated and returns component status only. It checks the
+database through the restricted application role with a three-second connection
+timeout and checks artifact-store readability. A failed component returns a safe
+503 error body with the request ID; it does not include database details or paths.
+
+Database-backed business state changes append an `audit_log` event in the same
+database transaction as the change. Actions include `user.created`, `user.password_reset`,
+`user.credentials_initialized`, `verdict.recorded`, `drift.acted_on`,
+`drift.events_persisted`, `retrain.requested`, `retrain.started`, `retrain.succeeded`,
+`retrain.failed`, `model_version.recorded`, `model_version.demoted`,
+`rings.load_completed`, `rings.refresh_started`, `rings.refresh_completed`,
+`rings.refresh_failed`, `contract.load_completed`, and
+`explanations.load_completed`. Audit details are restricted to safe counts and gate/status
+metadata; credentials, hashes, email addresses, evidence and paths are excluded.
+Audit records are append-only to application, loader and simulator roles, with
+tenant-bound insert policies for tenant events.
+
+R10 experiment status remains in JSON files under `platform/out/experiments`.
+Its `experiment.requested`, `experiment.started`, and `experiment.finished` events
+are structured JSON process logs, not audit rows: an R10 job has no tenant identity,
+and the audit log does not use a pseudo-tenant for global work.
 
 The initial API slice includes login, admin tenant/user setup, tenant ring list/detail,
 paginated ring evidence, confirm/reject verdicts, paginated per-ring verdict history,

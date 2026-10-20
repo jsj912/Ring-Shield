@@ -13,9 +13,10 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
+from uuid import uuid4
 
 import pyarrow.parquet as pq
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +24,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "platform"))
 
 from contract.schema import RINGS_ORDER, SCORED_EDGES_ORDER  # noqa: E402
+from audit import add_audit_event  # noqa: E402
 from db.models import Account, EdgeScore, Ring as PlatformRing, Tenant, Transaction  # noqa: E402
 from db.session import loader_db_session  # noqa: E402
 from settings import load_platform_config  # noqa: E402
@@ -49,6 +51,12 @@ def _python_value(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_python_value(v) for v in value]
     return value
+
+
+def transaction_payload(row: dict[str, Any]) -> dict[str, Any]:
+    """Preserve every unmodelled contract field, excluding detector scores."""
+    return {key: value for key, value in row.items()
+            if key not in {"score_raw", "score_calibrated", "is_seed", "model_id", "seed"}}
 
 
 def _check_file(path: Path, required: Iterable[str]) -> tuple[pq.ParquetFile, dict]:
@@ -105,6 +113,8 @@ def load_edges(path: Path, *, scope: str, tenant_id: int | None = None,
         raise ContractLoadError(f"{path}: scored_edges requires tenant_id in its contract")
 
     counts = defaultdict(int)
+    load_run_id = uuid4().hex
+    tenant_counts: dict[int, defaultdict[str, int]] = defaultdict(lambda: defaultdict(int))
     with loader_db_session(tenant_id=tenant_id) as session:
         if scope == "pooled":
             tenant_ids = {-1}
@@ -117,6 +127,8 @@ def load_edges(path: Path, *, scope: str, tenant_id: int | None = None,
             tenant_ids = set(session.scalars(tenant_query))
             if not tenant_ids:
                 raise ContractLoadError("no tenants are marked is_loaded; provision the selected tenant registry first")
+        for tenant_key in tenant_ids:
+            tenant_counts[tenant_key]
 
         for record_batch in parquet.iter_batches(batch_size=batch_size):
             transaction_rows: list[dict] = []
@@ -149,8 +161,7 @@ def load_edges(path: Path, *, scope: str, tenant_id: int | None = None,
                         "currency_sent": _python_value(source.get("currency_sent")),
                         "currency_received": _python_value(source.get("currency_received")),
                         "payment_format": _python_value(source.get("payment_format")),
-                        "payload": {key: value for key, value in row.items()
-                                    if key not in {"score_raw", "score_calibrated", "is_seed", "model_id", "seed"}},
+                        "payload": transaction_payload(row),
                     })
                     edge_score_rows.append({
                         "tenant_id": tenant_id,
@@ -162,6 +173,9 @@ def load_edges(path: Path, *, scope: str, tenant_id: int | None = None,
                         "is_seed": _python_value(source.get("is_seed")),
                         "payload": {"selection_column": "score_raw"},
                     })
+                    tenant_counts[tenant_id]["visible_edge_rows"] += 1
+                    tenant_counts[tenant_id]["edge_score_rows"] += 1
+                    tenant_counts[tenant_id]["unique_source_edges"] += 1
                     for account_id, bank_code in ((int(source["from_id"]), from_bank),
                                                   (int(source["to_id"]), to_bank)):
                         key = (tenant_id, account_id)
@@ -195,6 +209,16 @@ def load_edges(path: Path, *, scope: str, tenant_id: int | None = None,
                 counts["edge_score_rows"] += len(edge_score_rows)
                 counts["unique_source_edges"] += len(record_batch)
                 counts["account_tenant_rows"] += len(account_stats)
+                for tenant_key, (bank_code, _first_seen, _last_seen) in account_stats.items():
+                    tenant_counts[tenant_key[0]]["account_tenant_rows"] += 1
+        for tenant, values in tenant_counts.items():
+            session.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(tenant)},
+            )
+            add_audit_event(session, tenant_id=tenant, actor="loader",
+                            action="contract.load_completed", entity_type="contract_load",
+                            entity_id=load_run_id,
+                            details={**dict(values), "run_id": load_run_id})
     return dict(counts)
 
 
@@ -216,19 +240,25 @@ def _ring_metadata(session, tenant_id: int, ring_row: dict, config: dict) -> tup
     return str(model_id), int(seed)
 
 
-def load_rings(path: Path, *, scope: str, tenant_id: int | None = None) -> dict[str, int]:
+def load_rings(path: Path, *, scope: str, tenant_id: int | None = None,
+               audit_action: str = "rings.load_completed",
+               audit_entity_id: str | None = None) -> dict[str, int]:
     parquet, _run_log = _check_file(path, RINGS_ORDER)
     if tenant_id is not None and scope != "tenant":
         raise ContractLoadError("tenant_id can only be supplied for a tenant-scoped ring load")
     expected_tenant_id = tenant_id
     config = load_platform_config()
     counts = defaultdict(int)
+    load_run_id = uuid4().hex
     seen_ring_ids: set[tuple[int, str]] = set()
+    tenant_counts: dict[int, defaultdict[str, int]] = defaultdict(lambda: defaultdict(int))
     with loader_db_session(tenant_id=expected_tenant_id) as session:
         loaded_query = select(Tenant.tenant_id).where(Tenant.is_loaded.is_(True))
         if expected_tenant_id is not None:
             loaded_query = loaded_query.where(Tenant.tenant_id == expected_tenant_id)
         loaded_tenants = set(session.scalars(loaded_query))
+        for tenant_key in ({-1} if scope == "pooled" else loaded_tenants):
+            tenant_counts[tenant_key]
         for record_batch in parquet.iter_batches(batch_size=2_000):
             for raw in record_batch.to_pylist():
                 row = {key: _python_value(value) for key, value in raw.items()}
@@ -333,8 +363,19 @@ def load_rings(path: Path, *, scope: str, tenant_id: int | None = None) -> dict[
                 ).returning(PlatformRing.ring_id))
                 if result.first() is not None:
                     counts["rings_loaded"] += 1
+                    tenant_counts[destination_tenant_id]["rings_loaded"] += 1
                 else:
                     counts["rings_preserved_after_verdict"] += 1
+                    tenant_counts[destination_tenant_id]["rings_preserved_after_verdict"] += 1
+        for tenant, values in tenant_counts.items():
+            session.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(tenant)},
+            )
+            add_audit_event(session, tenant_id=tenant, actor="loader",
+                            action=audit_action,
+                            entity_type="ring_refresh" if audit_action == "rings.refresh_completed" else "ring_load",
+                            entity_id=audit_entity_id or load_run_id,
+                            details={**dict(values), "run_id": audit_entity_id or load_run_id})
     return dict(counts)
 
 

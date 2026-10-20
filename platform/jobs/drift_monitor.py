@@ -6,12 +6,14 @@ from collections import defaultdict
 from datetime import datetime, timezone
 import math
 from typing import Iterable
+from uuid import uuid4
 
 import numpy as np
 from river.drift import ADWIN
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
+from audit import add_audit_event
 from db.models import DriftEvent, EdgeScore, Transaction
 from db.session import db_session, loader_db_session
 from settings import load_platform_config
@@ -104,6 +106,7 @@ def persist_events(tenant_id: int, events: list[dict]) -> int:
     if not events:
         return 0
     inserted = 0
+    run_id = uuid4().hex
     with loader_db_session(tenant_id=tenant_id) as session:
         for event in events:
             event_id = session.execute(
@@ -112,6 +115,9 @@ def persist_events(tenant_id: int, events: list[dict]) -> int:
                 .returning(DriftEvent.event_id)
             ).scalar_one_or_none()
             inserted += int(event_id is not None)
+        add_audit_event(session, tenant_id=tenant_id, actor="drift_monitor",
+                        action="drift.events_persisted", entity_type="drift_monitor_run",
+                        entity_id=run_id, details={"run_id": run_id, "inserted": inserted})
     return inserted
 
 

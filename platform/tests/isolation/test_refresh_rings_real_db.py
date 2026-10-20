@@ -185,6 +185,10 @@ def test_refresh_updates_open_preserves_verdict_rings_and_isolates_tenant_rows(
     finally:
         with admin.begin() as connection:
             connection.execute(text("""
+                DELETE FROM audit_log
+                WHERE tenant_id = :tenant_id AND object_id = :run_id
+            """), {"tenant_id": TENANT_A, "run_id": run_id})
+            connection.execute(text("""
                 DELETE FROM rings WHERE tenant_id = :tenant_id
                   AND ring_id LIKE :generated_prefix
             """), {"tenant_id": TENANT_A,

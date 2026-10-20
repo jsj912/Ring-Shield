@@ -124,7 +124,7 @@ class Ring(Base):
         ForeignKeyConstraint(["tenant_id"], ["tenants.tenant_id"]),
         CheckConstraint("scope IN ('tenant', 'pooled')", name="ck_rings_scope"),
         CheckConstraint("status IN ('open', 'confirmed', 'rejected', 'partial')", name="ck_rings_status"),
-        Index("ix_rings_tenant_status_conf", "tenant_id", "status", "confidence"),
+        Index("ix_rings_tenant_status_conf", "tenant_id", "status", text("confidence DESC")),
         Index("ix_rings_tenant_start", "tenant_id", "start_time"),
     )
 
@@ -176,6 +176,7 @@ class Verdict(Base):
         ForeignKeyConstraint(["tenant_id", "user_id"], ["users.tenant_id", "users.user_id"]),
         CheckConstraint("verdict IN ('confirm', 'reject', 'partial')", name="ck_verdicts_kind"),
         Index("ix_verdicts_tenant_created", "tenant_id", "created_at"),
+        Index("ix_verdicts_tenant_ring_created", "tenant_id", "ring_id", text("created_at DESC")),
     )
 
     verdict_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -262,8 +263,10 @@ class AuditLog(Base):
     log_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id: Mapped[int | None] = mapped_column(BigInteger)
     user_id: Mapped[int | None] = mapped_column(BigInteger)
+    actor: Mapped[str] = mapped_column(String(80), nullable=False)
     action: Mapped[str] = mapped_column(String(80), nullable=False)
     object_type: Mapped[str] = mapped_column(String(80), nullable=False)
     object_id: Mapped[str | None] = mapped_column(String(180))
+    request_id: Mapped[str | None] = mapped_column(String(36))
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     details: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))

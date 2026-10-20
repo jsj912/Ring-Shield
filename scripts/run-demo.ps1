@@ -419,19 +419,27 @@ try:
                     RETURNING user_id, tenant_id
                 """), params).mappings().one()
                 conn.execute(text("""
-                    INSERT INTO audit_log (tenant_id, user_id, action, object_type, object_id, details)
-                    VALUES (:tenant_id, NULL, 'user.password_reset', 'user', :object_id,
+                    INSERT INTO audit_log (tenant_id, user_id, actor, action, object_type, object_id, details)
+                    VALUES (:tenant_id, NULL, 'demo_bootstrap', 'user.password_reset', 'user', :object_id,
                             CAST(:details AS jsonb))
                 """), {"tenant_id": saved_user["tenant_id"],
                       "object_id": str(saved_user["user_id"]),
-                      "details": json.dumps({"email": user["Email"], "role": user["Role"]})})
+                      "details": json.dumps({"role": user["Role"]})})
             else:
                 conn.execute(text("""
                     INSERT INTO users (tenant_id, email, password_hash, role, disabled)
                     VALUES (:tenant_id, :email, :password_hash, :role, false)
                     ON CONFLICT (email) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,
                         password_hash=EXCLUDED.password_hash, role=EXCLUDED.role, disabled=false
-                """), params)
+                    RETURNING user_id, tenant_id
+                """), params).mappings().one()
+                conn.execute(text("""
+                    INSERT INTO audit_log (tenant_id, user_id, actor, action, object_type, object_id, details)
+                    VALUES (:tenant_id, NULL, 'demo_bootstrap', 'user.credentials_initialized', 'user', :object_id,
+                            CAST(:details AS jsonb))
+                """), {"tenant_id": saved_user["tenant_id"],
+                      "object_id": str(saved_user["user_id"]),
+                      "details": json.dumps({"role": user["Role"]})})
 finally:
     engine.dispose()
 '@
@@ -697,7 +705,7 @@ try {
     $apiStdout = Join-Path $script:RuntimeDir 'api.out.log'
     $apiStderr = Join-Path $script:RuntimeDir 'api.err.log'
     $apiProcess = Start-Process -FilePath $python -ArgumentList @('-m', 'uvicorn', 'api.main:app',
-        '--app-dir', 'platform', '--host', '127.0.0.1', '--port', '8000') -WorkingDirectory $script:RepoRoot `
+        '--app-dir', 'platform', '--host', '127.0.0.1', '--port', '8000', '--no-access-log') -WorkingDirectory $script:RepoRoot `
         -WindowStyle Hidden -PassThru -RedirectStandardOutput $apiStdout -RedirectStandardError $apiStderr `
         -ErrorAction Stop
     $processList = [System.Collections.Generic.List[object]]::new()

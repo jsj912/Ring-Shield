@@ -11,10 +11,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from api.dependencies import require_roles
+from audit import add_audit_event
 from api.identity import Principal
+from api.request_context import current_request_id, log_event
 from api.passwords import hash_password
 from api.schemas import ExperimentJobResponse, TenantResponse, UserCreateRequest, UserResponse
-from db.models import AuditLog, Tenant, User
+from db.models import Tenant, User
 from db.session import db_session
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -37,7 +39,7 @@ def create_user(payload: UserCreateRequest,
     email = payload.email.strip().lower()
     if not email or "@" not in email or len(email) > 320:
         raise HTTPException(status_code=422, detail="A valid email address is required")
-    with db_session(role=principal.role) as session:
+    with db_session(tenant_id=payload.tenant_id, role=principal.role) as session:
         if payload.tenant_id is not None:
             tenant = session.get(Tenant, payload.tenant_id)
             if tenant is None or not tenant.is_loaded:
@@ -49,14 +51,16 @@ def create_user(payload: UserCreateRequest,
         session.add(user)
         try:
             session.flush()
-            session.add(AuditLog(
+            add_audit_event(session,
                 tenant_id=payload.tenant_id,
                 user_id=principal.user_id,
+                actor=f"user:{principal.user_id}",
                 action="user.created",
-                object_type="user",
-                object_id=str(user.user_id),
-                details={"email": email, "role": payload.role},
-            ))
+                entity_type="user",
+                entity_id=user.user_id,
+                request_id=current_request_id(),
+                details={"role": payload.role},
+            )
             session.flush()
         except IntegrityError as exc:
             raise HTTPException(status_code=409, detail="A user with this email already exists") from exc
@@ -82,7 +86,11 @@ def start_tenant_vs_pooled(
         subprocess.Popen([sys.executable, "-m", "jobs.experiment_worker", "r10", job_id], **options)
     except OSError as exc:
         state_path.unlink(missing_ok=True)
+        log_event("experiment.finished", user_id=principal.user_id,
+                  request_id=current_request_id(), status="failed", job_id=job_id)
         raise HTTPException(status_code=503, detail="Experiment worker could not be started") from exc
+    log_event("experiment.requested", user_id=principal.user_id,
+              request_id=current_request_id(), status="queued", job_id=job_id)
     return ExperimentJobResponse(job_id=job_id, status="queued")
 
 

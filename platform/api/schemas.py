@@ -266,20 +266,6 @@ class ExperimentJobResponse(BaseModel):
     results: dict | None = None
 
 
-class ExperimentJobResponse(BaseModel):
-    job_id: str
-    status: str
-    message: str | None = None
-    results: dict | None = None
-
-
-class ExperimentJobResponse(BaseModel):
-    job_id: str
-    status: str
-    message: str | None = None
-    results: dict | None = None
-
-
 class RetrainRunCreated(BaseModel):
     run_id: str
 

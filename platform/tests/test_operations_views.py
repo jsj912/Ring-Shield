@@ -149,6 +149,9 @@ def test_drift_action_update_checks_tenant_and_uses_explicit_predicates(monkeypa
 
         def execute(self, statement):
             self.queries.append(statement)
+            if getattr(getattr(statement, "table", None), "name", None) == "audit_log":
+                self.audit_statement = statement
+                return None
             compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
             assert "drift_events.tenant_id = 21" in compiled
             assert "drift_events.event_id = 9" in compiled
@@ -160,6 +163,9 @@ def test_drift_action_update_checks_tenant_and_uses_explicit_predicates(monkeypa
         21, 9, DriftActedOnUpdate(acted_on=True), principal=_principal(),
     )
     assert result.acted_on is True
+    audit_params = session.audit_statement.compile().params
+    assert audit_params["action"] == "drift.acted_on"
+    assert audit_params["details"] == {"acted_on": True}
 
     session.queries.clear()
     with pytest.raises(HTTPException) as exc_info:

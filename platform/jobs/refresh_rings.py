@@ -17,7 +17,8 @@ REPO_ROOT = PLATFORM_ROOT.parent
 sys.path.insert(0, str(PLATFORM_ROOT))
 
 from db.models import ModelVersion, Ring, Verdict  # noqa: E402
-from db.session import db_session  # noqa: E402
+from audit import add_audit_event  # noqa: E402
+from db.session import db_session, loader_db_session  # noqa: E402
 from jobs.build_tenant_rings import build_tenant_rings  # noqa: E402
 from jobs.load_contract import load_rings  # noqa: E402
 from jobs.ring_roll_forward import assign_roll_forward_ring_ids  # noqa: E402
@@ -44,6 +45,12 @@ def refresh_tenant_rings(tenant_id: int, model_version_id: int, run_id: str) -> 
     """Build rings for one tenant and write them through the restricted loader path."""
     if tenant_id < 1:
         raise RingRefreshError("tenant_id must be a positive tenant identifier")
+    with db_session(tenant_id=tenant_id, role="supervisor") as session:
+        add_audit_event(session, tenant_id=tenant_id, actor="ring_refresh_worker",
+                        action="rings.refresh_started", entity_type="ring_refresh",
+                        entity_id=run_id, details={"run_id": run_id,
+                                                   "model_version_id": model_version_id,
+                                                   "status": "running"})
     version = _promoted_model(tenant_id, model_version_id)
     config = load_platform_config()
     model_dir = Path(version.artifact_path)
@@ -97,7 +104,8 @@ def refresh_tenant_rings(tenant_id: int, model_version_id: int, run_id: str) -> 
 
     # load_rings owns a distinct loader transaction and counts successful upserts
     # with RETURNING; it never relies on rowcount.
-    counts = load_rings(rings_path, scope="tenant", tenant_id=tenant_id)
+    counts = load_rings(rings_path, scope="tenant", tenant_id=tenant_id,
+                        audit_action="rings.refresh_completed", audit_entity_id=run_id)
     return {
         "tenant_id": tenant_id,
         "model_version_id": model_version_id,
@@ -116,6 +124,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = refresh_tenant_rings(args.tenant_id, args.model_version_id, args.run_id)
     except Exception as exc:
+        try:
+            with loader_db_session(tenant_id=args.tenant_id) as session:
+                add_audit_event(session, tenant_id=args.tenant_id, actor="ring_refresh_worker",
+                                action="rings.refresh_failed", entity_type="ring_refresh",
+                                entity_id=args.run_id,
+                                details={"run_id": args.run_id, "status": "failed"})
+        except Exception:
+            pass
         print(f"ring refresh failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, sort_keys=True))

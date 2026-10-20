@@ -57,6 +57,13 @@ def _delete_current_retrain_rows(engine, *, run_id, baseline_ids, test_started_a
     fixture_run_ids = (f"fixture-retrain-{run_id}-{TENANT_A}",
                        f"fixture-retrain-{run_id}-{TENANT_B}")
     with engine.begin() as connection:
+        run_prefix = f"{run_id}%"
+        connection.execute(text("""
+            DELETE FROM audit_log
+            WHERE tenant_id IN (:tenant_a, :tenant_b) AND at >= :started_at
+              AND (object_id LIKE :run_prefix OR details->>'run_id' LIKE :run_prefix)
+        """), {"tenant_a": TENANT_A, "tenant_b": TENANT_B,
+              "started_at": test_started_at, "run_prefix": run_prefix})
         connection.execute(text("""
             DELETE FROM retrain_runs
             WHERE tenant_id IN (:tenant_a, :tenant_b)

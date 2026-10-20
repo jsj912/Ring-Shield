@@ -56,6 +56,11 @@ def test_drift_event_writes_are_idempotent_and_tenant_scoped(register_db_test_id
     finally:
         with admin.begin() as connection:
             connection.execute(text("""
+                DELETE FROM audit_log
+                WHERE tenant_id IN (:tenant_a, :tenant_b) AND object_id = :run_id
+            """), {"tenant_a": TENANT_A, "tenant_b": TENANT_B,
+                  "run_id": run_token})
+            connection.execute(text("""
                 DELETE FROM drift_events
                 WHERE tenant_id IN (:tenant_a, :tenant_b)
                   AND window_end IN (:end_a, :end_b)

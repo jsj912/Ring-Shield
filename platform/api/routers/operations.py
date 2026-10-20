@@ -19,7 +19,9 @@ from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_principal, require_tenant_access
+from audit import add_audit_event
 from api.identity import Principal
+from api.request_context import current_request_id
 from api.schemas import (DriftEventPage, DriftEventSummary, ModelVersionPage,
                          ModelVersionSummary, RetrainRunCreated, RetrainRunStatusResponse,
                          DriftActedOnUpdate, DriftSeriesResponse, DailyDriftStatistic,
@@ -198,6 +200,11 @@ def set_drift_acted_on(
             DriftEvent.event_id == event_id,
         ).values(acted_on=payload.acted_on))
         event.acted_on = payload.acted_on
+        add_audit_event(session, tenant_id=tenant_id, user_id=principal.user_id,
+                        actor=f"user:{principal.user_id}", action="drift.acted_on",
+                        entity_type="drift_event", entity_id=event_id,
+                        request_id=current_request_id(),
+                        details={"acted_on": payload.acted_on})
         return DriftEventSummary.model_validate(event)
 
 
@@ -264,6 +271,11 @@ def start_retrain(
             status="running",
             log_path=relative_log,
         ))
+        add_audit_event(session, tenant_id=tenant_id, user_id=principal.user_id,
+                        actor=f"user:{principal.user_id}", action="retrain.requested",
+                        entity_type="retrain_run", entity_id=run_id,
+                        request_id=current_request_id(),
+                        details={"status": "running"})
         session.flush()
     try:
         launch_retrain_process(tenant_id, run_id)
@@ -272,6 +284,11 @@ def start_retrain(
             session.execute(update(RetrainRun).where(
                 RetrainRun.tenant_id == tenant_id, RetrainRun.run_id == run_id,
             ).values(status="failed", finished_at=datetime.now(timezone.utc)))
+            add_audit_event(session, tenant_id=tenant_id, user_id=principal.user_id,
+                            actor=f"user:{principal.user_id}", action="retrain.failed",
+                            entity_type="retrain_run", entity_id=run_id,
+                            request_id=current_request_id(),
+                            details={"status": "failed"})
         raise HTTPException(status_code=503, detail="Retrain worker could not be started") from exc
     return RetrainRunCreated(run_id=run_id)
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 from uuid import uuid4
@@ -42,6 +43,7 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
     source = pq.read_table(fixture_dir / "rings.parquet")
     common_ring_id = f"shared-demo-model-7-{uuid4().hex[:8]}"
     register_db_test_ids(common_ring_id)
+    test_started_at = datetime.now(timezone.utc)
     admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
     try:
         for tenant_id, confidence in ((210, 0.71), (220, 0.82)):
@@ -126,6 +128,17 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
     finally:
         with admin.begin() as connection:
             connection.execute(text("""
+                DELETE FROM verdicts WHERE tenant_id IN (210, 220) AND ring_id = :ring_id
+            """), {"ring_id": common_ring_id})
+            connection.execute(text("""
+                DELETE FROM explanations WHERE tenant_id IN (210, 220) AND ring_id = :ring_id
+            """), {"ring_id": common_ring_id})
+            connection.execute(text("""
+                DELETE FROM audit_log
+                WHERE tenant_id IN (210, 220) AND at >= :started_at
+                  AND (object_id = :ring_id OR action = 'rings.load_completed')
+            """), {"started_at": test_started_at, "ring_id": common_ring_id})
+            connection.execute(text("""
                 DELETE FROM rings WHERE tenant_id IN (210, 220) AND ring_id = :ring_id
             """), {"ring_id": common_ring_id})
         admin.dispose()
@@ -137,6 +150,7 @@ def test_ring_upsert_counts_writes_and_preserves_closed_ring(tmp_path, register_
     row = next(item for item in source.to_pylist() if item["tenant_id"] == 210)
     ring_id = f"demo-model-7-upsert-{uuid4().hex[:8]}"
     register_db_test_ids(ring_id)
+    test_started_at = datetime.now(timezone.utc)
     row["ring_id"] = ring_id
     ring_path = tmp_path / "tenant-210-ring-upsert.parquet"
     Path(str(ring_path) + ".log.json").write_text(json.dumps({"split": "test"}), encoding="utf-8")
@@ -176,6 +190,10 @@ def test_ring_upsert_counts_writes_and_preserves_closed_ring(tmp_path, register_
         assert stored_confidence == 0.72
     finally:
         with admin.begin() as connection:
+            connection.execute(text("""
+                DELETE FROM audit_log
+                WHERE tenant_id = 210 AND action = 'rings.load_completed' AND at >= :started_at
+            """), {"started_at": test_started_at})
             connection.execute(text("DELETE FROM rings WHERE tenant_id = 210 AND ring_id = :ring_id"),
                                {"ring_id": ring_id})
         admin.dispose()

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import logging
+import json
+import sys
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-
-logger = logging.getLogger("ringshield.api")
-
 
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(HTTPException)
@@ -44,9 +43,17 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
-        logger.exception("Unhandled API error", extra={"request_id": getattr(request.state, "request_id", "-")})
+        principal = getattr(request.state, "principal", None)
+        request_id = getattr(request.state, "request_id", "-")
+        print(json.dumps({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": "ERROR", "event": "http.request.unhandled_error",
+            "request_id": request_id,
+            "tenant_id": getattr(principal, "tenant_id", getattr(request.state, "tenant_id", None)),
+        }, separators=(",", ":")), file=sys.stdout, flush=True)
         return JSONResponse(
             status_code=500,
+            headers={"X-Request-ID": request_id},
             content={"error_code": "INTERNAL_ERROR", "message": "An unexpected error occurred",
                      "request_id": getattr(request.state, "request_id", "-")},
         )

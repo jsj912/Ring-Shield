@@ -29,6 +29,9 @@ def get_principal(
     except InvalidToken as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Session expired or invalid", headers={"WWW-Authenticate": "Bearer"}) from exc
+    # This identity is cryptographically verified; logging can safely attach its
+    # tenant even if the subsequent live-account check rejects the request.
+    request.state.principal = principal
 
     # Reject a signed token's cross-tenant path before issuing its account-state
     # lookup. The token's tenant claim is already cryptographically verified;
@@ -50,12 +53,27 @@ def get_principal(
         if user.email.lower() != principal.email.lower():
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail="Session expired or invalid", headers={"WWW-Authenticate": "Bearer"})
-    request.state.principal = principal
     return principal
 
 
 def require_roles(*roles: str):
-    def dependency(principal: Principal = Depends(get_principal)) -> Principal:
+    def dependency(
+        request: Request,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    ) -> Principal:
+        # Reject role-ineligible signed tokens before opening the auth database.
+        if credentials is None or credentials.scheme.lower() != "bearer":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
+        try:
+            signed_principal = decode_access_token(credentials.credentials)
+        except InvalidToken as exc:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="Session expired or invalid", headers={"WWW-Authenticate": "Bearer"}) from exc
+        request.state.principal = signed_principal
+        if signed_principal.role not in roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted")
+        principal = get_principal(request, credentials)
         if principal.role not in roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted")
         return principal

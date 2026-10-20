@@ -166,6 +166,7 @@ def simulate_cycle(*, tenant_id: int, cycle_day: int, actor: Principal,
                 user_id=analyst, verdict=decision.verdict,
                 corrected_members=decision.corrected_members,
                 corrected_edges=corrected_edges, note=decision.note, is_simulated=True,
+                actor="simulator",
             )
     return {"open_rings": len(open_rings), "reviewed": len(reviewed),
             "simulated": len(reviewed)}

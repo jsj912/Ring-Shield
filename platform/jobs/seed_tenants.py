@@ -10,6 +10,7 @@ import argparse
 import secrets
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 import bcrypt
 import pandas as pd
@@ -19,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "platform"))
 
 from db.models import Tenant, User  # noqa: E402
+from audit import add_audit_event  # noqa: E402
 from db.session import db_session  # noqa: E402
 
 
@@ -62,6 +64,13 @@ def seed_tenants(account_map_path: Path, loaded_bank_codes: set[int]) -> dict[st
         for offset in range(0, len(simulated_users), 5_000):
             stmt = insert(User).values(simulated_users[offset:offset + 5_000])
             session.execute(stmt.on_conflict_do_nothing(index_elements=[User.email]))
+        seed_run_id = uuid4().hex
+        add_audit_event(session, tenant_id=None, actor="seed_tenants",
+                        action="tenants.seed_completed", entity_type="tenant_seed",
+                        entity_id=seed_run_id, details={"run_id": seed_run_id,
+                                                "banks": len(bank_codes),
+                                                "accounts": int(account_map["account_id"].nunique()),
+                                                "loaded": len(loaded_bank_codes)})
     return {"banks": len(bank_codes), "accounts": int(account_map["account_id"].nunique()),
             "loaded": len(loaded_bank_codes)}
 
