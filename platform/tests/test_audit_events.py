@@ -63,7 +63,7 @@ def test_verdict_audit_covers_resulting_ring_status_and_simulation_flag():
 
 def test_each_business_mutation_module_routes_audit_through_safe_helper():
     expected = {
-        "api/routers/admin.py": {"user.created", "experiment.requested", "experiment.finished"},
+        "api/routers/admin.py": {"user.created"},
         "api/routers/operations.py": {"drift.acted_on", "retrain.requested", "retrain.failed"},
         "api/scheduler.py": {"retrain.requested", "retrain.failed"},
         "services/verdicts.py": {"verdict.recorded"},
@@ -73,7 +73,6 @@ def test_each_business_mutation_module_routes_audit_through_safe_helper():
         "jobs/load_explanations.py": {"explanations.load_completed"},
         "jobs/seed_tenants.py": {"tenants.seed_completed"},
         "jobs/drift_monitor.py": {"drift.events_persisted"},
-        "jobs/experiment_worker.py": {"experiment.started", "experiment.finished"},
     }
     secret_keys = {"password", "password_hash", "token", "email", "path", "evidence", "narrative"}
     for relative, expected_actions in expected.items():

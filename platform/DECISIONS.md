@@ -328,6 +328,12 @@ This file records findings and changes in the order requested for the platform h
 - The simulator CLI now validates the interval and truth-window before even checking whether the configured truth parquet exists. R10 converts malformed tenant IDs in score logs into `ExperimentInputError`. Config wording distinguishes the pooled comparison baseline from the unresolved operational score source, which remains null until the research lead decides.
 # PR-04, PR-10, PR-11, PR-19 and PR-20 release hardening - 2026-10-20
 
+R10 experiment jobs remain file-backed under `platform/out/experiments`; they do not
+create a database job table. R10 lifecycle events use structured JSON process logs,
+not `audit_log`: an experiment has no tenant, while the audit contract requires a
+tenant-bound business event and must not use a pseudo-tenant. This preserves the
+committed endpoint behavior and avoids broadening audit privileges or RLS policies.
+
 ## State-change inventory and audit coverage
 
 The code-path inventory was checked with searches for ORM adds/merges, SQL inserts and

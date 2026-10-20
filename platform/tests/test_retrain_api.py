@@ -181,7 +181,7 @@ def test_r10_admin_endpoint_rejects_other_roles_before_auth_query(monkeypatch, r
     assert set(response.json()) >= {"error_code", "message", "request_id"}
 
 
-def test_r10_admin_start_and_status_are_audited_and_tenant_neutral(monkeypatch, tmp_path, repo_platform_config):
+def test_r10_admin_start_and_status_use_file_state_and_structured_logs(monkeypatch, tmp_path, capsys, repo_platform_config):
     from api import dependencies
     from api.main import app
     from api.routers import admin
@@ -200,20 +200,10 @@ def test_r10_admin_start_and_status_are_audited_and_tenant_neutral(monkeypatch, 
     def fake_auth_session():
         yield AuthSession()
 
-    audit_rows = []
-
-    class Session:
-        def add(self, row):
-            audit_rows.append(row)
-            if hasattr(row, "job_id"):
-                self.job = row
-        def scalar(self, _query): return next(row for row in audit_rows if hasattr(row, "job_id"))
-        def get(self, _model, _job_id): return next(row for row in audit_rows if hasattr(row, "job_id"))
-
     @contextmanager
     def fake_db_session(*, role, tenant_id=None):
-        assert role == "admin" and tenant_id is None
-        yield Session()
+        raise AssertionError("R10 job state is file-backed and must not open a DB session")
+        yield None
 
     launched = []
     monkeypatch.setattr(dependencies, "auth_db_session", fake_auth_session)
@@ -228,19 +218,16 @@ def test_r10_admin_start_and_status_are_audited_and_tenant_neutral(monkeypatch, 
     payload = started.json()
     assert payload["status"] == "queued"
     assert launched and launched[0][0][-3:-1] == ["jobs.experiment_worker", "r10"]
-    assert len(audit_rows) == 2
-    assert next(row for row in audit_rows if hasattr(row, "action")).action == "experiment.requested"
-    job_record = next(row for row in audit_rows if hasattr(row, "job_id"))
-    assert job_record.status == "queued"
     state_path = tmp_path / f"{payload['job_id']}.json"
     assert "ground_truth" not in state_path.read_text(encoding="utf-8").lower()
 
     state_path.write_text(json.dumps({"job_id": payload["job_id"], "status": "succeeded",
                                       "results": {"csv": "reports/r10.csv"}}), encoding="utf-8")
-    job_record.status = "succeeded"
     status_response = client.get(
         f"/admin/experiments/tenant-vs-pooled/{payload['job_id']}", headers=headers,
     )
     assert status_response.status_code == 200
     assert status_response.json()["status"] == "succeeded"
     assert "ground_truth" not in status_response.text.lower()
+    logs = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert any(row["event"] == "experiment.requested" and row["job_id"] == payload["job_id"] for row in logs)

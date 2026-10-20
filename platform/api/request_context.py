@@ -21,6 +21,23 @@ def current_request_id() -> str | None:
     return value if value != "-" else None
 
 
+def log_event(event: str, *, tenant_id: int | None = None, user_id: int | None = None,
+              request_id: str | None = None, status: str | None = None,
+              job_id: str | None = None) -> None:
+    """Write a small structured event without business payloads or local paths."""
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "level": "ERROR" if status == "failed" else "INFO",
+        "event": event,
+        "request_id": request_id,
+        "tenant_id": tenant_id,
+        "user_id": user_id,
+        "status": status,
+        "job_id": job_id,
+    }
+    print(json.dumps(record, separators=(",", ":"), default=str), file=sys.stdout, flush=True)
+
+
 class RequestContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         supplied_id = request.headers.get("X-Request-ID", "")
