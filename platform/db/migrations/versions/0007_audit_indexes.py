@@ -10,14 +10,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("audit_log", sa.Column("actor", sa.String(length=80), nullable=True))
+    op.add_column("audit_log", sa.Column(
+        "actor", sa.String(length=80), nullable=False,
+        server_default="legacy:unknown",
+    ))
+    op.alter_column("audit_log", "actor", server_default=None)
     op.add_column("audit_log", sa.Column("request_id", sa.String(length=36), nullable=True))
-    # FORCE RLS also applies to the migration table owner. Permit only this
-    # transactional backfill under the explicit migration role, then remove it.
-    op.execute("CREATE POLICY audit_log_migration_backfill ON audit_log FOR UPDATE USING (current_user = 'ringshield_owner') WITH CHECK (current_user = 'ringshield_owner')")
-    op.execute("UPDATE audit_log SET actor = CASE WHEN user_id IS NULL THEN 'legacy:unknown' ELSE 'user:' || user_id::text END WHERE actor IS NULL")
-    op.execute("DROP POLICY audit_log_migration_backfill ON audit_log")
-    op.alter_column("audit_log", "actor", nullable=False)
 
     # Match the exact descending confidence order in Section 4.
     op.drop_index("ix_rings_tenant_status_conf", table_name="rings")
@@ -43,6 +41,10 @@ def upgrade() -> None:
              AND current_user = 'ringshield_simulator'
              AND current_setting('app.user_role', true) = 'analyst'
         )
+    """)
+    op.execute("""
+        CREATE POLICY audit_global_insert ON audit_log FOR INSERT
+        WITH CHECK (tenant_id IS NULL AND current_setting('app.user_role', true) = 'admin')
     """)
 
     # No application role or PUBLIC may mutate/delete audit records.
@@ -90,15 +92,15 @@ def downgrade() -> None:
             END LOOP;
         END $$;
     """)
-    op.execute("DROP POLICY audit_log_tenant_read ON audit_log")
+    op.execute("DROP POLICY IF EXISTS audit_log_tenant_read ON audit_log")
     op.execute("""
         CREATE POLICY audit_log_tenant_read ON audit_log FOR SELECT
         USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint
                OR current_setting('app.user_role', true) = 'admin'
                OR current_user = 'ringshield_loader')
     """)
-    op.execute("DROP POLICY audit_tenant_insert ON audit_log")
-    op.execute("DROP POLICY audit_global_insert ON audit_log")
+    op.execute("DROP POLICY IF EXISTS audit_tenant_insert ON audit_log")
+    op.execute("DROP POLICY IF EXISTS audit_global_insert ON audit_log")
     op.execute("""
         CREATE POLICY audit_tenant_insert ON audit_log FOR INSERT
         WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint
@@ -109,6 +111,9 @@ def downgrade() -> None:
         CREATE POLICY audit_global_insert ON audit_log FOR INSERT
         WITH CHECK (tenant_id IS NULL AND current_setting('app.user_role', true) = 'admin')
     """)
+    # Restore the pre-0007 grants from roles.sql and simulator migration 0004.
+    op.execute("GRANT INSERT ON audit_log TO ringshield_api, ringshield_loader, ringshield_simulator")
+    op.execute("GRANT USAGE, SELECT ON SEQUENCE audit_log_log_id_seq TO ringshield_api, ringshield_loader, ringshield_simulator")
     op.drop_index("ix_verdicts_tenant_ring_created", table_name="verdicts")
     op.drop_index("ix_rings_tenant_status_conf", table_name="rings")
     op.create_index("ix_rings_tenant_status_conf", "rings", ["tenant_id", "status", "confidence"])

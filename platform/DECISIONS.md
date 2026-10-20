@@ -364,7 +364,7 @@ as a security invariant.
 Audit rows now record `tenant_id`, actor, dotted action, entity type/ID, UTC DB time,
 optional request ID, and a strict allow-listed scalar JSON detail. The helper rejects
 unknown fields, unsafe strings, paths and email-shaped values. Existing rows receive a
-safe actor backfill (`user:<id>` or `legacy:unknown`). App, loader and simulator roles
+Historic audit rows get actor `legacy:unknown` via the column default; their `user_id` is preserved. App, loader and simulator roles
 have INSERT only; UPDATE/DELETE are explicitly revoked and no such grants are added.
 Loader and simulator grants were already present in the earlier role SQL/migration;
 0007 adds the narrow API/loader insert and sequence privileges required by the new
