@@ -26,8 +26,9 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None,
     if st.session_state.get("token"):
         headers["Authorization"] = f"Bearer {st.session_state['token']}"
     try:
-        response = httpx.request(method, f"{API_BASE}{path}", headers=headers,
-                                 json=body, params=params, timeout=20.0)
+        with st.spinner("Loading..."):
+            response = httpx.request(method, f"{API_BASE}{path}", headers=headers,
+                                     json=body, params=params, timeout=20.0)
     except httpx.HTTPError as exc:
         st.error(f"RingShield API is unavailable: {exc}")
         if st.button("Retry", key=f"retry_{method}_{path}"):

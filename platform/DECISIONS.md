@@ -464,6 +464,7 @@ Generic API failures now display the API message and request ID (body first,
 `X-Request-ID` header as fallback) with a Retry control; network failures keep
 their existing unavailable message and also offer Retry. Login/session 401s,
 403 wording, quiet 404s, and 204 responses retain their established behavior.
+API requests show Streamlit's loading spinner while the synchronous request runs.
 Dashboard tests cover login and sign-out feedback, queue filters/pagination,
 ring detail rendering, drift chart traces, and API error feedback. Sign-out clears
 application-owned session data while leaving Streamlit's internal `$$` widget
