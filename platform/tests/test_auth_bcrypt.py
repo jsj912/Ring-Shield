@@ -90,7 +90,7 @@ def test_jwt_contract_contains_tenant_role_and_exact_eight_hour_expiry(monkeypat
 
     secret = "fixed-test-secret-with-at-least-thirty-two-bytes"
     monkeypatch.setenv("RINGSHIELD_JWT_SECRET", secret)
-    issued = datetime.now(timezone.utc).replace(microsecond=0)
+    issued = datetime(2030, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     token, expiry = create_access_token(
         Principal(user_id=81, tenant_id=210, role="supervisor", email="supervisor@example.test"),
         now=issued,
@@ -99,6 +99,7 @@ def test_jwt_contract_contains_tenant_role_and_exact_eight_hour_expiry(monkeypat
     assert claims["sub"] == "81"
     assert claims["tenant_id"] == 210
     assert claims["role"] == "supervisor"
+    assert claims["iat"] == int(issued.timestamp())
     assert int(claims["exp"]) - int(claims["iat"]) == 8 * 60 * 60
     assert expiry.timestamp() == claims["exp"]
     assert decode_access_token(token).tenant_id == 210

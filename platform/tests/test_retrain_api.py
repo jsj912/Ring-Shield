@@ -218,6 +218,7 @@ def test_r10_admin_start_and_status_use_file_state_and_structured_logs(monkeypat
     payload = started.json()
     assert payload["status"] == "queued"
     assert launched and launched[0][0][-3:-1] == ["jobs.experiment_worker", "r10"]
+    assert "env" not in launched[0][1]
     state_path = tmp_path / f"{payload['job_id']}.json"
     assert "ground_truth" not in state_path.read_text(encoding="utf-8").lower()
 
