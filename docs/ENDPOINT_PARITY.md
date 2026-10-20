@@ -23,8 +23,8 @@ behavior. Deferred endpoints are listed only; they are not implemented here.
 | `/tenants/{t}/retrain/{run_id}` | GET | Present | `platform/api/routers/operations.py::get_retrain_status` |
 | `/tenants/{t}/drift` | GET | Present | `platform/api/routers/operations.py::list_drift_events` |
 | `/admin/tenants` | GET | Present | `platform/api/routers/admin.py::list_tenants` |
-| `/admin/experiments/tenant-vs-pooled` | POST | Present | `platform/api/routers/admin.py::start_tenant_vs_pooled` |
-| `/admin/experiments/{job}` | GET | Differs | Current status path is `/admin/experiments/tenant-vs-pooled/{job_id}` (`platform/api/routers/admin.py::get_tenant_vs_pooled_status`) |
+| `/admin/experiments/tenant-vs-pooled` | POST | Present | `platform/api/routers/admin.py::start_tenant_vs_pooled`; status is stored in a JSON file, with no R10 database job table |
+| `/admin/experiments/{job}` | GET | Differs | Current status path is `/admin/experiments/tenant-vs-pooled/{job_id}` (`platform/api/routers/admin.py::get_tenant_vs_pooled_status`); reads the file-backed status |
 | `/health` | GET | Present | `platform/api/main.py::health`; returns database and file-store component statuses |
 
 This report is route parity documentation, not a claim that all Section 6 acceptance

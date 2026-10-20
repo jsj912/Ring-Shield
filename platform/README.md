@@ -287,12 +287,16 @@ database transaction as the change. Actions include `user.created`, `user.passwo
 `drift.events_persisted`, `retrain.requested`, `retrain.started`, `retrain.succeeded`,
 `retrain.failed`, `model_version.recorded`, `model_version.demoted`,
 `rings.load_completed`, `rings.refresh_started`, `rings.refresh_completed`,
-`rings.refresh_failed`, `contract.load_completed`,
-`explanations.load_completed`, `experiment.requested`, `experiment.started`, and
-`experiment.finished`. Audit details are restricted to safe counts and gate/status
+`rings.refresh_failed`, `contract.load_completed`, and
+`explanations.load_completed`. Audit details are restricted to safe counts and gate/status
 metadata; credentials, hashes, email addresses, evidence and paths are excluded.
 Audit records are append-only to application, loader and simulator roles, with
 tenant-bound insert policies for tenant events.
+
+R10 experiment status remains in JSON files under `platform/out/experiments`.
+Its `experiment.requested`, `experiment.started`, and `experiment.finished` events
+are structured JSON process logs, not audit rows: an R10 job has no tenant identity,
+and the audit log does not use a pseudo-tenant for global work.
 
 The initial API slice includes login, admin tenant/user setup, tenant ring list/detail,
 paginated ring evidence, confirm/reject verdicts, paginated per-ring verdict history,
