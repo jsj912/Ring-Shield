@@ -409,6 +409,12 @@ def _drift_events(tenant_id: int) -> None:
     st.caption("Drift events are informational and do not trigger automatic retraining.")
 
 
+def _clear_session_state() -> None:
+    for key in list(st.session_state.keys()):
+        if not key.startswith("$$"):
+            del st.session_state[key]
+
+
 def main() -> None:
     st.set_page_config(page_title="RingShield Investigator", layout="wide")
     if not st.session_state.get("token"):
@@ -418,9 +424,9 @@ def main() -> None:
     st.sidebar.caption(f"Role: {st.session_state['role']}")
     st.sidebar.caption(f"Time origin: {os.environ.get('RINGSHIELD_TIME_ORIGIN_UTC', 'not configured')}")
     if st.sidebar.button("Sign out"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
+        _clear_session_state()
+        _login()
+        return
     tenant_id, tenant_name = _active_tenant()
     if tenant_id is None:
         return
