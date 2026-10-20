@@ -406,3 +406,24 @@ transactional explicit SQL and contains no `CREATE INDEX CONCURRENTLY` or model 
 
 Database-backed audit privilege/RLS, index round-trip, and unknown-column JSONB tests
 were added for CI but were not run locally because Docker and PostgreSQL are unavailable.
+
+## Audit migration role ordering
+
+The fresh CI bootstrap creates `ringshield_owner`, `ringshield_api`,
+`ringshield_loader`, and `ringshield_simulator` in migration 0002. The migration
+login is `ringshield_test_migrator`, granted membership in `ringshield_owner`, and
+Alembic runs with `SET ROLE ringshield_owner`. After Alembic upgrades to head,
+`platform/db/roles.sql` creates `ringshield_auth`; the test-role provisioning then
+creates `ringshield_test_app`, `ringshield_test_auth`, `ringshield_test_loader`,
+and `ringshield_test_simulator` (and idempotently ensures the migrator login).
+Thus all roles created by the fresh CI flow are `ringshield_owner`,
+`ringshield_api`, `ringshield_loader`, `ringshield_simulator`, `ringshield_auth`,
+`ringshield_test_migrator`, `ringshield_test_app`, `ringshield_test_auth`,
+`ringshield_test_loader`, and `ringshield_test_simulator`. Tables are owned by
+`ringshield_owner`; migrations connect as `ringshield_test_migrator` and execute
+as that owner. Migration 0007 grants audit INSERT only to the API and loader
+roles already created in 0002. Its UPDATE/DELETE revokes explicitly cover PUBLIC
+and loop over existing `ringshield_*` roles, excluding the table owner, so the
+migration does not depend on `ringshield_auth` existing before the later role SQL.
+The downgrade conditionally removes only the API/loader grants and leaves the
+append-only revokes in effect.

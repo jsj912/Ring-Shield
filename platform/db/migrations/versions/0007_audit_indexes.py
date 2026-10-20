@@ -46,14 +46,50 @@ def upgrade() -> None:
     """)
 
     # No application role or PUBLIC may mutate/delete audit records.
-    op.execute("REVOKE UPDATE, DELETE ON audit_log FROM PUBLIC, ringshield_api, ringshield_loader, ringshield_simulator, ringshield_auth")
+    op.execute("REVOKE UPDATE, DELETE ON audit_log FROM PUBLIC")
+    op.execute(r"""
+        DO $$
+        DECLARE
+            audit_owner text;
+            role_name text;
+        BEGIN
+            SELECT tableowner INTO audit_owner
+            FROM pg_tables
+            WHERE schemaname = 'public' AND tablename = 'audit_log';
+            IF audit_owner IS NULL THEN
+                RAISE EXCEPTION 'audit_log table owner was not found';
+            END IF;
+            FOR role_name IN
+                SELECT rolname FROM pg_roles
+                WHERE rolname LIKE 'ringshield\_%' ESCAPE '\'
+                  AND rolname <> audit_owner
+            LOOP
+                EXECUTE format('REVOKE UPDATE, DELETE ON audit_log FROM %I', role_name);
+            END LOOP;
+        END $$;
+    """)
     op.execute("GRANT INSERT ON audit_log TO ringshield_api, ringshield_loader")
     op.execute("GRANT USAGE, SELECT ON SEQUENCE audit_log_log_id_seq TO ringshield_api, ringshield_loader")
 
 
 def downgrade() -> None:
-    op.execute("REVOKE USAGE, SELECT ON SEQUENCE audit_log_log_id_seq FROM ringshield_api, ringshield_loader")
-    op.execute("REVOKE INSERT ON audit_log FROM ringshield_api, ringshield_loader")
+    op.execute(r"""
+        DO $$
+        DECLARE
+            role_name text;
+        BEGIN
+            FOR role_name IN
+                SELECT rolname FROM pg_roles
+                WHERE rolname IN ('ringshield_api', 'ringshield_loader')
+            LOOP
+                EXECUTE format(
+                    'REVOKE USAGE, SELECT ON SEQUENCE audit_log_log_id_seq FROM %I',
+                    role_name
+                );
+                EXECUTE format('REVOKE INSERT ON audit_log FROM %I', role_name);
+            END LOOP;
+        END $$;
+    """)
     op.execute("DROP POLICY audit_log_tenant_read ON audit_log")
     op.execute("""
         CREATE POLICY audit_log_tenant_read ON audit_log FOR SELECT
