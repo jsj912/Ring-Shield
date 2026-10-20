@@ -4,6 +4,8 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import ast
+from contextlib import contextmanager
+from datetime import datetime, timezone
 
 import pytest
 
@@ -94,3 +96,52 @@ def test_each_business_mutation_module_routes_audit_through_safe_helper():
     assert "user.password_reset" in demo_script
     assert "user.credentials_initialized" in demo_script
     assert 'json.dumps({"email"' not in demo_script
+
+
+def test_admin_user_creation_sets_tenant_context_for_user_and_audit(monkeypatch):
+    from api.identity import Principal
+    from api.routers import admin
+    from api.schemas import UserCreateRequest
+
+    tenant = SimpleNamespace(tenant_id=210, is_loaded=True)
+    rows = []
+    contexts = []
+
+    class Session:
+        def get(self, model, tenant_id):
+            assert tenant_id == 210
+            return tenant
+
+        def scalar(self, _query):
+            return None
+
+        def add(self, row):
+            rows.append(row)
+
+        def flush(self):
+            for row in rows:
+                if hasattr(row, "password_hash"):
+                    row.user_id = 810
+                    row.created_at = datetime(2030, 1, 1, tzinfo=timezone.utc)
+                    row.disabled = False
+
+    @contextmanager
+    def fake_db_session(*, tenant_id, role):
+        contexts.append((tenant_id, role))
+        yield Session()
+
+    monkeypatch.setattr(admin, "db_session", fake_db_session)
+    result = admin.create_user(
+        UserCreateRequest(tenant_id=210, email="analyst@example.test",
+                          password="a sufficiently long password", role="analyst"),
+        Principal(user_id=7, tenant_id=None, role="admin", email="admin@example.test"),
+    )
+
+    audit = next(row for row in rows if hasattr(row, "action"))
+    user = next(row for row in rows if hasattr(row, "password_hash"))
+    assert contexts == [(210, "admin")]
+    assert user.tenant_id == audit.tenant_id == result.tenant_id == 210
+    assert audit.action == "user.created"
+    assert audit.details == {"role": "analyst"}
+    assert "analyst@example.test" not in str(audit.details)
+    assert "password" not in str(audit.details).lower()
