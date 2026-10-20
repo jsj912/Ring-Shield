@@ -470,3 +470,9 @@ application-owned session data while leaving Streamlit's internal `$$` widget
 state alone. The AST guard permits only page-counter navigation arithmetic and
 the `REPO_ROOT / ".env"` pathlib join; dashboard amount/time formatting remains
 unchanged pending the separate timezone decision.
+The drift chart currently renders drift events as diamond marker traces; it does
+not yet implement the specification's vertical event lines and hover details.
+The AppTest queue round-trip sets the existing open-ring navigation state to
+render detail and then returns to the queue; it does not click the conditional
+View ring/Back controls because AppTest 1.44 raises a missing-widget-state error
+when those widgets disappear during the page switch.
