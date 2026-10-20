@@ -1,1 +1,2 @@
 * text=auto eol=lf
+platform/holdout/production/* -text

@@ -18,6 +18,11 @@ from sqlalchemy import select, text, update
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PLATFORM_ROOT.parent
+PRODUCTION_HOLDOUT_PATH = (PLATFORM_ROOT / "holdout" / "production" / "holdout_manifest.json").resolve()
+PRODUCTION_HOLDOUT_CONTENT_KEYS = (
+    "rule", "window", "split", "days", "t_min", "t_max", "scope",
+    "min_visible_members", "truth_ring_ids",
+)
 sys.path.insert(0, str(PLATFORM_ROOT))
 
 from adapters import research_cli  # noqa: E402
@@ -34,6 +39,34 @@ class RetrainError(RuntimeError):
     """A configured or validated L6 retraining stage could not proceed."""
 
 
+def _is_production_holdout(manifest: dict[str, Any], manifest_path: Path) -> bool:
+    return (Path(manifest_path).resolve() == PRODUCTION_HOLDOUT_PATH
+            or "content_sha256" in manifest)
+
+
+def _verify_production_holdout_content(manifest: dict[str, Any], manifest_path: Path) -> None:
+    """Verify the research lead's canonical content digest and fixed window contract."""
+    if not _is_production_holdout(manifest, manifest_path):
+        return
+
+    missing = [key for key in PRODUCTION_HOLDOUT_CONTENT_KEYS if key not in manifest]
+    if missing:
+        raise RetrainError(
+            f"production holdout is missing content-hash fields: {', '.join(missing)}"
+        )
+    if len(manifest["truth_ring_ids"]) != 114:
+        raise RetrainError("production holdout must contain exactly 114 truth ring IDs")
+    if manifest["days"] != [6, 7]:
+        raise RetrainError("production holdout days must be [6, 7]")
+
+    body = {key: manifest[key] for key in PRODUCTION_HOLDOUT_CONTENT_KEYS}
+    actual_content_sha256 = hashlib.sha256(
+        json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    if manifest.get("content_sha256") != actual_content_sha256:
+        raise RetrainError("production holdout content_sha256 does not match its canonical content")
+
+
 def verify_holdout(manifest_path: Path, checksum_path: Path) -> dict[str, Any]:
     try:
         payload = manifest_path.read_bytes()
@@ -44,8 +77,11 @@ def verify_holdout(manifest_path: Path, checksum_path: Path) -> dict[str, Any]:
     actual = hashlib.sha256(payload).hexdigest()
     if actual != expected:
         raise RetrainError("holdout manifest SHA-256 does not match its committed checksum")
+    is_production = isinstance(manifest, dict) and _is_production_holdout(manifest, manifest_path)
     ids = manifest.get("truth_ring_ids") if isinstance(manifest, dict) else None
-    if not isinstance(ids, list) or not ids or manifest.get("n") != len(ids):
+    if not isinstance(ids, list) or not ids:
+        raise RetrainError("holdout manifest requires non-empty truth_ring_ids and matching n")
+    if (not is_production or "n" in manifest) and manifest.get("n") != len(ids):
         raise RetrainError("holdout manifest requires non-empty truth_ring_ids and matching n")
     try:
         numeric_ids = [int(item) for item in ids]
@@ -55,6 +91,7 @@ def verify_holdout(manifest_path: Path, checksum_path: Path) -> dict[str, Any]:
         raise RetrainError("holdout truth_ring_ids must be unique and sorted")
     if "pred_ring_ids" in manifest:
         raise RetrainError("holdout manifest must contain truth IDs only")
+    _verify_production_holdout_content(manifest, manifest_path)
     return manifest
 
 
