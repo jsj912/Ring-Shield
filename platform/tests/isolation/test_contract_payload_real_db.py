@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pyarrow as pa
@@ -36,6 +37,7 @@ def test_unknown_scored_edge_fields_round_trip_through_transaction_payload(
     pq.write_table(pa.Table.from_pylist([row]), path)
     Path(str(path) + ".log.json").write_text(json.dumps(run_log), encoding="utf-8")
     register_db_test_ids(str(edge_id), "platform_future_field_roundtrip")
+    test_started_at = datetime.now(timezone.utc)
 
     load_edges(path, scope="tenant", tenant_id=210)
     admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
@@ -51,6 +53,11 @@ def test_unknown_scored_edge_fields_round_trip_through_transaction_payload(
         cleanup_engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
         try:
             with cleanup_engine.begin() as connection:
+                connection.execute(text("""
+                    DELETE FROM audit_log
+                    WHERE tenant_id = 210 AND action = 'contract.load_completed'
+                      AND at >= :started_at
+                """), {"started_at": test_started_at})
                 connection.execute(text("DELETE FROM edge_scores WHERE tenant_id=210 AND edge_id=:id"),
                                    {"id": edge_id})
                 connection.execute(text("DELETE FROM transactions WHERE tenant_id=210 AND edge_id=:id"),

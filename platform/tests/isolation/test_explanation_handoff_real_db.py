@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pyarrow as pa
@@ -30,6 +31,7 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
     ring_id = f"full-gine_causal-1-l4-{suffix}"
     register_db_test_ids(ring_id)
     admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    test_started_at = datetime.now(timezone.utc)
     try:
         with admin.begin() as connection:
             connection.execute(text("""
@@ -103,6 +105,15 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
         assert tuple(stored) == ("tenant_view", FX_HASH, FX_HASH)
     finally:
         with admin.begin() as connection:
+            connection.execute(text("""
+                DELETE FROM explanations
+                WHERE tenant_id = :tenant_id AND ring_id = :ring_id
+            """), {"tenant_id": TENANT_ID, "ring_id": ring_id})
+            connection.execute(text("""
+                DELETE FROM audit_log
+                WHERE tenant_id = :tenant_id AND action = 'explanations.load_completed'
+                  AND at >= :started_at
+            """), {"tenant_id": TENANT_ID, "started_at": test_started_at})
             connection.execute(text(
                 "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": TENANT_ID, "ring_id": ring_id})
