@@ -31,7 +31,8 @@ def get_engine() -> Engine:
         url = os.environ.get("RINGSHIELD_DATABASE_URL")
         if not url:
             raise RuntimeError("RINGSHIELD_DATABASE_URL is not configured")
-        _engine = create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=10)
+        _engine = create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=10,
+                                connect_args={"connect_timeout": 3})
         _sessions = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
 

@@ -14,6 +14,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from sqlalchemy import select, update
 
+from audit import add_audit_event
 from db.models import RetrainRun, Tenant
 from db.session import db_session
 
@@ -53,6 +54,9 @@ def scheduled_retrain(tenant_id: int) -> str:
             run_id=run_id, tenant_id=tenant_id, triggered_by="schedule",
             started_at=datetime.now(timezone.utc), status="running", log_path=log_path,
         ))
+        add_audit_event(session, tenant_id=tenant_id, actor="scheduler",
+                        action="retrain.requested", entity_type="retrain_run",
+                        entity_id=run_id, details={"status": "running"})
     try:
         _launch_worker("jobs.retrain_worker", str(int(tenant_id)), run_id)
     except Exception:
@@ -60,6 +64,9 @@ def scheduled_retrain(tenant_id: int) -> str:
             session.execute(update(RetrainRun).where(
                 RetrainRun.tenant_id == tenant_id, RetrainRun.run_id == run_id,
             ).values(status="failed", finished_at=datetime.now(timezone.utc)))
+            add_audit_event(session, tenant_id=tenant_id, actor="scheduler",
+                            action="retrain.failed", entity_type="retrain_run",
+                            entity_id=run_id, details={"status": "failed"})
         raise
     return run_id
 

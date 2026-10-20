@@ -69,8 +69,8 @@ def main() -> None:
                 VALUES (:tenant_id, 'adwin_score_mean', now(), now(), now(), 0.1, 0.2, false)
             """), {"tenant_id": tenant_id})
             connection.execute(text("""
-                INSERT INTO audit_log (tenant_id, user_id, action, object_type, object_id, details)
-                VALUES (:tenant_id, :user_id, 'fixture', 'ring', 'demo-cycle', '{}')
+                INSERT INTO audit_log (tenant_id, user_id, actor, action, object_type, object_id, details)
+                VALUES (:tenant_id, :user_id, 'fixture_seed', 'fixture.seeded', 'ring', 'demo-cycle', '{}')
             """), {"tenant_id": tenant_id, "user_id": users[tenant_id]})
     engine.dispose()
 

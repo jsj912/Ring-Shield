@@ -326,3 +326,75 @@ This file records findings and changes in the order requested for the platform h
 - Simulator cycle bounds now follow queried timestamps (`start = day-zero + cycle_day * seconds_per_day`) and are checked as complete intervals against days 8-17. It uses the configured `whole` test window by default. Compatible explicit test windows (`primary`, `tail`, `whole`) remain selectable; the unchanged `val` window is refused for test-period reviews. The CLI performs both interval and truth-window validation before opening its analyst session.
 - Synthetic tests exercise A/B visibility for their shared edge, absence from C, per-tenant ring stamping, deterministic duplicate handling, and conflicting duplicate refusal. These are unit tests; no Postgres or real experiment was run.
 - The simulator CLI now validates the interval and truth-window before even checking whether the configured truth parquet exists. R10 converts malformed tenant IDs in score logs into `ExperimentInputError`. Config wording distinguishes the pooled comparison baseline from the unresolved operational score source, which remains null until the research lead decides.
+# PR-04, PR-10, PR-11, PR-19 and PR-20 release hardening - 2026-10-20
+
+## State-change inventory and audit coverage
+
+The code-path inventory was checked with searches for ORM adds/merges, SQL inserts and
+updates, subprocess job status, and direct user credential writes. Database-backed
+business changes below append safe audit events in the same transaction. Migration
+0007 adds an admin-only `experiment_jobs` status row so R10 state transitions and audit
+events are transactional; the JSON file remains a projection for result metadata.
+
+| Path | State changed | Audit status / action |
+|---|---|---|
+| `platform/api/routers/admin.py` | Creates a user | Yes, `user.created`; role only, no email or password data |
+| `scripts/run-demo.ps1` | Initializes or resets demo user credentials | Yes, `user.credentials_initialized` / `user.password_reset`; role only |
+| `platform/services/verdicts.py` | Inserts verdict and updates ring status | Yes, `verdict.recorded`; includes resulting status and simulated flag |
+| `platform/api/routers/operations.py` | Changes drift `acted_on`; requests retraining; marks launch failure | Yes, `drift.acted_on`, `retrain.requested`, `retrain.failed` |
+| `platform/api/scheduler.py` | Creates scheduled retrain run and records launch failure | Yes, `retrain.requested`, `retrain.failed` |
+| `platform/jobs/retrain.py` | Run state transitions; candidate model insert and prior promotion demotion | Yes, `retrain.started/succeeded/failed`, `model_version.recorded`, `model_version.demoted`; gate outcome is retained |
+| `platform/jobs/refresh_rings.py` / `platform/jobs/load_contract.py` | Tenant ring refresh/upsert | Yes, `rings.refresh_started/completed/failed`, completion in the loader transaction |
+| `platform/jobs/load_contract.py` | Transactions, edge scores, accounts, rings | Yes, one count summary per affected tenant: `contract.load_completed`, `rings.load_completed` |
+| `platform/jobs/load_explanations.py` | Explanation upserts | Yes, one summary per tenant: `explanations.load_completed` |
+| `platform/jobs/seed_tenants.py` | Tenant registry and simulated user seed | Yes, one global `tenants.seed_completed` summary; no user identifiers or credentials |
+| `platform/jobs/drift_monitor.py` | Inserts detected drift events | Yes, one tenant summary `drift.events_persisted` per run |
+| `platform/jobs/simulate_verdicts.py` | Simulated verdicts and ring status through shared service | Yes, `verdict.recorded`, actor `simulator`, `is_simulated=true` |
+| `platform/api/routers/admin.py` / `platform/jobs/experiment_worker.py` | R10 requested/running/succeeded/failed state; JSON result projection | Yes, `experiment.requested/started/finished`, same transaction as `experiment_jobs` state |
+| Password reset API | No such API endpoint exists | Not applicable; demo reset path above is audited |
+
+Audit rows now record `tenant_id`, actor, dotted action, entity type/ID, UTC DB time,
+optional request ID, and a strict allow-listed scalar JSON detail. The helper rejects
+unknown fields, unsafe strings, paths and email-shaped values. Existing rows receive a
+safe actor backfill (`user:<id>` or `legacy:unknown`). App, loader and simulator roles
+have INSERT only; UPDATE/DELETE are explicitly revoked and no such grants are added.
+Loader and simulator grants were already present in the earlier role SQL/migration;
+0007 adds the narrow API/loader insert and sequence privileges required by the new
+events. The audit INSERT policy now requires tenant context to match the row, with a
+separate null-tenant administrator clause. Audit SELECT is tenant-bound except for
+administrator context.
+
+## Section 4 index comparison
+
+Compared each specified index against frozen migration 0001 and ORM metadata:
+
+| Required index | Before 0007 | Decision |
+|---|---|---|
+| `transactions(tenant_id, timestamp)` | Present: `ix_transactions_tenant_time` | Keep |
+| `transactions(tenant_id, from_id)` | Present: `ix_transactions_tenant_from` | Keep |
+| `transactions(tenant_id, to_id)` | Present: `ix_transactions_tenant_to` | Keep |
+| `rings(tenant_id, status, confidence DESC)` | Columns existed, but confidence direction was ascending | Recreate as explicit DESC in 0007 and match model metadata |
+| `verdicts(tenant_id, ring_id)` | Missing; only tenant/created time existed | Add `ix_verdicts_tenant_ring_created` with `created_at DESC`, covering the required leading pair and history order |
+
+The existing `rings(tenant_id, start_time)` and `verdicts(tenant_id, created_at)`
+indexes are retained because they support other current queries. Migration 0007 uses
+transactional explicit SQL and contains no `CREATE INDEX CONCURRENTLY` or model imports.
+
+## API, logging and health
+
+- `RequestContextMiddleware` writes one JSON request-completion record to stdout with
+  UTC timestamp, level, event, request ID, verified tenant/user IDs, method, route
+  template, status and duration. It does not log raw path values, query strings,
+  headers, bodies, email, credentials, evidence or local paths. Unhandled errors produce
+  a separate safe JSON event without exception text or traceback. Demo Uvicorn access
+  logging is disabled.
+- `/health` remains unauthenticated and returns only component statuses. Database
+  reachability uses the restricted application connection with a three-second
+  connect timeout; failures return the standard safe 503 error envelope.
+- `require_roles` now rejects a valid but disallowed role claim before opening the live
+  account-state query, then validates allowed principals against the database.
+- Section 6 route parity, including deferred regeneration routes, is recorded in
+  `docs/ENDPOINT_PARITY.md`; missing endpoints were not implemented in this task.
+
+Database-backed audit privilege/RLS, index round-trip, and unknown-column JSONB tests
+were added for CI but were not run locally because Docker and PostgreSQL are unavailable.

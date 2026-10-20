@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
+from api.request_context import current_request_id
 from api.schemas import VerdictHistoryPage, VerdictRequest, VerdictResponse, VerdictKind
 from db.models import Ring as PlatformRing, User, Verdict
 from db.session import db_session
@@ -97,6 +98,8 @@ def submit_verdict(
             verdict=payload.verdict.value,
             note=payload.note,
             is_simulated=False,
+            actor=f"user:{principal.user_id}",
+            request_id=current_request_id(),
         )
         return VerdictResponse(
             verdict_id=verdict.verdict_id,

@@ -12,6 +12,7 @@ PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
 
 from jobs.load_contract import ContractLoadError, _check_file
+from jobs.load_contract import transaction_payload
 from jobs import load_contract
 
 
@@ -30,6 +31,15 @@ def test_contract_loader_refuses_label_and_ground_truth_paths(tmp_path, filename
 
     with pytest.raises(ContractLoadError, match="label/ground-truth paths"):
         _check_file(path, {"edge_id"})
+
+
+def test_transaction_payload_preserves_unknown_contract_columns():
+    row = {"edge_id": 9, "new_contract_field": {"nested": [1, 2]},
+           "score_raw": 0.8, "score_calibrated": 0.7, "is_seed": True,
+           "model_id": "model-a", "seed": 3}
+
+    assert transaction_payload(row) == {"edge_id": 9,
+                                        "new_contract_field": {"nested": [1, 2]}}
 
 
 def test_edge_loader_sets_context_and_writes_only_requested_tenant(monkeypatch):
@@ -51,14 +61,18 @@ def test_edge_loader_sets_context_and_writes_only_requested_tenant(monkeypatch):
     class Session:
         def __init__(self):
             self.statements = []
+            self.added = []
 
         def scalars(self, statement):
             compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
             assert "tenants.tenant_id = 210" in compiled
             return [210]
 
-        def execute(self, statement):
+        def execute(self, statement, *_args):
             self.statements.append(statement)
+
+        def add(self, row):
+            self.added.append(row)
 
     session = Session()
     requested = []

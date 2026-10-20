@@ -154,12 +154,17 @@ def test_drift_action_update_checks_tenant_and_uses_explicit_predicates(monkeypa
             assert "drift_events.event_id = 9" in compiled
             return None
 
+        def add(self, row):
+            self.audit_row = row
+
     session = UpdateSession([])
     _install_session(monkeypatch, session)
     result = operations.set_drift_acted_on(
         21, 9, DriftActedOnUpdate(acted_on=True), principal=_principal(),
     )
     assert result.acted_on is True
+    assert session.audit_row.action == "drift.acted_on"
+    assert session.audit_row.details == {"acted_on": True}
 
     session.queries.clear()
     with pytest.raises(HTTPException) as exc_info:

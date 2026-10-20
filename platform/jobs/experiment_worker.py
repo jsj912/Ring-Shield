@@ -12,6 +12,22 @@ PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PLATFORM_ROOT.parent
 sys.path.insert(0, str(PLATFORM_ROOT))
 
+from audit import add_audit_event  # noqa: E402
+from db.models import ExperimentJob  # noqa: E402
+from db.session import db_session  # noqa: E402
+
+
+def _set_job_status(job_id: str, action: str, status: str) -> None:
+    with db_session(role="admin") as session:
+        job = session.get(ExperimentJob, job_id)
+        if job is None:
+            raise RuntimeError("experiment job record is missing")
+        job.status = status
+        job.updated_at = datetime.now(timezone.utc)
+        add_audit_event(session, tenant_id=None, actor="experiment_worker",
+                        action=action, entity_type="experiment", entity_id=job_id,
+                        details={"status": status})
+
 
 def _state_path(job_id: str) -> Path:
     if len(job_id) != 32 or not job_id.isalnum():
@@ -38,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("experiment job state is missing or invalid") from exc
     state.update(status="running", message=None)
     _write_state(state_path, state)
+    _set_job_status(job_id, "experiment.started", "running")
     try:
         from experiments.r10_tenant_vs_pooled import run_experiment
         from settings import configured_path, load_platform_config
@@ -57,12 +74,14 @@ def main(argv: list[str] | None = None) -> int:
                         for key, value in result.items() if key in {"csv", "markdown", "run_json"}}
         state.update(status="succeeded", results=clean_result)
         _write_state(state_path, state)
+        _set_job_status(job_id, "experiment.finished", "succeeded")
     except Exception as exc:
         message = str(exc)
         message = re.sub(r"(?i)\b[A-Z]:\\(?:[^\\\s]+\\)*[^\\\s]*", "<local-file>", message)
         message = re.sub(r"(?<![\w])/(?:[^/\s]+/)*[^/\s]+", "<local-file>", message)
         state.update(status="failed", message=f"{type(exc).__name__}: {message}")
         _write_state(state_path, state)
+        _set_job_status(job_id, "experiment.finished", "failed")
         return 1
     return 0
 

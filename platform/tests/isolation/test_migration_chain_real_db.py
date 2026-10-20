@@ -68,6 +68,20 @@ def test_migration_chain_round_trips_and_enforces_forced_rls():
                     WHERE table_schema = 'public' AND column_name = 'tenant_id'
                 """)).scalar_one()
                 assert tables > 0, "migration test found no tenant-scoped tables"
+                index_defs = dict(connection.execute(text("""
+                    SELECT indexname, indexdef FROM pg_indexes
+                    WHERE schemaname = 'public' AND indexname IN
+                      ('ix_rings_tenant_status_conf', 'ix_verdicts_tenant_ring_created')
+                """)))
+                assert "confidence DESC" in index_defs["ix_rings_tenant_status_conf"]
+                assert "tenant_id, ring_id, created_at DESC" in index_defs[
+                    "ix_verdicts_tenant_ring_created"
+                ]
+                audit_columns = set(connection.execute(text("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'audit_log'
+                """)).scalars())
+                assert {"actor", "request_id"} <= audit_columns
         finally:
             engine.dispose()
     finally:

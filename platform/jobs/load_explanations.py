@@ -15,6 +15,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pyarrow.parquet as pq
 from sqlalchemy import select
@@ -28,6 +29,7 @@ from db.models import Explanation, Ring as PlatformRing  # noqa: E402
 from db.session import loader_db_session  # noqa: E402
 from settings import load_platform_config  # noqa: E402
 from contract.schema import RINGS_ORDER  # noqa: E402
+from audit import add_audit_event  # noqa: E402
 
 REQUIRED_COLUMNS = {
     "ring_id", "tenant_id", "edge_weights", "account_weights", "feature_weights",
@@ -346,6 +348,7 @@ def load_explanations(parquet_path: Path, log_path: Path, rings_log_path: Path) 
     rows, _log = read_handoff(parquet_path, log_path, rings_log_path)
     counts: defaultdict[str, int] = defaultdict(int)
     tenant_ids = {row["tenant_id"] for row in rows}
+    load_run_id = uuid4().hex
     if len(tenant_ids) != 1:
         raise ExplanationLoadError("one tenant-scoped explanation handoff must contain exactly one tenant")
     with loader_db_session(tenant_id=next(iter(tenant_ids))) as session:
@@ -392,6 +395,12 @@ def load_explanations(parquet_path: Path, log_path: Path, rings_log_path: Path) 
             if result.first() is None:
                 raise ExplanationLoadError(f"{row['ring_id']}: explanation was not written")
             counts["explanations_loaded"] += 1
+        add_audit_event(session, tenant_id=next(iter(tenant_ids)), actor="loader",
+                        action="explanations.load_completed", entity_type="explanation_load",
+                        entity_id=load_run_id,
+                        details={"run_id": load_run_id,
+                                                 "explanations_loaded": counts["explanations_loaded"],
+                                                 "rows_validated": len(rows)})
     counts["rows_validated"] = len(rows)
     return dict(counts)
 

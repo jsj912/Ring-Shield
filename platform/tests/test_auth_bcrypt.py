@@ -81,3 +81,26 @@ def test_bad_login_credentials_keep_indistinguishable_api_401_contract(monkeypat
         failures.append(exc_info.value.detail)
 
     assert failures == ["Invalid email or password", "Invalid email or password"]
+
+
+def test_jwt_contract_contains_tenant_role_and_exact_eight_hour_expiry(monkeypatch):
+    from datetime import datetime, timezone
+    from jose import jwt
+    from api.identity import Principal, create_access_token, decode_access_token, InvalidToken
+
+    secret = "fixed-test-secret-with-at-least-thirty-two-bytes"
+    monkeypatch.setenv("RINGSHIELD_JWT_SECRET", secret)
+    issued = datetime.now(timezone.utc).replace(microsecond=0)
+    token, expiry = create_access_token(
+        Principal(user_id=81, tenant_id=210, role="supervisor", email="supervisor@example.test"),
+        now=issued,
+    )
+    claims = jwt.decode(token, secret, algorithms=["HS256"], options={"verify_exp": False})
+    assert claims["sub"] == "81"
+    assert claims["tenant_id"] == 210
+    assert claims["role"] == "supervisor"
+    assert int(claims["exp"]) - int(claims["iat"]) == 8 * 60 * 60
+    assert expiry.timestamp() == claims["exp"]
+    assert decode_access_token(token).tenant_id == 210
+    with pytest.raises(InvalidToken):
+        decode_access_token("invalid.token.value")

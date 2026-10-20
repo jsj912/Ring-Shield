@@ -26,6 +26,7 @@ PRODUCTION_HOLDOUT_CONTENT_KEYS = (
 sys.path.insert(0, str(PLATFORM_ROOT))
 
 from adapters import research_cli  # noqa: E402
+from audit import add_audit_event  # noqa: E402
 from db.models import ModelVersion, RetrainRun, Ring, Transaction, Verdict  # noqa: E402
 from db.session import db_session, get_engine, loader_db_session  # noqa: E402
 from jobs.training_evaluation import (TrainingEvaluationError, make_evaluation_manifest,
@@ -209,6 +210,12 @@ def _set_run_state(tenant_id: int, run_id: str, *, status: str,
         ).values(**values))
         if result.rowcount != 1:
             raise RetrainError("retrain run disappeared or tenant scope changed")
+        if status in {"running", "succeeded", "failed"}:
+            add_audit_event(session, tenant_id=tenant_id, actor="retrain_worker",
+                            action="retrain.started" if status == "running" else f"retrain.{status}",
+                            entity_type="retrain_run",
+                            entity_id=run_id, details={"status": status,
+                                                       "model_version_id": model_version_id})
 
 
 def _promoted_version(session, tenant_id: int, component: str) -> ModelVersion | None:
@@ -229,6 +236,10 @@ def _insert_model_version(*, tenant_id: int, component: str, version_tag: str,
                 ModelVersion.tenant_id == tenant_id,
                 ModelVersion.model_version_id == old.model_version_id,
             ).values(promoted=False))
+            add_audit_event(session, tenant_id=tenant_id, actor="retrain_worker",
+                            action="model_version.demoted", entity_type="model_version",
+                            entity_id=old.model_version_id,
+                            details={"component": component, "promoted": False})
         version = ModelVersion(
             tenant_id=tenant_id, component=component, version_tag=version_tag,
             trained_at=trained_at, train_label_count=label_count,
@@ -237,6 +248,11 @@ def _insert_model_version(*, tenant_id: int, component: str, version_tag: str,
         )
         session.add(version)
         session.flush()
+        add_audit_event(session, tenant_id=tenant_id, actor="loader",
+                        action="model_version.recorded", entity_type="model_version",
+                        entity_id=version.model_version_id,
+                        details={"component": component, "version_tag": version_tag,
+                                 "promoted": promoted, "gate_reason": gate_reason})
         return int(version.model_version_id)
 
 
