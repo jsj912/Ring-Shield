@@ -30,6 +30,8 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None,
                                  json=body, params=params, timeout=20.0)
     except httpx.HTTPError as exc:
         st.error(f"RingShield API is unavailable: {exc}")
+        if st.button("Retry", key=f"retry_{method}_{path}"):
+            st.rerun()
         return None
     if response.status_code == 401:
         if method.upper() == "POST" and path == "/auth/login":
@@ -52,10 +54,16 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None,
         if response.status_code == 404 and quiet_not_found:
             return None
         try:
-            message = response.json().get("message", "Request failed")
+            payload = response.json()
         except ValueError:
-            message = "Request failed"
-        st.error(message)
+            payload = {}
+        message = payload.get("message", "Request failed") if isinstance(payload, dict) else "Request failed"
+        request_id = payload.get("request_id") if isinstance(payload, dict) else None
+        request_id = request_id or response.headers.get("X-Request-ID")
+        suffix = f" (request id {request_id})" if request_id else ""
+        st.error(f"{message}{suffix}")
+        if st.button("Retry", key=f"retry_{method}_{path}"):
+            st.rerun()
         return None
     if response.status_code == 204:
         return {}
