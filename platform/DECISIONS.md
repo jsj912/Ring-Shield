@@ -135,6 +135,14 @@ This file records findings and changes in the order requested for the platform h
 - `platform/jobs/build_tenant_rings.py` previously imported the research CC module for a constant and a one-line NumPy percentile calculation. It now uses the same score column and NumPy linear percentile locally, keeping output behavior unchanged while satisfying the requested boundary.
 - The scanner test is database-free; the Postgres suite remains unavailable locally.
 
+## Frozen production validation holdout - 2026-10-20
+
+- Adopted the research lead's `platform/holdout/production/holdout_manifest.json` unchanged. Its file SHA-256 is `32f7443a4dc5c6d3658f668bc269620cb2a284bb94d3e0197a651232cb267686`; its canonical `content_sha256` is `a1e1c13c5588407ac31fb1f6b13745b25bec94bbc699a699a8e678ead4795f06`. The file contains 114 unique validation-window truth IDs for days `[6, 7]`.
+- Added the matching file-hash sidecar and production-only verifier checks: canonical content digest over the specified nine keys, required hashed keys, exactly 114 unique IDs, and days `[6, 7]`. The three-ID fixture and its existing tests remain unchanged and continue to use the original file-hash verification.
+- `l6.retrain` now defaults to the frozen production manifest and sidecar. No ground-truth parquet, validation features, embeddings or other truth data were added, and no production holdout was regenerated.
+- `platform/scripts/make_holdout_manifest.py` remains for disposable tests only and continues to refuse overwriting either output. Never use it to regenerate the frozen production holdout. This decision supersedes earlier entries stating that the production manifest was absent.
+- Database-free production/fixture verifier tests were added. Docker/PostgreSQL and the retrain database tests were not run in this environment.
+
 ## L6 simulated verdict cycle - 2026-10-17
 
 ### Changes

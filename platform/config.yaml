@@ -28,8 +28,8 @@ l6:
     epsilon: 0.005
     components: [expansion, affinity]
     min_new_labels: 5
-    holdout_manifest: platform/holdout/holdout_manifest.json
-    holdout_sha256_file: platform/holdout/holdout_manifest.sha256
+    holdout_manifest: platform/holdout/production/holdout_manifest.json
+    holdout_sha256_file: platform/holdout/production/holdout_manifest.sha256
     val_scored_edges: contract/out/scored_edges_gine_causal_1_val.parquet
     val_gfp: null
     val_embeddings: null
