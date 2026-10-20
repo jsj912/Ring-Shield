@@ -90,3 +90,61 @@ def test_migration_chain_round_trips_and_enforces_forced_rls():
         # Connections used by the migration/test engines have been closed before cleanup.
         with maintenance_engine.connect() as connection:
             connection.execute(text(f' DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)'))
+
+
+def test_audit_actor_migration_preserves_existing_rows_and_round_trips():
+    admin_url = make_url(ADMIN_URL)
+    maintenance_url = admin_url.set(database="postgres")
+    database_name = f"ringshield_migration_{uuid4().hex[:12]}"
+    maintenance_engine = create_engine(maintenance_url, isolation_level="AUTOCOMMIT")
+    test_database_url = admin_url.set(database=database_name)
+    try:
+        with maintenance_engine.connect() as connection:
+            connection.execute(text(f'CREATE DATABASE "{database_name}"'))
+
+        migration_url = test_database_url.render_as_string(hide_password=False)
+        _alembic(migration_url, "upgrade", "0006_explanation_fx_hash")
+
+        admin_engine = create_engine(test_database_url)
+        try:
+            with admin_engine.begin() as connection:
+                connection.execute(text("SELECT set_config('app.user_role', 'admin', true)"))
+                connection.execute(text("""
+                    INSERT INTO audit_log
+                        (tenant_id, user_id, action, object_type, object_id)
+                    VALUES
+                        (-1, 8123, 'test.before_0007', 'migration', 'user-set'),
+                        (-1, NULL, 'test.before_0007', 'migration', 'user-null'),
+                        (NULL, 8124, 'test.before_0007', 'migration', 'tenant-null')
+                """))
+
+            _alembic(migration_url, "upgrade", "head")
+            with admin_engine.connect() as connection:
+                rows = connection.execute(text("""
+                    SELECT object_id, tenant_id, user_id, actor
+                    FROM audit_log
+                    WHERE object_id IN ('user-set', 'user-null', 'tenant-null')
+                    ORDER BY object_id
+                """)).all()
+                assert [(row.object_id, row.tenant_id, row.user_id, row.actor) for row in rows] == [
+                    ("tenant-null", None, 8124, "legacy:unknown"),
+                    ("user-null", -1, None, "legacy:unknown"),
+                    ("user-set", -1, 8123, "legacy:unknown"),
+                ]
+                actor_nullable = connection.execute(text("""
+                    SELECT is_nullable
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'audit_log'
+                      AND column_name = 'actor'
+                """)).scalar_one()
+                assert actor_nullable == "NO"
+
+            _alembic(migration_url, "downgrade", "0006_explanation_fx_hash")
+            _alembic(migration_url, "upgrade", "head")
+            _alembic(migration_url, "check")
+        finally:
+            admin_engine.dispose()
+    finally:
+        maintenance_engine.dispose()
+        with maintenance_engine.connect() as connection:
+            connection.execute(text(f' DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)'))

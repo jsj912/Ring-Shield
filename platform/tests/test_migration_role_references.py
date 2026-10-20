@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import ast
 from pathlib import Path
 
 
@@ -53,6 +54,25 @@ def test_audit_migration_and_related_tests_use_bootstrapped_roles_only():
     assert "REVOKE UPDATE, DELETE ON audit_log FROM PUBLIC" in migration_text
     assert "rolname LIKE 'ringshield\\_%' ESCAPE '\\'" in migration_text
     assert "rolname <> audit_owner" in migration_text
+
+    # Adding a NOT NULL column with a server default lets PostgreSQL populate
+    # old rows without an UPDATE that FORCE RLS could filter out.
+    assert not re.search(r"\bUPDATE\s+audit_log\b", migration_text, re.I)
+    migration_tree = ast.parse(migration_text)
+    downgrade = next(
+        node for node in migration_tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "downgrade"
+    )
+    downgrade_source = "\n".join(
+        migration_text.splitlines()[downgrade.lineno - 1:downgrade.end_lineno]
+    )
+    policy_drops = re.findall(
+        r"DROP\s+POLICY\s+(.*?)\s+ON\s+audit_log",
+        downgrade_source,
+        re.I | re.S,
+    )
+    assert policy_drops
+    assert all(re.match(r"IF\s+EXISTS\b", drop, re.I) for drop in policy_drops)
 
     # API/loader grants execute in 0007 before roles.sql creates ringshield_auth.
     roles_from_0002 = _role_names_created(role_sources[0])
