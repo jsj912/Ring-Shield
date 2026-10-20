@@ -338,9 +338,11 @@ committed endpoint behavior and avoids broadening audit privileges or RLS polici
 
 The code-path inventory was checked with searches for ORM adds/merges, SQL inserts and
 updates, subprocess job status, and direct user credential writes. Database-backed
-business changes below append safe audit events in the same transaction. Migration
-0007 adds an admin-only `experiment_jobs` status row so R10 state transitions and audit
-events are transactional; the JSON file remains a projection for result metadata.
+business changes below append safe audit events in the same transaction. R10 job state
+remains in the existing JSON files under `platform/out/experiments`; migration 0007
+does not create an R10 job table. Downgrade restores the prior audit read/insert
+policies and removes the added indexes and columns; audit UPDATE/DELETE remain revoked
+as a security invariant.
 
 | Path | State changed | Audit status / action |
 |---|---|---|
@@ -356,7 +358,7 @@ events are transactional; the JSON file remains a projection for result metadata
 | `platform/jobs/seed_tenants.py` | Tenant registry and simulated user seed | Yes, one global `tenants.seed_completed` summary; no user identifiers or credentials |
 | `platform/jobs/drift_monitor.py` | Inserts detected drift events | Yes, one tenant summary `drift.events_persisted` per run |
 | `platform/jobs/simulate_verdicts.py` | Simulated verdicts and ring status through shared service | Yes, `verdict.recorded`, actor `simulator`, `is_simulated=true` |
-| `platform/api/routers/admin.py` / `platform/jobs/experiment_worker.py` | R10 requested/running/succeeded/failed state; JSON result projection | Yes, `experiment.requested/started/finished`, same transaction as `experiment_jobs` state |
+| `platform/api/routers/admin.py` / `platform/jobs/experiment_worker.py` | R10 requested/running/succeeded/failed state in JSON job files | Structured JSON process events; no tenantless audit row or database job table |
 | Password reset API | No such API endpoint exists | Not applicable; demo reset path above is audited |
 
 Audit rows now record `tenant_id`, actor, dotted action, entity type/ID, UTC DB time,

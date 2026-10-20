@@ -50,24 +50,29 @@ def upgrade() -> None:
     op.execute("GRANT INSERT ON audit_log TO ringshield_api, ringshield_loader")
     op.execute("GRANT USAGE, SELECT ON SEQUENCE audit_log_log_id_seq TO ringshield_api, ringshield_loader")
 
-    # Keep admin R10 status transitions transactional with their audit events;
-    # large result artifacts continue to be written to the file store.
-    op.create_table(
-        "experiment_jobs",
-        sa.Column("job_id", sa.String(length=32), nullable=False),
-        sa.Column("requested_by", sa.BigInteger(), nullable=True),
-        sa.Column("status", sa.String(length=16), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.PrimaryKeyConstraint("job_id"),
-    )
-    op.execute("GRANT SELECT, INSERT, UPDATE ON experiment_jobs TO ringshield_api")
-
 
 def downgrade() -> None:
-    op.drop_table("experiment_jobs")
     op.execute("REVOKE USAGE, SELECT ON SEQUENCE audit_log_log_id_seq FROM ringshield_api, ringshield_loader")
     op.execute("REVOKE INSERT ON audit_log FROM ringshield_api, ringshield_loader")
+    op.execute("DROP POLICY audit_log_tenant_read ON audit_log")
+    op.execute("""
+        CREATE POLICY audit_log_tenant_read ON audit_log FOR SELECT
+        USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint
+               OR current_setting('app.user_role', true) = 'admin'
+               OR current_user = 'ringshield_loader')
+    """)
+    op.execute("DROP POLICY audit_tenant_insert ON audit_log")
+    op.execute("DROP POLICY audit_global_insert ON audit_log")
+    op.execute("""
+        CREATE POLICY audit_tenant_insert ON audit_log FOR INSERT
+        WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint
+                    OR current_setting('app.user_role', true) = 'admin'
+                    OR current_user = 'ringshield_loader')
+    """)
+    op.execute("""
+        CREATE POLICY audit_global_insert ON audit_log FOR INSERT
+        WITH CHECK (tenant_id IS NULL AND current_setting('app.user_role', true) = 'admin')
+    """)
     op.drop_index("ix_verdicts_tenant_ring_created", table_name="verdicts")
     op.drop_index("ix_rings_tenant_status_conf", table_name="rings")
     op.create_index("ix_rings_tenant_status_conf", "rings", ["tenant_id", "status", "confidence"])

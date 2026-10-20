@@ -82,6 +82,7 @@ def test_migration_chain_round_trips_and_enforces_forced_rls():
                     WHERE table_schema = 'public' AND table_name = 'audit_log'
                 """)).scalars())
                 assert {"actor", "request_id"} <= audit_columns
+                assert connection.execute(text("SELECT to_regclass('public.experiment_jobs')")).scalar_one() is None
         finally:
             engine.dispose()
     finally:
