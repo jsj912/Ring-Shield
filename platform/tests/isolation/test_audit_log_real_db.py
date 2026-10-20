@@ -1,4 +1,4 @@
-"""Audit table write privileges and tenant row policy on real PostgreSQL."""
+"""Audit privileges, append-only behavior, and row isolation on real PostgreSQL."""
 
 from __future__ import annotations
 
@@ -8,97 +8,114 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy import select, func
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import DBAPIError
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PLATFORM_ROOT))
 
+from audit import add_audit_event  # noqa: E402
 from db.models import AuditLog  # noqa: E402
-from db.session import loader_db_session, simulator_db_session  # noqa: E402
+from db.session import (  # noqa: E402
+    db_session,
+    loader_db_session,
+    simulator_db_session,
+)
 
 
-def test_loader_audit_insert_is_tenant_bound_and_append_only(register_db_test_ids):
+def _assert_insert_only_role(role_name: str) -> None:
+    engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    try:
+        with engine.connect() as connection:
+            privileges = connection.execute(text("""
+                SELECT has_table_privilege(:role, 'audit_log', 'INSERT'),
+                       has_table_privilege(:role, 'audit_log', 'SELECT'),
+                       has_table_privilege(:role, 'audit_log', 'UPDATE'),
+                       has_table_privilege(:role, 'audit_log', 'DELETE')
+            """), {"role": role_name}).one()
+        assert privileges == (True, False, False, False), (role_name, privileges)
+    finally:
+        engine.dispose()
+
+
+def _assert_no_read_or_mutation(session_factory, *, tenant_id: int, object_id: str) -> None:
+    statements = (
+        "SELECT log_id FROM audit_log WHERE tenant_id=:tenant AND object_id=:object_id",
+        "UPDATE audit_log SET action='test.changed' WHERE tenant_id=:tenant AND object_id=:object_id",
+        "DELETE FROM audit_log WHERE tenant_id=:tenant AND object_id=:object_id",
+    )
+    for statement in statements:
+        with pytest.raises(DBAPIError):
+            with session_factory(tenant_id=tenant_id) as session:
+                session.execute(text(statement), {"tenant": tenant_id, "object_id": object_id})
+
+
+@pytest.mark.parametrize(
+    ("role_name", "session_factory", "actor"),
+    [
+        ("ringshield_loader", loader_db_session, "loader"),
+        ("ringshield_simulator", simulator_db_session, "simulator"),
+    ],
+)
+def test_insert_only_audit_roles_are_tenant_bound_and_cannot_read_or_mutate(
+        role_name, session_factory, actor, register_db_test_ids):
     tenant_a, tenant_b = 210, 220
     marker = f"audit-test-{uuid4().hex}"
     register_db_test_ids(marker)
-
-    admin_engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    _assert_insert_only_role(role_name)
     try:
-        with admin_engine.connect() as connection:
-            grants = connection.execute(text("""
-                SELECT role_name,
-                       has_table_privilege(role_name, 'audit_log', 'INSERT'),
-                       has_table_privilege(role_name, 'audit_log', 'UPDATE'),
-                       has_table_privilege(role_name, 'audit_log', 'DELETE')
-                FROM unnest(ARRAY['ringshield_api','ringshield_loader','ringshield_simulator']) AS roles(role_name)
-            """)).all()
-        assert all(can_insert and not can_update and not can_delete
-                   for _role, can_insert, can_update, can_delete in grants), grants
-    finally:
-        admin_engine.dispose()
-
-    with pytest.raises(DBAPIError):
-        with loader_db_session(tenant_id=tenant_a) as session:
-            session.add(AuditLog(tenant_id=tenant_b, actor="loader", action="test.cross_tenant",
-                                 object_type="test", object_id=marker, details={}))
-            session.flush()
-
-    log_id = None
-    try:
-        with loader_db_session(tenant_id=tenant_a) as session:
-            row = AuditLog(tenant_id=tenant_a, actor="loader", action="test.tenant_insert",
-                           object_type="test", object_id=marker, details={})
-            session.add(row)
-            session.flush()
-            log_id = row.log_id
-        with loader_db_session(tenant_id=tenant_a) as session:
-            assert session.scalar(select(func.count()).select_from(AuditLog).where(
-                AuditLog.tenant_id == tenant_b
-            )) == 0
         with pytest.raises(DBAPIError):
-            with loader_db_session(tenant_id=tenant_a) as session:
-                session.execute(text("UPDATE audit_log SET action='test.changed' WHERE log_id=:id"),
-                                {"id": log_id})
-        with pytest.raises(DBAPIError):
-            with loader_db_session(tenant_id=tenant_a) as session:
-                session.execute(text("DELETE FROM audit_log WHERE log_id=:id"), {"id": log_id})
+            with session_factory(tenant_id=tenant_a) as session:
+                add_audit_event(session, tenant_id=tenant_b, actor=actor,
+                                action="test.cross_tenant", entity_type="test",
+                                entity_id=marker, details={})
+
+        with session_factory(tenant_id=tenant_a) as session:
+            add_audit_event(session, tenant_id=tenant_a, actor=actor,
+                            action="test.tenant_insert", entity_type="test",
+                            entity_id=marker, details={})
+
+        _assert_no_read_or_mutation(
+            session_factory, tenant_id=tenant_a, object_id=marker
+        )
     finally:
-        if log_id is not None:
-            admin_url = os.environ["RINGSHIELD_TEST_ADMIN_URL"]
-            engine = create_engine(admin_url)
-            try:
-                with engine.begin() as connection:
-                    connection.execute(text("DELETE FROM audit_log WHERE log_id=:id"), {"id": log_id})
-            finally:
-                engine.dispose()
+        engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+        try:
+            with engine.begin() as connection:
+                connection.execute(text("DELETE FROM audit_log WHERE object_id=:marker"),
+                                   {"marker": marker})
+        finally:
+            engine.dispose()
 
 
-def test_simulator_audit_insert_is_tenant_bound(register_db_test_ids):
+def test_api_role_reads_only_its_tenant_audit_rows(register_db_test_ids):
     tenant_a, tenant_b = 210, 220
-    marker = f"sim-audit-test-{uuid4().hex}"
-    register_db_test_ids(marker)
-    log_id = None
+    marker_a = f"audit-api-a-{uuid4().hex}"
+    marker_b = f"audit-api-b-{uuid4().hex}"
+    register_db_test_ids(marker_a, marker_b)
     try:
-        with pytest.raises(DBAPIError):
-            with simulator_db_session(tenant_id=tenant_a) as session:
-                session.add(AuditLog(tenant_id=tenant_b, actor="simulator",
-                                     action="test.cross_tenant", object_type="test",
-                                     object_id=marker, details={}))
-                session.flush()
-        with simulator_db_session(tenant_id=tenant_a) as session:
-            row = AuditLog(tenant_id=tenant_a, actor="simulator",
-                           action="test.tenant_insert", object_type="test",
-                           object_id=marker, details={})
-            session.add(row)
-            session.flush()
-            log_id = row.log_id
+        for tenant_id, marker in ((tenant_a, marker_a), (tenant_b, marker_b)):
+            with loader_db_session(tenant_id=tenant_id) as session:
+                add_audit_event(session, tenant_id=tenant_id, actor="loader",
+                                action="test.api_visibility", entity_type="test",
+                                entity_id=marker, details={})
+
+        with db_session(tenant_id=tenant_a, role="analyst") as session:
+            own_rows = session.scalars(select(AuditLog.object_id).where(
+                AuditLog.tenant_id == tenant_a,
+                AuditLog.object_id.in_((marker_a, marker_b)),
+            )).all()
+            cross_tenant_rows = session.scalars(select(AuditLog.object_id).where(
+                AuditLog.tenant_id == tenant_b,
+                AuditLog.object_id == marker_b,
+            )).all()
+        assert own_rows == [marker_a]
+        assert cross_tenant_rows == []
     finally:
-        if log_id is not None:
-            engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
-            try:
-                with engine.begin() as connection:
-                    connection.execute(text("DELETE FROM audit_log WHERE log_id=:id"), {"id": log_id})
-            finally:
-                engine.dispose()
+        engine = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+        try:
+            with engine.begin() as connection:
+                connection.execute(text("DELETE FROM audit_log WHERE object_id IN (:a, :b)"),
+                                   {"a": marker_a, "b": marker_b})
+        finally:
+            engine.dispose()

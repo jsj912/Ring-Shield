@@ -79,11 +79,15 @@ def test_non_supervisor_retrain_post_returns_403_before_any_query(monkeypatch, r
 
 def test_retrain_post_creates_a_run_and_starts_a_separate_worker(monkeypatch):
     added = []
+    executed = []
     launched = []
 
     class Session:
         def add(self, row):
             added.append(row)
+
+        def execute(self, statement):
+            executed.append(statement)
 
         def flush(self):
             pass
@@ -98,14 +102,16 @@ def test_retrain_post_creates_a_run_and_starts_a_separate_worker(monkeypatch):
     monkeypatch.setattr(operations, "launch_retrain_process", lambda *args: launched.append(args))
     result = operations.start_retrain(21, _principal())
 
-    assert len(added) == 2
+    assert len(added) == 1
     run_row = next(row for row in added if hasattr(row, "run_id"))
-    audit_row = next(row for row in added if hasattr(row, "action"))
+    audit_statement = next(row for row in executed
+                           if getattr(getattr(row, "table", None), "name", None) == "audit_log")
+    audit_params = audit_statement.compile().params
     assert run_row.run_id == result.run_id
     assert run_row.status == "running"
     assert run_row.triggered_by == "supervisor"
-    assert audit_row.action == "retrain.requested"
-    assert audit_row.details == {"status": "running"}
+    assert audit_params["action"] == "retrain.requested"
+    assert audit_params["details"] == {"status": "running"}
     assert launched == [(21, result.run_id)]
 
 

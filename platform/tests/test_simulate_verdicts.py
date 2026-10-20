@@ -5,6 +5,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy.dialects import postgresql
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
@@ -188,9 +189,13 @@ def test_shared_verdict_service_marks_simulated_row_and_updates_ring():
     class Session:
         def __init__(self):
             self.rows = []
+            self.statements = []
 
         def add(self, row):
             self.rows.append(row)
+
+        def execute(self, statement):
+            self.statements.append(statement)
 
         def flush(self):
             for row in self.rows:
@@ -204,4 +209,9 @@ def test_shared_verdict_service_marks_simulated_row_and_updates_ring():
 
     assert ring.status == "confirm"
     assert verdict.is_simulated is True
-    assert len(session.rows) == 2
+    assert len(session.rows) == 1
+    audit_params = session.statements[0].compile(dialect=postgresql.dialect()).params
+    assert audit_params["action"] == "verdict.recorded"
+    assert audit_params["details"] == {
+        "verdict": "confirm", "is_simulated": True, "status": "confirm"
+    }

@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from sqlalchemy import insert
+
 from db.models import AuditLog
 
 _ALLOWED_DETAIL_KEYS = {
@@ -29,7 +31,7 @@ def add_audit_event(
     details: dict[str, Any] | None = None,
     user_id: int | None = None,
     request_id: str | None = None,
-) -> AuditLog:
+) -> None:
     """Append one small safe event in the caller's existing transaction.
 
     Deliberately accepts only an allow-list of short scalar details. This keeps
@@ -58,15 +60,21 @@ def add_audit_event(
     entity_value = None if entity_id is None else str(entity_id)
     if entity_value is not None and (len(entity_value) > 180 or _UNSAFE_TEXT.search(entity_value)):
         raise ValueError("audit entity ID must be a safe identifier")
-    row = AuditLog(
-        tenant_id=tenant_id,
-        user_id=user_id,
-        actor=actor,
-        action=action,
-        object_type=entity_type,
-        object_id=entity_value,
-        request_id=request_id,
-        details=safe_details,
-    )
-    session.add(row)
-    return row
+    values = {
+        "tenant_id": tenant_id,
+        "user_id": user_id,
+        "actor": actor,
+        "action": action,
+        "object_type": entity_type,
+        "object_id": entity_value,
+        "request_id": request_id,
+        "details": safe_details,
+    }
+    # Keep this as Core DML with no RETURNING or ORM flush. INSERT privilege
+    # (and sequence USAGE for log_id) is sufficient for loader/simulator callers.
+    session.execute(_audit_insert_statement(values))
+
+
+def _audit_insert_statement(values: dict[str, Any]):
+    """Build the Core INSERT so its privilege requirements can be tested."""
+    return insert(AuditLog.__table__).inline().values(**values)

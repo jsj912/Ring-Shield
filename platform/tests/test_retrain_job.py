@@ -289,7 +289,9 @@ def test_run_state_clears_stale_model_version_when_success_has_no_promotion(monk
     monkeypatch.setattr(retrain, "db_session", fake_session)
     retrain._set_run_state(21, "run", status="succeeded", model_version_id=None, finished=True)
     assert statements[0].compile().params["model_version_id"] is None
-    assert next(row for row in statements if hasattr(row, "action")).action == "retrain.succeeded"
+    audit_statement = next(row for row in statements
+                           if getattr(getattr(row, "table", None), "name", None) == "audit_log")
+    assert audit_statement.compile().params["action"] == "retrain.succeeded"
 
 
 def test_retrain_missing_holdout_fails_run_with_safe_reason(monkeypatch):

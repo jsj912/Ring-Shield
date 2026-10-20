@@ -8,17 +8,19 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy.dialects import postgresql
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
 
-from audit import add_audit_event  # noqa: E402
+from audit import _audit_insert_statement, add_audit_event  # noqa: E402
 from services.verdicts import record_verdict  # noqa: E402
 
 
 class CaptureSession:
     def __init__(self):
         self.rows = []
+        self.statements = []
 
     def add(self, row):
         self.rows.append(row)
@@ -28,18 +30,22 @@ class CaptureSession:
             if getattr(row, "verdict_id", None) is None:
                 row.verdict_id = 18
 
+    def execute(self, statement):
+        self.statements.append(statement)
+
 
 def test_audit_helper_accepts_small_safe_details_and_rejects_secrets():
     session = CaptureSession()
-    event = add_audit_event(session, tenant_id=210, actor="user:7", action="drift.acted_on",
-                            entity_type="drift_event", entity_id=4,
-                            details={"acted_on": True}, request_id="req-1")
-    assert event in session.rows
-    assert (event.actor, event.action, event.object_type, event.object_id) == (
-        "user:7", "drift.acted_on", "drift_event", "4"
+    add_audit_event(session, tenant_id=210, actor="user:7", action="drift.acted_on",
+                    entity_type="drift_event", entity_id=4,
+                    details={"acted_on": True}, request_id="req-1")
+    params = session.statements[0].compile(dialect=postgresql.dialect()).params
+    assert (params["tenant_id"], params["actor"], params["action"],
+            params["object_type"], params["object_id"]) == (
+        210, "user:7", "drift.acted_on", "drift_event", "4"
     )
-    assert event.details == {"acted_on": True}
-    assert event.request_id == "req-1"
+    assert params["details"] == {"acted_on": True}
+    assert params["request_id"] == "req-1"
 
     with pytest.raises(ValueError, match="unsupported audit detail"):
         add_audit_event(session, tenant_id=210, actor="user:7", action="user.changed",
@@ -49,18 +55,46 @@ def test_audit_helper_accepts_small_safe_details_and_rejects_secrets():
                         entity_type="user", entity_id=3, details={"gate_reason": "C:\\private\\x"})
 
 
+def test_audit_insert_compiles_without_returning_or_orm_add():
+    statement = _audit_insert_statement({
+        "tenant_id": 210,
+        "actor": "loader",
+        "action": "test.insert",
+        "object_type": "test",
+        "object_id": "marker",
+        "details": {},
+    })
+    sql = str(statement.compile(dialect=postgresql.dialect()))
+    assert "INSERT INTO audit_log" in sql
+    assert "RETURNING" not in sql.upper()
+
+    source = (PLATFORM_ROOT / "audit.py").read_text(encoding="utf-8")
+    helper = ast.parse(source)
+    function = next(node for node in helper.body
+                    if isinstance(node, ast.FunctionDef) and node.name == "add_audit_event")
+    calls = [node for node in ast.walk(function) if isinstance(node, ast.Call)]
+    assert any(isinstance(node.func, ast.Attribute) and node.func.attr == "execute"
+               for node in calls)
+    assert any(isinstance(node.func, ast.Name) and node.func.id == "_audit_insert_statement"
+               for node in calls)
+    assert not any(isinstance(node.func, ast.Attribute) and node.func.attr == "add"
+                   for node in calls)
+
+
 def test_verdict_audit_covers_resulting_ring_status_and_simulation_flag():
     session = CaptureSession()
     ring = SimpleNamespace(tenant_id=210, ring_id="ring-1", status="open")
     verdict = record_verdict(session, ring=ring, tenant_id=210, ring_id="ring-1", user_id=5,
                              verdict="confirm", is_simulated=True, actor="simulator")
 
-    audit = next(row for row in session.rows if hasattr(row, "action"))
+    audit_params = session.statements[0].compile(dialect=postgresql.dialect()).params
     assert verdict.is_simulated is True
     assert ring.status == "confirm"
-    assert audit.action == "verdict.recorded"
-    assert audit.actor == "simulator"
-    assert audit.details == {"verdict": "confirm", "is_simulated": True, "status": "confirm"}
+    assert audit_params["action"] == "verdict.recorded"
+    assert audit_params["actor"] == "simulator"
+    assert audit_params["details"] == {
+        "verdict": "confirm", "is_simulated": True, "status": "confirm"
+    }
 
 
 def test_each_business_mutation_module_routes_audit_through_safe_helper():
@@ -118,6 +152,9 @@ def test_admin_user_creation_sets_tenant_context_for_user_and_audit(monkeypatch)
         def add(self, row):
             rows.append(row)
 
+        def execute(self, statement):
+            rows.append(statement)
+
         def flush(self):
             for row in rows:
                 if hasattr(row, "password_hash"):
@@ -137,11 +174,13 @@ def test_admin_user_creation_sets_tenant_context_for_user_and_audit(monkeypatch)
         Principal(user_id=7, tenant_id=None, role="admin", email="admin@example.test"),
     )
 
-    audit = next(row for row in rows if hasattr(row, "action"))
+    audit_statement = next(row for row in rows
+                           if getattr(getattr(row, "table", None), "name", None) == "audit_log")
+    audit_params = audit_statement.compile(dialect=postgresql.dialect()).params
     user = next(row for row in rows if hasattr(row, "password_hash"))
     assert contexts == [(210, "admin")]
-    assert user.tenant_id == audit.tenant_id == result.tenant_id == 210
-    assert audit.action == "user.created"
-    assert audit.details == {"role": "analyst"}
-    assert "analyst@example.test" not in str(audit.details)
-    assert "password" not in str(audit.details).lower()
+    assert user.tenant_id == audit_params["tenant_id"] == result.tenant_id == 210
+    assert audit_params["action"] == "user.created"
+    assert audit_params["details"] == {"role": "analyst"}
+    assert "analyst@example.test" not in str(audit_params["details"])
+    assert "password" not in str(audit_params["details"]).lower()

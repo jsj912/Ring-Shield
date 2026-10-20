@@ -427,3 +427,33 @@ and loop over existing `ringshield_*` roles, excluding the table owner, so the
 migration does not depend on `ringshield_auth` existing before the later role SQL.
 The downgrade conditionally removes only the API/loader grants and leaves the
 append-only revokes in effect.
+
+## Audit writes use INSERT without RETURNING
+
+The CI seed failure was caused by ORM flush semantics, not a missing INSERT grant:
+`platform/db/roles.sql` grants INSERT on `audit_log` to the loader and simulator,
+`0004_simulator_access.py` grants it to the simulator, and `0007_audit_indexes.py`
+grants it to the API and loader. The ORM path could emit `INSERT ... RETURNING`
+for generated `log_id` and server-default `at`; PostgreSQL then also requires
+SELECT privilege on the returned columns. Loader and simulator intentionally have
+no SELECT privilege on the audit table. `add_audit_event` now uses a Core table
+INSERT with no RETURNING and does not return a generated primary key. The audit
+mapping remains unchanged and matches the migration schema. `audit_log.log_id`
+is an autoincrementing sequence-backed column (`audit_log_log_id_seq`), so its
+existing sequence USAGE privilege supports inserts without table read access.
+
+| Caller | Effective DB role | Tenant context and insert policy | Audit readback in the write path |
+|---|---|---|---|
+| Contract and explanation loaders | `ringshield_loader` | `loader_db_session` sets tenant ID and role `loader`; tenant ID must match the row | None |
+| Drift monitor persistence | `ringshield_loader` | Same tenant-bound loader session | None |
+| Retrain worker | `ringshield_loader` for model-version writes; API role for supervisor run-state writes | Loader path sets tenant ID/`loader`; supervisor path sets tenant ID/`supervisor` | None |
+| Ring refresh worker | API role for supervisor start event; `ringshield_loader` for failure/contract-load writes | Both sessions carry the tenant ID; supervisor or loader policy branch must match | None |
+| Tenant seeding | API role with `admin` context | Global event has `tenant_id IS NULL` and uses the administrator insert-policy clause | None |
+| Simulated verdicts | `ringshield_simulator` | `simulator_db_session` sets tenant ID and `analyst`; simulator-specific policy requires both | None |
+| API operations, verdicts, and user creation | API role | Tenant-bound context for tenant events; administrator clause for global admin events | These write paths do not query audit rows; the separate API SELECT grant is not used by these paths |
+| Scheduler | API role | Supervisor context and tenant ID for each scheduled-run event | None |
+
+Database-free coverage compiles the audit Core INSERT with the PostgreSQL dialect
+and checks that the helper does not use `session.add`. The CI PostgreSQL test
+checks loader/simulator tenant-bound inserts, denied cross-tenant inserts, denied
+audit-table SELECT/UPDATE/DELETE, and API visibility limited to its tenant.
