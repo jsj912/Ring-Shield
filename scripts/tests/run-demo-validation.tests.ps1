@@ -45,6 +45,23 @@ foreach ($syntaxFile in $syntaxFiles) {
 }
 $passed = 1
 
+try {
+    ConvertFrom-ParquetRowCountOutput -Output @() -ExitCode 0 -Path 'empty-output.parquet' | Out-Null
+    throw 'An empty parquet row-count result was unexpectedly accepted.'
+} catch {
+    if ($_.Exception.Message -notmatch 'command returned empty output') { throw }
+    $passed++
+}
+
+try {
+    ConvertFrom-ParquetRowCountOutput -Output @('metadata read failed') -ExitCode 1 `
+        -Path 'broken.parquet' | Out-Null
+    throw 'A failed parquet row-count command was unexpectedly accepted.'
+} catch {
+    if ($_.Exception.Message -notmatch 'metadata read failed') { throw }
+    $passed++
+}
+
 $demoSource = Get-Content -LiteralPath $demoScript -Raw -Encoding UTF8 -ErrorAction Stop
 if ($demoSource -notmatch '(?m)^\s*\[switch\]\$ResetPasswords\s*,?\s*$') {
     throw 'run-demo.ps1 does not define the -ResetPasswords switch.'

@@ -150,15 +150,30 @@ function Read-DemoJson {
     }
 }
 
-function Get-ParquetRowCount {
-    param([string]$Python, [string]$Path)
-    $result = & $Python -c 'import sys, pyarrow.parquet as pq; print(pq.ParquetFile(sys.argv[1]).metadata.num_rows)' $Path
-    if ($LASTEXITCODE -ne 0) { throw "Step 'read parquet row count' failed for input: $Path" }
-    $parsed = 0
-    if (-not [int]::TryParse(($result | Out-String).Trim(), [ref]$parsed)) {
-        throw "Could not parse parquet row count for: $Path"
+function ConvertFrom-ParquetRowCountOutput {
+    param([object[]]$Output, [int]$ExitCode, [string]$Path)
+    $outputText = ($Output | ForEach-Object { "$_" }) -join [Environment]::NewLine
+    $outputText = $outputText.Trim()
+    if ($ExitCode -ne 0) {
+        if ([string]::IsNullOrWhiteSpace($outputText)) { $outputText = 'the count command returned no error text' }
+        throw "Step 'read parquet row count' failed for '$Path' (exit code $ExitCode): $outputText"
+    }
+    if ([string]::IsNullOrWhiteSpace($outputText)) {
+        throw "Step 'read parquet row count' failed for '$Path': the command returned empty output."
+    }
+    $parsed = [long]0
+    if (-not [long]::TryParse($outputText, [Globalization.NumberStyles]::None,
+            [Globalization.CultureInfo]::InvariantCulture, [ref]$parsed) -or $parsed -lt 0) {
+        throw "Step 'read parquet row count' failed for '$Path': expected one non-negative integer, got '$outputText'."
     }
     return $parsed
+}
+
+function Get-ParquetRowCount {
+    param([string]$Python, [string]$Path)
+    $output = & $Python 'platform/jobs/count_parquet_rows.py' $Path 2>&1
+    $pythonExitCode = $LASTEXITCODE
+    return ConvertFrom-ParquetRowCountOutput -Output @($output) -ExitCode $pythonExitCode -Path $Path
 }
 
 function Assert-DemoInputs {
@@ -385,7 +400,11 @@ finally:
     $pythonExitCode = $LASTEXITCODE
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
     if ($pythonExitCode -ne 0) { throw "Step 'inspect demo migration revision' failed with exit code $pythonExitCode." }
-    return ($output | Out-String).Trim()
+    $revision = ($output | Out-String).Trim()
+    if ([string]::IsNullOrWhiteSpace($revision)) {
+        throw "Step 'inspect demo migration revision' failed: Python returned empty output."
+    }
+    return $revision
 }
 
 function Invoke-PsqlFile {

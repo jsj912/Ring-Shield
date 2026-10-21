@@ -517,3 +517,5 @@ dashboard CSV export follows the API cursor to include all filtered rows.
 Demo login provisioning is handled by `platform/jobs/provision_demo_users.py`; user writes and tenant-context audit events share a transaction, and credentials are written only to the ignored credentials file without process output.
 
 `run-demo.ps1` accepts tenant IDs as strings and normalizes comma/whitespace-separated values using invariant integer parsing, rejecting malformed and duplicate IDs before preflight.
+
+The demo reads parquet row counts through `platform/jobs/count_parquet_rows.py` using the same Python interpreter as its other platform jobs. Captured count output and migration-revision output must be non-empty and valid before they are used, so command failures cannot appear as blank row counts.
