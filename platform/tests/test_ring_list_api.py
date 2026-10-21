@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 import sys
 from types import SimpleNamespace
 
@@ -12,7 +13,10 @@ PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
 
 from api.identity import Principal
+from db.models import Ring
 from api.routers import rings
+
+RING_SEARCH_MIGRATION = PLATFORM_ROOT / "db" / "migrations" / "versions" / "0008_ring_member_search.py"
 
 
 class _FakeSession:
@@ -84,6 +88,19 @@ def test_ring_search_compiles_exact_id_or_indexed_account_membership(monkeypatch
     assert "rings.tenant_id = 21" in sql
     assert "rings.ring_id = '12345'" in sql
     assert "rings.member_accounts @> CAST(ARRAY[12345] AS BIGINT[])" in sql
+
+
+def test_ring_account_search_operator_and_gin_index_match_migration():
+    """Array containment @> is supported by PostgreSQL's default array_ops GIN class."""
+    migration_source = RING_SEARCH_MIGRATION.read_text(encoding="utf-8")
+    normalized_migration = re.sub(r"\s+", " ", migration_source)
+    assert 'CREATE INDEX ix_rings_member_accounts_gin ON rings USING GIN (member_accounts)' in normalized_migration
+
+    index = next(index for index in Ring.__table__.indexes
+                 if index.name == "ix_rings_member_accounts_gin")
+    assert index.dialect_options["postgresql"]["using"] == "gin"
+    assert [column.name for column in index.expressions] == ["member_accounts"]
+    assert "array_ops" not in normalized_migration
 
 
 def test_ring_search_rejects_cross_tenant_before_opening_session(monkeypatch):
