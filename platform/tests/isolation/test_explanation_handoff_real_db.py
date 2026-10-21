@@ -20,6 +20,7 @@ sys.path.insert(0, str(PLATFORM_ROOT.parent))
 
 from jobs.load_explanations import load_explanations
 from contract.schema import RINGS_ORDER
+from db.session import db_session
 
 TENANT_ID = 210
 FX_HASH = "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6"
@@ -123,4 +124,55 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
             connection.execute(text(
                 "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": TENANT_ID, "ring_id": ring_id})
+        admin.dispose()
+
+
+def test_latest_explanation_revision_is_not_visible_across_tenants(
+        register_db_test_ids, repo_platform_config):
+    ring_id = f"same-ring-id-{uuid4().hex}"
+    register_db_test_ids(ring_id)
+    admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
+    try:
+        with admin.begin() as connection:
+            for tenant_id, version, revision in (
+                    (210, "0.4.0", 1), (210, "0.5.0-review", 1),
+                    (210, "0.5.0-review", 2), (220, "0.5.0-review", 9)):
+                connection.execute(text("""
+                    INSERT INTO rings
+                      (tenant_id, ring_id, model_id, aggregator_id, seed, scope,
+                       member_accounts, member_edges, seed_edges, expanded_edges,
+                       confidence, topology_type, topology_probs, start_time, end_time)
+                    VALUES (:tenant_id, :ring_id, 'gine_causal', 'full', 1, 'tenant',
+                            ARRAY[21]::bigint[], ARRAY[17]::bigint[], ARRAY[17]::bigint[],
+                            ARRAY[]::bigint[], 0.8, 'FAN-OUT', ARRAY[1.0]::float[], 10, 20)
+                    ON CONFLICT (tenant_id, ring_id) DO NOTHING
+                """), {"tenant_id": tenant_id, "ring_id": ring_id})
+                connection.execute(text("""
+                    INSERT INTO explanations
+                      (tenant_id, ring_id, explainer_version, revision, edge_weights,
+                       account_weights, feature_weights, narrative, evidence_summary,
+                       latency_ms, provenance, fx_rates_sha256)
+                    VALUES (:tenant_id, :ring_id, :version, :revision, '[]', '[]', '[]',
+                            'private tenant explanation', '{}', 1,
+                            jsonb_build_object('regenerated', :regenerated), NULL)
+                """), {"tenant_id": tenant_id, "ring_id": ring_id, "version": version,
+                       "revision": revision, "regenerated": revision > 1})
+        with db_session(tenant_id=210, role="analyst") as session:
+            visible = session.execute(text("""
+                SELECT explainer_version, revision FROM explanations
+                WHERE tenant_id = 210 AND ring_id = :ring_id
+                ORDER BY created_at DESC, revision DESC
+            """), {"ring_id": ring_id}).all()
+            other_tenant = session.execute(text("""
+                SELECT revision FROM explanations
+                WHERE tenant_id = 220 AND ring_id = :ring_id
+            """), {"ring_id": ring_id}).all()
+        assert visible[-1] == ("0.5.0-review", 2)
+        assert other_tenant == []
+    finally:
+        with admin.begin() as connection:
+            connection.execute(text("DELETE FROM explanations WHERE ring_id = :ring_id"),
+                               {"ring_id": ring_id})
+            connection.execute(text("DELETE FROM rings WHERE ring_id = :ring_id"),
+                               {"ring_id": ring_id})
         admin.dispose()

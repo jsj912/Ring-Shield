@@ -51,7 +51,7 @@ def get_ring_explanation(
         explanation = session.scalar(
             select(Explanation)
             .where(Explanation.tenant_id == tenant_id, Explanation.ring_id == ring_id)
-            .order_by(Explanation.created_at.desc(), Explanation.explainer_version.desc())
+            .order_by(Explanation.created_at.desc(), Explanation.revision.desc())
             .limit(1)
         )
         if explanation is None:
@@ -71,6 +71,8 @@ def get_ring_explanation(
             tenant_id=tenant_id,
             ring_id=ring_id,
             explainer_version=explanation.explainer_version,
+            revision=explanation.revision,
+            regenerated=(raw_provenance.get("regenerated") is True),
             edge_weights=explanation.edge_weights if isinstance(explanation.edge_weights, list) else [],
             account_weights=explanation.account_weights if isinstance(explanation.account_weights, list) else [],
             feature_weights=explanation.feature_weights if isinstance(explanation.feature_weights, list) else [],
