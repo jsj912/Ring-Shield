@@ -503,3 +503,13 @@ see the established read-only warning and disabled controls. Queue and detail
 forms share a session guard that blocks concurrent submissions and disables the
 same ring's actions after a successful response, preventing a repeated UI
 submission while the refreshed ring list catches up.
+
+## Tenant-wide verdict history
+
+The Section 6 `GET /tenants/{tenant_id}/verdicts` route returns tenant-filtered
+history, newest first, with date/type/analyst/simulated filters, a stable
+created-time cursor, filtered counts, and analyst IDs only. It never selects or
+returns user email. The tenant-wide order uses `ix_verdicts_tenant_created`
+(`tenant_id`, `created_at`); ring-specific history continues to use the
+`0007_audit_indexes` index on (`tenant_id`, `ring_id`, `created_at DESC`). The
+dashboard CSV export follows the API cursor to include all filtered rows.

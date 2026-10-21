@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import os
 import sys
 from datetime import datetime, time, timezone
@@ -431,6 +433,128 @@ def _model_versions(tenant_id: int) -> None:
     st.caption("Artifact paths and model files are not exposed in the investigator dashboard.")
 
 
+def _verdicts(tenant_id: int) -> None:
+    st.header("Verdicts")
+    filters = st.session_state.get("verdict_filter_values", {
+        "verdict": [], "analyst_id": None, "simulated": None,
+        "since": None, "until": None,
+    })
+    params = [("verdict", value) for value in filters["verdict"]]
+    for key in ("analyst_id", "simulated", "since", "until"):
+        value = filters.get(key)
+        if value is not None:
+            params.append((key, str(value).lower() if isinstance(value, bool) else str(value)))
+    cursors = st.session_state.setdefault("verdict_cursors", [None])
+    page = st.session_state.setdefault("verdict_page", 0)
+    if page > 0 and len(cursors) > page:
+        params.append(("cursor", cursors[page]))
+    params.append(("limit", "50"))
+    result = _api("GET", f"/tenants/{tenant_id}/verdicts", params=params)
+    if result is None:
+        return
+
+    analyst_options = {f"Analyst {item['analyst_id']}": item["analyst_id"]
+                       for item in result.get("analysts", [])}
+    labels = ["All analysts", *analyst_options]
+    default_analyst = next((label for label, value in analyst_options.items()
+                            if value == filters.get("analyst_id")), "All analysts")
+    with st.sidebar.form("verdict_filters"):
+        verdicts = st.multiselect("Verdict type", ["confirm", "reject", "partial"],
+                                  default=filters["verdict"])
+        analyst_label = st.selectbox("Analyst", labels, index=labels.index(default_analyst))
+        simulation = st.selectbox("Simulated or real", ["All", "Simulated", "Real"],
+                                  index=(0 if filters.get("simulated") is None else
+                                         1 if filters["simulated"] else 2))
+        date_range = st.date_input("Verdict date range", value=())
+        apply_filters = st.form_submit_button("Apply verdict filters")
+    if apply_filters:
+        st.session_state["verdict_filter_values"] = {
+            "verdict": verdicts,
+            "analyst_id": analyst_options.get(analyst_label),
+            "simulated": (None if simulation == "All" else simulation == "Simulated"),
+            "since": (datetime.combine(date_range[0], time.min, timezone.utc).isoformat()
+                      if len(date_range) >= 1 else None),
+            "until": (datetime.combine(date_range[-1], time.max, timezone.utc).isoformat()
+                      if len(date_range) == 2 else None),
+        }
+        st.session_state["verdict_cursors"] = [None]
+        st.session_state["verdict_page"] = 0
+        st.rerun()
+
+    counts = result["counts"]
+    st.caption(f"{result['total']} verdicts match these filters")
+    count_cols = st.columns(3)
+    count_cols[0].metric("Confirmed", counts["confirmed"])
+    count_cols[1].metric("Rejected", counts["rejected"])
+    count_cols[2].metric("Partial", counts["partial"])
+    rows = result.get("items", [])
+    st.dataframe(
+        [{"When (UTC)": item["created_at"], "Ring ID": item["ring_id"],
+          "Verdict": item["verdict"], "Analyst": item["analyst_label"],
+          "Simulated": "Simulated" if item["is_simulated"] else "Real",
+          "Note": item["note_excerpt"] or ""} for item in rows],
+        use_container_width=True, hide_index=True,
+    )
+    ring_ids = list(dict.fromkeys(item["ring_id"] for item in rows))
+    if ring_ids:
+        selected_ring = st.selectbox("Open ring from verdict history", ring_ids,
+                                     key=f"verdict_ring_{tenant_id}_{page}")
+        if st.button("Open ring", key=f"open_verdict_ring_{tenant_id}_{page}"):
+            st.session_state["open_ring"] = {"tenant_id": tenant_id, "ring_id": selected_ring}
+            st.session_state["navigate_to_ring_detail"] = True
+            st.rerun()
+
+    export_key = f"verdict_export_{tenant_id}"
+    if st.button("Prepare CSV export", key=f"prepare_verdict_csv_{tenant_id}"):
+        export_rows = []
+        export_cursor = None
+        seen_cursors = set()
+        while True:
+            export_params = [("verdict", value) for value in filters["verdict"]]
+            for key in ("analyst_id", "simulated", "since", "until"):
+                value = filters.get(key)
+                if value is not None:
+                    export_params.append((key, str(value).lower()
+                                          if isinstance(value, bool) else str(value)))
+            if export_cursor:
+                export_params.append(("cursor", export_cursor))
+            export_params.append(("limit", "100"))
+            export_page = _api("GET", f"/tenants/{tenant_id}/verdicts", params=export_params)
+            if export_page is None:
+                break
+            export_rows.extend(export_page["items"])
+            export_cursor = export_page.get("next_cursor")
+            if not export_cursor or export_cursor in seen_cursors:
+                break
+            seen_cursors.add(export_cursor)
+        output = io.StringIO(newline="")
+        fields = ("created_at", "ring_id", "verdict", "analyst_label",
+                  "is_simulated", "note_excerpt")
+        writer = csv.DictWriter(output, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows({field: item[field] for field in fields} for item in export_rows)
+        st.session_state[export_key] = output.getvalue()
+    if st.session_state.get(export_key) is not None:
+        st.download_button("Download CSV", st.session_state[export_key],
+                            file_name="verdicts.csv", mime="text/csv",
+                            key=f"download_verdict_csv_{tenant_id}")
+
+    if result.get("next_cursor"):
+        if len(cursors) <= page + 1:
+            cursors.append(result["next_cursor"])
+    nav_left, nav_right = st.columns(2)
+    with nav_left:
+        if st.button("Previous verdict page", disabled=page == 0,
+                     key=f"verdict_previous_{tenant_id}"):
+            st.session_state["verdict_page"] = max(0, page - 1)
+            st.rerun()
+    with nav_right:
+        if st.button("Next verdict page", disabled=not result.get("next_cursor"),
+                     key=f"verdict_next_{tenant_id}"):
+            st.session_state["verdict_page"] = page + 1
+            st.rerun()
+
+
 def _drift_events(tenant_id: int) -> None:
     st.header("Score drift")
     if st.session_state["role"] != "supervisor":
@@ -498,6 +622,8 @@ def _clear_session_state() -> None:
 def main() -> None:
     st.set_page_config(page_title="RingShield Investigator", layout="wide")
     st.session_state["_api_retry_keys"] = []
+    if st.session_state.pop("navigate_to_ring_detail", False):
+        st.session_state["workspace_page"] = "Investigations"
     if not st.session_state.get("token"):
         _login()
         return
@@ -512,11 +638,14 @@ def main() -> None:
     if tenant_id is None:
         return
     st.sidebar.caption(f"Viewing: {tenant_name}")
-    page = st.sidebar.radio("Workspace", ["Investigations", "Model registry", "Score drift"])
+    page = st.sidebar.radio("Workspace", ["Investigations", "Verdicts", "Model registry", "Score drift"],
+                            key="workspace_page")
     if page == "Model registry":
         _model_versions(tenant_id)
     elif page == "Score drift":
         _drift_events(tenant_id)
+    elif page == "Verdicts":
+        _verdicts(tenant_id)
     else:
         open_ring = st.session_state.get("open_ring")
         if isinstance(open_ring, dict) and open_ring.get("tenant_id") == tenant_id:

@@ -132,6 +132,21 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
             assert [item["verdict"] for item in verdicts.json()["items"]] == [
                 "confirm" if tenant_id == 210 else "reject"
             ]
+            tenant_history = client.get(
+                f"/tenants/{tenant_id}/verdicts", headers=headers,
+                params={"since": test_started_at.isoformat()},
+            )
+            assert tenant_history.status_code == 200
+            assert [(item["ring_id"], item["verdict"])
+                    for item in tenant_history.json()["items"]] == [
+                (common_ring_id, "confirm" if tenant_id == 210 else "reject")
+            ]
+
+        cross_tenant_history = client.get(
+            "/tenants/220/verdicts",
+            headers={"Authorization": f"Bearer {_token('analyst-210@test.invalid', 210)}"},
+        )
+        assert cross_tenant_history.status_code == 403
     finally:
         with admin.begin() as connection:
             connection.execute(text("""
