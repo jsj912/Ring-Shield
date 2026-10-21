@@ -51,7 +51,7 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
             row = next(row for row in source.to_pylist() if row["tenant_id"] == tenant_id)
             row["ring_id"] = common_ring_id
             row["confidence"] = confidence
-            visible_account_ids[tenant_id] = int(row["member_accounts"][0])
+            visible_account_ids[tenant_id] = int(row["members"][0])
             ring_path = tmp_path / f"tenant-{tenant_id}-rings.parquet"
             pq.write_table(pa.Table.from_pylist([row], schema=source.schema), ring_path)
             Path(str(ring_path) + ".log.json").write_text(
