@@ -320,12 +320,6 @@ function Reset-DemoCredentials {
     return $Credentials
 }
 
-function Save-DemoCredentials {
-    param([System.Collections.IDictionary]$Credentials)
-    $lines = foreach ($key in $Credentials.Keys) { "$key=$($Credentials[$key])" }
-    Set-Content -LiteralPath $script:CredentialsPath -Value $lines -Encoding UTF8 -ErrorAction Stop
-}
-
 function Get-DemoCredentialTenants {
     param([System.Collections.IDictionary]$Credentials)
     $tenantIds = [System.Collections.Generic.HashSet[int]]::new()
@@ -397,58 +391,18 @@ function Write-DemoUsers {
     $usersJson = ConvertTo-Json -InputObject @($users) -Compress
     $env:RINGSHIELD_DEMO_ADMIN_URL = $AdminUrl
     $env:RINGSHIELD_DEMO_USERS_JSON = $usersJson
+    $env:RINGSHIELD_DEMO_CREDENTIALS_JSON = ConvertTo-Json -InputObject $Credentials -Compress
+    $env:RINGSHIELD_DEMO_CREDENTIALS_PATH = $script:CredentialsPath
     $env:RINGSHIELD_DEMO_PASSWORD_RESET = if ($AuditPasswordReset) { '1' } else { '0' }
-    $code = @'
-import json, os, bcrypt
-from sqlalchemy import create_engine, text
-engine = create_engine(os.environ["RINGSHIELD_DEMO_ADMIN_URL"])
-users = json.loads(os.environ["RINGSHIELD_DEMO_USERS_JSON"])
-password_reset = os.environ.get("RINGSHIELD_DEMO_PASSWORD_RESET") == "1"
-try:
-    with engine.begin() as conn:
-        for user in users:
-            tenant = None if user["TenantId"] == "None" else int(user["TenantId"])
-            digest = bcrypt.hashpw(user["Password"].encode("utf-8"), bcrypt.gensalt()).decode("ascii")
-            params = {"tenant_id": tenant, "email": user["Email"],
-                      "password_hash": digest, "role": user["Role"]}
-            if password_reset:
-                saved_user = conn.execute(text("""
-                    INSERT INTO users (tenant_id, email, password_hash, role, disabled)
-                    VALUES (:tenant_id, :email, :password_hash, :role, false)
-                    ON CONFLICT (email) DO UPDATE SET password_hash=EXCLUDED.password_hash
-                    RETURNING user_id, tenant_id
-                """), params).mappings().one()
-                conn.execute(text("""
-                    INSERT INTO audit_log (tenant_id, user_id, actor, action, object_type, object_id, details)
-                    VALUES (:tenant_id, NULL, 'demo_bootstrap', 'user.password_reset', 'user', :object_id,
-                            CAST(:details AS jsonb))
-                """), {"tenant_id": saved_user["tenant_id"],
-                      "object_id": str(saved_user["user_id"]),
-                      "details": json.dumps({"role": user["Role"]})})
-            else:
-                conn.execute(text("""
-                    INSERT INTO users (tenant_id, email, password_hash, role, disabled)
-                    VALUES (:tenant_id, :email, :password_hash, :role, false)
-                    ON CONFLICT (email) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,
-                        password_hash=EXCLUDED.password_hash, role=EXCLUDED.role, disabled=false
-                    RETURNING user_id, tenant_id
-                """), params).mappings().one()
-                conn.execute(text("""
-                    INSERT INTO audit_log (tenant_id, user_id, actor, action, object_type, object_id, details)
-                    VALUES (:tenant_id, NULL, 'demo_bootstrap', 'user.credentials_initialized', 'user', :object_id,
-                            CAST(:details AS jsonb))
-                """), {"tenant_id": saved_user["tenant_id"],
-                      "object_id": str(saved_user["user_id"]),
-                      "details": json.dumps({"role": user["Role"]})})
-finally:
-    engine.dispose()
-'@
-    $code | & $Python -
-    $pythonExitCode = $LASTEXITCODE
-    Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
-    Remove-Item Env:RINGSHIELD_DEMO_USERS_JSON -ErrorAction SilentlyContinue
-    Remove-Item Env:RINGSHIELD_DEMO_PASSWORD_RESET -ErrorAction SilentlyContinue
-    if ($pythonExitCode -ne 0) { throw "Step 'provision demo login users' failed with exit code $pythonExitCode." }
+    try {
+        Invoke-Checked $Python @('platform/jobs/provision_demo_users.py') 'provision demo login users'
+    } finally {
+        Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
+        Remove-Item Env:RINGSHIELD_DEMO_USERS_JSON -ErrorAction SilentlyContinue
+        Remove-Item Env:RINGSHIELD_DEMO_CREDENTIALS_JSON -ErrorAction SilentlyContinue
+        Remove-Item Env:RINGSHIELD_DEMO_CREDENTIALS_PATH -ErrorAction SilentlyContinue
+        Remove-Item Env:RINGSHIELD_DEMO_PASSWORD_RESET -ErrorAction SilentlyContinue
+    }
 }
 
 function Assert-AppRoleIsRestricted {
@@ -634,7 +588,6 @@ try {
     Write-DemoUsers -Python $python -AdminUrl $urls.Admin -Credentials $credentials `
         -SelectedTenants $demoUserTenants -AuditPasswordReset:$ResetPasswords
     if ($ResetPasswords) {
-        Save-DemoCredentials $credentials
         Write-Host "Demo passwords reset. Credentials file: $script:CredentialsPath"
     }
 

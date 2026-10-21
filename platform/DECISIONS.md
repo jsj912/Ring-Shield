@@ -513,3 +513,5 @@ returns user email. The tenant-wide order uses `ix_verdicts_tenant_created`
 (`tenant_id`, `created_at`); ring-specific history continues to use the
 `0007_audit_indexes` index on (`tenant_id`, `ring_id`, `created_at DESC`). The
 dashboard CSV export follows the API cursor to include all filtered rows.
+
+Demo login provisioning is handled by `platform/jobs/provision_demo_users.py`; user writes and tenant-context audit events share a transaction, and credentials are written only to the ignored credentials file without process output.
