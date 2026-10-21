@@ -552,6 +552,7 @@ def _verdicts(tenant_id: int) -> None:
         st.download_button("Download CSV", st.session_state[export_key],
                             file_name="verdicts.csv", mime="text/csv",
                             key=f"download_verdict_csv_{tenant_id}")
+    st.caption("CSV export includes all rows matching the active filters.")
 
     if result.get("next_cursor"):
         if len(cursors) <= page + 1:

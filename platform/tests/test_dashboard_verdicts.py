@@ -206,6 +206,9 @@ def test_verdict_csv_export_requests_only_session_tenant_and_all_filtered_pages(
     next(button for button in app.button if button.label == "Apply verdict filters").click().run(timeout=10)
     next(button for button in app.button if button.label == "Prepare CSV export").click().run(timeout=10)
 
+    assert "CSV export includes all rows matching the active filters." in [
+        caption.value for caption in app.caption
+    ]
     export_csv = exports[-1][1]
     assert "Tenant 210 page one" in export_csv and "Tenant 210 page two" in export_csv
     assert "tenant-220" not in export_csv
