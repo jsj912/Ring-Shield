@@ -494,3 +494,12 @@ FR-D16 search matches an exact ring ID or an exact account ID in
 PostgreSQL array containment predicate. The API applies the search within the
 same explicit tenant and tenant-scope predicates as the ordinary queue, and
 includes the search value in its cursor fingerprint.
+
+## Verdict action safeguards
+
+Queue Confirm/Reject actions require an explicit second confirmation and use the
+existing verdict endpoint. They are shown only for open rings; administrators
+see the established read-only warning and disabled controls. Queue and detail
+forms share a session guard that blocks concurrent submissions and disables the
+same ring's actions after a successful response, preventing a repeated UI
+submission while the refreshed ring list catches up.

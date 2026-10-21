@@ -180,6 +180,55 @@ def _queue(tenant_id: int) -> None:
           "Status": row["status"]} for row in rows],
         use_container_width=True, hide_index=True,
     )
+    role = st.session_state["role"]
+    if role == "admin":
+        st.warning("Administrators cannot record verdicts.")
+    for row in rows:
+        if row["status"] != "open":
+            continue
+        action_left, action_mid, action_right = st.columns([4, 1, 1])
+        action_left.write(f"Ring {row['ring_id']}")
+        submitted_key = f"verdict_submitted_{tenant_id}_{row['ring_id']}"
+        in_flight = bool(st.session_state.get("verdict_in_flight"))
+        if role == "admin":
+            action_mid.button("Confirm", key=f"queue_confirm_{tenant_id}_{row['ring_id']}", disabled=True)
+            action_right.button("Reject", key=f"queue_reject_{tenant_id}_{row['ring_id']}", disabled=True)
+            continue
+        if action_mid.button("Confirm", key=f"queue_confirm_{tenant_id}_{row['ring_id']}",
+                             disabled=in_flight or st.session_state.get(submitted_key, False)):
+            st.session_state["pending_quick_verdict"] = {
+                "tenant_id": tenant_id, "ring_id": row["ring_id"], "verdict": "confirm",
+            }
+            st.rerun()
+        if action_right.button("Reject", key=f"queue_reject_{tenant_id}_{row['ring_id']}",
+                               disabled=in_flight or st.session_state.get(submitted_key, False)):
+            st.session_state["pending_quick_verdict"] = {
+                "tenant_id": tenant_id, "ring_id": row["ring_id"], "verdict": "reject",
+            }
+            st.rerun()
+        pending = st.session_state.get("pending_quick_verdict")
+        if pending == {"tenant_id": tenant_id, "ring_id": row["ring_id"], "verdict": "confirm"}:
+            st.warning(f"Confirm ring {row['ring_id']}?")
+            confirm_col, cancel_col = st.columns(2)
+            if confirm_col.button("Confirm verdict", key=f"queue_confirm_verdict_{tenant_id}_{row['ring_id']}",
+                                  disabled=in_flight):
+                if _record_verdict(tenant_id, row["ring_id"], "confirm"):
+                    st.success("Verdict recorded")
+                    st.rerun()
+            if cancel_col.button("Cancel confirmation", key=f"queue_cancel_verdict_{tenant_id}_{row['ring_id']}"):
+                st.session_state.pop("pending_quick_verdict", None)
+                st.rerun()
+        elif pending == {"tenant_id": tenant_id, "ring_id": row["ring_id"], "verdict": "reject"}:
+            st.warning(f"Reject ring {row['ring_id']}?")
+            confirm_col, cancel_col = st.columns(2)
+            if confirm_col.button("Reject verdict", key=f"queue_reject_verdict_{tenant_id}_{row['ring_id']}",
+                                  disabled=in_flight):
+                if _record_verdict(tenant_id, row["ring_id"], "reject"):
+                    st.success("Verdict recorded")
+                    st.rerun()
+            if cancel_col.button("Cancel confirmation", key=f"queue_cancel_reject_{tenant_id}_{row['ring_id']}"):
+                st.session_state.pop("pending_quick_verdict", None)
+                st.rerun()
     if result.get("next_cursor"):
         if len(cursors) <= page + 1:
             cursors.append(result["next_cursor"])
@@ -299,21 +348,42 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
         return
     st.subheader("Record a verdict")
     note = st.text_input("Note (optional for confirm or reject)", key=f"note_{tenant_id}_{ring_id}")
+    if ring["status"] != "open":
+        st.info("This ring is no longer open for verdicts.")
+        return
+    submitted_key = f"verdict_submitted_{tenant_id}_{ring_id}"
+    disabled = bool(st.session_state.get("verdict_in_flight")) or st.session_state.get(submitted_key, False)
     left, right = st.columns(2)
-    if left.button("Confirm ring", type="primary"):
-        result = _api("POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
-                      body={"verdict": "confirm", "note": note})
+    if left.button("Confirm ring", type="primary", key=f"detail_confirm_{tenant_id}_{ring_id}", disabled=disabled):
+        result = _record_verdict(tenant_id, ring_id, "confirm", note)
         if result:
             st.success("Verdict recorded")
             st.rerun()
-    if right.button("Reject ring"):
-        result = _api("POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
-                      body={"verdict": "reject", "note": note})
+    if right.button("Reject ring", key=f"detail_reject_{tenant_id}_{ring_id}", disabled=disabled):
+        result = _record_verdict(tenant_id, ring_id, "reject", note)
         if result:
             st.success("Verdict recorded")
             st.rerun()
     st.button("Partially correct", disabled=True,
               help="Partial correction requires the L4 regeneration interface.")
+
+
+def _record_verdict(tenant_id: int, ring_id: str, verdict: str, note: str | None = None):
+    submitted_key = f"verdict_submitted_{tenant_id}_{ring_id}"
+    if st.session_state.get("verdict_in_flight") or st.session_state.get(submitted_key):
+        return None
+    st.session_state["verdict_in_flight"] = True
+    try:
+        result = _api(
+            "POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
+            body={"verdict": verdict, "note": note},
+        )
+        if result:
+            st.session_state[submitted_key] = True
+            st.session_state.pop("pending_quick_verdict", None)
+        return result
+    finally:
+        st.session_state["verdict_in_flight"] = False
 
 
 def _model_versions(tenant_id: int) -> None:
