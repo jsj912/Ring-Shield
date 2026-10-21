@@ -31,10 +31,9 @@ def _csv_safe_text(value):
 
 def _api(method: str, path: str, *, body: dict | None = None, params=None,
          quiet_not_found: bool = False):
-    api_calls = st.session_state.setdefault("_api_retry_keys", [])
-    call_number = len(api_calls)
-    api_calls.append((method, path))
-    retry_key = f"retry_{method}_{path}_{call_number}"
+    call_number = st.session_state.get("_api_call_counter", 0)
+    st.session_state["_api_call_counter"] = call_number + 1
+    retry_key = f"retry_{call_number}_{method}_{path}"
     headers = {}
     if st.session_state.get("token"):
         headers["Authorization"] = f"Bearer {st.session_state['token']}"
@@ -636,7 +635,7 @@ def _clear_session_state() -> None:
 
 def main() -> None:
     st.set_page_config(page_title="RingShield Investigator", layout="wide")
-    st.session_state["_api_retry_keys"] = []
+    st.session_state["_api_call_counter"] = 0
     if st.session_state.pop("navigate_to_ring_detail", False):
         st.session_state["workspace_page"] = "Investigations"
     if not st.session_state.get("token"):

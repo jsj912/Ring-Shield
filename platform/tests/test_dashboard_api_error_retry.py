@@ -110,4 +110,6 @@ def test_ring_detail_can_render_two_api_failures_with_distinct_retry_controls(mo
     messages = [item.value for item in app.error]
     assert "Evidence unavailable (request id evidence-req)" in messages
     assert "Explanation unavailable (request id explanation-req)" in messages
-    assert sum(button.label == "Retry" for button in app.button) == 2
+    retry_buttons = [button for button in app.button if button.label == "Retry"]
+    assert len(retry_buttons) == 2
+    assert len({button.key for button in retry_buttons}) == 2
