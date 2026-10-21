@@ -22,6 +22,13 @@ from contract.schema import TOPOLOGY_TYPES  # noqa: E402
 API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip("/")
 
 
+def _csv_safe_text(value):
+    """Prefix spreadsheet formula markers in text cells; preserve other values."""
+    if isinstance(value, str) and value and value[0] in "=+-@\t\r":
+        return "'" + value
+    return value
+
+
 def _api(method: str, path: str, *, body: dict | None = None, params=None,
          quiet_not_found: bool = False):
     api_calls = st.session_state.setdefault("_api_retry_keys", [])
@@ -533,9 +540,13 @@ def _verdicts(tenant_id: int) -> None:
         output = io.StringIO(newline="")
         fields = ("created_at", "ring_id", "verdict", "analyst_label",
                   "is_simulated", "note_excerpt")
+        text_fields = {"ring_id", "verdict", "analyst_label", "note_excerpt"}
         writer = csv.DictWriter(output, fieldnames=fields)
         writer.writeheader()
-        writer.writerows({field: item[field] for field in fields} for item in export_rows)
+        writer.writerows({
+            field: (_csv_safe_text(item[field]) if field in text_fields else item[field])
+            for field in fields
+        } for item in export_rows)
         st.session_state[export_key] = output.getvalue()
     if st.session_state.get(export_key) is not None:
         st.download_button("Download CSV", st.session_state[export_key],
