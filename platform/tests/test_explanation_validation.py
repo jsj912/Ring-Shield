@@ -57,6 +57,8 @@ def test_regenerated_row_parses_json_strings_and_matches_tenant_provenance():
         ("provenance", {"fx_rates_sha256": "b" * 64}, "fx_rates_sha256"),
         ("provenance", {"regenerated": False}, "regenerated"),
         ("provenance", {"excluded_members": [8]}, "excluded_members"),
+        ("provenance", {"excluded_members": [3.5, 2]}, "excluded_members"),
+        ("provenance", {"excluded_edges": [True, 9]}, "excluded_edges"),
         ("provenance", {"excluded_edges": [10]}, "excluded_edges"),
         ("provenance", {"rings_schema_version": 2}, "rings_schema_version"),
         ("row", {"narrative": " "}, "narrative"),

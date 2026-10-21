@@ -519,3 +519,10 @@ Demo login provisioning is handled by `platform/jobs/provision_demo_users.py`; u
 `run-demo.ps1` accepts tenant IDs as strings and normalizes comma/whitespace-separated values using invariant integer parsing, rejecting malformed and duplicate IDs before preflight.
 
 The demo reads parquet row counts through `platform/jobs/count_parquet_rows.py` using the same Python interpreter as its other platform jobs. Captured count output and migration-revision output must be non-empty and valid before they are used, so command failures cannot appear as blank row counts.
+
+## Explanation regeneration data layer and worker
+
+- Migration `0009_explanation_revisions_jobs` adds `explanations.revision` with a constant default of 1 and a `created_at` timestamp, changes the explanation key to include revision, and creates a forced-RLS `explanation_jobs` table. The API may select/insert jobs; the loader may select/update jobs; no role may delete them. The migration uses guarded grants because CI provisions some roles after migration.
+- The latest explanation is selected by `created_at DESC`, then `revision DESC` within the same stored time. Version names are not compared lexically. The response adds `revision` and `regenerated` from provenance.
+- `jobs.regenerate_worker` uses only the loader database role, claims queued jobs with `FOR UPDATE SKIP LOCKED`, validates the L4 result with the shared tenant explanation checks, stores the next revision in one statement, and writes success/failure audit events. It does not write verdict, ring, user, tenant, or audit rows beyond the append-only event helper. To meet explicit tenant predicates before reading a job, the worker entry ID is `<tenant_id>.<uuidhex>`; Part B must create jobs using this ID convention.
+- Mapping corrected members from a partial verdict to `excluded_members` and `excluded_edges` is Part B work and remains pending. `l4.regenerate_url` defaults to null, `l4.regenerate_timeout_seconds` defaults to 120, and `RINGSHIELD_XAI_TOKEN` is read only by the adapter. The fake-server demo is Part C work. No PostgreSQL or Docker test was run locally; CI must verify the real-table worker tests.

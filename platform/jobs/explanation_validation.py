@@ -35,7 +35,10 @@ def validate_tenant_provenance(
 ) -> None:
     if provenance.get("scope") != "tenant":
         raise ExplanationValidationError("row provenance scope must be tenant")
-    if provenance.get("tenant_id") != int(tenant_id):
+    provenance_tenant_id = provenance.get("tenant_id")
+    if (not isinstance(provenance_tenant_id, int)
+            or isinstance(provenance_tenant_id, bool)
+            or provenance_tenant_id != int(tenant_id)):
         raise ExplanationValidationError("row tenant_id does not match L4 log tenant")
     if provenance.get("feature_scope") != "tenant_view":
         raise ExplanationValidationError("row feature_scope must be tenant_view")
@@ -53,11 +56,11 @@ def validate_tenant_provenance(
         for field, expected in (("excluded_members", excluded_members),
                                 ("excluded_edges", excluded_edges)):
             actual = provenance.get(field)
-            try:
-                matches = isinstance(actual, list) and sorted(set(map(int, actual))) == sorted(
-                    set(map(int, expected or [])))
-            except (TypeError, ValueError, OverflowError):
-                matches = False
+            matches = (
+                isinstance(actual, list)
+                and all(isinstance(value, int) and not isinstance(value, bool) for value in actual)
+                and sorted(set(actual)) == sorted(set(expected or []))
+            )
             if not matches:
                 raise ExplanationValidationError(f"row provenance {field} does not match job")
 
@@ -71,7 +74,8 @@ def normalize_regenerated_row(raw: dict[str, Any], *, tenant_id: int, ring_id: s
     if not isinstance(raw, dict):
         raise ExplanationValidationError("L4 result row must be an object")
     row_tenant = raw.get("tenant_id")
-    if isinstance(row_tenant, bool) or row_tenant != tenant_id:
+    if (not isinstance(row_tenant, int) or isinstance(row_tenant, bool)
+            or row_tenant != tenant_id):
         raise ExplanationValidationError("row tenant_id does not match job tenant")
     if raw.get("ring_id") != ring_id:
         raise ExplanationValidationError("row ring_id does not match job")
@@ -98,12 +102,11 @@ def normalize_regenerated_row(raw: dict[str, Any], *, tenant_id: int, ring_id: s
     narrative = raw.get("narrative")
     if not isinstance(narrative, str) or not narrative.strip():
         raise ExplanationValidationError("L4 narrative is missing")
-    try:
-        latency = int(raw.get("latency_ms"))
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise ExplanationValidationError("L4 latency is invalid") from exc
-    if latency < 0:
+    latency_value = raw.get("latency_ms")
+    if (not isinstance(latency_value, int) or isinstance(latency_value, bool)
+            or latency_value < 0):
         raise ExplanationValidationError("L4 latency is invalid")
+    latency = latency_value
     normalized = {
         "tenant_id": tenant_id,
         "ring_id": ring_id,
@@ -120,4 +123,12 @@ def normalize_regenerated_row(raw: dict[str, Any], *, tenant_id: int, ring_id: s
     if not all(isinstance(normalized[name], list)
                for name in ("edge_weights", "account_weights", "feature_weights")):
         raise ExplanationValidationError("L4 weight columns must be arrays")
+    for field, id_key in (("edge_weights", "edge_id"), ("account_weights", "account_id")):
+        for item in normalized[field]:
+            if (not isinstance(item, dict) or not isinstance(item.get(id_key), int)
+                    or isinstance(item.get(id_key), bool)):
+                raise ExplanationValidationError(f"L4 {field} contains an invalid identifier")
+    for item in normalized["feature_weights"]:
+        if not isinstance(item, dict):
+            raise ExplanationValidationError("L4 feature_weights contains an invalid entry")
     return normalized

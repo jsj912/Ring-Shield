@@ -58,3 +58,18 @@ def test_boundary_scanner_detects_forbidden_import_and_truth_path(tmp_path):
 
     assert any("forbidden research import torch" in failure for failure in failures)
     assert any("ground-truth file access" in failure for failure in failures)
+
+
+def test_worker_has_no_api_imports_and_api_does_not_reach_worker_or_xai():
+    worker = (PLATFORM_ROOT / "jobs" / "regenerate_worker.py").read_text(encoding="utf-8")
+    assert "api." not in worker
+    api_root = PLATFORM_ROOT / "api"
+    forbidden_api_secrets = {
+        "RINGSHIELD_XAI_TOKEN", "RINGSHIELD_LOADER_DATABASE_URL",
+    }
+    for path in api_root.rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        for secret in forbidden_api_secrets:
+            assert secret not in source
+        assert "jobs.regenerate_worker" not in source
+        assert "adapters.xai" not in source
