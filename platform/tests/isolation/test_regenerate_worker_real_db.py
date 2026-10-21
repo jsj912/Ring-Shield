@@ -180,6 +180,8 @@ def test_locked_queued_job_is_skipped_by_second_worker(register_db_test_ids):
                 VALUES (:job_id, :tenant_id, :ring_id, :verdict_id, :requested_by)
             """), {"job_id": job_id, "tenant_id": TENANT_A, "ring_id": ring_id,
                   "verdict_id": int(uuid4().hex[:12], 16), "requested_by": requested_by})
+
+        with admin.begin() as connection:
             connection.execute(text("""
                 SELECT job_id FROM explanation_jobs
                 WHERE tenant_id = :tenant_id AND job_id = :job_id FOR UPDATE
