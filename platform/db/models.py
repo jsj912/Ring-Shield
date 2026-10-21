@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    PrimaryKeyConstraint,
     String,
     Text,
     UniqueConstraint,
@@ -181,8 +182,10 @@ class ExplanationJob(Base):
               postgresql_where=text("status = 'queued'")),
         Index("ix_explanation_jobs_tenant_ring", "tenant_id", "ring_id"),
         ForeignKeyConstraint(["tenant_id", "ring_id"], ["rings.tenant_id", "rings.ring_id"],
-                             ondelete="CASCADE"),
-        ForeignKeyConstraint(["tenant_id", "requested_by"], ["users.tenant_id", "users.user_id"]),
+                             name="fk_explanation_jobs_tenant_ring", ondelete="CASCADE"),
+        ForeignKeyConstraint(["tenant_id", "requested_by"], ["users.tenant_id", "users.user_id"],
+                             name="fk_explanation_jobs_tenant_user"),
+        PrimaryKeyConstraint("job_id", name="pk_explanation_jobs"),
     )
 
     job_id: Mapped[str] = mapped_column(String(64), primary_key=True)

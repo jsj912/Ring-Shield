@@ -40,9 +40,11 @@ def upgrade() -> None:
                            name="ck_explanation_jobs_status"),
         sa.UniqueConstraint("tenant_id", "verdict_id", name="uq_explanation_jobs_tenant_verdict"),
         sa.ForeignKeyConstraint(["tenant_id", "ring_id"], ["rings.tenant_id", "rings.ring_id"],
-                                ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["tenant_id", "requested_by"], ["users.tenant_id", "user_id"]),
-        sa.PrimaryKeyConstraint("job_id"),
+                                name="fk_explanation_jobs_tenant_ring", ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["tenant_id", "requested_by"],
+                                ["users.tenant_id", "users.user_id"],
+                                name="fk_explanation_jobs_tenant_user"),
+        sa.PrimaryKeyConstraint("job_id", name="pk_explanation_jobs"),
     )
     op.create_index("ix_explanation_jobs_status_created", "explanation_jobs",
                     ["status", "created_at"], postgresql_where=sa.text("status = 'queued'"))
@@ -89,7 +91,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS explanation_jobs")
-    op.drop_constraint("explanations_pkey", "explanations", type_="primary")
-    op.drop_column("explanations", "revision")
+    op.execute("ALTER TABLE explanations DROP CONSTRAINT IF EXISTS explanations_pkey")
+    op.execute("ALTER TABLE explanations DROP COLUMN IF EXISTS revision")
     op.create_primary_key("explanations_pkey", "explanations",
                           ["tenant_id", "ring_id", "explainer_version"])
