@@ -159,6 +159,8 @@ class Explanation(Base):
     tenant_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     ring_id: Mapped[str] = mapped_column(String(180), primary_key=True)
     explainer_version: Mapped[str] = mapped_column(String(80), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False, server_default="1")
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False, server_default="1")
     edge_weights: Mapped[list | dict] = mapped_column(JSONB, nullable=False)
     account_weights: Mapped[list | dict] = mapped_column(JSONB, nullable=False)
     feature_weights: Mapped[list | dict] = mapped_column(JSONB, nullable=False)
@@ -168,6 +170,70 @@ class Explanation(Base):
     provenance: Mapped[dict] = mapped_column(JSONB, nullable=False)
     fx_rates_sha256: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ExplanationJob(Base):
+    __tablename__ = "explanation_jobs"
+    __table_args__ = (
+        CheckConstraint("status IN ('queued', 'running', 'succeeded', 'failed')",
+                        name="ck_explanation_jobs_status"),
+        UniqueConstraint("tenant_id", "verdict_id", name="uq_explanation_jobs_tenant_verdict"),
+        Index("ix_explanation_jobs_status_created", "status", "created_at",
+              postgresql_where=text("status = 'queued'")),
+        Index("ix_explanation_jobs_tenant_ring", "tenant_id", "ring_id"),
+        ForeignKeyConstraint(["tenant_id", "ring_id"], ["rings.tenant_id", "rings.ring_id"],
+                             ondelete="CASCADE"),
+        ForeignKeyConstraint(["tenant_id", "requested_by"], ["users.tenant_id", "users.user_id"]),
+    )
+
+    job_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    ring_id: Mapped[str] = mapped_column(String(180), nullable=False)
+    verdict_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    requested_by: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    excluded_members: Mapped[list[int]] = mapped_column(
+        ARRAY(BigInteger), nullable=False, server_default=text("'{}'::bigint[]"))
+    excluded_edges: Mapped[list[int]] = mapped_column(
+        ARRAY(BigInteger), nullable=False, server_default=text("'{}'::bigint[]"))
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="queued")
+    error: Mapped[str | None] = mapped_column(Text)
+    result_revision: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now())
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ExplanationJob(Base):
+    __tablename__ = "explanation_jobs"
+    __table_args__ = (
+        CheckConstraint("status IN ('queued', 'running', 'succeeded', 'failed')",
+                        name="ck_explanation_jobs_status"),
+        UniqueConstraint("tenant_id", "verdict_id", name="uq_explanation_jobs_tenant_verdict"),
+        Index("ix_explanation_jobs_status_created", "status", "created_at",
+              postgresql_where=text("status = 'queued'")),
+        Index("ix_explanation_jobs_tenant_ring", "tenant_id", "ring_id"),
+        ForeignKeyConstraint(["tenant_id", "ring_id"], ["rings.tenant_id", "rings.ring_id"],
+                             ondelete="CASCADE"),
+        ForeignKeyConstraint(["tenant_id", "requested_by"], ["users.tenant_id", "users.user_id"]),
+    )
+
+    job_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    ring_id: Mapped[str] = mapped_column(String(180), nullable=False)
+    verdict_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    requested_by: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    excluded_members: Mapped[list[int]] = mapped_column(
+        ARRAY(BigInteger), nullable=False, server_default=text("'{}'"))
+    excluded_edges: Mapped[list[int]] = mapped_column(
+        ARRAY(BigInteger), nullable=False, server_default=text("'{}'"))
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="queued")
+    error: Mapped[str | None] = mapped_column(Text)
+    result_revision: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now())
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Verdict(Base):
