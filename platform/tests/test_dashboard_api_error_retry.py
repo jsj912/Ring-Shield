@@ -89,7 +89,7 @@ def test_ring_detail_can_render_two_api_failures_with_distinct_retry_controls(mo
             "ring_id": "ring-1", "topology_type": "CYCLE", "n_members": 2,
             "n_edges": 1, "status": "open", "total_amount": 10.0,
             "total_currency": "USD", "n_currencies": 1, "start_time": "t0",
-            "end_time": "t1", "confidence": 0.9, "cross_bank": False,
+            "end_time": "t1", "window_text": "over 1 h", "confidence": 0.9, "cross_bank": False,
             "counterparty_banks": [], "conservation_closure": 0.1,
             "model_id": "model", "aggregator_id": "aggregator",
             "member_accounts": [1, 2], "member_edges": [7],

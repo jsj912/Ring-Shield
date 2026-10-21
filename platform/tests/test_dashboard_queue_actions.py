@@ -87,7 +87,11 @@ def test_queue_verdict_requires_confirmation_and_only_submits_once(monkeypatch):
 
     assert posts == [("http://127.0.0.1:8000/tenants/210/rings/ring-a/verdicts",
                       {"verdict": "confirm", "note": None})]
-    assert any(button.key == "queue_confirm_210_ring-a" and button.disabled for button in app.button)
+    disabled_button = next(button for button in app.button
+                           if button.key == "queue_confirm_210_ring-a")
+    assert disabled_button.disabled
+    disabled_button.click().run(timeout=10)
+    assert len(posts) == 1
 
 
 def test_queue_hides_actions_for_closed_rings_and_disables_admin_actions(monkeypatch):

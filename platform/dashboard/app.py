@@ -192,7 +192,7 @@ def _queue(tenant_id: int) -> None:
         action_left.write(f"Ring {row['ring_id']}")
         submitted_key = f"verdict_submitted_{tenant_id}_{row['ring_id']}"
         in_flight = bool(st.session_state.get("verdict_in_flight"))
-        if role == "admin":
+        if role not in {"analyst", "supervisor"}:
             action_mid.button("Confirm", key=f"queue_confirm_{tenant_id}_{row['ring_id']}", disabled=True)
             action_right.button("Reject", key=f"queue_reject_{tenant_id}_{row['ring_id']}", disabled=True)
             continue
@@ -345,8 +345,11 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
             if history.get("next_before_id"):
                 st.caption("More history is available through the API using next_before_id.")
 
-    if st.session_state["role"] == "admin":
-        st.warning("Administrators cannot record verdicts.")
+    if st.session_state["role"] not in {"analyst", "supervisor"}:
+        if st.session_state["role"] == "admin":
+            st.warning("Administrators cannot record verdicts.")
+        else:
+            st.warning("Read-only: your role cannot record verdicts.")
         return
     st.subheader("Record a verdict")
     note = st.text_input("Note (optional for confirm or reject)", key=f"note_{tenant_id}_{ring_id}")

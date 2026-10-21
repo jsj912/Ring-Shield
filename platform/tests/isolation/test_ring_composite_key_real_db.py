@@ -42,6 +42,7 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
     fixture_dir = Path(os.environ["RINGSHIELD_TEST_FIXTURE_DIR"])
     source = pq.read_table(fixture_dir / "rings.parquet")
     common_ring_id = f"shared-demo-model-7-{uuid4().hex[:8]}"
+    visible_account_ids = {}
     register_db_test_ids(common_ring_id)
     test_started_at = datetime.now(timezone.utc)
     admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
@@ -50,6 +51,7 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
             row = next(row for row in source.to_pylist() if row["tenant_id"] == tenant_id)
             row["ring_id"] = common_ring_id
             row["confidence"] = confidence
+            visible_account_ids[tenant_id] = int(row["member_accounts"][0])
             ring_path = tmp_path / f"tenant-{tenant_id}-rings.parquet"
             pq.write_table(pa.Table.from_pylist([row], schema=source.schema), ring_path)
             Path(str(ring_path) + ".log.json").write_text(
@@ -116,6 +118,15 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
             assert searched.status_code == 200
             assert [(item["tenant_id"], item["ring_id"])
                     for item in searched.json()["items"]] == [(tenant_id, common_ring_id)]
+            searched_account = client.get(
+                f"/tenants/{tenant_id}/rings", headers=headers,
+                params={"status": "open", "q": str(visible_account_ids[tenant_id])},
+            )
+            assert searched_account.status_code == 200
+            assert all(item["tenant_id"] == tenant_id
+                       for item in searched_account.json()["items"])
+            assert any(item["ring_id"] == common_ring_id
+                       for item in searched_account.json()["items"])
             explanation = client.get(
                 f"/tenants/{tenant_id}/rings/{common_ring_id}/explanation",
                 headers=headers,
@@ -147,6 +158,12 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
             headers={"Authorization": f"Bearer {_token('analyst-210@test.invalid', 210)}"},
         )
         assert cross_tenant_history.status_code == 403
+        cross_tenant_search = client.get(
+            "/tenants/220/rings",
+            headers={"Authorization": f"Bearer {_token('analyst-210@test.invalid', 210)}"},
+            params={"q": common_ring_id},
+        )
+        assert cross_tenant_search.status_code == 403
     finally:
         with admin.begin() as connection:
             connection.execute(text("""
