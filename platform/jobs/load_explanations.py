@@ -383,9 +383,11 @@ def load_explanations(parquet_path: Path, log_path: Path, rings_log_path: Path) 
                    for item in row["feature_weights"]):
                 raise ExplanationLoadError(f"{row['ring_id']}: feature weight references a nonmember edge")
             values = {key: value for key, value in row.items() if not key.startswith("_")}
+            values["revision"] = 1
             stmt = insert(Explanation).values(values)
             result = session.execute(stmt.on_conflict_do_update(
-                index_elements=[Explanation.tenant_id, Explanation.ring_id, Explanation.explainer_version],
+                index_elements=[Explanation.tenant_id, Explanation.ring_id,
+                                Explanation.explainer_version, Explanation.revision],
                 set_={key: getattr(stmt.excluded, key) for key in (
                     "edge_weights", "account_weights", "feature_weights", "narrative",
                     "evidence_summary", "latency_ms", "provenance",

@@ -94,15 +94,21 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
 
         result = load_explanations(explanation_path, explanation_log_path, rings_log_path)
         assert result == {"explanations_loaded": 1, "rows_validated": 1}
+        second_result = load_explanations(explanation_path, explanation_log_path, rings_log_path)
+        assert second_result == {"explanations_loaded": 1, "rows_validated": 1}
         with admin.connect() as connection:
             stored = connection.execute(text("""
                 SELECT provenance->>'feature_scope', provenance->>'fx_rates_sha256',
-                       fx_rates_sha256
+                       fx_rates_sha256, revision,
+                       (SELECT count(*) FROM explanations AS same_version
+                        WHERE same_version.tenant_id = explanations.tenant_id
+                          AND same_version.ring_id = explanations.ring_id
+                          AND same_version.explainer_version = explanations.explainer_version)
                 FROM explanations
                 WHERE tenant_id = :tenant_id AND ring_id = :ring_id
                   AND explainer_version = '0.4.0-narrative'
             """), {"tenant_id": TENANT_ID, "ring_id": ring_id}).one()
-        assert tuple(stored) == ("tenant_view", FX_HASH, FX_HASH)
+        assert tuple(stored) == ("tenant_view", FX_HASH, FX_HASH, 1, 1)
     finally:
         with admin.begin() as connection:
             connection.execute(text("""
