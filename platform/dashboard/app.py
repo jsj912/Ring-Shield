@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import itertools
 import os
 import sys
 from datetime import datetime, time, timezone
@@ -20,19 +21,19 @@ sys.path.insert(0, str(REPO_ROOT))
 from contract.schema import TOPOLOGY_TYPES  # noqa: E402
 
 API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip("/")
+_API_CALL_COUNTER = itertools.count()
 
 
 def _csv_safe_text(value):
     """Prefix spreadsheet formula markers in text cells; preserve other values."""
     if isinstance(value, str) and value and value[0] in "=+-@\t\r":
-        return "'" + value
+        return f"'{value}"
     return value
 
 
 def _api(method: str, path: str, *, body: dict | None = None, params=None,
          quiet_not_found: bool = False):
-    call_number = st.session_state.get("_api_call_counter", 0)
-    st.session_state["_api_call_counter"] = call_number + 1
+    call_number = next(_API_CALL_COUNTER)
     retry_key = f"retry_{call_number}_{method}_{path}"
     headers = {}
     if st.session_state.get("token"):
@@ -634,8 +635,9 @@ def _clear_session_state() -> None:
 
 
 def main() -> None:
+    global _API_CALL_COUNTER
     st.set_page_config(page_title="RingShield Investigator", layout="wide")
-    st.session_state["_api_call_counter"] = 0
+    _API_CALL_COUNTER = itertools.count()
     if st.session_state.pop("navigate_to_ring_detail", False):
         st.session_state["workspace_page"] = "Investigations"
     if not st.session_state.get("token"):
