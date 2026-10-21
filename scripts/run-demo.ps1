@@ -9,7 +9,7 @@
 #>
 [CmdletBinding()]
 param(
-    [int[]]$Tenants = @(12, 20),
+    [string[]]$Tenants = @('12', '20'),
     [string]$TimeOriginUtc,
     [string]$RingsDir,
     [string]$EdgeIdsDir,
@@ -55,6 +55,39 @@ function Assert-TimeOriginUtc {
     if ($Value -notmatch $isoInstant -or -not $validDate) {
         throw "Invalid -TimeOriginUtc '$Value'. Supply an ISO-8601 instant with a UTC offset or Z. It means $definition"
     }
+}
+
+function ConvertTo-DemoTenantIds {
+    param([string[]]$TenantValues)
+    $tenantIds = [System.Collections.Generic.List[int]]::new()
+    $seenTenantIds = [System.Collections.Generic.HashSet[int]]::new()
+    foreach ($tenantValue in $TenantValues) {
+        if ($null -eq $tenantValue) { continue }
+        foreach ($tenantToken in ($tenantValue -split '[,\s]+')) {
+            if ([string]::IsNullOrEmpty($tenantToken)) { continue }
+            if ($tenantToken -notmatch '^\d+$') {
+                throw "Invalid -Tenants token '$tenantToken': expected digits only."
+            }
+            try {
+                $tenantId = [int]::Parse(
+                    $tenantToken,
+                    [Globalization.NumberStyles]::None,
+                    [Globalization.CultureInfo]::InvariantCulture
+                )
+            } catch {
+                throw "Invalid -Tenants token '$tenantToken': value is outside the supported integer range."
+            }
+            if ($tenantId -le 0) {
+                throw "Invalid -Tenants token '$tenantToken': bank IDs must be positive."
+            }
+            if (-not $seenTenantIds.Add($tenantId)) {
+                throw "Duplicate -Tenants token '$tenantToken'."
+            }
+            $tenantIds.Add($tenantId)
+        }
+    }
+    if ($tenantIds.Count -eq 0) { throw 'Select at least one bank with -Tenants.' }
+    return ,$tenantIds.ToArray()
 }
 
 function Get-PlatformConfigPath {
@@ -486,6 +519,7 @@ finally:
 }
 
 if ($DefinitionsOnly) { return }
+$Tenants = ConvertTo-DemoTenantIds -TenantValues $Tenants
 if ($ResetPasswords -and $Down) { throw '-ResetPasswords cannot be combined with -Down.' }
 if ($ResetPasswords -and $ValidateOnly) { throw '-ResetPasswords cannot be combined with -ValidateOnly.' }
 if ($Down -and $ValidateOnly) { throw '-Down and -ValidateOnly cannot be combined.' }
