@@ -484,14 +484,17 @@ function Write-DemoCounts {
           [hashtable]$ExpectedEdges, [hashtable]$InputEdgeCounts,
           [hashtable]$InputRingCounts, [hashtable]$InputExplanationCounts)
     $env:RINGSHIELD_DEMO_ADMIN_URL = $AdminUrl
+    $edgeByTenant = @{}; foreach ($key in @($InputEdgeCounts.Keys)) { $edgeByTenant[[string]$key] = $InputEdgeCounts[$key] }
+    $ringByTenant = @{}; foreach ($key in @($InputRingCounts.Keys)) { $ringByTenant[[string]$key] = $InputRingCounts[$key] }
+    $explanationByTenant = @{}; foreach ($key in @($InputExplanationCounts.Keys)) { $explanationByTenant[[string]$key] = $InputExplanationCounts[$key] }
     $env:RINGSHIELD_DEMO_TENANTS = ($SelectedTenants -join ',')
     $expectedRows = @{}
     foreach ($tenantId in $SelectedTenants) {
         $expectedRows[[string]$tenantId] = @{
-            transactions = $InputEdgeCounts[$tenantId]
-            edge_scores = $InputEdgeCounts[$tenantId]
-            rings = $InputRingCounts[$tenantId]
-            explanations = $InputExplanationCounts[$tenantId]
+            transactions = $edgeByTenant[[string]$tenantId]
+            edge_scores = $edgeByTenant[[string]$tenantId]
+            rings = $ringByTenant[[string]$tenantId]
+            explanations = $explanationByTenant[[string]$tenantId]
         }
     }
     $env:RINGSHIELD_DEMO_EXPECTED_ROWS = ConvertTo-Json -InputObject $expectedRows -Compress
@@ -528,11 +531,11 @@ finally:
     if ($pythonExitCode -ne 0) { throw "Step 'query demo row counts' failed with exit code $pythonExitCode." }
     foreach ($tenantId in $SelectedTenants) {
         $expected = $ExpectedEdges[[string]$tenantId]
-        if ($null -ne $expected -and $InputEdgeCounts[$tenantId] -ne $expected) {
-            throw "Tenant $tenantId edge-ID file has $($InputEdgeCounts[$tenantId]) rows; expected $expected."
+        if ($null -ne $expected -and $edgeByTenant[[string]$tenantId] -ne $expected) {
+            throw "Tenant $tenantId edge-ID file has $($edgeByTenant[[string]$tenantId]) rows; expected $expected."
         }
-        if ($InputRingCounts[$tenantId] -ne 5) {
-            throw "Tenant $tenantId ring parquet has $($InputRingCounts[$tenantId]) rows; expected 5."
+        if ($ringByTenant[[string]$tenantId] -ne 5) {
+            throw "Tenant $tenantId ring parquet has $($ringByTenant[[string]$tenantId]) rows; expected 5."
         }
     }
 }
