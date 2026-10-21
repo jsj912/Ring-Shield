@@ -45,6 +45,23 @@ foreach ($syntaxFile in $syntaxFiles) {
 }
 $passed = 1
 
+try {
+    ConvertFrom-ParquetRowCountOutput -Output @() -ExitCode 0 -Path 'empty-output.parquet' | Out-Null
+    throw 'An empty parquet row-count result was unexpectedly accepted.'
+} catch {
+    if ($_.Exception.Message -notmatch 'command returned empty output') { throw }
+    $passed++
+}
+
+try {
+    ConvertFrom-ParquetRowCountOutput -Output @('metadata read failed') -ExitCode 1 `
+        -Path 'broken.parquet' | Out-Null
+    throw 'A failed parquet row-count command was unexpectedly accepted.'
+} catch {
+    if ($_.Exception.Message -notmatch 'metadata read failed') { throw }
+    $passed++
+}
+
 $demoSource = Get-Content -LiteralPath $demoScript -Raw -Encoding UTF8 -ErrorAction Stop
 if ($demoSource -notmatch '(?m)^\s*\[switch\]\$ResetPasswords\s*,?\s*$') {
     throw 'run-demo.ps1 does not define the -ResetPasswords switch.'
@@ -111,6 +128,32 @@ try {
     $valid = Assert-DemoInputs -SelectedTenants @(12, 20) -RingFolder $rings `
         -EdgeFolder $edges -ScoreFile $scores -ExplanationFolder $explanations
     if ($valid.Inputs.Count -ne 7) { throw 'Valid input set returned an unexpected file count.' }
+
+    $powerShellExe = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $fileModeOutput = & $powerShellExe -NoProfile -File $demoScript -Tenants '12,20' `
+        -ValidateOnly -TimeOriginUtc '2022-08-31T23:59:50Z' -RingsDir $rings `
+        -EdgeIdsDir $edges -ScoredEdges $scores -ExplanationsDir $explanations 2>&1
+    $fileModeText = $fileModeOutput | Out-String
+    if ($LASTEXITCODE -ne 0) { throw "powershell.exe -File rejected -Tenants 12,20: $fileModeText" }
+    if ($fileModeText -notmatch 'tenant 12 rings' -or $fileModeText -notmatch 'tenant 20 rings' -or
+        $fileModeText -match 'tenant 1220') {
+        throw "powershell.exe -File did not normalize tenants 12 and 20 independently: $fileModeText"
+    }
+    $passed++
+
+    foreach ($invalidTenantInput in @(
+        [pscustomobject]@{ Value = '12,nope'; Error = "Invalid -Tenants token 'nope'" },
+        [pscustomobject]@{ Value = '12,12'; Error = "Duplicate -Tenants token '12'" }
+    )) {
+        $invalidOutput = & $powerShellExe -NoProfile -File $demoScript `
+            -Tenants $invalidTenantInput.Value -ValidateOnly 2>&1
+        $invalidText = $invalidOutput | Out-String
+        if ($LASTEXITCODE -eq 0 -or $invalidText -notmatch [regex]::Escape($invalidTenantInput.Error)) {
+            throw "powershell.exe -File did not reject tenant input '$($invalidTenantInput.Value)' clearly: $invalidText"
+        }
+        $passed++
+    }
+
     & $demoScript -ValidateOnly -Tenants @(12, 20) -TimeOriginUtc '2022-08-31T23:59:50Z' -RingsDir $rings `
         -EdgeIdsDir $edges -ScoredEdges $scores -ExplanationsDir $explanations | Out-Null
     $passed++

@@ -300,7 +300,7 @@ and the audit log does not use a pseudo-tenant for global work.
 
 The initial API slice includes login, admin tenant/user setup, tenant ring list/detail,
 paginated ring evidence, confirm/reject verdicts, paginated per-ring verdict history,
-read-only model registry and drift history, request IDs, common error responses, and
+tenant-wide verdict history, read-only model registry and drift history, request IDs, common error responses, and
 a database health check. Evidence contains
 member account IDs, bank codes, and transaction fields; it does not return account
 numbers. The dashboard renders the evidence subgraph and the latest verdict history on
@@ -313,6 +313,15 @@ each ring detail page. The evidence endpoint is
 and tenant-scoped. Model responses omit artifact paths. Drift events never trigger
 retraining. Partial verdicts remain unavailable until the L4 regeneration interface is
 wired.
+
+The ring queue distinguishes a tenant with no generated rings from filters with no
+matches, displays API-provided window text (such as `over 6 h`), and supports exact
+ring-ID or account-ID search. Account membership search uses the GIN index added by
+migration 0008. The dashboard's Verdicts page links to ring detail, filters by verdict,
+analyst, date range, and simulated/real status, shows counts supplied by the API, and
+can export all matching rows to CSV. The tenant-wide history endpoint is
+`GET /tenants/{tenant_id}/verdicts`; analyst labels use IDs so email addresses are not
+exposed.
 
 Load a verified L4 explanation batch after loading its rings:
 

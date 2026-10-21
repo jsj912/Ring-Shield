@@ -9,7 +9,7 @@ behavior. Deferred endpoints are listed only; they are not implemented here.
 | Spec path | Method | Status | Implementation / note |
 |---|---|---|---|
 | `/auth/login` | POST | Present | `platform/api/routers/auth.py::login` |
-| `/tenants/{t}/rings?status=&min_conf=&type=&sort=` | GET | Differs | `platform/api/routers/rings.py::list_rings`; cursor pagination exists, but the `type` filter is named `topology_type` in the API. Page size is capped at 100, within the documented maximum of 200. |
+| `/tenants/{t}/rings?status=&min_conf=&type=&sort=&q=` | GET | Differs | `platform/api/routers/rings.py::list_rings`; cursor pagination and `q` search exist, but the `type` filter is named `topology_type` in the API. The response includes filtered `total` and unfiltered `tenant_total`. Page size is capped at 100, within the documented maximum of 200. |
 | `/tenants/{t}/rings/{r}` | GET | Present | `platform/api/routers/rings.py::get_ring` |
 | `/tenants/{t}/rings/{r}/subgraph` | GET | Differs | Related graph data is returned by `/tenants/{tenant_id}/rings/{ring_id}/evidence`; no dedicated `subgraph` route (`platform/api/routers/rings.py`) |
 | `/tenants/{t}/rings/{r}/explanation` | GET | Differs | Present at `platform/api/routers/rings.py::get_ring_explanation`, but serves previously loaded L4 output rather than calling L4 on request |
@@ -17,7 +17,7 @@ behavior. Deferred endpoints are listed only; they are not implemented here.
 | `/tenants/{t}/rings/{r}/evidence/accounts` | GET | Differs | Related combined `/evidence` route returns account and graph data (`platform/api/routers/rings.py`) |
 | `/tenants/{t}/rings/{r}/explanation/regenerate` | POST | Missing | Deferred; no route in `platform/api` |
 | `/tenants/{t}/rings/{r}/verdicts` | POST | Present | `platform/api/routers/verdicts.py::submit_verdict`; partial corrections remain refused pending regeneration |
-| `/tenants/{t}/verdicts?since=` | GET | Differs | Current history route is ring-scoped at `/tenants/{tenant_id}/rings/{ring_id}/verdicts` (`platform/api/routers/verdicts.py`) |
+| `/tenants/{t}/verdicts?since=` | GET | Present | Tenant-wide filtered history is implemented by `platform/api/routers/verdicts.py::list_tenant_verdicts` |
 | `/tenants/{t}/models` | GET | Present | `platform/api/routers/operations.py::list_model_versions` |
 | `/tenants/{t}/retrain` | POST | Present | `platform/api/routers/operations.py::start_retrain` |
 | `/tenants/{t}/retrain/{run_id}` | GET | Present | `platform/api/routers/operations.py::get_retrain_status` |
@@ -29,3 +29,5 @@ behavior. Deferred endpoints are listed only; they are not implemented here.
 
 This report is route parity documentation, not a claim that all Section 6 acceptance
 criteria (including pagination limits, L4 invocation, or deferred regeneration) pass.
+
+Migration 0008 adds the GIN index used by tenant ring account-id search.

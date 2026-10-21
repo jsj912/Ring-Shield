@@ -29,7 +29,7 @@ def _ring_payload():
         "ring_id": "ring-1", "topology_type": "CYCLE", "n_members": 2, "n_edges": 1,
         "status": "open", "total_amount": 125.0, "total_currency": "USD",
         "n_currencies": 1, "start_time": "2026-01-01T00:00:00Z",
-        "end_time": "2026-01-01T00:01:00Z", "confidence": 0.9,
+        "end_time": "2026-01-01T00:01:00Z", "window_text": "over 1 min", "confidence": 0.9,
         "cross_bank": False, "counterparty_banks": [], "conservation_closure": 0.2,
         "model_id": "gine_causal", "aggregator_id": "aggregator-v1",
         "member_accounts": [1, 2], "member_edges": [10],
@@ -53,8 +53,12 @@ def _evidence_payload():
     }
 
 
-def _detail_app(monkeypatch, role, history, tmp_path):
-    def request(_method, url, **_kwargs):
+def _detail_app(monkeypatch, role, history, tmp_path, calls=None):
+    def request(method, url, **_kwargs):
+        if calls is not None:
+            calls.append((method, url))
+        if method == "POST":
+            return FakeResponse({"verdict_id": 1})
         if url.endswith("/evidence"):
             return FakeResponse(_evidence_payload())
         if url.endswith("/explanation"):
@@ -108,3 +112,14 @@ def test_admin_sees_read_only_verdict_warning_without_form(monkeypatch, tmp_path
     assert "Record a verdict" not in [item.value for item in app.subheader]
     assert all(button.label not in {"Confirm ring", "Reject ring", "Partially correct"}
                for button in app.button)
+
+
+def test_ring_detail_disables_verdict_after_one_successful_request(monkeypatch, tmp_path):
+    calls = []
+    app = _detail_app(monkeypatch, "analyst", [], tmp_path, calls=calls).run()
+    next(button for button in app.button if button.label == "Confirm ring").click().run(timeout=10)
+
+    assert [call for call in calls if call[0] == "POST"] == [
+        ("POST", "http://127.0.0.1:8000/tenants/210/rings/ring-1/verdicts")
+    ]
+    assert next(button for button in app.button if button.label == "Confirm ring").disabled

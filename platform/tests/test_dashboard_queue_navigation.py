@@ -31,19 +31,20 @@ def _ring(ring_id="ring-1"):
         "ring_id": ring_id, "topology_type": "CYCLE", "topology_prob": 0.9,
         "n_members": 3, "n_edges": 3, "total_amount": 1200.0,
         "total_currency": "USD", "start_time": "2026-01-01T00:00:00Z",
-        "end_time": "2026-01-01T01:00:00Z", "confidence": 0.8,
+        "end_time": "2026-01-01T01:00:00Z", "window_text": "over 1 h", "confidence": 0.8,
         "cross_bank": True, "status": "open",
     }
 
 
-def _queue_payload(cursor=None):
-    return {"total": 73, "items": [_ring()], "next_cursor": cursor}
+def _queue_payload(cursor=None, *, items=None, total=73, tenant_total=73):
+    return {"total": total, "tenant_total": tenant_total,
+            "items": [_ring()] if items is None else items, "next_cursor": cursor}
 
 
-def _api_response(url, params):
+def _api_response(url, params, queue_result=None):
     if url.endswith("/rings"):
         cursor = dict(params or ()).get("cursor")
-        return FakeResponse(_queue_payload("cursor-next" if cursor is None else None))
+        return FakeResponse(queue_result or _queue_payload("cursor-next" if cursor is None else None))
     if url.endswith("/explanation"):
         response = FakeResponse({})
         response.status_code = 404
@@ -60,10 +61,10 @@ def _api_response(url, params):
     })
 
 
-def _signed_in_app(monkeypatch, calls):
+def _signed_in_app(monkeypatch, calls, queue_result=None):
     def request(_method, url, **kwargs):
         calls.append((url, kwargs.get("params")))
-        return _api_response(url, kwargs.get("params"))
+        return _api_response(url, kwargs.get("params"), queue_result)
 
     monkeypatch.setattr(httpx, "request", request)
     app = AppTest.from_file(str(APP_FILE))
@@ -76,7 +77,7 @@ def _signed_in_app(monkeypatch, calls):
 
 def test_queue_filters_sort_page_size_total_and_cursor_are_sent(monkeypatch):
     calls = []
-    app = _signed_in_app(monkeypatch, calls).run()
+    app = _signed_in_app(monkeypatch, calls).run(timeout=10)
     app.multiselect[0].set_value(["open", "confirmed"])
     app.multiselect[1].set_value(["CYCLE"])
     app.slider[0].set_value(0.4)
@@ -84,7 +85,7 @@ def test_queue_filters_sort_page_size_total_and_cursor_are_sent(monkeypatch):
     next(box for box in app.selectbox if box.label == "Sort by").select("total_amount")
     next(box for box in app.selectbox if box.label == "Order").select("asc")
     app.date_input[0].set_value((date(2026, 1, 1), date(2026, 1, 3)))
-    next(button for button in app.button if button.label == "Apply filters").click().run()
+    next(button for button in app.button if button.label == "Apply filters").click().run(timeout=10)
 
     params = dict(calls[-1][1])
     assert params["status"] == "confirmed"
@@ -98,8 +99,10 @@ def test_queue_filters_sort_page_size_total_and_cursor_are_sent(monkeypatch):
     assert params["start_before"].startswith("2026-01-03T23:59:59")
     assert params["limit"] == "50"
     assert "73 rings match these filters" in [item.value for item in app.caption]
+    assert "Window" in app.dataframe[0].value.columns
+    assert "over 1 h" in app.dataframe[0].value.iloc[0]["Window"]
 
-    next(button for button in app.button if button.label == "Next page").click().run()
+    next(button for button in app.button if button.label == "Next page").click().run(timeout=10)
     assert dict(calls[-1][1])["cursor"] == "cursor-next"
     assert dict(calls[-1][1])["limit"] == "50"
 
@@ -114,17 +117,17 @@ def test_opening_and_returning_to_ring_keeps_filter_and_page_state(monkeypatch):
     }
     app.session_state["ring_cursors"] = [None, "cursor-page-2"]
     app.session_state["ring_page"] = 1
-    app.run()
+    app.run(timeout=10)
     queue_params = dict(calls[-1][1])
     assert queue_params["cursor"] == "cursor-page-2"
     assert queue_params["status"] == "confirmed"
 
     app.session_state["open_ring"] = {"tenant_id": 210, "ring_id": "ring-1"}
-    app.run()
+    app.run(timeout=10)
     assert "Ring ring-1" in [item.value for item in app.header]
 
     app.session_state["open_ring"] = None
-    app.run()
+    app.run(timeout=10)
     assert "Ring queue" in [item.value for item in app.header]
     returned_params = dict(calls[-1][1])
     assert returned_params["cursor"] == "cursor-page-2"
@@ -132,3 +135,30 @@ def test_opening_and_returning_to_ring_keeps_filter_and_page_state(monkeypatch):
     assert returned_params["topology_type"] == "CYCLE"
     assert returned_params["sort"] == "members"
     assert returned_params["order"] == "asc"
+
+
+def test_queue_distinguishes_no_tenant_rings_from_no_filter_matches(monkeypatch):
+    unfiltered_empty = _signed_in_app(
+        monkeypatch, [], {"total": 0, "tenant_total": 0, "items": [], "next_cursor": None}
+    ).run(timeout=10)
+    assert "No rings have been generated for this tenant yet" in [item.value for item in unfiltered_empty.info]
+
+    filtered_empty = _signed_in_app(
+        monkeypatch, [], {"total": 0, "tenant_total": 4, "items": [], "next_cursor": None}
+    ).run(timeout=10)
+    assert "No rings match these filters" in [item.value for item in filtered_empty.info]
+
+
+def test_queue_renders_api_window_text():
+    row = _ring()
+    assert row["window_text"] == "over 1 h"
+
+
+def test_queue_search_sends_exact_search_parameter(monkeypatch):
+    calls = []
+    app = _signed_in_app(monkeypatch, calls).run(timeout=10)
+    next(field for field in app.text_input if field.label == "Search ring ID or account ID").set_value("acct-44")
+    next(button for button in app.button if button.label == "Apply filters").click().run(timeout=10)
+
+    ring_call = [call for call in calls if call[0].endswith("/rings")][-1]
+    assert dict(ring_call[1])["q"] == "acct-44"

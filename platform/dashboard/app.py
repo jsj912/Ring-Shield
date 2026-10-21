@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+import io
+import itertools
 import os
 import sys
 from datetime import datetime, time, timezone
@@ -18,14 +21,20 @@ sys.path.insert(0, str(REPO_ROOT))
 from contract.schema import TOPOLOGY_TYPES  # noqa: E402
 
 API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip("/")
+_API_CALL_COUNTER = itertools.count()
+
+
+def _csv_safe_text(value):
+    """Prefix spreadsheet formula markers in text cells; preserve other values."""
+    if isinstance(value, str) and value and value[0] in "=+-@\t\r":
+        return f"'{value}"
+    return value
 
 
 def _api(method: str, path: str, *, body: dict | None = None, params=None,
          quiet_not_found: bool = False):
-    api_calls = st.session_state.setdefault("_api_retry_keys", [])
-    call_number = len(api_calls)
-    api_calls.append((method, path))
-    retry_key = f"retry_{method}_{path}_{call_number}"
+    call_number = next(_API_CALL_COUNTER)
+    retry_key = f"retry_{call_number}_{method}_{path}"
     headers = {}
     if st.session_state.get("token"):
         headers["Authorization"] = f"Bearer {st.session_state['token']}"
@@ -124,6 +133,7 @@ def _queue(tenant_id: int) -> None:
         statuses = st.multiselect("Status", ["open", "confirmed", "rejected", "partial"],
                                   default=["open"])
         topology = st.multiselect("Topology", TOPOLOGY_TYPES)
+        search = st.text_input("Search ring ID or account ID", value="")
         minimum = st.slider("Minimum confidence", min_value=0.0, max_value=1.0,
                             value=0.0, step=0.01)
         cross_bank = st.checkbox("Cross-bank only")
@@ -135,6 +145,7 @@ def _queue(tenant_id: int) -> None:
     if apply_filters or "ring_filter_values" not in st.session_state:
         st.session_state["ring_filter_values"] = {
             "status": statuses or ["open"], "topology_type": topology,
+            "q": search.strip() or None,
             "min_conf": minimum, "cross_bank_only": cross_bank,
             "sort": sort, "order": order,
             "start_after": (datetime.combine(start_range[0], time.min, timezone.utc).isoformat()
@@ -148,7 +159,7 @@ def _queue(tenant_id: int) -> None:
     filters = st.session_state.get("ring_filter_values", {"status": ["open"]})
     params = [("status", value) for value in filters.get("status", ["open"])]
     params.extend(("topology_type", value) for value in filters.get("topology_type", []))
-    for key in ("min_conf", "cross_bank_only", "sort", "order", "start_after", "start_before"):
+    for key in ("min_conf", "cross_bank_only", "sort", "order", "start_after", "start_before", "q"):
         value = filters.get(key)
         if value is not None:
             params.append((key, str(value).lower() if isinstance(value, bool) else str(value)))
@@ -163,18 +174,70 @@ def _queue(tenant_id: int) -> None:
     st.caption(f"{result['total']} rings match these filters")
     rows = result.get("items", [])
     if not rows:
-        st.info("No rings match these filters, or no rings have been loaded for this tenant.")
+        if result.get("tenant_total", 0) == 0:
+            st.info("No rings have been generated for this tenant yet")
+        else:
+            st.info("No rings match these filters")
         return
     st.dataframe(
         [{"Ring ID": row["ring_id"], "Type": f"{row['topology_type']} ({row['topology_prob']:.0%})",
           "Members": row["n_members"], "Edges": row["n_edges"],
           "Total": (f"{row['total_amount']:,.2f} {row['total_currency']}"
                     if row["total_amount"] is not None else "—"),
-          "Start": row["start_time"], "End": row["end_time"],
+          "Window": f"{row['start_time']} → {row['end_time']} ({row['window_text']})",
           "Confidence": row["confidence"], "Cross-bank": row["cross_bank"],
           "Status": row["status"]} for row in rows],
         use_container_width=True, hide_index=True,
     )
+    role = st.session_state["role"]
+    if role == "admin":
+        st.warning("Administrators cannot record verdicts.")
+    for row in rows:
+        if row["status"] != "open":
+            continue
+        action_left, action_mid, action_right = st.columns([4, 1, 1])
+        action_left.write(f"Ring {row['ring_id']}")
+        submitted_key = f"verdict_submitted_{tenant_id}_{row['ring_id']}"
+        in_flight = bool(st.session_state.get("verdict_in_flight"))
+        if role not in {"analyst", "supervisor"}:
+            action_mid.button("Confirm", key=f"queue_confirm_{tenant_id}_{row['ring_id']}", disabled=True)
+            action_right.button("Reject", key=f"queue_reject_{tenant_id}_{row['ring_id']}", disabled=True)
+            continue
+        if action_mid.button("Confirm", key=f"queue_confirm_{tenant_id}_{row['ring_id']}",
+                             disabled=in_flight or st.session_state.get(submitted_key, False)):
+            st.session_state["pending_quick_verdict"] = {
+                "tenant_id": tenant_id, "ring_id": row["ring_id"], "verdict": "confirm",
+            }
+            st.rerun()
+        if action_right.button("Reject", key=f"queue_reject_{tenant_id}_{row['ring_id']}",
+                               disabled=in_flight or st.session_state.get(submitted_key, False)):
+            st.session_state["pending_quick_verdict"] = {
+                "tenant_id": tenant_id, "ring_id": row["ring_id"], "verdict": "reject",
+            }
+            st.rerun()
+        pending = st.session_state.get("pending_quick_verdict")
+        if pending == {"tenant_id": tenant_id, "ring_id": row["ring_id"], "verdict": "confirm"}:
+            st.warning(f"Confirm ring {row['ring_id']}?")
+            confirm_col, cancel_col = st.columns(2)
+            if confirm_col.button("Confirm verdict", key=f"queue_confirm_verdict_{tenant_id}_{row['ring_id']}",
+                                  disabled=in_flight):
+                if _record_verdict(tenant_id, row["ring_id"], "confirm"):
+                    st.success("Verdict recorded")
+                    st.rerun()
+            if cancel_col.button("Cancel confirmation", key=f"queue_cancel_verdict_{tenant_id}_{row['ring_id']}"):
+                st.session_state.pop("pending_quick_verdict", None)
+                st.rerun()
+        elif pending == {"tenant_id": tenant_id, "ring_id": row["ring_id"], "verdict": "reject"}:
+            st.warning(f"Reject ring {row['ring_id']}?")
+            confirm_col, cancel_col = st.columns(2)
+            if confirm_col.button("Reject verdict", key=f"queue_reject_verdict_{tenant_id}_{row['ring_id']}",
+                                  disabled=in_flight):
+                if _record_verdict(tenant_id, row["ring_id"], "reject"):
+                    st.success("Verdict recorded")
+                    st.rerun()
+            if cancel_col.button("Cancel confirmation", key=f"queue_cancel_reject_{tenant_id}_{row['ring_id']}"):
+                st.session_state.pop("pending_quick_verdict", None)
+                st.rerun()
     if result.get("next_cursor"):
         if len(cursors) <= page + 1:
             cursors.append(result["next_cursor"])
@@ -203,7 +266,7 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
     if ring is None:
         return
     st.header(f"Ring {ring['ring_id']}")
-    st.caption(f"{ring['topology_type']} · {ring['n_members']} members · {ring['n_edges']} edges · {ring['status']}")
+    st.caption(f"{ring['topology_type']} · {ring['n_members']} members · {ring['n_edges']} edges · {ring['window_text']} · {ring['status']}")
     st.write({key: ring[key] for key in (
         "total_amount", "total_currency", "n_currencies", "start_time", "end_time",
         "confidence", "cross_bank", "counterparty_banks", "conservation_closure",
@@ -289,26 +352,50 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
             if history.get("next_before_id"):
                 st.caption("More history is available through the API using next_before_id.")
 
-    if st.session_state["role"] == "admin":
-        st.warning("Administrators cannot record verdicts.")
+    if st.session_state["role"] not in {"analyst", "supervisor"}:
+        if st.session_state["role"] == "admin":
+            st.warning("Administrators cannot record verdicts.")
+        else:
+            st.warning("Read-only: your role cannot record verdicts.")
         return
     st.subheader("Record a verdict")
     note = st.text_input("Note (optional for confirm or reject)", key=f"note_{tenant_id}_{ring_id}")
+    if ring["status"] != "open":
+        st.info("This ring is no longer open for verdicts.")
+        return
+    submitted_key = f"verdict_submitted_{tenant_id}_{ring_id}"
+    disabled = bool(st.session_state.get("verdict_in_flight")) or st.session_state.get(submitted_key, False)
     left, right = st.columns(2)
-    if left.button("Confirm ring", type="primary"):
-        result = _api("POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
-                      body={"verdict": "confirm", "note": note})
+    if left.button("Confirm ring", type="primary", key=f"detail_confirm_{tenant_id}_{ring_id}", disabled=disabled):
+        result = _record_verdict(tenant_id, ring_id, "confirm", note)
         if result:
             st.success("Verdict recorded")
             st.rerun()
-    if right.button("Reject ring"):
-        result = _api("POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
-                      body={"verdict": "reject", "note": note})
+    if right.button("Reject ring", key=f"detail_reject_{tenant_id}_{ring_id}", disabled=disabled):
+        result = _record_verdict(tenant_id, ring_id, "reject", note)
         if result:
             st.success("Verdict recorded")
             st.rerun()
     st.button("Partially correct", disabled=True,
               help="Partial correction requires the L4 regeneration interface.")
+
+
+def _record_verdict(tenant_id: int, ring_id: str, verdict: str, note: str | None = None):
+    submitted_key = f"verdict_submitted_{tenant_id}_{ring_id}"
+    if st.session_state.get("verdict_in_flight") or st.session_state.get(submitted_key):
+        return None
+    st.session_state["verdict_in_flight"] = True
+    try:
+        result = _api(
+            "POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
+            body={"verdict": verdict, "note": note},
+        )
+        if result:
+            st.session_state[submitted_key] = True
+            st.session_state.pop("pending_quick_verdict", None)
+        return result
+    finally:
+        st.session_state["verdict_in_flight"] = False
 
 
 def _model_versions(tenant_id: int) -> None:
@@ -354,6 +441,133 @@ def _model_versions(tenant_id: int) -> None:
     if result.get("next_before_id") is not None:
         st.caption("More versions are available through the API cursor.")
     st.caption("Artifact paths and model files are not exposed in the investigator dashboard.")
+
+
+def _verdicts(tenant_id: int) -> None:
+    st.header("Verdicts")
+    filters = st.session_state.get("verdict_filter_values", {
+        "verdict": [], "analyst_id": None, "simulated": None,
+        "since": None, "until": None,
+    })
+    params = [("verdict", value) for value in filters["verdict"]]
+    for key in ("analyst_id", "simulated", "since", "until"):
+        value = filters.get(key)
+        if value is not None:
+            params.append((key, str(value).lower() if isinstance(value, bool) else str(value)))
+    cursors = st.session_state.setdefault("verdict_cursors", [None])
+    page = st.session_state.setdefault("verdict_page", 0)
+    if page > 0 and len(cursors) > page:
+        params.append(("cursor", cursors[page]))
+    params.append(("limit", "50"))
+    result = _api("GET", f"/tenants/{tenant_id}/verdicts", params=params)
+    if result is None:
+        return
+
+    analyst_options = {f"Analyst {item['analyst_id']}": item["analyst_id"]
+                       for item in result.get("analysts", [])}
+    labels = ["All analysts", *analyst_options]
+    default_analyst = next((label for label, value in analyst_options.items()
+                            if value == filters.get("analyst_id")), "All analysts")
+    with st.sidebar.form("verdict_filters"):
+        verdicts = st.multiselect("Verdict type", ["confirm", "reject", "partial"],
+                                  default=filters["verdict"])
+        analyst_label = st.selectbox("Analyst", labels, index=labels.index(default_analyst))
+        simulation = st.selectbox("Simulated or real", ["All", "Simulated", "Real"],
+                                  index=(0 if filters.get("simulated") is None else
+                                         1 if filters["simulated"] else 2))
+        date_range = st.date_input("Verdict date range", value=())
+        apply_filters = st.form_submit_button("Apply verdict filters")
+    if apply_filters:
+        st.session_state["verdict_filter_values"] = {
+            "verdict": verdicts,
+            "analyst_id": analyst_options.get(analyst_label),
+            "simulated": (None if simulation == "All" else simulation == "Simulated"),
+            "since": (datetime.combine(date_range[0], time.min, timezone.utc).isoformat()
+                      if len(date_range) >= 1 else None),
+            "until": (datetime.combine(date_range[-1], time.max, timezone.utc).isoformat()
+                      if len(date_range) == 2 else None),
+        }
+        st.session_state["verdict_cursors"] = [None]
+        st.session_state["verdict_page"] = 0
+        st.rerun()
+
+    counts = result["counts"]
+    st.caption(f"{result['total']} verdicts match these filters")
+    count_cols = st.columns(3)
+    count_cols[0].metric("Confirmed", counts["confirmed"])
+    count_cols[1].metric("Rejected", counts["rejected"])
+    count_cols[2].metric("Partial", counts["partial"])
+    rows = result.get("items", [])
+    st.dataframe(
+        [{"When (UTC)": item["created_at"], "Ring ID": item["ring_id"],
+          "Verdict": item["verdict"], "Analyst": item["analyst_label"],
+          "Simulated": "Simulated" if item["is_simulated"] else "Real",
+          "Note": item["note_excerpt"] or ""} for item in rows],
+        use_container_width=True, hide_index=True,
+    )
+    ring_ids = list(dict.fromkeys(item["ring_id"] for item in rows))
+    if ring_ids:
+        selected_ring = st.selectbox("Open ring from verdict history", ring_ids,
+                                     key=f"verdict_ring_{tenant_id}_{page}")
+        if st.button("Open ring", key=f"open_verdict_ring_{tenant_id}_{page}"):
+            st.session_state["open_ring"] = {"tenant_id": tenant_id, "ring_id": selected_ring}
+            st.session_state["navigate_to_ring_detail"] = True
+            st.rerun()
+
+    export_key = f"verdict_export_{tenant_id}"
+    if st.button("Prepare CSV export", key=f"prepare_verdict_csv_{tenant_id}"):
+        export_rows = []
+        export_cursor = None
+        seen_cursors = set()
+        while True:
+            export_params = [("verdict", value) for value in filters["verdict"]]
+            for key in ("analyst_id", "simulated", "since", "until"):
+                value = filters.get(key)
+                if value is not None:
+                    export_params.append((key, str(value).lower()
+                                          if isinstance(value, bool) else str(value)))
+            if export_cursor:
+                export_params.append(("cursor", export_cursor))
+            export_params.append(("limit", "100"))
+            export_page = _api("GET", f"/tenants/{tenant_id}/verdicts", params=export_params)
+            if export_page is None:
+                break
+            export_rows.extend(export_page["items"])
+            export_cursor = export_page.get("next_cursor")
+            if not export_cursor or export_cursor in seen_cursors:
+                break
+            seen_cursors.add(export_cursor)
+        output = io.StringIO(newline="")
+        fields = ("created_at", "ring_id", "verdict", "analyst_label",
+                  "is_simulated", "note_excerpt")
+        text_fields = {"ring_id", "verdict", "analyst_label", "note_excerpt"}
+        writer = csv.DictWriter(output, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows({
+            field: (_csv_safe_text(item[field]) if field in text_fields else item[field])
+            for field in fields
+        } for item in export_rows)
+        st.session_state[export_key] = output.getvalue()
+    if st.session_state.get(export_key) is not None:
+        st.download_button("Download CSV", st.session_state[export_key],
+                            file_name="verdicts.csv", mime="text/csv",
+                            key=f"download_verdict_csv_{tenant_id}")
+    st.caption("CSV export includes all rows matching the active filters.")
+
+    if result.get("next_cursor"):
+        if len(cursors) <= page + 1:
+            cursors.append(result["next_cursor"])
+    nav_left, nav_right = st.columns(2)
+    with nav_left:
+        if st.button("Previous verdict page", disabled=page == 0,
+                     key=f"verdict_previous_{tenant_id}"):
+            st.session_state["verdict_page"] = max(0, page - 1)
+            st.rerun()
+    with nav_right:
+        if st.button("Next verdict page", disabled=not result.get("next_cursor"),
+                     key=f"verdict_next_{tenant_id}"):
+            st.session_state["verdict_page"] = page + 1
+            st.rerun()
 
 
 def _drift_events(tenant_id: int) -> None:
@@ -421,8 +635,11 @@ def _clear_session_state() -> None:
 
 
 def main() -> None:
+    global _API_CALL_COUNTER
     st.set_page_config(page_title="RingShield Investigator", layout="wide")
-    st.session_state["_api_retry_keys"] = []
+    _API_CALL_COUNTER = itertools.count()
+    if st.session_state.pop("navigate_to_ring_detail", False):
+        st.session_state["workspace_page"] = "Investigations"
     if not st.session_state.get("token"):
         _login()
         return
@@ -437,11 +654,14 @@ def main() -> None:
     if tenant_id is None:
         return
     st.sidebar.caption(f"Viewing: {tenant_name}")
-    page = st.sidebar.radio("Workspace", ["Investigations", "Model registry", "Score drift"])
+    page = st.sidebar.radio("Workspace", ["Investigations", "Verdicts", "Model registry", "Score drift"],
+                            key="workspace_page")
     if page == "Model registry":
         _model_versions(tenant_id)
     elif page == "Score drift":
         _drift_events(tenant_id)
+    elif page == "Verdicts":
+        _verdicts(tenant_id)
     else:
         open_ring = st.session_state.get("open_ring")
         if isinstance(open_ring, dict) and open_ring.get("tenant_id") == tenant_id:

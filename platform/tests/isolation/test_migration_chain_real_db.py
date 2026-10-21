@@ -71,12 +71,16 @@ def test_migration_chain_round_trips_and_enforces_forced_rls():
                 index_rows = connection.execute(text("""
                     SELECT indexname, indexdef FROM pg_indexes
                     WHERE schemaname = 'public' AND indexname IN
-                      ('ix_rings_tenant_status_conf', 'ix_verdicts_tenant_ring_created')
+                      ('ix_rings_tenant_status_conf', 'ix_verdicts_tenant_ring_created',
+                       'ix_rings_member_accounts_gin')
                 """)).mappings().all()
                 index_defs = {row["indexname"]: row["indexdef"] for row in index_rows}
                 assert "confidence DESC" in index_defs["ix_rings_tenant_status_conf"]
                 assert "tenant_id, ring_id, created_at DESC" in index_defs[
                     "ix_verdicts_tenant_ring_created"
+                ]
+                assert "USING gin (member_accounts)" in index_defs[
+                    "ix_rings_member_accounts_gin"
                 ]
                 audit_columns = set(connection.execute(text("""
                     SELECT column_name FROM information_schema.columns

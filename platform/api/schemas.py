@@ -95,6 +95,7 @@ class RingSummary(BaseModel):
     n_currencies: int | None = Field(default=None, ge=1)
     start_time: datetime
     end_time: datetime
+    window_text: str
     confidence: float = Field(ge=0, le=1)
     cross_bank: bool
     counterparty_banks: list[str]
@@ -118,6 +119,7 @@ class RingPage(BaseModel):
     items: list[RingSummary]
     next_cursor: str | None = None
     total: int
+    tenant_total: int
 
 
 class RingEvidenceNode(BaseModel):
@@ -198,6 +200,36 @@ class VerdictResponse(BaseModel):
 class VerdictHistoryPage(BaseModel):
     items: list[VerdictResponse]
     next_before_id: int | None = None
+
+
+class TenantVerdictItem(BaseModel):
+    verdict_id: int
+    ring_id: str
+    verdict: VerdictKind
+    analyst_id: int
+    analyst_label: str
+    is_simulated: bool
+    note_excerpt: str | None
+    created_at: datetime
+
+
+class TenantVerdictCounts(BaseModel):
+    confirmed: int
+    rejected: int
+    partial: int
+
+
+class TenantAnalystOption(BaseModel):
+    analyst_id: int
+    analyst_label: str
+
+
+class TenantVerdictPage(BaseModel):
+    items: list[TenantVerdictItem]
+    next_cursor: str | None = None
+    total: int
+    counts: TenantVerdictCounts
+    analysts: list[TenantAnalystOption]
 
 
 class ModelVersionSummary(BaseModel):

@@ -1,17 +1,139 @@
 from __future__ import annotations
 
+import base64
+import binascii
+import json
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
 from api.request_context import current_request_id
-from api.schemas import VerdictHistoryPage, VerdictRequest, VerdictResponse, VerdictKind
+from api.schemas import (TenantAnalystOption, TenantVerdictCounts, TenantVerdictItem,
+                         TenantVerdictPage, VerdictHistoryPage, VerdictRequest,
+                         VerdictResponse, VerdictKind)
 from db.models import Ring as PlatformRing, User, Verdict
 from db.session import db_session
 from services.verdicts import record_verdict
 
 router = APIRouter(tags=["verdicts"])
+
+
+def _encode_tenant_cursor(created_at: datetime, verdict_id: int) -> str:
+    raw = json.dumps({"created_at": created_at.isoformat(), "verdict_id": verdict_id},
+                     separators=(",", ":")).encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _decode_tenant_cursor(cursor: str) -> tuple[datetime, int]:
+    try:
+        raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
+        item = json.loads(raw)
+        created_at = datetime.fromisoformat(item["created_at"])
+        verdict_id = item["verdict_id"]
+        if created_at.tzinfo is None or type(verdict_id) is not int or verdict_id < 1:
+            raise ValueError("invalid verdict cursor values")
+        return created_at, verdict_id
+    except (ValueError, TypeError, KeyError, AttributeError, binascii.Error) as exc:
+        raise HTTPException(status_code=400, detail="Invalid pagination cursor") from exc
+
+
+@router.get("/tenants/{tenant_id}/verdicts", response_model=TenantVerdictPage)
+def list_tenant_verdicts(
+    tenant_id: int,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    verdict_filter: list[str] | None = Query(default=None, alias="verdict"),
+    analyst_id: int | None = Query(default=None, gt=0),
+    simulated: bool | None = None,
+    cursor: str | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    principal: Principal = Depends(get_principal),
+) -> TenantVerdictPage:
+    """Return filtered tenant verdict history without exposing analyst email."""
+    require_tenant_access(tenant_id, principal)
+    allowed = {kind.value for kind in VerdictKind}
+    if verdict_filter and not set(verdict_filter) <= allowed:
+        raise HTTPException(status_code=422, detail="Unsupported verdict filter")
+    for bound in (since, until):
+        if bound is not None and bound.tzinfo is None:
+            raise HTTPException(status_code=422, detail="Date filters must include a timezone")
+    if since is not None and until is not None and since > until:
+        raise HTTPException(status_code=422, detail="Date range start must not follow its end")
+
+    clauses = [Verdict.tenant_id == tenant_id]
+    if verdict_filter:
+        clauses.append(Verdict.verdict.in_(verdict_filter))
+    if analyst_id is not None:
+        clauses.append(Verdict.user_id == analyst_id)
+    if simulated is not None:
+        clauses.append(Verdict.is_simulated.is_(simulated))
+    if since is not None:
+        clauses.append(Verdict.created_at >= since)
+    if until is not None:
+        clauses.append(Verdict.created_at <= until)
+    where = and_(*clauses)
+
+    # Migration 0007's tenant/ring/created index serves ring-specific history;
+    # tenant-wide newest-first listing uses ix_verdicts_tenant_created. PostgreSQL
+    # can scan that (tenant_id, created_at) B-tree backward for the requested order.
+    with db_session(tenant_id=tenant_id, role=principal.role) as session:
+        total = int(session.scalar(
+            select(func.count()).select_from(Verdict).where(where)
+        ) or 0)
+        count_rows = session.execute(
+            select(Verdict.verdict, func.count())
+            .where(where).group_by(Verdict.verdict)
+        ).all()
+        counts_by_kind = {kind: count for kind, count in count_rows}
+        analyst_ids = session.scalars(
+            select(Verdict.user_id).where(Verdict.tenant_id == tenant_id)
+            .distinct().order_by(Verdict.user_id)
+        ).all()
+        query = select(Verdict).where(where)
+        if cursor:
+            before_created_at, before_verdict_id = _decode_tenant_cursor(cursor)
+            query = query.where(or_(
+                Verdict.created_at < before_created_at,
+                and_(Verdict.created_at == before_created_at,
+                     Verdict.verdict_id < before_verdict_id),
+            ))
+        rows = list(session.scalars(
+            query.order_by(Verdict.created_at.desc(), Verdict.verdict_id.desc())
+            .limit(limit + 1)
+        ))
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    items = [TenantVerdictItem(
+        verdict_id=row.verdict_id,
+        ring_id=row.ring_id,
+        verdict=VerdictKind(row.verdict),
+        analyst_id=row.user_id,
+        analyst_label=f"Analyst {row.user_id}",
+        is_simulated=row.is_simulated,
+        note_excerpt=(row.note[:160] if row.note else None),
+        created_at=row.created_at,
+    ) for row in rows]
+    next_cursor = (
+        _encode_tenant_cursor(rows[-1].created_at, rows[-1].verdict_id)
+        if has_more and rows else None
+    )
+    return TenantVerdictPage(
+        items=items,
+        next_cursor=next_cursor,
+        total=total,
+        counts=TenantVerdictCounts(
+            confirmed=int(counts_by_kind.get("confirm", 0)),
+            rejected=int(counts_by_kind.get("reject", 0)),
+            partial=int(counts_by_kind.get("partial", 0)),
+        ),
+        analysts=[TenantAnalystOption(analyst_id=user_id,
+                                      analyst_label=f"Analyst {user_id}")
+                  for user_id in analyst_ids],
+    )
 
 
 @router.get("/tenants/{tenant_id}/rings/{ring_id}/verdicts",

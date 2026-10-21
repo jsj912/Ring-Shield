@@ -9,7 +9,7 @@
 #>
 [CmdletBinding()]
 param(
-    [int[]]$Tenants = @(12, 20),
+    [string[]]$Tenants = @('12', '20'),
     [string]$TimeOriginUtc,
     [string]$RingsDir,
     [string]$EdgeIdsDir,
@@ -55,6 +55,39 @@ function Assert-TimeOriginUtc {
     if ($Value -notmatch $isoInstant -or -not $validDate) {
         throw "Invalid -TimeOriginUtc '$Value'. Supply an ISO-8601 instant with a UTC offset or Z. It means $definition"
     }
+}
+
+function ConvertTo-DemoTenantIds {
+    param([string[]]$TenantValues)
+    $tenantIds = [System.Collections.Generic.List[int]]::new()
+    $seenTenantIds = [System.Collections.Generic.HashSet[int]]::new()
+    foreach ($tenantValue in $TenantValues) {
+        if ($null -eq $tenantValue) { continue }
+        foreach ($tenantToken in ($tenantValue -split '[,\s]+')) {
+            if ([string]::IsNullOrEmpty($tenantToken)) { continue }
+            if ($tenantToken -notmatch '^\d+$') {
+                throw "Invalid -Tenants token '$tenantToken': expected digits only."
+            }
+            try {
+                $tenantId = [int]::Parse(
+                    $tenantToken,
+                    [Globalization.NumberStyles]::None,
+                    [Globalization.CultureInfo]::InvariantCulture
+                )
+            } catch {
+                throw "Invalid -Tenants token '$tenantToken': value is outside the supported integer range."
+            }
+            if ($tenantId -le 0) {
+                throw "Invalid -Tenants token '$tenantToken': bank IDs must be positive."
+            }
+            if (-not $seenTenantIds.Add($tenantId)) {
+                throw "Duplicate -Tenants token '$tenantToken'."
+            }
+            $tenantIds.Add($tenantId)
+        }
+    }
+    if ($tenantIds.Count -eq 0) { throw 'Select at least one bank with -Tenants.' }
+    return ,$tenantIds.ToArray()
 }
 
 function Get-PlatformConfigPath {
@@ -117,15 +150,30 @@ function Read-DemoJson {
     }
 }
 
-function Get-ParquetRowCount {
-    param([string]$Python, [string]$Path)
-    $result = & $Python -c 'import sys, pyarrow.parquet as pq; print(pq.ParquetFile(sys.argv[1]).metadata.num_rows)' $Path
-    if ($LASTEXITCODE -ne 0) { throw "Step 'read parquet row count' failed for input: $Path" }
-    $parsed = 0
-    if (-not [int]::TryParse(($result | Out-String).Trim(), [ref]$parsed)) {
-        throw "Could not parse parquet row count for: $Path"
+function ConvertFrom-ParquetRowCountOutput {
+    param([object[]]$Output, [int]$ExitCode, [string]$Path)
+    $outputText = ($Output | ForEach-Object { "$_" }) -join [Environment]::NewLine
+    $outputText = $outputText.Trim()
+    if ($ExitCode -ne 0) {
+        if ([string]::IsNullOrWhiteSpace($outputText)) { $outputText = 'the count command returned no error text' }
+        throw "Step 'read parquet row count' failed for '$Path' (exit code $ExitCode): $outputText"
+    }
+    if ([string]::IsNullOrWhiteSpace($outputText)) {
+        throw "Step 'read parquet row count' failed for '$Path': the command returned empty output."
+    }
+    $parsed = [long]0
+    if (-not [long]::TryParse($outputText, [Globalization.NumberStyles]::None,
+            [Globalization.CultureInfo]::InvariantCulture, [ref]$parsed) -or $parsed -lt 0) {
+        throw "Step 'read parquet row count' failed for '$Path': expected one non-negative integer, got '$outputText'."
     }
     return $parsed
+}
+
+function Get-ParquetRowCount {
+    param([string]$Python, [string]$Path)
+    $output = & $Python 'platform/jobs/count_parquet_rows.py' $Path 2>&1
+    $pythonExitCode = $LASTEXITCODE
+    return ConvertFrom-ParquetRowCountOutput -Output @($output) -ExitCode $pythonExitCode -Path $Path
 }
 
 function Assert-DemoInputs {
@@ -320,12 +368,6 @@ function Reset-DemoCredentials {
     return $Credentials
 }
 
-function Save-DemoCredentials {
-    param([System.Collections.IDictionary]$Credentials)
-    $lines = foreach ($key in $Credentials.Keys) { "$key=$($Credentials[$key])" }
-    Set-Content -LiteralPath $script:CredentialsPath -Value $lines -Encoding UTF8 -ErrorAction Stop
-}
-
 function Get-DemoCredentialTenants {
     param([System.Collections.IDictionary]$Credentials)
     $tenantIds = [System.Collections.Generic.HashSet[int]]::new()
@@ -358,7 +400,11 @@ finally:
     $pythonExitCode = $LASTEXITCODE
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
     if ($pythonExitCode -ne 0) { throw "Step 'inspect demo migration revision' failed with exit code $pythonExitCode." }
-    return ($output | Out-String).Trim()
+    $revision = ($output | Out-String).Trim()
+    if ([string]::IsNullOrWhiteSpace($revision)) {
+        throw "Step 'inspect demo migration revision' failed: Python returned empty output."
+    }
+    return $revision
 }
 
 function Invoke-PsqlFile {
@@ -397,58 +443,18 @@ function Write-DemoUsers {
     $usersJson = ConvertTo-Json -InputObject @($users) -Compress
     $env:RINGSHIELD_DEMO_ADMIN_URL = $AdminUrl
     $env:RINGSHIELD_DEMO_USERS_JSON = $usersJson
+    $env:RINGSHIELD_DEMO_CREDENTIALS_JSON = ConvertTo-Json -InputObject $Credentials -Compress
+    $env:RINGSHIELD_DEMO_CREDENTIALS_PATH = $script:CredentialsPath
     $env:RINGSHIELD_DEMO_PASSWORD_RESET = if ($AuditPasswordReset) { '1' } else { '0' }
-    $code = @'
-import json, os, bcrypt
-from sqlalchemy import create_engine, text
-engine = create_engine(os.environ["RINGSHIELD_DEMO_ADMIN_URL"])
-users = json.loads(os.environ["RINGSHIELD_DEMO_USERS_JSON"])
-password_reset = os.environ.get("RINGSHIELD_DEMO_PASSWORD_RESET") == "1"
-try:
-    with engine.begin() as conn:
-        for user in users:
-            tenant = None if user["TenantId"] == "None" else int(user["TenantId"])
-            digest = bcrypt.hashpw(user["Password"].encode("utf-8"), bcrypt.gensalt()).decode("ascii")
-            params = {"tenant_id": tenant, "email": user["Email"],
-                      "password_hash": digest, "role": user["Role"]}
-            if password_reset:
-                saved_user = conn.execute(text("""
-                    INSERT INTO users (tenant_id, email, password_hash, role, disabled)
-                    VALUES (:tenant_id, :email, :password_hash, :role, false)
-                    ON CONFLICT (email) DO UPDATE SET password_hash=EXCLUDED.password_hash
-                    RETURNING user_id, tenant_id
-                """), params).mappings().one()
-                conn.execute(text("""
-                    INSERT INTO audit_log (tenant_id, user_id, actor, action, object_type, object_id, details)
-                    VALUES (:tenant_id, NULL, 'demo_bootstrap', 'user.password_reset', 'user', :object_id,
-                            CAST(:details AS jsonb))
-                """), {"tenant_id": saved_user["tenant_id"],
-                      "object_id": str(saved_user["user_id"]),
-                      "details": json.dumps({"role": user["Role"]})})
-            else:
-                conn.execute(text("""
-                    INSERT INTO users (tenant_id, email, password_hash, role, disabled)
-                    VALUES (:tenant_id, :email, :password_hash, :role, false)
-                    ON CONFLICT (email) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,
-                        password_hash=EXCLUDED.password_hash, role=EXCLUDED.role, disabled=false
-                    RETURNING user_id, tenant_id
-                """), params).mappings().one()
-                conn.execute(text("""
-                    INSERT INTO audit_log (tenant_id, user_id, actor, action, object_type, object_id, details)
-                    VALUES (:tenant_id, NULL, 'demo_bootstrap', 'user.credentials_initialized', 'user', :object_id,
-                            CAST(:details AS jsonb))
-                """), {"tenant_id": saved_user["tenant_id"],
-                      "object_id": str(saved_user["user_id"]),
-                      "details": json.dumps({"role": user["Role"]})})
-finally:
-    engine.dispose()
-'@
-    $code | & $Python -
-    $pythonExitCode = $LASTEXITCODE
-    Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
-    Remove-Item Env:RINGSHIELD_DEMO_USERS_JSON -ErrorAction SilentlyContinue
-    Remove-Item Env:RINGSHIELD_DEMO_PASSWORD_RESET -ErrorAction SilentlyContinue
-    if ($pythonExitCode -ne 0) { throw "Step 'provision demo login users' failed with exit code $pythonExitCode." }
+    try {
+        Invoke-Checked $Python @('platform/jobs/provision_demo_users.py') 'provision demo login users'
+    } finally {
+        Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
+        Remove-Item Env:RINGSHIELD_DEMO_USERS_JSON -ErrorAction SilentlyContinue
+        Remove-Item Env:RINGSHIELD_DEMO_CREDENTIALS_JSON -ErrorAction SilentlyContinue
+        Remove-Item Env:RINGSHIELD_DEMO_CREDENTIALS_PATH -ErrorAction SilentlyContinue
+        Remove-Item Env:RINGSHIELD_DEMO_PASSWORD_RESET -ErrorAction SilentlyContinue
+    }
 }
 
 function Assert-AppRoleIsRestricted {
@@ -478,14 +484,17 @@ function Write-DemoCounts {
           [hashtable]$ExpectedEdges, [hashtable]$InputEdgeCounts,
           [hashtable]$InputRingCounts, [hashtable]$InputExplanationCounts)
     $env:RINGSHIELD_DEMO_ADMIN_URL = $AdminUrl
+    $edgeByTenant = @{}; foreach ($key in @($InputEdgeCounts.Keys)) { $edgeByTenant[[string]$key] = $InputEdgeCounts[$key] }
+    $ringByTenant = @{}; foreach ($key in @($InputRingCounts.Keys)) { $ringByTenant[[string]$key] = $InputRingCounts[$key] }
+    $explanationByTenant = @{}; foreach ($key in @($InputExplanationCounts.Keys)) { $explanationByTenant[[string]$key] = $InputExplanationCounts[$key] }
     $env:RINGSHIELD_DEMO_TENANTS = ($SelectedTenants -join ',')
     $expectedRows = @{}
     foreach ($tenantId in $SelectedTenants) {
         $expectedRows[[string]$tenantId] = @{
-            transactions = $InputEdgeCounts[$tenantId]
-            edge_scores = $InputEdgeCounts[$tenantId]
-            rings = $InputRingCounts[$tenantId]
-            explanations = $InputExplanationCounts[$tenantId]
+            transactions = $edgeByTenant[[string]$tenantId]
+            edge_scores = $edgeByTenant[[string]$tenantId]
+            rings = $ringByTenant[[string]$tenantId]
+            explanations = $explanationByTenant[[string]$tenantId]
         }
     }
     $env:RINGSHIELD_DEMO_EXPECTED_ROWS = ConvertTo-Json -InputObject $expectedRows -Compress
@@ -522,16 +531,17 @@ finally:
     if ($pythonExitCode -ne 0) { throw "Step 'query demo row counts' failed with exit code $pythonExitCode." }
     foreach ($tenantId in $SelectedTenants) {
         $expected = $ExpectedEdges[[string]$tenantId]
-        if ($null -ne $expected -and $InputEdgeCounts[$tenantId] -ne $expected) {
-            throw "Tenant $tenantId edge-ID file has $($InputEdgeCounts[$tenantId]) rows; expected $expected."
+        if ($null -ne $expected -and $edgeByTenant[[string]$tenantId] -ne $expected) {
+            throw "Tenant $tenantId edge-ID file has $($edgeByTenant[[string]$tenantId]) rows; expected $expected."
         }
-        if ($InputRingCounts[$tenantId] -ne 5) {
-            throw "Tenant $tenantId ring parquet has $($InputRingCounts[$tenantId]) rows; expected 5."
+        if ($ringByTenant[[string]$tenantId] -ne 5) {
+            throw "Tenant $tenantId ring parquet has $($ringByTenant[[string]$tenantId]) rows; expected 5."
         }
     }
 }
 
 if ($DefinitionsOnly) { return }
+$Tenants = ConvertTo-DemoTenantIds -TenantValues $Tenants
 if ($ResetPasswords -and $Down) { throw '-ResetPasswords cannot be combined with -Down.' }
 if ($ResetPasswords -and $ValidateOnly) { throw '-ResetPasswords cannot be combined with -ValidateOnly.' }
 if ($Down -and $ValidateOnly) { throw '-Down and -ValidateOnly cannot be combined.' }
@@ -634,7 +644,6 @@ try {
     Write-DemoUsers -Python $python -AdminUrl $urls.Admin -Credentials $credentials `
         -SelectedTenants $demoUserTenants -AuditPasswordReset:$ResetPasswords
     if ($ResetPasswords) {
-        Save-DemoCredentials $credentials
         Write-Host "Demo passwords reset. Credentials file: $script:CredentialsPath"
     }
 

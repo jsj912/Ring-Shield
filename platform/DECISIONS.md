@@ -477,3 +477,45 @@ The AppTest queue round-trip sets the existing open-ring navigation state to
 render detail and then returns to the queue; it does not click the conditional
 View ring/Back controls because AppTest 1.44 raises a missing-widget-state error
 when those widgets disappear during the page switch.
+
+## Queue empty states and time window text
+
+The ring-list response includes `tenant_total`, counted under the authorized
+tenant context and an explicit tenant predicate without the selected filters.
+The dashboard uses that count to distinguish an empty tenant from filters with
+no matches. Ring summaries include API-formatted `window_text` (for example,
+`over 6 h`) so the dashboard presents the FR-D10 duration without calculating
+from API timestamps.
+
+## Ring search
+
+FR-D16 search matches an exact ring ID or an exact account ID in
+`member_accounts`. Migration `0008_ring_member_search` adds a GIN index for the
+PostgreSQL array containment predicate. The API applies the search within the
+same explicit tenant and tenant-scope predicates as the ordinary queue, and
+includes the search value in its cursor fingerprint.
+
+## Verdict action safeguards
+
+Queue Confirm/Reject actions require an explicit second confirmation and use the
+existing verdict endpoint. They are shown only for open rings; administrators
+see the established read-only warning and disabled controls. Queue and detail
+forms share a session guard that blocks concurrent submissions and disables the
+same ring's actions after a successful response, preventing a repeated UI
+submission while the refreshed ring list catches up.
+
+## Tenant-wide verdict history
+
+The Section 6 `GET /tenants/{tenant_id}/verdicts` route returns tenant-filtered
+history, newest first, with date/type/analyst/simulated filters, a stable
+created-time cursor, filtered counts, and analyst IDs only. It never selects or
+returns user email. The tenant-wide order uses `ix_verdicts_tenant_created`
+(`tenant_id`, `created_at`); ring-specific history continues to use the
+`0007_audit_indexes` index on (`tenant_id`, `ring_id`, `created_at DESC`). The
+dashboard CSV export follows the API cursor to include all filtered rows.
+
+Demo login provisioning is handled by `platform/jobs/provision_demo_users.py`; user writes and tenant-context audit events share a transaction, and credentials are written only to the ignored credentials file without process output.
+
+`run-demo.ps1` accepts tenant IDs as strings and normalizes comma/whitespace-separated values using invariant integer parsing, rejecting malformed and duplicate IDs before preflight.
+
+The demo reads parquet row counts through `platform/jobs/count_parquet_rows.py` using the same Python interpreter as its other platform jobs. Captured count output and migration-revision output must be non-empty and valid before they are used, so command failures cannot appear as blank row counts.
