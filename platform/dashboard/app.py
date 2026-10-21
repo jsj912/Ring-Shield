@@ -22,14 +22,21 @@ API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip(
 
 def _api(method: str, path: str, *, body: dict | None = None, params=None,
          quiet_not_found: bool = False):
+    api_calls = st.session_state.setdefault("_api_retry_keys", [])
+    call_number = len(api_calls)
+    api_calls.append((method, path))
+    retry_key = f"retry_{method}_{path}_{call_number}"
     headers = {}
     if st.session_state.get("token"):
         headers["Authorization"] = f"Bearer {st.session_state['token']}"
     try:
-        response = httpx.request(method, f"{API_BASE}{path}", headers=headers,
-                                 json=body, params=params, timeout=20.0)
+        with st.spinner("Loading..."):
+            response = httpx.request(method, f"{API_BASE}{path}", headers=headers,
+                                     json=body, params=params, timeout=20.0)
     except httpx.HTTPError as exc:
         st.error(f"RingShield API is unavailable: {exc}")
+        if st.button("Retry", key=retry_key):
+            st.rerun()
         return None
     if response.status_code == 401:
         if method.upper() == "POST" and path == "/auth/login":
@@ -52,10 +59,16 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None,
         if response.status_code == 404 and quiet_not_found:
             return None
         try:
-            message = response.json().get("message", "Request failed")
+            payload = response.json()
         except ValueError:
-            message = "Request failed"
-        st.error(message)
+            payload = {}
+        message = payload.get("message", "Request failed") if isinstance(payload, dict) else "Request failed"
+        request_id = payload.get("request_id") if isinstance(payload, dict) else None
+        request_id = request_id or response.headers.get("X-Request-ID")
+        suffix = f" (request id {request_id})" if request_id else ""
+        st.error(f"{message}{suffix}")
+        if st.button("Retry", key=retry_key):
+            st.rerun()
         return None
     if response.status_code == 204:
         return {}
@@ -401,8 +414,15 @@ def _drift_events(tenant_id: int) -> None:
     st.caption("Drift events are informational and do not trigger automatic retraining.")
 
 
+def _clear_session_state() -> None:
+    for key in list(st.session_state.keys()):
+        if not key.startswith("$$"):
+            del st.session_state[key]
+
+
 def main() -> None:
     st.set_page_config(page_title="RingShield Investigator", layout="wide")
+    st.session_state["_api_retry_keys"] = []
     if not st.session_state.get("token"):
         _login()
         return
@@ -410,9 +430,9 @@ def main() -> None:
     st.sidebar.caption(f"Role: {st.session_state['role']}")
     st.sidebar.caption(f"Time origin: {os.environ.get('RINGSHIELD_TIME_ORIGIN_UTC', 'not configured')}")
     if st.sidebar.button("Sign out"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
+        _clear_session_state()
+        _login()
+        return
     tenant_id, tenant_name = _active_tenant()
     if tenant_id is None:
         return

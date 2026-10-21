@@ -457,3 +457,23 @@ Database-free coverage compiles the audit Core INSERT with the PostgreSQL dialec
 and checks that the helper does not use `session.add`. The CI PostgreSQL test
 checks loader/simulator tenant-bound inserts, denied cross-tenant inserts, denied
 audit-table SELECT/UPDATE/DELETE, and API visibility limited to its tenant.
+
+## Dashboard error feedback and UI regression coverage
+
+Generic API failures now display the API message and request ID (body first,
+`X-Request-ID` header as fallback) with a Retry control; network failures keep
+their existing unavailable message and also offer Retry. Login/session 401s,
+403 wording, quiet 404s, and 204 responses retain their established behavior.
+API requests show Streamlit's loading spinner while the synchronous request runs.
+Dashboard tests cover login and sign-out feedback, queue filters/pagination,
+ring detail rendering, drift chart traces, and API error feedback. Sign-out clears
+application-owned session data while leaving Streamlit's internal `$$` widget
+state alone. The AST guard permits only page-counter navigation arithmetic and
+the `REPO_ROOT / ".env"` pathlib join; dashboard amount/time formatting remains
+unchanged pending the separate timezone decision.
+The drift chart currently renders drift events as diamond marker traces; it does
+not yet implement the specification's vertical event lines and hover details.
+The AppTest queue round-trip sets the existing open-ring navigation state to
+render detail and then returns to the queue; it does not click the conditional
+View ring/Back controls because AppTest 1.44 raises a missing-widget-state error
+when those widgets disappear during the page switch.
