@@ -124,6 +124,7 @@ def _queue(tenant_id: int) -> None:
         statuses = st.multiselect("Status", ["open", "confirmed", "rejected", "partial"],
                                   default=["open"])
         topology = st.multiselect("Topology", TOPOLOGY_TYPES)
+        search = st.text_input("Search ring ID or account ID", value="")
         minimum = st.slider("Minimum confidence", min_value=0.0, max_value=1.0,
                             value=0.0, step=0.01)
         cross_bank = st.checkbox("Cross-bank only")
@@ -135,6 +136,7 @@ def _queue(tenant_id: int) -> None:
     if apply_filters or "ring_filter_values" not in st.session_state:
         st.session_state["ring_filter_values"] = {
             "status": statuses or ["open"], "topology_type": topology,
+            "q": search.strip() or None,
             "min_conf": minimum, "cross_bank_only": cross_bank,
             "sort": sort, "order": order,
             "start_after": (datetime.combine(start_range[0], time.min, timezone.utc).isoformat()
@@ -148,7 +150,7 @@ def _queue(tenant_id: int) -> None:
     filters = st.session_state.get("ring_filter_values", {"status": ["open"]})
     params = [("status", value) for value in filters.get("status", ["open"])]
     params.extend(("topology_type", value) for value in filters.get("topology_type", []))
-    for key in ("min_conf", "cross_bank_only", "sort", "order", "start_after", "start_before"):
+    for key in ("min_conf", "cross_bank_only", "sort", "order", "start_after", "start_before", "q"):
         value = filters.get(key)
         if value is not None:
             params.append((key, str(value).lower() if isinstance(value, bool) else str(value)))

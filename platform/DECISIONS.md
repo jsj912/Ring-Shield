@@ -486,3 +486,11 @@ The dashboard uses that count to distinguish an empty tenant from filters with
 no matches. Ring summaries include API-formatted `window_text` (for example,
 `over 6 h`) so the dashboard presents the FR-D10 duration without calculating
 from API timestamps.
+
+## Ring search
+
+FR-D16 search matches an exact ring ID or an exact account ID in
+`member_accounts`. Migration `0008_ring_member_search` adds a GIN index for the
+PostgreSQL array containment predicate. The API applies the search within the
+same explicit tenant and tenant-scope predicates as the ordinary queue, and
+includes the search value in its cursor fingerprint.

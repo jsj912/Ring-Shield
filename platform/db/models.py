@@ -126,6 +126,7 @@ class Ring(Base):
         CheckConstraint("status IN ('open', 'confirmed', 'rejected', 'partial')", name="ck_rings_status"),
         Index("ix_rings_tenant_status_conf", "tenant_id", "status", text("confidence DESC")),
         Index("ix_rings_tenant_start", "tenant_id", "start_time"),
+        Index("ix_rings_member_accounts_gin", "member_accounts", postgresql_using="gin"),
     )
 
     tenant_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

@@ -9,7 +9,8 @@ from datetime import datetime
 from typing import Iterator, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import Float, and_, cast, func, or_, select
+from sqlalchemy import BigInteger, Float, and_, cast, func, or_, select
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_principal, require_tenant_access
@@ -176,12 +177,14 @@ def list_rings(
     start_after: datetime | None = None,
     start_before: datetime | None = None,
     cross_bank_only: bool = False,
+    q: str | None = None,
     sort: SortField = "confidence",
     order: SortOrder = "desc",
     cursor: str | None = None,
     limit: int = Query(default=50, ge=1, le=100),
     principal: Principal = Depends(get_principal),
 ) -> RingPage:
+    require_tenant_access(tenant_id, principal)
     statuses = status_filter or ["open"]
     if not set(statuses) <= AllowedStatuses:
         raise HTTPException(status_code=422, detail="Unsupported ring status filter")
@@ -194,10 +197,11 @@ def list_rings(
                    "members": func.cardinality(PlatformRing.member_accounts),
                    "total_amount": func.coalesce(
                        cast(PlatformRing.payload["total_amount"].as_string(), Float), 0.0)}[sort]
+    search = q.strip() if q and q.strip() else None
     filters = {"status": sorted(statuses), "min_conf": min_conf,
                "topology_type": sorted(topology_type or []), "start_min": start_min,
                "start_max": start_max, "cross_bank_only": cross_bank_only,
-               "sort": sort, "order": order}
+               "q": search, "sort": sort, "order": order}
     fingerprint = _fingerprint(filters)
 
     clauses = [PlatformRing.tenant_id == tenant_id, PlatformRing.scope == "tenant",
@@ -212,6 +216,16 @@ def list_rings(
         clauses.append(PlatformRing.start_time <= start_max)
     if cross_bank_only:
         clauses.append(PlatformRing.payload["cross_bank"].as_boolean().is_(True))
+    if search:
+        search_clauses = [PlatformRing.ring_id == search]
+        try:
+            account_id = int(search)
+        except ValueError:
+            pass
+        else:
+            account_array = cast([account_id], postgresql.ARRAY(BigInteger))
+            search_clauses.append(PlatformRing.member_accounts.op("@>")(account_array))
+        clauses.append(or_(*search_clauses))
     where = and_(*clauses)
     tenant_where = and_(PlatformRing.tenant_id == tenant_id,
                         PlatformRing.scope == "tenant")

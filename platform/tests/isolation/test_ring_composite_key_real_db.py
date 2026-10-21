@@ -109,6 +109,13 @@ def test_identical_ring_ids_load_and_api_reads_stay_tenant_scoped(
             assert response.status_code == 200
             assert response.json()["tenant_id"] == tenant_id
             assert response.json()["confidence"] == confidence
+            searched = client.get(
+                f"/tenants/{tenant_id}/rings", headers=headers,
+                params={"status": "open", "q": common_ring_id},
+            )
+            assert searched.status_code == 200
+            assert [(item["tenant_id"], item["ring_id"])
+                    for item in searched.json()["items"]] == [(tenant_id, common_ring_id)]
             explanation = client.get(
                 f"/tenants/{tenant_id}/rings/{common_ring_id}/explanation",
                 headers=headers,

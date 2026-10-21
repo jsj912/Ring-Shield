@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
+from sqlalchemy.dialects import postgresql
+
 PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
 
@@ -26,7 +28,9 @@ class _FakeSession:
         return (0, 3)[self.count_call - 1]
 
     def scalars(self, statement):
-        self.row_query = str(statement.compile(compile_kwargs={"literal_binds": True}))
+        self.row_query = str(statement.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        ))
         return self.rows
 
 
@@ -58,3 +62,48 @@ def test_ring_list_reports_filtered_and_unfiltered_tenant_counts(monkeypatch):
 
 def test_ring_window_text_uses_day_wording_for_multi_day_windows():
     assert rings._window_text(172800) == "over 2 d"
+
+
+def test_ring_search_compiles_exact_id_or_indexed_account_membership(monkeypatch):
+    fake = _FakeSession([])
+
+    @contextmanager
+    def fake_session(*, tenant_id, role):
+        assert tenant_id == 21
+        assert role == "analyst"
+        yield fake
+
+    monkeypatch.setattr(rings, "db_session", fake_session)
+    result = rings.list_rings(
+        21, status_filter=["open"], min_conf=None, topology_type=[], q="12345",
+        limit=50,
+        principal=Principal(user_id=1, tenant_id=21, role="analyst", email="analyst@example.test"),
+    )
+    assert result.items == []
+    sql = fake.row_query
+    assert "rings.tenant_id = 21" in sql
+    assert "rings.ring_id = '12345'" in sql
+    assert "rings.member_accounts @> CAST(ARRAY[12345] AS BIGINT[])" in sql
+
+
+def test_ring_search_rejects_cross_tenant_before_opening_session(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+
+    opened = False
+
+    @contextmanager
+    def fake_session(*, tenant_id, role):
+        nonlocal opened
+        opened = True
+        yield _FakeSession([])
+
+    monkeypatch.setattr(rings, "db_session", fake_session)
+    with pytest.raises(HTTPException) as exc_info:
+        rings.list_rings(
+            21, status_filter=["open"], min_conf=None, topology_type=[], q="12345",
+            limit=50,
+            principal=Principal(user_id=1, tenant_id=22, role="analyst", email="other@example.test"),
+        )
+    assert exc_info.value.status_code == 403
+    assert not opened

@@ -152,3 +152,13 @@ def test_queue_distinguishes_no_tenant_rings_from_no_filter_matches(monkeypatch)
 def test_queue_renders_api_window_text():
     row = _ring()
     assert row["window_text"] == "over 1 h"
+
+
+def test_queue_search_sends_exact_search_parameter(monkeypatch):
+    calls = []
+    app = _signed_in_app(monkeypatch, calls).run(timeout=10)
+    next(field for field in app.text_input if field.label == "Search ring ID or account ID").set_value("acct-44")
+    next(button for button in app.button if button.label == "Apply filters").click().run(timeout=10)
+
+    ring_call = [call for call in calls if call[0].endswith("/rings")][-1]
+    assert dict(ring_call[1])["q"] == "acct-44"
