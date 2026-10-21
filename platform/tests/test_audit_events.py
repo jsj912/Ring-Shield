@@ -109,6 +109,7 @@ def test_each_business_mutation_module_routes_audit_through_safe_helper():
         "jobs/load_explanations.py": {"explanations.load_completed"},
         "jobs/seed_tenants.py": {"tenants.seed_completed"},
         "jobs/drift_monitor.py": {"drift.events_persisted"},
+        "jobs/provision_demo_users.py": {"user.password_reset", "user.credentials_initialized"},
     }
     secret_keys = {"password", "password_hash", "token", "email", "path", "evidence", "narrative"}
     for relative, expected_actions in expected.items():
@@ -127,8 +128,7 @@ def test_each_business_mutation_module_routes_audit_through_safe_helper():
                 keys = {key.value for key in details.keys if isinstance(key, ast.Constant)}
                 assert not (keys & secret_keys), (relative, keys & secret_keys)
     demo_script = (PLATFORM_ROOT.parent / "scripts" / "run-demo.ps1").read_text(encoding="utf-8")
-    assert "user.password_reset" in demo_script
-    assert "user.credentials_initialized" in demo_script
+    assert "platform/jobs/provision_demo_users.py" in demo_script
     assert 'json.dumps({"email"' not in demo_script
 
 
