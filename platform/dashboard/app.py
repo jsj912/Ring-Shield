@@ -163,14 +163,17 @@ def _queue(tenant_id: int) -> None:
     st.caption(f"{result['total']} rings match these filters")
     rows = result.get("items", [])
     if not rows:
-        st.info("No rings match these filters, or no rings have been loaded for this tenant.")
+        if result.get("tenant_total", 0) == 0:
+            st.info("No rings have been generated for this tenant yet")
+        else:
+            st.info("No rings match these filters")
         return
     st.dataframe(
         [{"Ring ID": row["ring_id"], "Type": f"{row['topology_type']} ({row['topology_prob']:.0%})",
           "Members": row["n_members"], "Edges": row["n_edges"],
           "Total": (f"{row['total_amount']:,.2f} {row['total_currency']}"
                     if row["total_amount"] is not None else "—"),
-          "Start": row["start_time"], "End": row["end_time"],
+          "Window": f"{row['start_time']} → {row['end_time']} ({row['window_text']})",
           "Confidence": row["confidence"], "Cross-bank": row["cross_bank"],
           "Status": row["status"]} for row in rows],
         use_container_width=True, hide_index=True,
@@ -203,7 +206,7 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
     if ring is None:
         return
     st.header(f"Ring {ring['ring_id']}")
-    st.caption(f"{ring['topology_type']} · {ring['n_members']} members · {ring['n_edges']} edges · {ring['status']}")
+    st.caption(f"{ring['topology_type']} · {ring['n_members']} members · {ring['n_edges']} edges · {ring['window_text']} · {ring['status']}")
     st.write({key: ring[key] for key in (
         "total_amount", "total_currency", "n_currencies", "start_time", "end_time",
         "confidence", "cross_bank", "counterparty_banks", "conservation_closure",

@@ -477,3 +477,12 @@ The AppTest queue round-trip sets the existing open-ring navigation state to
 render detail and then returns to the queue; it does not click the conditional
 View ring/Back controls because AppTest 1.44 raises a missing-widget-state error
 when those widgets disappear during the page switch.
+
+## Queue empty states and time window text
+
+The ring-list response includes `tenant_total`, counted under the authorized
+tenant context and an explicit tenant predicate without the selected filters.
+The dashboard uses that count to distinguish an empty tenant from filters with
+no matches. Ring summaries include API-formatted `window_text` (for example,
+`over 6 h`) so the dashboard presents the FR-D10 duration without calculating
+from API timestamps.
