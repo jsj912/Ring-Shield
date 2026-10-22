@@ -392,7 +392,8 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
                 "Note (required for partial)", key=f"partial_note_{tenant_id}_{ring_id}"
             )
             submit_partial = st.form_submit_button(
-                "Submit partial verdict", disabled=disabled
+                "Submit partial verdict", key=f"partial_submit_{tenant_id}_{ring_id}",
+                disabled=disabled,
             )
         cancel_left, _ = st.columns(2)
         if cancel_left.button("Cancel partial correction", key=f"cancel_partial_{tenant_id}_{ring_id}"):

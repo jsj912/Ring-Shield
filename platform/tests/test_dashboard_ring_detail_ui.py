@@ -114,6 +114,8 @@ def test_admin_sees_read_only_verdict_warning_without_form(monkeypatch, tmp_path
     assert "Record a verdict" not in [item.value for item in app.subheader]
     assert all(button.label not in {"Confirm ring", "Reject ring", "Partially correct"}
                for button in app.button)
+    assert all(not box.label.startswith(("Keep account ", "Keep transaction "))
+               for box in app.checkbox)
 
 
 def test_ring_detail_disables_verdict_after_one_successful_request(monkeypatch, tmp_path):
