@@ -13,6 +13,7 @@ from sqlalchemy import and_, func, or_, select
 from audit import add_audit_event
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
+from api.regeneration import launch_regeneration_process
 from api.request_context import current_request_id
 from api.schemas import (RegenerationResponse, TenantAnalystOption, TenantVerdictCounts, TenantVerdictItem,
                          TenantVerdictPage, VerdictHistoryPage, VerdictRequest,
@@ -294,4 +295,15 @@ def submit_verdict(
             created_at=verdict.created_at,
             regeneration=regeneration,
         )
+    if response.regeneration is not None and response.regeneration.status == "queued":
+        job_id = response.regeneration.job_id
+        if job_id is not None:
+            try:
+                launch_regeneration_process(job_id)
+            except OSError as exc:
+                logger.info("regeneration_worker_launch_failed", extra={
+                    "event": "regeneration_worker_launch_failed",
+                    "tenant_id": tenant_id, "job_id": job_id,
+                    "error_type": type(exc).__name__,
+                })
     return response

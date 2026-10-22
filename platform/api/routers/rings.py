@@ -5,13 +5,9 @@ import binascii
 import hashlib
 import json
 import logging
-import os
 import re
-import subprocess
-import sys
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Iterator, Literal
 from uuid import uuid4
 
@@ -22,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
+from api.regeneration import launch_regeneration_process
 from api.request_context import current_request_id
 from api.label_maps import currency_label, payment_format_label
 from api.schemas import (RingDetail, RingEvidenceEdge, RingEvidenceGraph,
@@ -49,23 +46,6 @@ EvidenceRoleKeys = {
     "is_mule": "mule_accounts",
 }
 _UNSAFE_JOB_ERROR = re.compile(r"(?:https?://|[A-Za-z]:\\|/(?:[^/\s]+/)*[^/\s]+|\b[^\s@]+@[^\s@]+)", re.I)
-
-
-def launch_regeneration_process(job_id: str) -> None:
-    """Start the restricted regeneration worker without reading its credentials."""
-    command = [sys.executable, "-m", "jobs.regenerate_worker", job_id]
-    options = {
-        "cwd": str(Path(__file__).resolve().parents[2]),
-        "stdin": subprocess.DEVNULL,
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
-        "close_fds": True,
-    }
-    if os.name == "nt":
-        options["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-    else:
-        options["start_new_session"] = True
-    subprocess.Popen(command, **options)
 
 
 def _safe_job_error(value: str | None) -> str | None:

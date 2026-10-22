@@ -14,6 +14,7 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 
 from api.identity import Principal  # noqa: E402
 from api.routers import rings  # noqa: E402
+from api import regeneration  # noqa: E402
 from api.schemas import RegenerateExplanationRequest  # noqa: E402
 from db.models import Explanation, ExplanationJob, Ring, Transaction, Verdict  # noqa: E402
 
@@ -212,3 +213,19 @@ def test_explanation_response_marks_active_job_as_regenerating(monkeypatch):
     result = rings.get_ring_explanation(21, "ring-1", _principal())
 
     assert result.regenerating is True
+
+
+def test_worker_launcher_passes_only_the_job_id(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(regeneration.subprocess, "Popen",
+                        lambda command, **options: captured.update(command=command,
+                                                                   options=options))
+
+    regeneration.launch_regeneration_process("21." + "c" * 32)
+
+    assert captured["command"] == [
+        sys.executable, "-m", "jobs.regenerate_worker", "21." + "c" * 32,
+    ]
+    assert captured["options"]["stdin"] == regeneration.subprocess.DEVNULL
+    assert captured["options"]["stdout"] == regeneration.subprocess.DEVNULL
+    assert captured["options"]["stderr"] == regeneration.subprocess.DEVNULL
