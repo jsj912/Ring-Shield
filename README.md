@@ -43,7 +43,7 @@ Traps live in **`docs/PITFALLS.md`**.
 | **R2** | B0 ring baseline, 3 detectors | gine 0.521 ± 0.045, gfpxgb 0.344, density 0.014 |
 | **R3** | expansion: policy vs rule baselines vs ablations | proposed 0.582; **quiet-member recall 0.005 → 0.21** |
 | **R4** | partition: 5 methods + CSGM | full 0.589; the stage is **not** significant on this detector |
-| **R5** | roles and topology typing | head 0.219 on the primary window, 0.594 on `whole` |
+| **R5** | roles and topology typing | head 0.599 on the primary window, 0.594 on `whole` (~~0.219~~ corrected 2026-10-22, found by Ruhani (L4 Week 5 check): the old lookup typed the wrong ring) |
 | **R6** | detector swap: MEGA-GNN and GFP-XGBoost | **+9.4 edge-F1 points buys 0.000 ring-F1** |
 | **R7** | held-out pattern types (3 arms) + LI-Small | transfer holds on CYCLE at undiminished precision |
 | **R9** | statistics: bootstrap CIs, permutation tests, Holm | every table carries an interval |

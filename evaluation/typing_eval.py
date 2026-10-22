@@ -43,6 +43,20 @@ R1 = REPO_ROOT / "experiments" / "R1_gine_causal"
 R5 = REPO_ROOT / "experiments" / "R5_typing"
 
 
+def matched_rings(rings, se: pd.DataFrame, window, truth: dict, threshold: float) -> list:
+    """[(ring, match)] for every prediction matched to a truth ring inside `window`.
+
+    `restrict_rings` DROPS predictions with no member edge in the window, so `m.pred_idx` is a
+    position in the restricted list, not in `rings`. Map it back through the same filter; reading
+    `rings[m.pred_idx]` types a different ring (found by Ruhani, L4 Week 5 check, 2026-10-22)."""
+    pred_sets = restrict_rings(rings, se, window)
+    in_win = set(se.loc[window.mask(se["timestamp"].to_numpy()), "edge_id"].tolist())
+    kept = [i for i, r in enumerate(rings) if any(e in in_win for e in r.member_edges)]
+    assert len(kept) == len(pred_sets), f"restriction map {len(kept)} != restricted predictions {len(pred_sets)}"
+    matches, _, _ = match_rings(pred_sets, truth, threshold)
+    return [(rings[kept[m.pred_idx]], m) for m in matches]
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3, 4, 5])
@@ -64,12 +78,8 @@ def main(argv=None):
       for S in args.seeds:
           rings = read_rings_parquet(args.rings_dir / f"rings_full_gine_causal_{S}.parquet")
           se = build_scored_edges(R1 / f"scores_test_seed{S}.parquet", "test", model_id="gine_causal", seed=S, processed_dir=pdir)
-          pred_sets = restrict_rings(rings, se, W)
-          keep = [i for i, r in enumerate(rings) if any(e for e in (r.seed_edges + r.expanded_edges))]
-          matches, _, _ = match_rings(pred_sets, truth, 0.5)
           se_i = se.set_index("edge_id")
-          for m in matches:
-              r = rings[m.pred_idx]
+          for r, m in matched_rings(rings, se, W, truth, 0.5):
               inc = sorted(set(r.seed_edges + r.expanded_edges))
               f = ring_features(se_i.loc[inc].reset_index(), account_roles(r, se), seed_ratio=len(r.seed_edges) / max(len(inc), 1))
               rows.append({"window": wname, "seed": S, "ring_id": r.ring_id, "truth_ring": m.truth_id, "jaccard": round(m.jaccard, 4),
