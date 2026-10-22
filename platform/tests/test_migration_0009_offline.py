@@ -61,6 +61,11 @@ def test_full_migration_chain_compiles_upgrade_and_downgrade_offline():
     assert "DROP CONSTRAINT IF EXISTS explanations_pkey" in downgrade
     assert "DROP COLUMN IF EXISTS revision" in downgrade
     assert "ALTER TABLE explanations ALTER COLUMN created_at SET DEFAULT now()" in downgrade
+    downgrade_0009 = downgrade.split(
+        "-- Running downgrade 0009_explanation_revisions_jobs -> 0008_ring_member_search",
+        maxsplit=1,
+    )[1].split("UPDATE alembic_version", maxsplit=1)[0]
+    assert "DELETE FROM explanations" not in downgrade_0009
 
     table = ExplanationJob.__table__
     assert table.primary_key.name == "pk_explanation_jobs"
