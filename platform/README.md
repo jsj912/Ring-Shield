@@ -311,8 +311,8 @@ each ring detail page. The evidence endpoint is
 `next_before_id` as `before_id` to page backward. The operations endpoints are
 `GET /tenants/{tenant_id}/models` and `GET /tenants/{tenant_id}/drift`; both are read-only
 and tenant-scoped. Model responses omit artifact paths. Drift events never trigger
-retraining. Partial verdicts remain unavailable until the L4 regeneration interface is
-wired.
+retraining. Valid partial verdicts are recorded even when regeneration is not
+configured; the response reports that the explanation was not regenerated.
 
 The ring queue distinguishes a tenant with no generated rings from filters with no
 matches, displays API-provided window text (such as `over 6 h`), and supports exact
@@ -340,12 +340,36 @@ API exposes the newest saved explanation at
 `GET /tenants/{tenant_id}/rings/{ring_id}/explanation`; model/map file paths in
 the source provenance remain private.
 
-Explanation regeneration is handled by a separate loader-role worker. The
-`l4.regenerate_url` setting is `null` by default, which disables regeneration;
-`l4.regenerate_timeout_seconds` defaults to 120. The adapter reads its bearer
-token from `RINGSHIELD_XAI_TOKEN`. Worker job IDs use the form
-`<tenant_id>.<uuidhex>` so the worker can set tenant context and scope every
-query before it loads a job. The fake-server demo is planned for Part C.
+An analyst's partial verdict records the complete set of corrected members and,
+optionally, corrected edges. The API verifies that the members and edges belong
+to the tenant-visible ring, that edge endpoints remain in the corrected member
+set, and that at least one edge remains. It derives
+`excluded_members = ring members - corrected_members`; when corrected edges
+were supplied, it also derives `excluded_edges = ring edges - corrected_edges`.
+Those server-computed exclusions are saved with the regeneration job.
+
+When `l4.regenerate_url` is configured, the verdict, ring status, queued job,
+and safe audit event commit in one transaction. After commit, the API launches
+`python -m jobs.regenerate_worker <job_id>` as a detached child process, passing
+only the job ID as an argument. The child uses the loader role and reads its
+L4 bearer token from `RINGSHIELD_XAI_TOKEN`; the API does not read that token.
+If launching fails at the operating-system level, the job remains queued and
+the API returns the queued status for a later retry.
+
+The default `l4.regenerate_url` is `null`. A valid partial verdict is still
+recorded in that configuration, but no job is created and the additive
+`regeneration` response reports `unavailable`. Confirm and reject responses
+are unchanged apart from the additive null `regeneration` field. With L4
+configured, partial verdict responses report the queued job ID. Clients can
+request regeneration with
+`POST /tenants/{tenant_id}/rings/{ring_id}/explanation/regenerate`, poll
+`GET /tenants/{tenant_id}/rings/{ring_id}/explanation/jobs/{job_id}`, and read
+the additive `regenerating` flag from the explanation endpoint. The status
+route returns only safe job metadata and errors.
+
+Worker job IDs use the form `<tenant_id>.<uuidhex>` so the worker can set
+tenant context and scope every query before it loads a job. The fake-server
+demonstration remains planned for Part C.
 
 Load contract files with
 `python platform/jobs/load_contract.py --scored-edges <path> --rings <path> --scope tenant`.

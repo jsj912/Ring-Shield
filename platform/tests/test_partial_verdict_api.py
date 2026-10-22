@@ -157,6 +157,75 @@ def test_invalid_partial_verdict_returns_422_before_any_write(monkeypatch):
     assert verdict_calls == []
 
 
+@pytest.mark.parametrize(("corrected_members", "corrected_edges"), [
+    ([1, 8], None),
+    ([1], None),
+    ([1, 2, 3], None),
+    ([1, 1], None),
+    ([1, 2], []),
+    ([1, 2], [10, 10]),
+    ([1, 2], [99]),
+    ([1, 2], [11]),
+])
+def test_each_partial_validation_failure_returns_422_without_writes(
+        monkeypatch, corrected_members, corrected_edges):
+    session = FakeSession()
+    audit_events = []
+    verdict_calls = []
+    _install(monkeypatch, session, regenerate_url="https://l4.example.test/regenerate",
+             audit_events=audit_events, verdict_calls=verdict_calls, launched=[])
+    values = {"verdict": "partial", "corrected_members": corrected_members,
+              "note": "Keep the core"}
+    if corrected_edges is not None:
+        values["corrected_edges"] = corrected_edges
+
+    with pytest.raises(HTTPException) as exc_info:
+        verdicts.submit_verdict(21, "ring-1", VerdictRequest(**values), _principal())
+
+    assert exc_info.value.status_code == 422
+    assert session.added == []
+    assert audit_events == []
+    assert verdict_calls == []
+
+
+@pytest.mark.parametrize("kind", ["confirm", "reject"])
+def test_confirm_and_reject_keep_null_regeneration_response(monkeypatch, kind):
+    session = FakeSession()
+    audit_events = []
+    verdict_calls = []
+    _install(monkeypatch, session, regenerate_url="https://l4.example.test/regenerate",
+             audit_events=audit_events, verdict_calls=verdict_calls, launched=[])
+
+    result = verdicts.submit_verdict(
+        21, "ring-1", VerdictRequest(verdict=kind, corrected_members=[1, 2],
+                                     corrected_edges=[10]), _principal(),
+    )
+
+    assert result.verdict.value == kind
+    assert result.regeneration is None
+    assert session.added == []
+    assert len(verdict_calls) == 1
+    assert verdict_calls[0]["corrected_members"] == [1, 2]
+    assert verdict_calls[0]["corrected_edges"] == [10]
+    assert audit_events == []
+
+
+def test_partial_verdict_requires_a_nonempty_note_before_route_execution():
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        VerdictRequest(verdict="partial", corrected_members=[1, 2], note="  ")
+
+
+@pytest.mark.parametrize("corrected_members", [[True, 2], [1.5, 2]])
+def test_partial_member_ids_reject_boolean_and_fractional_values(corrected_members):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        VerdictRequest(verdict="partial", corrected_members=corrected_members,
+                       note="Keep the core")
+
+
 def test_worker_launch_oserror_keeps_queued_response_and_logs_safe_event(
         monkeypatch, caplog):
     import logging

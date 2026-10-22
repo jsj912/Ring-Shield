@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 
 
 class VerdictKind(str, Enum):
@@ -173,8 +173,8 @@ class RingExplanation(BaseModel):
 
 class VerdictRequest(BaseModel):
     verdict: VerdictKind
-    corrected_members: list[int] = Field(default_factory=list)
-    corrected_edges: list[int] = Field(default_factory=list)
+    corrected_members: list[StrictInt] = Field(default_factory=list)
+    corrected_edges: list[StrictInt] = Field(default_factory=list)
     note: str | None = None
 
     @model_validator(mode="after")
