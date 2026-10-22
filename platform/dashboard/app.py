@@ -359,37 +359,91 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
             st.warning("Read-only: your role cannot record verdicts.")
         return
     st.subheader("Record a verdict")
-    note = st.text_input("Note (optional for confirm or reject)", key=f"note_{tenant_id}_{ring_id}")
     if ring["status"] != "open":
         st.info("This ring is no longer open for verdicts.")
         return
     submitted_key = f"verdict_submitted_{tenant_id}_{ring_id}"
     disabled = bool(st.session_state.get("verdict_in_flight")) or st.session_state.get(submitted_key, False)
-    left, right = st.columns(2)
-    if left.button("Confirm ring", type="primary", key=f"detail_confirm_{tenant_id}_{ring_id}", disabled=disabled):
-        result = _record_verdict(tenant_id, ring_id, "confirm", note)
-        if result:
-            st.success("Verdict recorded")
+    partial_key = f"partial_form_open_{tenant_id}_{ring_id}"
+    if st.session_state.get(partial_key):
+        st.subheader("Partially correct")
+        with st.form(f"partial_correction_{tenant_id}_{ring_id}"):
+            keep_members = {
+                account_id: st.checkbox(
+                    f"Keep account {account_id}", value=True,
+                    key=f"partial_keep_account_{tenant_id}_{ring_id}_{account_id}",
+                )
+                for account_id in ring["member_accounts"]
+            }
+            keep_edges = {
+                edge_id: st.checkbox(
+                    f"Keep transaction {edge_id}", value=True,
+                    key=f"partial_keep_transaction_{tenant_id}_{ring_id}_{edge_id}",
+                )
+                for edge_id in ring["member_edges"]
+            }
+            partial_note = st.text_area(
+                "Note (required for partial)", key=f"partial_note_{tenant_id}_{ring_id}"
+            )
+            submit_partial = st.form_submit_button(
+                "Submit partial verdict", disabled=disabled
+            )
+        cancel_left, _ = st.columns(2)
+        if cancel_left.button("Cancel partial correction", key=f"cancel_partial_{tenant_id}_{ring_id}"):
+            st.session_state.pop(partial_key, None)
             st.rerun()
-    if right.button("Reject ring", key=f"detail_reject_{tenant_id}_{ring_id}", disabled=disabled):
-        result = _record_verdict(tenant_id, ring_id, "reject", note)
-        if result:
-            st.success("Verdict recorded")
+        if submit_partial:
+            corrected_members = [account for account, keep in keep_members.items() if keep]
+            corrected_edges = [edge for edge, keep in keep_edges.items() if keep]
+            if not corrected_members[1:]:
+                st.error("Keep at least two accounts for a partial correction.")
+            elif all(keep_members.values()) and all(keep_edges.values()):
+                st.error("Remove at least one account or transaction; otherwise confirm the ring.")
+            elif not partial_note.strip():
+                st.error("A note is required for a partial verdict.")
+            else:
+                result = _record_verdict(
+                    tenant_id, ring_id, "partial", partial_note,
+                    corrected_members=corrected_members, corrected_edges=corrected_edges,
+                )
+                if result:
+                    st.session_state.pop(partial_key, None)
+                    st.success("Verdict recorded")
+                    st.rerun()
+    else:
+        note = st.text_input(
+            "Note (optional for confirm or reject)", key=f"note_{tenant_id}_{ring_id}"
+        )
+        left, right, partial = st.columns(3)
+        if left.button("Confirm ring", type="primary", key=f"detail_confirm_{tenant_id}_{ring_id}", disabled=disabled):
+            result = _record_verdict(tenant_id, ring_id, "confirm", note)
+            if result:
+                st.success("Verdict recorded")
+                st.rerun()
+        if right.button("Reject ring", key=f"detail_reject_{tenant_id}_{ring_id}", disabled=disabled):
+            result = _record_verdict(tenant_id, ring_id, "reject", note)
+            if result:
+                st.success("Verdict recorded")
+                st.rerun()
+        if partial.button("Partially correct", key=f"detail_partial_{tenant_id}_{ring_id}",
+                         disabled=disabled):
+            st.session_state[partial_key] = True
             st.rerun()
-    st.button("Partially correct", disabled=True,
-              help="Partial correction requires the L4 regeneration interface.")
 
 
-def _record_verdict(tenant_id: int, ring_id: str, verdict: str, note: str | None = None):
+def _record_verdict(tenant_id: int, ring_id: str, verdict: str, note: str | None = None,
+                    *, corrected_members: list[int] | None = None,
+                    corrected_edges: list[int] | None = None):
     submitted_key = f"verdict_submitted_{tenant_id}_{ring_id}"
     if st.session_state.get("verdict_in_flight") or st.session_state.get(submitted_key):
         return None
     st.session_state["verdict_in_flight"] = True
     try:
-        result = _api(
-            "POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
-            body={"verdict": verdict, "note": note},
-        )
+        body = {"verdict": verdict, "note": note}
+        if verdict == "partial":
+            body["corrected_members"] = corrected_members or []
+            body["corrected_edges"] = corrected_edges or []
+        result = _api("POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts", body=body)
         if result:
             st.session_state[submitted_key] = True
             st.session_state.pop("pending_quick_verdict", None)
