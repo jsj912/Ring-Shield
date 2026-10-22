@@ -23,6 +23,23 @@ def test_environment_config_switch_uses_each_resolved_path(monkeypatch):
     assert load_platform_config()["l4"]["rings_schema_version"] == 1
 
 
+def test_worker_and_l4_environment_overrides_are_process_local(monkeypatch):
+    monkeypatch.setenv("RINGSHIELD_WORKER_MODE", "supervisor")
+    monkeypatch.setenv("RINGSHIELD_L4_REGENERATE_URL", "http://127.0.0.1:9000/regenerate")
+
+    config = load_platform_config()
+
+    assert config["worker_mode"] == "supervisor"
+    assert config["l4"]["regenerate_url"] == "http://127.0.0.1:9000/regenerate"
+
+
+def test_worker_mode_environment_override_rejects_unknown_value(monkeypatch):
+    monkeypatch.setenv("RINGSHIELD_WORKER_MODE", "inline")
+
+    with pytest.raises(RuntimeError, match="worker_mode must be spawn or supervisor"):
+        load_platform_config()
+
+
 @pytest.mark.parametrize("l4_config", [None, {}, {"rings_schema_version": "1"},
                                        {"rings_schema_version": True},
                                        {"rings_schema_version": 3}])

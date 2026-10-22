@@ -15,10 +15,13 @@ param(
     [string]$EdgeIdsDir,
     [string]$ScoredEdges = 'contract/out/scored_edges_gine_causal_1.parquet',
     [string]$ExplanationsDir,
+    [string]$XaiUrl,
+    [string]$XaiToken,
     [switch]$Down,
     [switch]$DropVolume,
     [switch]$ResetPasswords,
     [switch]$ValidateOnly,
+    [switch]$StartFakeL4,
     [switch]$DefinitionsOnly,
     [int]$PostgresTimeoutSeconds = 120
 )
@@ -55,6 +58,35 @@ function Assert-TimeOriginUtc {
     if ($Value -notmatch $isoInstant -or -not $validDate) {
         throw "Invalid -TimeOriginUtc '$Value'. Supply an ISO-8601 instant with a UTC offset or Z. It means $definition"
     }
+}
+
+function Resolve-DemoL4Options {
+    param([string]$Url, [string]$Token, [switch]$UseFakeServer)
+    if ($UseFakeServer -and -not [string]::IsNullOrWhiteSpace($Url)) {
+        throw '-StartFakeL4 cannot be combined with -XaiUrl.'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Url)) {
+        $parsed = $null
+        if (-not [System.Uri]::TryCreate($Url, [System.UriKind]::Absolute, [ref]$parsed) -or
+                $parsed.Scheme -notin @('http', 'https') -or
+                $parsed.Host -notin @('localhost', '127.0.0.1', '::1') -or
+                -not [string]::IsNullOrEmpty($parsed.UserInfo) -or
+                -not [string]::IsNullOrEmpty($parsed.Query) -or
+                -not [string]::IsNullOrEmpty($parsed.Fragment)) {
+            throw '-XaiUrl must be an absolute HTTP(S) URL on localhost, 127.0.0.1, or ::1.'
+        }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Token) -and
+            [string]::IsNullOrWhiteSpace($Url) -and -not $UseFakeServer) {
+        throw '-XaiToken requires -XaiUrl or -StartFakeL4.'
+    }
+    return [pscustomobject]@{ Url = $Url; Token = $Token; UseFakeServer = [bool]$UseFakeServer }
+}
+
+function New-DemoXaiToken {
+    $bytes = New-Object byte[] 32
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    return [BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant()
 }
 
 function ConvertTo-DemoTenantIds {
@@ -99,6 +131,16 @@ function Get-PlatformConfigPath {
     $value = $match.Matches[0].Groups[1].Value.Trim().Trim([char]'"').Trim([char]"'")
     if ([string]::IsNullOrWhiteSpace($value)) { throw "platform/config.yaml has an empty '$Key'." }
     return Resolve-DemoPath $value
+}
+
+function Get-ConfiguredL4Url {
+    $configPath = Join-Path $script:RepoRoot 'platform/config.yaml'
+    $match = Select-String -LiteralPath $configPath -Pattern '(?m)^\s+regenerate_url:\s*(.*?)\s*$' -ErrorAction Stop |
+        Select-Object -First 1
+    if (-not $match) { throw 'platform/config.yaml is missing l4.regenerate_url.' }
+    $value = $match.Matches[0].Groups[1].Value.Trim().Trim([char]'"').Trim([char]"'")
+    if ($value -eq 'null' -or [string]::IsNullOrWhiteSpace($value)) { return $null }
+    return $value
 }
 
 function Find-ForbiddenPathValue {
@@ -281,6 +323,15 @@ function Stop-DemoProcesses {
     if (-not (Test-Path -LiteralPath $pidFile)) { return }
     try { $processes = Get-Content -LiteralPath $pidFile -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
     catch { Write-Warning 'Could not read demo process list; leaving local processes untouched.'; return }
+    foreach ($entry in @($processes | Where-Object { $_.Kind -eq 'supervisor' -and $_.StopFile })) {
+        try {
+            New-Item -ItemType File -Path $entry.StopFile -Force -ErrorAction Stop | Out-Null
+            $deadline = [DateTime]::UtcNow.AddSeconds(10)
+            while ([DateTime]::UtcNow -lt $deadline -and (Get-Process -Id ([int]$entry.Id) -ErrorAction SilentlyContinue)) {
+                Start-Sleep -Milliseconds 200
+            }
+        } catch { Write-Warning 'Could not signal the demo worker supervisor to stop gracefully.' }
+    }
     foreach ($entry in @($processes)) {
         $process = Get-Process -Id ([int]$entry.Id) -ErrorAction SilentlyContinue
         $sameInstance = $false
@@ -292,8 +343,19 @@ function Stop-DemoProcesses {
             try { Stop-Process -Id $process.Id -Force -ErrorAction Stop }
             catch { Write-Warning "Could not stop demo process $($entry.Name) (PID $($entry.Id))." }
         }
+        if ($entry.StopFile) { Remove-Item -LiteralPath $entry.StopFile -Force -ErrorAction SilentlyContinue }
     }
     Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+}
+
+function Save-DemoProcess {
+    param([System.Diagnostics.Process]$Process, [string]$Kind, [string]$StopFile)
+    $entry = [ordered]@{ Id = $Process.Id; Name = $Process.ProcessName;
+        StartTicks = $Process.StartTime.ToUniversalTime().Ticks; Kind = $Kind }
+    if ($StopFile) { $entry.StopFile = $StopFile }
+    $script:DemoProcesses.Add([pscustomobject]$entry)
+    $script:DemoProcesses | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:RuntimeDir 'processes.json') `
+        -Encoding UTF8 -ErrorAction Stop
 }
 
 function Invoke-DemoDown {
@@ -551,6 +613,11 @@ if ($Down) {
     catch { Write-Error $_; exit 1 }
     return
 }
+if ($StartFakeL4 -and -not [string]::IsNullOrWhiteSpace($XaiUrl)) {
+    throw '-StartFakeL4 cannot be combined with -XaiUrl.'
+}
+$configuredL4Url = if ($StartFakeL4) { $null } elseif (-not [string]::IsNullOrWhiteSpace($XaiUrl)) { $XaiUrl } else { Get-ConfiguredL4Url }
+$script:DemoL4Options = Resolve-DemoL4Options -Url $configuredL4Url -Token $XaiToken -UseFakeServer:$StartFakeL4
 
 try { Assert-TimeOriginUtc $TimeOriginUtc }
 catch { Write-Error $_; exit 1 }
@@ -565,6 +632,12 @@ try {
         foreach ($inputFile in $validated.Inputs) { Write-Host ("Found {0}: {1}" -f $inputFile.Kind, $inputFile.Path) }
         Write-Host 'Demo arguments and handoff paths are valid; Docker was not started.'
         return
+    }
+
+    $script:EffectiveXaiToken = $script:DemoL4Options.Token
+    if (($script:DemoL4Options.UseFakeServer -or -not [string]::IsNullOrWhiteSpace($script:DemoL4Options.Url)) -and
+            [string]::IsNullOrWhiteSpace($script:EffectiveXaiToken)) {
+        $script:EffectiveXaiToken = New-DemoXaiToken
     }
 
     $accountMap = Get-PlatformConfigPath 'account_map'
@@ -692,6 +765,7 @@ try {
 
     Stop-DemoProcesses
     New-Item -ItemType Directory -Path $script:RuntimeDir -Force -ErrorAction Stop | Out-Null
+    $script:DemoProcesses = [System.Collections.Generic.List[object]]::new()
     $jwtSecret = if ($credentials.Contains('jwt_secret')) { $credentials.jwt_secret } else { New-DemoPassword }
     if (-not $credentials.Contains('jwt_secret')) {
         Add-Content -LiteralPath $script:CredentialsPath -Value "jwt_secret=$jwtSecret" -Encoding UTF8 -ErrorAction Stop
@@ -701,8 +775,42 @@ try {
             'RINGSHIELD_DATABASE_ADMIN_PSQL_URL', 'RINGSHIELD_MIGRATION_DATABASE_URL',
             'RINGSHIELD_TEST_ADMIN_URL', 'RINGSHIELD_SIMULATOR_DATABASE_URL',
             'RINGSHIELD_DEMO_ADMIN_URL', 'RINGSHIELD_DEMO_USERS_JSON',
-            'RINGSHIELD_DEMO_POSTGRES_PASSWORD')) {
+            'RINGSHIELD_DEMO_POSTGRES_PASSWORD', 'RINGSHIELD_XAI_TOKEN')) {
         Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+    }
+    if ($StartFakeL4) {
+        $fakePortFile = Join-Path $script:RuntimeDir 'fake-l4-port.txt'
+        Remove-Item -LiteralPath $fakePortFile -Force -ErrorAction SilentlyContinue
+        $env:RINGSHIELD_XAI_TOKEN = $script:EffectiveXaiToken
+        $fakeOut = Join-Path $script:RuntimeDir 'fake-l4.out.log'
+        $fakeErr = Join-Path $script:RuntimeDir 'fake-l4.err.log'
+        $fakeProcess = Start-Process -FilePath $python -ArgumentList @('scripts/fake_l4_server.py',
+            '--port', '0', '--port-file', ('"{0}"' -f $fakePortFile)) -WorkingDirectory $script:RepoRoot `
+            -WindowStyle Hidden -PassThru -RedirectStandardOutput $fakeOut -RedirectStandardError $fakeErr `
+            -ErrorAction Stop
+        Remove-Item Env:RINGSHIELD_XAI_TOKEN -ErrorAction SilentlyContinue
+        Save-DemoProcess -Process $fakeProcess -Kind 'fake_l4' -StopFile $null
+        $fakePortDeadline = [DateTime]::UtcNow.AddSeconds(10)
+        while (-not (Test-Path -LiteralPath $fakePortFile -PathType Leaf) -and [DateTime]::UtcNow -lt $fakePortDeadline) {
+            $fakeProcess.Refresh()
+            if ($fakeProcess.HasExited) { throw "Step 'start fake L4' failed; inspect $fakeErr." }
+            Start-Sleep -Milliseconds 100
+        }
+        if (-not (Test-Path -LiteralPath $fakePortFile -PathType Leaf)) {
+            throw "Step 'start fake L4' timed out; inspect $fakeErr."
+        }
+        $fakePort = 0
+        $fakePortText = (Get-Content -LiteralPath $fakePortFile -Raw -ErrorAction Stop).Trim()
+        if (-not [int]::TryParse($fakePortText, [ref]$fakePort) -or $fakePort -lt 1 -or $fakePort -gt 65535) {
+            throw "Step 'start fake L4' returned an invalid local port."
+        }
+        $script:DemoL4Options.Url = "http://127.0.0.1:$fakePort"
+    }
+    $env:RINGSHIELD_WORKER_MODE = 'supervisor'
+    if (-not [string]::IsNullOrWhiteSpace($script:DemoL4Options.Url)) {
+        $env:RINGSHIELD_L4_REGENERATE_URL = $script:DemoL4Options.Url
+    } else {
+        Remove-Item Env:RINGSHIELD_L4_REGENERATE_URL -ErrorAction SilentlyContinue
     }
     $env:RINGSHIELD_DATABASE_URL = $urls.App
     $env:RINGSHIELD_AUTH_DATABASE_URL = $urls.Auth
@@ -717,10 +825,7 @@ try {
         '--app-dir', 'platform', '--host', '127.0.0.1', '--port', '8000', '--no-access-log') -WorkingDirectory $script:RepoRoot `
         -WindowStyle Hidden -PassThru -RedirectStandardOutput $apiStdout -RedirectStandardError $apiStderr `
         -ErrorAction Stop
-    $processList = [System.Collections.Generic.List[object]]::new()
-    $processList.Add([pscustomobject]@{ Id = $apiProcess.Id; Name = $apiProcess.ProcessName;
-        StartTicks = $apiProcess.StartTime.ToUniversalTime().Ticks })
-    $processList | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:RuntimeDir 'processes.json') -Encoding UTF8 -ErrorAction Stop
+    Save-DemoProcess -Process $apiProcess -Kind 'api' -StopFile $null
     $apiReady = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
         $apiProcess.Refresh()
@@ -734,20 +839,41 @@ try {
     }
     if (-not $apiReady) { throw "Step 'wait for API health' timed out; inspect $apiStderr." }
 
+    $stopFile = Join-Path $script:RuntimeDir 'supervisor.stop'
+    Remove-Item -LiteralPath $stopFile -Force -ErrorAction SilentlyContinue
+    foreach ($name in @('RINGSHIELD_DATABASE_URL', 'RINGSHIELD_AUTH_DATABASE_URL',
+            'RINGSHIELD_JWT_SECRET', 'RINGSHIELD_DATABASE_ADMIN_URL',
+            'RINGSHIELD_DATABASE_ADMIN_PSQL_URL', 'RINGSHIELD_MIGRATION_DATABASE_URL',
+            'RINGSHIELD_TEST_ADMIN_URL', 'RINGSHIELD_SIMULATOR_DATABASE_URL')) {
+        Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+    }
+    $env:RINGSHIELD_LOADER_DATABASE_URL = $urls.Loader
+    if (-not [string]::IsNullOrWhiteSpace($script:EffectiveXaiToken)) {
+        $env:RINGSHIELD_XAI_TOKEN = $script:EffectiveXaiToken
+    }
+    $supervisorOut = Join-Path $script:RuntimeDir 'supervisor.out.log'
+    $supervisorErr = Join-Path $script:RuntimeDir 'supervisor.err.log'
+    $supervisorProcess = Start-Process -FilePath $python -ArgumentList @('-m', 'jobs.worker_supervisor',
+        '--poll-seconds', '2', '--max-concurrent', '2', '--stop-file', ('"{0}"' -f $stopFile)) `
+        -WorkingDirectory (Join-Path $script:RepoRoot 'platform') -WindowStyle Hidden -PassThru `
+        -RedirectStandardOutput $supervisorOut -RedirectStandardError $supervisorErr -ErrorAction Stop
+    Remove-Item Env:RINGSHIELD_LOADER_DATABASE_URL -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_XAI_TOKEN -ErrorAction SilentlyContinue
+    Save-DemoProcess -Process $supervisorProcess -Kind 'supervisor' -StopFile $stopFile
+
     $env:RINGSHIELD_API_URL = 'http://127.0.0.1:8000'
     Remove-Item Env:RINGSHIELD_DATABASE_URL -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_AUTH_DATABASE_URL -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_JWT_SECRET -ErrorAction SilentlyContinue
-    Remove-Item Env:RINGSHIELD_LOADER_DATABASE_URL -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_WORKER_MODE -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_L4_REGENERATE_URL -ErrorAction SilentlyContinue
     $dashboardStdout = Join-Path $script:RuntimeDir 'dashboard.out.log'
     $dashboardStderr = Join-Path $script:RuntimeDir 'dashboard.err.log'
     $dashboardProcess = Start-Process -FilePath $python -ArgumentList @('-m', 'streamlit', 'run',
         'platform/dashboard/app.py', '--server.address', '127.0.0.1', '--server.port', '8501') `
         -WorkingDirectory $script:RepoRoot -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $dashboardStdout -RedirectStandardError $dashboardStderr -ErrorAction Stop
-    $processList.Add([pscustomobject]@{ Id = $dashboardProcess.Id; Name = $dashboardProcess.ProcessName;
-        StartTicks = $dashboardProcess.StartTime.ToUniversalTime().Ticks })
-    $processList | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:RuntimeDir 'processes.json') -Encoding UTF8 -ErrorAction Stop
+    Save-DemoProcess -Process $dashboardProcess -Kind 'dashboard' -StopFile $null
     $dashboardReady = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
         $dashboardProcess.Refresh()
@@ -775,6 +901,10 @@ try {
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_DEMO_USERS_JSON -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_DEMO_PASSWORD_RESET -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_XAI_TOKEN -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_LOADER_DATABASE_URL -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_WORKER_MODE -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_L4_REGENERATE_URL -ErrorAction SilentlyContinue
     if ($script:LocationPushed) {
         Pop-Location -ErrorAction SilentlyContinue
         $script:LocationPushed = $false

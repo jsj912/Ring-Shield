@@ -40,6 +40,14 @@ endpoint-visible transactions and scores. Tenant rings use `scope=tenant`; the L
 loader checks each explanation log, rings-log tenant rule, artifact hash, active
 model/seed, and the pinned FX hash. The API process uses the restricted app and auth
 roles with dotenv loading disabled, so it never inherits loader credentials.
+The demo starts a restricted worker supervisor after API health succeeds. To use
+the local fake L4 service, add `-StartFakeL4`; it binds only to loopback and uses
+a generated in-memory bearer token. Its response is labeled **DEMO STUB** and is
+not real research output. Alternatively, pass `-XaiUrl` for a localhost HTTP(S)
+service base URL and optionally `-XaiToken`; the adapter appends `/regenerate` and
+`/health` to it. The runner generates an ephemeral token when
+an endpoint is configured without one. Tokens are not written to the credentials
+file, process list, or service logs.
 
 For banks 12 and 20, the expected visible edge-ID and database transaction/score
 counts are **20,039** and **10,315** respectively, with **5 rings per tenant**.
@@ -57,8 +65,8 @@ To rotate all demo-user passwords without removing demo data, run the demo with
 `-Down -DropVolume` removes the database volume.
 
 To check arguments, input paths, and PowerShell automatic-variable assignments
-without starting Docker, run the six database-free PowerShell checks, or invoke
-the runner with `-ValidateOnly`:
+without starting Docker, run the database-free PowerShell validation script, or
+invoke the runner with `-ValidateOnly`:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\tests\run-demo-validation.tests.ps1
@@ -349,12 +357,12 @@ were supplied, it also derives `excluded_edges = ring edges - corrected_edges`.
 Those server-computed exclusions are saved with the regeneration job.
 
 When `l4.regenerate_url` is configured, the verdict, ring status, queued job,
-and safe audit event commit in one transaction. After commit, the API launches
-`python -m jobs.regenerate_worker <job_id>` as a detached child process, passing
-only the job ID as an argument. The child uses the loader role and reads its
-L4 bearer token from `RINGSHIELD_XAI_TOKEN`; the API does not read that token.
-If launching fails at the operating-system level, the job remains queued and
-the API returns the queued status for a later retry.
+and safe audit event commit in one transaction. With `worker_mode: spawn`, the
+API starts `python -m jobs.regenerate_worker <job_id>` as a detached child after
+commit. With `worker_mode: supervisor`, the API leaves the row queued and the
+supervisor dispatches it on its next poll. The worker uses the loader role and
+reads its L4 bearer token from `RINGSHIELD_XAI_TOKEN`; the API does not read that
+token. If spawn mode cannot launch the child, the job remains queued for retry.
 
 The default `l4.regenerate_url` is `null`. A valid partial verdict is still
 recorded in that configuration, but no job is created and the additive
@@ -368,8 +376,10 @@ the additive `regenerating` flag from the explanation endpoint. The status
 route returns only safe job metadata and errors.
 
 Worker job IDs use the form `<tenant_id>.<uuidhex>` so the worker can set
-tenant context and scope every query before it loads a job. The fake-server
-demonstration remains planned for Part C.
+tenant context and scope every query before it loads a job. In supervisor mode,
+queued explanation jobs and unfinished retrain runs are dispatched from
+tenant-scoped scans. The retrain worker launches its ring refresh as a nested
+step because the schema has no separate refresh-run table.
 
 Load contract files with
 `python platform/jobs/load_contract.py --scored-edges <path> --rings <path> --scope tenant`.

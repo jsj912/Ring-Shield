@@ -132,17 +132,55 @@ def test_retrain_launcher_starts_a_child_without_reading_job_credentials(monkeyp
     assert captured["stdout"] is operations.subprocess.DEVNULL
 
 
+def test_supervisor_mode_keeps_retrain_run_without_spawning_child(monkeypatch, caplog):
+    caplog.set_level("INFO")
+    added = []
+
+    class Session:
+        def add(self, row):
+            added.append(row)
+
+        def execute(self, _statement):
+            pass
+
+        def flush(self):
+            pass
+
+    @contextmanager
+    def fake_db_session(*, tenant_id, role):
+        assert (tenant_id, role) == (21, "supervisor")
+        yield Session()
+
+    def forbidden_popen(*_args, **_kwargs):
+        raise AssertionError("supervisor mode must not spawn from the API")
+
+    monkeypatch.setattr(operations, "db_session", fake_db_session)
+    monkeypatch.setattr(operations.subprocess, "Popen", forbidden_popen)
+    monkeypatch.setenv("RINGSHIELD_WORKER_MODE", "supervisor")
+
+    result = operations.start_retrain(21, _principal())
+
+    row = next(row for row in added if hasattr(row, "run_id"))
+    assert row.run_id == result.run_id
+    assert row.status == "running"
+    assert '"outcome":"deferred_to_supervisor"' in caplog.text
+
+
 def test_api_modules_never_read_or_import_loader_credentials():
     import ast
 
     api_root = PLATFORM_ROOT / "api"
     violations = []
+    forbidden_environment = {
+        "RINGSHIELD_LOADER_DATABASE_URL", "RINGSHIELD_XAI_TOKEN",
+        "RINGSHIELD_DATABASE_ADMIN_URL", "RINGSHIELD_SIMULATOR_DATABASE_URL",
+    }
     for path in api_root.rglob("*.py"):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Constant) and node.value == "RINGSHIELD_LOADER_DATABASE_URL":
-                violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: loader URL reference")
+            if isinstance(node, ast.Constant) and node.value in forbidden_environment:
+                violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: restricted worker credential reference")
             if isinstance(node, ast.ImportFrom) and node.module and node.module.endswith("db.session"):
                 if any(alias.name in {"loader_db_session", "get_loader_engine"} for alias in node.names):
                     violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: loader session import")

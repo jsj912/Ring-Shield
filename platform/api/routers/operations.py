@@ -22,6 +22,7 @@ from api.dependencies import get_principal, require_tenant_access
 from audit import add_audit_event
 from api.identity import Principal
 from api.request_context import current_request_id
+from api.worker_mode import log_worker_event, supervisor_mode_enabled
 from api.schemas import (DriftEventPage, DriftEventSummary, ModelVersionPage,
                          ModelVersionSummary, RetrainRunCreated, RetrainRunStatusResponse,
                          DriftActedOnUpdate, DriftSeriesResponse, DailyDriftStatistic,
@@ -237,6 +238,10 @@ def retrain_log_lines(log_path: str | None, *, limit: int = 50) -> list[str]:
 
 def launch_retrain_process(tenant_id: int, run_id: str) -> None:
     """Start retraining in a child process; API code does not inspect job credentials."""
+    if supervisor_mode_enabled():
+        log_worker_event(worker="retrain", outcome="deferred_to_supervisor",
+                         tenant_id=int(tenant_id), job_id=run_id)
+        return
     command = [sys.executable, "-m", "jobs.retrain_worker", str(int(tenant_id)), run_id]
     options = {
         "cwd": str(Path(__file__).resolve().parents[2]),
@@ -250,6 +255,8 @@ def launch_retrain_process(tenant_id: int, run_id: str) -> None:
     else:
         options["start_new_session"] = True
     subprocess.Popen(command, **options)
+    log_worker_event(worker="retrain", outcome="started", tenant_id=int(tenant_id),
+                     job_id=run_id)
 
 
 @router.post("/tenants/{tenant_id}/retrain", response_model=RetrainRunCreated,
