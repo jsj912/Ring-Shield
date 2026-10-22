@@ -6,6 +6,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -40,6 +41,17 @@ def _load_platform_config(resolved_path: str) -> dict[str, Any]:
     if (not isinstance(rings_schema_version, int) or isinstance(rings_schema_version, bool)
             or rings_schema_version not in (1, 2)):
         raise RuntimeError("platform config requires integer l4.rings_schema_version 1 or 2")
+    regenerate_url = l4.get("regenerate_url")
+    if regenerate_url is not None:
+        if (not isinstance(regenerate_url, str) or not regenerate_url.strip()
+                or urlsplit(regenerate_url).scheme not in {"http", "https"}
+                or not urlsplit(regenerate_url).netloc):
+            raise RuntimeError("l4.regenerate_url must be null or an absolute HTTP(S) URL")
+    regenerate_timeout = l4.get("regenerate_timeout_seconds", 120)
+    if (not isinstance(regenerate_timeout, int) or isinstance(regenerate_timeout, bool)
+            or regenerate_timeout <= 0):
+        raise RuntimeError("l4.regenerate_timeout_seconds must be a positive integer")
+    l4.setdefault("regenerate_timeout_seconds", 120)
     if "seed_score_cutoff" in config:
         cutoff = config["seed_score_cutoff"]
         if not isinstance(cutoff, (int, float)) or not 0 <= float(cutoff) <= 1:

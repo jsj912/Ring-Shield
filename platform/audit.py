@@ -15,6 +15,7 @@ _ALLOWED_DETAIL_KEYS = {
     "rings_loaded", "rings_preserved_after_verdict", "explanations_loaded", "rows_validated",
     "component", "version_tag", "promoted", "gate_reason", "model_version_id",
     "run_id", "role", "acted_on",
+    "revision", "error_code",
     "banks", "accounts", "loaded",
 }
 _UNSAFE_TEXT = re.compile(r"(?:[A-Za-z]:\\|/[^/\s]+/|\b[^\s@]+@[^\s@]+\b)")

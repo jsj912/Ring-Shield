@@ -22,6 +22,7 @@ from api.timebasis import from_utc, to_utc
 from contract.schema import TOPOLOGY_TYPES
 from db.models import Account, EdgeScore, Explanation, Ring as PlatformRing, Transaction
 from db.session import db_session
+from jobs.explanation_queries import latest_explanation_statement
 from settings import load_platform_config
 
 router = APIRouter(tags=["rings"])
@@ -48,12 +49,7 @@ def get_ring_explanation(
         ring = session.get(PlatformRing, {"tenant_id": tenant_id, "ring_id": ring_id})
         if ring is None or ring.scope != "tenant":
             raise HTTPException(status_code=404, detail="Ring not found")
-        explanation = session.scalar(
-            select(Explanation)
-            .where(Explanation.tenant_id == tenant_id, Explanation.ring_id == ring_id)
-            .order_by(Explanation.created_at.desc(), Explanation.explainer_version.desc())
-            .limit(1)
-        )
+        explanation = session.scalar(latest_explanation_statement(tenant_id, ring_id))
         if explanation is None:
             raise HTTPException(status_code=404, detail="Explanation not found")
         raw_provenance = explanation.provenance or {}
@@ -71,6 +67,8 @@ def get_ring_explanation(
             tenant_id=tenant_id,
             ring_id=ring_id,
             explainer_version=explanation.explainer_version,
+            revision=explanation.revision,
+            regenerated=(raw_provenance.get("regenerated") is True),
             edge_weights=explanation.edge_weights if isinstance(explanation.edge_weights, list) else [],
             account_weights=explanation.account_weights if isinstance(explanation.account_weights, list) else [],
             feature_weights=explanation.feature_weights if isinstance(explanation.feature_weights, list) else [],

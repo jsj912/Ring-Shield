@@ -50,7 +50,7 @@ def _install_session(monkeypatch, session):
 
 def test_explanation_is_tenant_scoped_and_hides_artifact_paths(monkeypatch):
     explanation = SimpleNamespace(
-        explainer_version="0.4.0-narrative", edge_weights=[{"edge_id": 11}],
+        explainer_version="0.4.0-narrative", revision=1, edge_weights=[{"edge_id": 11}],
         account_weights=[{"account_id": 101}], feature_weights=[],
         narrative="Example", evidence_summary={"template": "FAN-OUT"}, latency_ms=12,
         provenance={"aggregator_id": "full", "model_id": "gine_causal",
@@ -64,11 +64,51 @@ def test_explanation_is_tenant_scoped_and_hides_artifact_paths(monkeypatch):
     result = rings.get_ring_explanation(21, "ring-1", _principal())
 
     assert result.narrative == "Example"
+    assert result.revision == 1
+    assert result.regenerated is False
     assert result.edge_weights == [{"edge_id": 11}]
     assert result.provenance == {
         "aggregator_id": "full", "model_id": "gine_causal",
         "feature_scope": "tenant_view", "fx_rates_sha256": "a" * 64,
     }
+
+
+def test_latest_explanation_uses_creation_time_then_revision_not_version_text(monkeypatch):
+    now = datetime.now(timezone.utc)
+    candidates = [
+        SimpleNamespace(explainer_version="0.4.0", revision=1, created_at=now,
+                        provenance={"regenerated": False}),
+        SimpleNamespace(explainer_version="0.5.0-review", revision=1,
+                        created_at=now, provenance={"regenerated": False}),
+        SimpleNamespace(
+            tenant_id=21, ring_id="ring-1", explainer_version="0.5.0-review",
+            revision=2, created_at=now, edge_weights=[], account_weights=[],
+            feature_weights=[], narrative="Corrected explanation", evidence_summary={},
+            latency_ms=2, provenance={"regenerated": True}, fx_rates_sha256=None,
+        ),
+    ]
+
+    class LatestSession(_FakeSession):
+        def scalar(self, statement):
+            self.query = statement
+            ordering = statement._order_by_clauses
+            assert len(ordering) == 3
+            assert "min(" in str(ordering[0]).lower()
+            assert "revision DESC" in str(ordering[1])
+            assert "created_at DESC" in str(ordering[2])
+            sql = str(statement.compile())
+            assert "explanations.tenant_id =" in sql
+            assert "explanations.ring_id =" in sql
+            return candidates[2]
+
+    session = LatestSession(SimpleNamespace(scope="tenant"), None)
+    _install_session(monkeypatch, session)
+
+    result = rings.get_ring_explanation(21, "ring-1", _principal())
+
+    assert (result.explainer_version, result.revision, result.regenerated) == (
+        "0.5.0-review", 2, True,
+    )
 
 
 def test_explanation_rejects_cross_tenant_access_before_database_query(monkeypatch):

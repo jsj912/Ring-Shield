@@ -50,6 +50,18 @@ def main() -> None:
                 VALUES (:tenant_id, 'demo-cycle', :user_id, 'confirm', ARRAY[]::bigint[],
                         ARRAY[]::bigint[], false)
             """), {"tenant_id": tenant_id, "user_id": users[tenant_id]})
+            verdict_id = connection.execute(text("""
+                SELECT verdict_id FROM verdicts
+                WHERE tenant_id = :tenant_id AND ring_id = 'demo-cycle'
+                  AND user_id = :user_id AND verdict = 'confirm'
+                ORDER BY verdict_id DESC LIMIT 1
+            """), {"tenant_id": tenant_id, "user_id": users[tenant_id]}).scalar_one()
+            connection.execute(text("""
+                INSERT INTO explanation_jobs
+                  (job_id, tenant_id, ring_id, verdict_id, requested_by, status)
+                VALUES (:job_id, :tenant_id, 'demo-cycle', :verdict_id, :user_id, 'queued')
+            """), {"job_id": f"{tenant_id}.{tenant_id:032x}", "tenant_id": tenant_id,
+                  "verdict_id": verdict_id, "user_id": users[tenant_id]})
             result = connection.execute(text("""
                 INSERT INTO model_versions
                   (tenant_id, component, version_tag, trained_at, train_label_count, promoted)

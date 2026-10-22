@@ -158,6 +158,8 @@ class RingExplanation(BaseModel):
     tenant_id: int
     ring_id: str
     explainer_version: str
+    revision: int
+    regenerated: bool
     edge_weights: list[dict[str, Any]]
     account_weights: list[dict[str, Any]]
     feature_weights: list[dict[str, Any]]

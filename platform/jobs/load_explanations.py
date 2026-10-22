@@ -30,6 +30,10 @@ from db.session import loader_db_session  # noqa: E402
 from settings import load_platform_config  # noqa: E402
 from contract.schema import RINGS_ORDER  # noqa: E402
 from audit import add_audit_event  # noqa: E402
+from jobs.explanation_validation import (  # noqa: E402
+    ExplanationValidationError,
+    validate_tenant_provenance,
+)
 
 REQUIRED_COLUMNS = {
     "ring_id", "tenant_id", "edge_weights", "account_weights", "feature_weights",
@@ -252,14 +256,14 @@ def read_handoff(parquet_path: Path, log_path: Path, rings_log_path: Path) -> tu
                 raise ExplanationLoadError(f"{ring_id}: row provenance differs across explanation rows")
             if row_provenance.get("explainer_version") != version:
                 raise ExplanationLoadError(f"{ring_id}: row explainer_version does not match the run log")
-            if row_provenance.get("scope") != "tenant":
-                raise ExplanationLoadError(f"{ring_id}: row provenance scope must be tenant")
-            if row_provenance.get("tenant_id") != int(log["tenant_id"]):
-                raise ExplanationLoadError(f"{ring_id}: row tenant_id does not match L4 log tenant")
-            if row_provenance.get("feature_scope") != "tenant_view":
-                raise ExplanationLoadError(f"{ring_id}: row feature_scope must be tenant_view")
-            if row_provenance.get("fx_rates_sha256") != expected_fx_hash:
-                raise ExplanationLoadError(f"{ring_id}: row fx_rates_sha256 does not match platform config")
+            try:
+                validate_tenant_provenance(
+                    row_provenance, tenant_id=int(log["tenant_id"]),
+                    explainer_version=version, fx_hash=expected_fx_hash,
+                    rings_schema_version=configured_rings_schema_version,
+                )
+            except ExplanationValidationError as exc:
+                raise ExplanationLoadError(f"{ring_id}: {exc}") from exc
             if row_provenance.get("currency_policy") != "converted":
                 raise ExplanationLoadError(f"{ring_id}: currency_policy must be converted")
             if row_provenance.get("aggregator_id") != "full":
@@ -383,9 +387,11 @@ def load_explanations(parquet_path: Path, log_path: Path, rings_log_path: Path) 
                    for item in row["feature_weights"]):
                 raise ExplanationLoadError(f"{row['ring_id']}: feature weight references a nonmember edge")
             values = {key: value for key, value in row.items() if not key.startswith("_")}
+            values["revision"] = 1
             stmt = insert(Explanation).values(values)
             result = session.execute(stmt.on_conflict_do_update(
-                index_elements=[Explanation.tenant_id, Explanation.ring_id, Explanation.explainer_version],
+                index_elements=[Explanation.tenant_id, Explanation.ring_id,
+                                Explanation.explainer_version, Explanation.revision],
                 set_={key: getattr(stmt.excluded, key) for key in (
                     "edge_weights", "account_weights", "feature_weights", "narrative",
                     "evidence_summary", "latency_ms", "provenance",

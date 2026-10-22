@@ -340,6 +340,13 @@ API exposes the newest saved explanation at
 `GET /tenants/{tenant_id}/rings/{ring_id}/explanation`; model/map file paths in
 the source provenance remain private.
 
+Explanation regeneration is handled by a separate loader-role worker. The
+`l4.regenerate_url` setting is `null` by default, which disables regeneration;
+`l4.regenerate_timeout_seconds` defaults to 120. The adapter reads its bearer
+token from `RINGSHIELD_XAI_TOKEN`. Worker job IDs use the form
+`<tenant_id>.<uuidhex>` so the worker can set tenant context and scope every
+query before it loads a job. The fake-server demo is planned for Part C.
+
 Load contract files with
 `python platform/jobs/load_contract.py --scored-edges <path> --rings <path> --scope tenant`.
 Each parquet must have a sibling `.log.json` declaring `split: test`; label and
