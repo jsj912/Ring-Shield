@@ -4,21 +4,29 @@ import base64
 import binascii
 import json
 from datetime import datetime
+import logging
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, or_, select
 
+from audit import add_audit_event
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
 from api.request_context import current_request_id
-from api.schemas import (TenantAnalystOption, TenantVerdictCounts, TenantVerdictItem,
+from api.schemas import (RegenerationResponse, TenantAnalystOption, TenantVerdictCounts, TenantVerdictItem,
                          TenantVerdictPage, VerdictHistoryPage, VerdictRequest,
                          VerdictResponse, VerdictKind)
-from db.models import Ring as PlatformRing, User, Verdict
+from db.models import (ExplanationJob, Ring as PlatformRing, Transaction, User,
+                       Verdict)
 from db.session import db_session
-from services.verdicts import record_verdict
+from services.verdicts import (PartialCorrectionError,
+                               map_partial_correction_to_exclusions,
+                               record_verdict)
+from settings import load_platform_config
 
 router = APIRouter(tags=["verdicts"])
+logger = logging.getLogger(__name__)
 
 
 def _encode_tenant_cursor(created_at: datetime, verdict_id: int) -> str:
@@ -197,17 +205,42 @@ def submit_verdict(
     require_tenant_access(tenant_id, principal)
     if principal.role == "admin":
         raise HTTPException(status_code=403, detail="Administrators cannot record verdicts")
+    exclusions: tuple[list[int], list[int]] | None = None
+    regeneration_configured = False
     if payload.verdict == VerdictKind.partial:
-        # Do not persist a partial status until ring and L4 explanation regeneration
-        # can happen atomically in this same workflow.
-        raise HTTPException(status_code=503,
-                            detail="Partial correction is unavailable until regeneration is configured")
-
+        l4_settings = load_platform_config().get("l4", {})
+        regeneration_configured = bool(l4_settings.get("regenerate_url"))
     with db_session(tenant_id=tenant_id, role=principal.role) as session:
         ring = session.get(PlatformRing, {"tenant_id": tenant_id, "ring_id": ring_id})
         if ring is None or ring.scope != "tenant":
             raise HTTPException(status_code=404, detail="Ring not found")
-        user_email = session.scalar(select(User.email).where(User.user_id == principal.user_id))
+        if payload.verdict == VerdictKind.partial:
+            edge_ids = sorted(set(map(int, ring.member_edges or [])))
+            edge_rows = session.execute(
+                select(Transaction.edge_id, Transaction.from_id, Transaction.to_id)
+                .where(Transaction.tenant_id == tenant_id,
+                       Transaction.edge_id.in_(edge_ids))
+            ).all() if edge_ids else []
+            edge_endpoints = {
+                int(edge_id): (int(from_id), int(to_id))
+                for edge_id, from_id, to_id in edge_rows
+            }
+            corrected_edges = (payload.corrected_edges
+                               if "corrected_edges" in payload.model_fields_set else None)
+            try:
+                exclusions = map_partial_correction_to_exclusions(
+                    member_accounts=ring.member_accounts or [],
+                    member_edges=ring.member_edges or [],
+                    edge_endpoints=edge_endpoints,
+                    corrected_members=payload.corrected_members,
+                    corrected_edges=corrected_edges,
+                )
+            except PartialCorrectionError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from None
+
+        user_email = session.scalar(select(User.email).where(
+            User.tenant_id == tenant_id, User.user_id == principal.user_id
+        ))
         if user_email is None:
             raise HTTPException(status_code=401, detail="Session expired or invalid")
 
@@ -218,20 +251,47 @@ def submit_verdict(
             ring_id=ring_id,
             user_id=principal.user_id,
             verdict=payload.verdict.value,
+            corrected_members=payload.corrected_members,
+            corrected_edges=payload.corrected_edges,
             note=payload.note,
             is_simulated=False,
             actor=f"user:{principal.user_id}",
             request_id=current_request_id(),
         )
-        return VerdictResponse(
+        regeneration = None
+        if payload.verdict == VerdictKind.partial:
+            if regeneration_configured and exclusions is not None:
+                excluded_members, excluded_edges = exclusions
+                job_id = f"{tenant_id}.{uuid4().hex}"
+                session.add(ExplanationJob(
+                    job_id=job_id, tenant_id=tenant_id, ring_id=ring_id,
+                    verdict_id=verdict.verdict_id, requested_by=principal.user_id,
+                    excluded_members=excluded_members, excluded_edges=excluded_edges,
+                    status="queued",
+                ))
+                session.flush()
+                add_audit_event(
+                    session, tenant_id=tenant_id, user_id=principal.user_id,
+                    actor=f"user:{principal.user_id}",
+                    action="explanation.regeneration_requested",
+                    entity_type="explanation_job", entity_id=job_id,
+                    request_id=current_request_id(), details={"status": "queued"},
+                )
+                session.flush()
+                regeneration = RegenerationResponse(status="queued", job_id=job_id)
+            else:
+                regeneration = RegenerationResponse(status="unavailable", job_id=None)
+        response = VerdictResponse(
             verdict_id=verdict.verdict_id,
             ring_id=ring_id,
             user_id=principal.user_id,
             user_name=user_email,
             verdict=payload.verdict,
-            corrected_members=[],
-            corrected_edges=[],
+            corrected_members=list(verdict.corrected_members or []),
+            corrected_edges=list(verdict.corrected_edges or []),
             note=payload.note,
             is_simulated=False,
             created_at=verdict.created_at,
+            regeneration=regeneration,
         )
+    return response

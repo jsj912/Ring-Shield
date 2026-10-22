@@ -197,6 +197,12 @@ class VerdictResponse(BaseModel):
     note: str | None
     is_simulated: bool
     created_at: datetime
+    regeneration: "RegenerationResponse | None" = None
+
+
+class RegenerationResponse(BaseModel):
+    status: Literal["queued", "unavailable"]
+    job_id: str | None = None
 
 
 class VerdictHistoryPage(BaseModel):
