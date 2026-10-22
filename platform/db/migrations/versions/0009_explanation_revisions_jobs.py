@@ -41,13 +41,17 @@ def upgrade() -> None:
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.CheckConstraint("status IN ('queued', 'running', 'succeeded', 'failed')",
                            name="ck_explanation_jobs_status"),
-        sa.UniqueConstraint("tenant_id", "verdict_id", name="uq_explanation_jobs_tenant_verdict"),
         sa.ForeignKeyConstraint(["tenant_id", "ring_id"], ["rings.tenant_id", "rings.ring_id"],
                                 name="fk_explanation_jobs_tenant_ring", ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["tenant_id", "requested_by"],
                                 ["users.tenant_id", "users.user_id"],
                                 name="fk_explanation_jobs_tenant_user"),
         sa.PrimaryKeyConstraint("job_id", name="pk_explanation_jobs"),
+    )
+    op.create_index(
+        "uq_explanation_jobs_active_verdict", "explanation_jobs",
+        ["tenant_id", "verdict_id"], unique=True,
+        postgresql_where=sa.text("status IN ('queued', 'running', 'succeeded')"),
     )
     op.create_index("ix_explanation_jobs_status_created", "explanation_jobs",
                     ["status", "created_at"], postgresql_where=sa.text("status = 'queued'"))

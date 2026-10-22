@@ -45,8 +45,9 @@ def test_full_migration_chain_compiles_upgrade_and_downgrade_offline():
             "REFERENCES rings (tenant_id, ring_id) ON DELETE CASCADE" in normalized)
     assert ("CONSTRAINT fk_explanation_jobs_tenant_user FOREIGN KEY(tenant_id, requested_by) "
             "REFERENCES users (tenant_id, user_id)" in normalized)
-    assert ("CONSTRAINT uq_explanation_jobs_tenant_verdict UNIQUE (tenant_id, verdict_id)"
-            in normalized)
+    assert ("CREATE UNIQUE INDEX uq_explanation_jobs_active_verdict "
+            "ON explanation_jobs (tenant_id, verdict_id) "
+            "WHERE status IN ('queued', 'running', 'succeeded')" in normalized)
     assert "UPDATE explanations" not in normalized
     assert "REVOKE ALL ON explanation_jobs FROM PUBLIC" in normalized
     assert "GRANT SELECT, INSERT ON explanation_jobs TO ringshield_api" in normalized
@@ -59,6 +60,14 @@ def test_full_migration_chain_compiles_upgrade_and_downgrade_offline():
 
     table = ExplanationJob.__table__
     assert table.primary_key.name == "pk_explanation_jobs"
+    active_verdict_index = next(
+        index for index in table.indexes
+        if index.name == "uq_explanation_jobs_active_verdict"
+    )
+    assert active_verdict_index.unique is True
+    assert str(active_verdict_index.dialect_options["postgresql"]["where"]) == (
+        "status IN ('queued', 'running', 'succeeded')"
+    )
     assert {fk.name: tuple(element.target_fullname for element in fk.elements)
             for fk in table.foreign_key_constraints} == {
         "fk_explanation_jobs_tenant_ring": ("rings.tenant_id", "rings.ring_id"),

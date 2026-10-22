@@ -179,7 +179,9 @@ class ExplanationJob(Base):
     __table_args__ = (
         CheckConstraint("status IN ('queued', 'running', 'succeeded', 'failed')",
                         name="ck_explanation_jobs_status"),
-        UniqueConstraint("tenant_id", "verdict_id", name="uq_explanation_jobs_tenant_verdict"),
+        Index("uq_explanation_jobs_active_verdict", "tenant_id", "verdict_id",
+              unique=True,
+              postgresql_where=text("status IN ('queued', 'running', 'succeeded')")),
         Index("ix_explanation_jobs_status_created", "status", "created_at",
               postgresql_where=text("status = 'queued'")),
         Index("ix_explanation_jobs_tenant_ring", "tenant_id", "ring_id"),
