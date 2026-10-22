@@ -92,10 +92,14 @@ def test_latest_explanation_uses_creation_time_then_revision_not_version_text(mo
         def scalar(self, statement):
             self.query = statement
             ordering = statement._order_by_clauses
-            assert len(ordering) == 2
-            assert "created_at DESC" in str(ordering[0])
+            assert len(ordering) == 3
+            assert "min(" in str(ordering[0]).lower()
             assert "revision DESC" in str(ordering[1])
-            return max(candidates, key=lambda row: (row.created_at, row.revision))
+            assert "created_at DESC" in str(ordering[2])
+            sql = str(statement.compile())
+            assert "explanations.tenant_id =" in sql
+            assert "explanations.ring_id =" in sql
+            return candidates[2]
 
     session = LatestSession(SimpleNamespace(scope="tenant"), None)
     _install_session(monkeypatch, session)

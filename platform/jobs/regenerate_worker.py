@@ -7,7 +7,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, literal, select, update
+from sqlalchemy import literal, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from adapters import xai
@@ -15,6 +15,7 @@ from audit import add_audit_event
 from db.models import Explanation, ExplanationJob
 from db.session import loader_db_session
 from jobs.explanation_validation import normalize_regenerated_row
+from jobs.explanation_queries import next_explanation_revision_statement
 from settings import load_platform_config
 
 _SAFE_CODES = {
@@ -67,10 +68,8 @@ def _claim(tenant_id: int, job_id: str) -> dict[str, Any] | None:
 
 
 def _insert_revision(session, row: dict[str, Any], *, tenant_id: int) -> int | None:
-    maximum = select(func.coalesce(func.max(Explanation.revision), 0) + 1).where(
-        Explanation.tenant_id == tenant_id,
-        Explanation.ring_id == row["ring_id"],
-        Explanation.explainer_version == row["explainer_version"],
+    next_revision = next_explanation_revision_statement(
+        tenant_id, row["ring_id"], row["explainer_version"],
     )
     columns = (
         "tenant_id", "ring_id", "explainer_version", "revision", "edge_weights",
@@ -81,7 +80,7 @@ def _insert_revision(session, row: dict[str, Any], *, tenant_id: int) -> int | N
         literal(tenant_id),
         literal(row["ring_id"], type_=Explanation.ring_id.type),
         literal(row["explainer_version"], type_=Explanation.explainer_version.type),
-        maximum.scalar_subquery(),
+        next_revision.scalar_subquery(),
         literal(row["edge_weights"], type_=Explanation.edge_weights.type),
         literal(row["account_weights"], type_=Explanation.account_weights.type),
         literal(row["feature_weights"], type_=Explanation.feature_weights.type),

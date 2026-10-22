@@ -14,6 +14,9 @@ def upgrade() -> None:
     # PostgreSQL assigns the constant default to existing rows without an UPDATE.
     op.add_column("explanations", sa.Column(
         "revision", sa.Integer(), nullable=False, server_default=sa.text("1")))
+    op.alter_column("explanations", "created_at",
+                    existing_type=sa.DateTime(timezone=True),
+                    server_default=sa.text("clock_timestamp()"))
     op.drop_constraint("explanations_pkey", "explanations", type_="primary")
     op.create_primary_key(
         "explanations_pkey", "explanations",
@@ -93,5 +96,8 @@ def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS explanation_jobs")
     op.execute("ALTER TABLE explanations DROP CONSTRAINT IF EXISTS explanations_pkey")
     op.execute("ALTER TABLE explanations DROP COLUMN IF EXISTS revision")
+    op.alter_column("explanations", "created_at",
+                    existing_type=sa.DateTime(timezone=True),
+                    server_default=sa.text("now()"))
     op.create_primary_key("explanations_pkey", "explanations",
                           ["tenant_id", "ring_id", "explainer_version"])

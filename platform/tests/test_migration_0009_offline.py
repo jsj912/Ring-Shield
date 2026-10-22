@@ -37,6 +37,7 @@ def test_full_migration_chain_compiles_upgrade_and_downgrade_offline():
     )[0]
     normalized = " ".join(migration_sql.split())
     assert "ALTER TABLE explanations ADD COLUMN revision INTEGER DEFAULT 1 NOT NULL" in normalized
+    assert "ALTER TABLE explanations ALTER COLUMN created_at SET DEFAULT clock_timestamp()" in normalized
     assert ("PRIMARY KEY (tenant_id, ring_id, explainer_version, revision)" in normalized)
     assert "CREATE TABLE explanation_jobs" in normalized
     assert ("CONSTRAINT pk_explanation_jobs PRIMARY KEY (job_id)" in normalized)
@@ -54,6 +55,7 @@ def test_full_migration_chain_compiles_upgrade_and_downgrade_offline():
     assert "DROP TABLE IF EXISTS explanation_jobs" in downgrade
     assert "DROP CONSTRAINT IF EXISTS explanations_pkey" in downgrade
     assert "DROP COLUMN IF EXISTS revision" in downgrade
+    assert "ALTER TABLE explanations ALTER COLUMN created_at SET DEFAULT now()" in downgrade
 
     table = ExplanationJob.__table__
     assert table.primary_key.name == "pk_explanation_jobs"

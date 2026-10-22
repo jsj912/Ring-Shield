@@ -19,6 +19,7 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 sys.path.insert(0, str(PLATFORM_ROOT.parent))
 
 from jobs.load_explanations import load_explanations
+from jobs.explanation_queries import latest_explanation_statement
 from contract.schema import RINGS_ORDER
 from db.session import db_session
 
@@ -95,12 +96,18 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
 
         result = load_explanations(explanation_path, explanation_log_path, rings_log_path)
         assert result == {"explanations_loaded": 1, "rows_validated": 1}
+        with admin.connect() as connection:
+            first_created_at = connection.execute(text("""
+                SELECT created_at FROM explanations
+                WHERE tenant_id = :tenant_id AND ring_id = :ring_id
+                  AND explainer_version = '0.4.0-narrative' AND revision = 1
+            """), {"tenant_id": TENANT_ID, "ring_id": ring_id}).scalar_one()
         second_result = load_explanations(explanation_path, explanation_log_path, rings_log_path)
         assert second_result == {"explanations_loaded": 1, "rows_validated": 1}
         with admin.connect() as connection:
             stored = connection.execute(text("""
                 SELECT provenance->>'feature_scope', provenance->>'fx_rates_sha256',
-                       fx_rates_sha256, revision,
+                       fx_rates_sha256, revision, created_at,
                        (SELECT count(*) FROM explanations AS same_version
                         WHERE same_version.tenant_id = explanations.tenant_id
                           AND same_version.ring_id = explanations.ring_id
@@ -109,7 +116,7 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
                 WHERE tenant_id = :tenant_id AND ring_id = :ring_id
                   AND explainer_version = '0.4.0-narrative'
             """), {"tenant_id": TENANT_ID, "ring_id": ring_id}).one()
-        assert tuple(stored) == ("tenant_view", FX_HASH, FX_HASH, 1, 1)
+        assert tuple(stored) == ("tenant_view", FX_HASH, FX_HASH, 1, first_created_at, 1)
     finally:
         with admin.begin() as connection:
             connection.execute(text("""
@@ -133,10 +140,12 @@ def test_latest_explanation_revision_is_not_visible_across_tenants(
     register_db_test_ids(ring_id)
     admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
     try:
-        with admin.begin() as connection:
-            for tenant_id, version, revision in (
-                    (210, "0.4.0", 1), (210, "0.5.0-review", 1),
-                    (210, "0.5.0-review", 2), (220, "0.5.0-review", 9)):
+        rows = (
+            (210, "0.4.0", 1), (210, "0.5.0-review", 1),
+            (210, "0.5.0-review", 2), (220, "0.5.0-review", 9),
+        )
+        for tenant_id, version, revision in rows:
+            with admin.begin() as connection:
                 connection.execute(text("""
                     INSERT INTO rings
                       (tenant_id, ring_id, model_id, aggregator_id, seed, scope,
@@ -157,18 +166,41 @@ def test_latest_explanation_revision_is_not_visible_across_tenants(
                             jsonb_build_object('regenerated', :regenerated), NULL)
                 """), {"tenant_id": tenant_id, "ring_id": ring_id, "version": version,
                        "revision": revision, "regenerated": revision > 1})
-        with db_session(tenant_id=210, role="analyst") as session:
-            visible = session.execute(text("""
-                SELECT explainer_version, revision FROM explanations
+        with admin.connect() as connection:
+            first_old_version_at = connection.execute(text("""
+                SELECT created_at FROM explanations
                 WHERE tenant_id = 210 AND ring_id = :ring_id
-                ORDER BY created_at DESC, revision DESC
-            """), {"ring_id": ring_id}).all()
-            other_tenant = session.execute(text("""
-                SELECT revision FROM explanations
-                WHERE tenant_id = 220 AND ring_id = :ring_id
-            """), {"ring_id": ring_id}).all()
-        assert visible[-1] == ("0.5.0-review", 2)
-        assert other_tenant == []
+                  AND explainer_version = '0.4.0' AND revision = 1
+            """), {"ring_id": ring_id}).scalar_one()
+        # Reloading an existing version refreshes its payload but preserves its first-row time.
+        with admin.begin() as connection:
+            connection.execute(text("""
+                INSERT INTO explanations
+                  (tenant_id, ring_id, explainer_version, revision, edge_weights,
+                   account_weights, feature_weights, narrative, evidence_summary,
+                   latency_ms, provenance, fx_rates_sha256)
+                VALUES (210, :ring_id, '0.4.0', 1, '[]', '[]', '[]',
+                        'reloaded older version', '{}', 1, '{}', NULL)
+                ON CONFLICT (tenant_id, ring_id, explainer_version, revision)
+                DO UPDATE SET narrative = EXCLUDED.narrative
+            """), {"ring_id": ring_id})
+        with admin.connect() as connection:
+            old_version_at_after_reload = connection.execute(text("""
+                SELECT created_at FROM explanations
+                WHERE tenant_id = 210 AND ring_id = :ring_id
+                  AND explainer_version = '0.4.0' AND revision = 1
+            """), {"ring_id": ring_id}).scalar_one()
+        with db_session(tenant_id=210, role="analyst") as session:
+            visible = session.scalar(latest_explanation_statement(210, ring_id))
+            other_tenant = session.scalar(latest_explanation_statement(220, ring_id))
+        with db_session(tenant_id=220, role="analyst") as session:
+            tenant_b_latest = session.scalar(latest_explanation_statement(220, ring_id))
+        assert (visible.explainer_version, visible.revision) == ("0.5.0-review", 2)
+        assert other_tenant is None
+        assert (tenant_b_latest.explainer_version, tenant_b_latest.revision) == (
+            "0.5.0-review", 9,
+        )
+        assert old_version_at_after_reload == first_old_version_at
     finally:
         with admin.begin() as connection:
             connection.execute(text("DELETE FROM explanations WHERE ring_id = :ring_id"),

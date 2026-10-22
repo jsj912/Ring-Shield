@@ -169,7 +169,9 @@ class Explanation(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     provenance: Mapped[dict] = mapped_column(JSONB, nullable=False)
     fx_rates_sha256: Mapped[str | None] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp(),
+    )
 
 
 class ExplanationJob(Base):
