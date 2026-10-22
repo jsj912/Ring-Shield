@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(REPO_ROOT / ".env")
 sys.path.insert(0, str(REPO_ROOT))
 from contract.schema import TOPOLOGY_TYPES  # noqa: E402
+from dashboard.regeneration_flow import deadline_expired, new_poll_deadline  # noqa: E402
 
 API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip("/")
 _API_CALL_COUNTER = itertools.count()
@@ -317,11 +318,16 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
     explanation = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/explanation",
                        quiet_not_found=True)
     st.subheader("L4 explanation")
+    _show_regeneration_state(tenant_id, ring_id, explanation)
     if explanation is None:
         st.info("No verified L4 explanation has been loaded for this ring yet.")
     else:
         st.write(explanation["narrative"])
-        st.caption(f"Explainer {explanation['explainer_version']} · {explanation['latency_ms']} ms")
+        regenerated_label = " · Regenerated" if explanation.get("regenerated") else ""
+        st.caption(
+            f"Explainer {explanation['explainer_version']} · {explanation['latency_ms']} ms"
+            f" · revision {explanation['revision']}{regenerated_label}"
+        )
         with st.expander("Evidence summary"):
             st.json(explanation["evidence_summary"])
         if explanation["edge_weights"]:
@@ -447,9 +453,94 @@ def _record_verdict(tenant_id: int, ring_id: str, verdict: str, note: str | None
         if result:
             st.session_state[submitted_key] = True
             st.session_state.pop("pending_quick_verdict", None)
+            if verdict == "partial":
+                regeneration = result.get("regeneration")
+                if (isinstance(regeneration, dict)
+                        and regeneration.get("status") == "queued"
+                        and regeneration.get("job_id")):
+                    st.session_state["ring_regeneration"] = {
+                        "tenant_id": tenant_id, "ring_id": ring_id,
+                        "verdict_id": result["verdict_id"],
+                        "job_id": regeneration["job_id"], "status": "queued",
+                        "deadline": new_poll_deadline(), "error": None,
+                    }
+                else:
+                    st.session_state["ring_regeneration"] = {
+                        "tenant_id": tenant_id, "ring_id": ring_id,
+                        "verdict_id": result["verdict_id"],
+                        "job_id": None,
+                        "status": "unavailable", "error": None,
+                    }
         return result
     finally:
         st.session_state["verdict_in_flight"] = False
+
+
+def _retry_regeneration(tenant_id: int, ring_id: str, state: dict) -> None:
+    result = _api(
+        "POST", f"/tenants/{tenant_id}/rings/{ring_id}/explanation/regenerate",
+        body={"verdict_id": state["verdict_id"]},
+    )
+    if result is not None:
+        state.update({
+            "job_id": result["job_id"], "status": result["status"],
+            "error": result.get("error"), "deadline": new_poll_deadline(),
+        })
+        st.session_state["ring_regeneration"] = state
+        st.rerun()
+
+
+@st.fragment(run_every="2s")
+def _poll_regeneration(tenant_id: int, ring_id: str) -> None:
+    state = st.session_state.get("ring_regeneration")
+    if (not isinstance(state, dict) or state.get("tenant_id") != tenant_id
+            or state.get("ring_id") != ring_id
+            or state.get("status") not in {"queued", "running"}):
+        return
+    if deadline_expired(state.get("deadline")):
+        st.info("Still working, refresh later.")
+        return
+    status = _api(
+        "GET",
+        f"/tenants/{tenant_id}/rings/{ring_id}/explanation/jobs/{state['job_id']}",
+    )
+    if status is None:
+        return
+    state.update({
+        "status": status["status"], "result_revision": status.get("result_revision"),
+        "error": status.get("error"),
+    })
+    st.session_state["ring_regeneration"] = state
+    if state["status"] == "succeeded":
+        st.rerun()
+    if state["status"] == "failed":
+        st.error(state.get("error") or "Explanation regeneration failed")
+        retry_key = f"retry_regeneration_{tenant_id}_{ring_id}_{state['job_id']}"
+        if st.button("Retry", key=retry_key):
+            _retry_regeneration(tenant_id, ring_id, state)
+        return
+    st.info("Regenerating explanation...")
+
+
+def _show_regeneration_state(tenant_id: int, ring_id: str,
+                             explanation: dict | None) -> None:
+    state = st.session_state.get("ring_regeneration")
+    if (isinstance(state, dict) and state.get("tenant_id") == tenant_id
+            and state.get("ring_id") == ring_id):
+        status = state.get("status")
+        if status in {"queued", "running"}:
+            _poll_regeneration(tenant_id, ring_id)
+        elif status == "failed":
+            st.error(state.get("error") or "Explanation regeneration failed")
+            retry_key = f"retry_regeneration_{tenant_id}_{ring_id}_{state['job_id']}"
+            if st.button("Retry", key=retry_key):
+                _retry_regeneration(tenant_id, ring_id, state)
+        elif status == "unavailable":
+            st.info("The verdict was recorded, but the explanation could not be regenerated.")
+        elif status == "timed_out":
+            st.info("Still working, refresh later.")
+    elif explanation is not None and explanation.get("regenerating"):
+        st.info("Regenerating explanation...")
 
 
 def _model_versions(tenant_id: int) -> None:
