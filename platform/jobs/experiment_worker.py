@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import sys
 import re
+import csv
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -26,6 +28,49 @@ def _write_state(path: Path, value: dict) -> None:
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(value, indent=2), encoding="utf-8")
     temporary.replace(path)
+
+
+_R10_METRIC_COLUMNS = (
+    "tenant_ring_recall", "tenant_ring_recall_ci_low", "tenant_ring_recall_ci_high",
+    "tenant_member_coverage", "pooled_ring_recall", "pooled_ring_recall_ci_low",
+    "pooled_ring_recall_ci_high", "pooled_member_coverage",
+    "tenant_truth_cross_bank_fraction", "tenant_truth_mean_banks_per_ring",
+    "cross_bank_truth_fraction", "mean_banks_per_truth_ring",
+)
+
+
+def _r10_dashboard_results(csv_value: str) -> dict:
+    """Read only tenant-level R10 metrics for the administrator result view."""
+    csv_path = Path(csv_value).resolve()
+    if not csv_path.is_relative_to(REPO_ROOT.resolve()) or csv_path.name != "r10_table.csv":
+        raise ValueError("R10 result table is unavailable")
+    rows = []
+    with csv_path.open(encoding="utf-8", newline="") as stream:
+        for source in csv.DictReader(stream):
+            tenant_value = source.get("tenant_id", "")
+            if tenant_value.isdigit():
+                tenant_id: int | str = int(tenant_value)
+            elif tenant_value == "MEAN":
+                tenant_id = "Mean across tenants"
+            else:
+                continue
+            row = {"tenant_id": tenant_id, "seed": int(source["seed"])}
+            for column in _R10_METRIC_COLUMNS:
+                raw = source.get(column, "")
+                metric = float(raw) if raw else None
+                if metric is not None and not math.isfinite(metric):
+                    raise ValueError("R10 result table contains an invalid metric")
+                row[column] = metric
+            rows.append(row)
+    return {
+        "table_rows": rows,
+        "recall_series": [
+            {"tenant_id": row["tenant_id"], "seed": row["seed"],
+             "tenant_ring_recall": row["tenant_ring_recall"],
+             "pooled_ring_recall": row["pooled_ring_recall"]}
+            for row in rows if isinstance(row["tenant_id"], int)
+        ],
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -58,6 +103,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         clean_result = {key: Path(value).resolve().relative_to(REPO_ROOT).as_posix()
                         for key, value in result.items() if key in {"csv", "markdown", "run_json"}}
+        if result.get("csv"):
+            clean_result.update(_r10_dashboard_results(result["csv"]))
         state.update(status="succeeded", results=clean_result)
         _write_state(state_path, state)
         log_event("experiment.finished", status="succeeded", job_id=job_id)

@@ -164,6 +164,19 @@ real comparison metrics; it fails clearly until you provide that test truth path
 select an operational score source, and provide any missing seed inputs. No
 values are filled from the fixture.
 
+### Administrator dashboard
+
+The `Admin` workspace is visible only to administrator accounts. Its tenant
+registry shows the tenant ID, bank code, name, loaded state, ring count, and
+verdict count. The API does not provide a tenant user-list route, so the Users
+section reports that user listings are unavailable; no user data is inferred.
+The R10 section starts and polls the existing tenant-versus-pooled experiment
+endpoints, then displays the returned aggregate metric rows and recall chart.
+Only approved metrics are shown; ring IDs and ground-truth labels are excluded.
+R10 limitations and status messages returned by the API appear with the results.
+Administrators can inspect tenant ring and verdict pages, which are labeled
+read-only.
+
 ### R11 gated retraining experiment
 
 Run one accuracy condition on a dedicated loaded experiment tenant with:

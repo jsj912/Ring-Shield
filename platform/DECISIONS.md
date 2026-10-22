@@ -541,3 +541,5 @@ The demo reads parquet row counts through `platform/jobs/count_parquet_rows.py` 
 # Isolation leak guard matches registered values against exact identifier columns
 
 The session-finish leak guard checks exact `run_id`, `version_tag`, `ring_id`, `object_id`, `job_id`, and `verdict_id` values. Searching serialized rows for integer verdict IDs caused false matches against unrelated tenant, edge, or account values; exact matching preserves leak detection while avoiding substring collisions. Regeneration and explanation-loader tests register generated job, verdict, and audit object IDs and clean them in teardown.
+
+The admin dashboard uses the existing admin R10 start/status routes and exposes only an explicit allow-list of aggregate result metrics. The tenant registry adds ring and verdict counts using the verified admin database role, an admin tenant context, and explicit tenant predicates for both counts. The API has no tenant user-list route, and the dashboard does not invent one or add a create-user form; it reports that listing is unavailable. Admin ring and verdict views are visibly read-only.

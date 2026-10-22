@@ -107,10 +107,10 @@ def _login() -> None:
             st.rerun()
 
 
-def _active_tenant() -> tuple[int | None, str | None]:
+def _active_tenant(tenant_records=None) -> tuple[int | None, str | None]:
     if st.session_state["role"] != "admin":
         return st.session_state["tenant_id"], st.session_state["tenant_name"]
-    tenants = _api("GET", "/admin/tenants")
+    tenants = tenant_records if tenant_records is not None else _api("GET", "/admin/tenants")
     if tenants is None:
         return None, None
     loaded = [item for item in tenants if item["is_loaded"]]
@@ -773,6 +773,114 @@ def _drift_events(tenant_id: int) -> None:
     st.caption("Drift events are informational and do not trigger automatic retraining.")
 
 
+def _start_admin_r10() -> None:
+    started = _api("POST", "/admin/experiments/tenant-vs-pooled")
+    if started:
+        st.session_state["admin_r10_job"] = {
+            **started, "deadline": new_poll_deadline(),
+        }
+
+
+def _render_admin_r10_results(status: dict) -> None:
+    results = status.get("results") or {}
+    table_rows = results.get("table_rows") or []
+    if table_rows:
+        display_rows = []
+        columns = (
+            ("tenant_id", "Tenant"), ("seed", "Seed"),
+            ("tenant_ring_recall", "Tenant recall"),
+            ("tenant_ring_recall_ci_low", "Tenant recall CI low"),
+            ("tenant_ring_recall_ci_high", "Tenant recall CI high"),
+            ("tenant_member_coverage", "Tenant member coverage"),
+            ("pooled_ring_recall", "Pooled recall"),
+            ("pooled_ring_recall_ci_low", "Pooled recall CI low"),
+            ("pooled_ring_recall_ci_high", "Pooled recall CI high"),
+            ("pooled_member_coverage", "Pooled member coverage"),
+            ("tenant_truth_cross_bank_fraction", "Cross-bank fraction"),
+            ("tenant_truth_mean_banks_per_ring", "Mean banks per ring"),
+            ("cross_bank_truth_fraction", "Overall cross-bank fraction"),
+            ("mean_banks_per_truth_ring", "Overall mean banks per ring"),
+        )
+        for row in table_rows:
+            display_rows.append({label: row.get(key) for key, label in columns})
+        st.dataframe(display_rows, use_container_width=True, hide_index=True)
+    else:
+        st.info("The status response does not include R10 metric rows.")
+
+    recall_series = results.get("recall_series") or []
+    if recall_series:
+        figure = go.Figure()
+        for field, label in (("tenant_ring_recall", "Tenant recall"),
+                             ("pooled_ring_recall", "Pooled recall")):
+            figure.add_trace(go.Bar(
+                x=[f"{row['tenant_id']} · seed {row['seed']}" for row in recall_series],
+                y=[row.get(field) for row in recall_series],
+                name=label,
+            ))
+        st.plotly_chart(figure, use_container_width=True)
+    if status.get("message"):
+        st.caption(status["message"])
+    if results.get("limitations"):
+        st.caption(results["limitations"])
+    st.caption("R10 displays aggregate evaluation metrics only; no ground-truth labels or ring IDs are shown.")
+
+
+@st.fragment(run_every="2s")
+def _poll_admin_r10() -> None:
+    state = st.session_state.get("admin_r10_job")
+    if not isinstance(state, dict):
+        return
+    status = state.get("status")
+    st.subheader("Tenant vs pooled experiment")
+    if status in {"queued", "running"}:
+        if deadline_expired(state.get("deadline")):
+            st.info("Still working, refresh later.")
+            return
+        latest = _api(
+            "GET", f"/admin/experiments/tenant-vs-pooled/{state['job_id']}"
+        )
+        if latest is None:
+            return
+        state.update(latest)
+        state["deadline"] = state.get("deadline") or new_poll_deadline()
+        st.session_state["admin_r10_job"] = state
+        status = state.get("status")
+    st.caption(f"Status: {status}")
+    if status == "failed":
+        st.error(state.get("message") or "The R10 experiment failed.")
+        if st.button("Retry", key="admin_r10_retry"):
+            _start_admin_r10()
+            st.rerun()
+        return
+    if status == "succeeded":
+        _render_admin_r10_results(state)
+
+
+def _admin_page(tenant_records: list[dict]) -> None:
+    st.title("Admin")
+    st.header("Tenants")
+    st.dataframe([
+        {
+            "Tenant ID": tenant["tenant_id"],
+            "Bank code": tenant["bank_code"],
+            "Name": tenant["name"],
+            "Loaded": "Yes" if tenant["is_loaded"] else "No",
+            "Rings": tenant.get("ring_count", 0),
+            "Verdicts": tenant.get("verdict_count", 0),
+        }
+        for tenant in tenant_records
+    ], use_container_width=True, hide_index=True)
+
+    st.header("Users")
+    st.info("Tenant user listings are unavailable because the API has no user-list endpoint.")
+
+    st.header("R10 tenant vs pooled")
+    if st.button("Run", key="admin_r10_start"):
+        _start_admin_r10()
+        st.rerun()
+    _poll_admin_r10()
+
+
 def _clear_session_state() -> None:
     for key in list(st.session_state.keys()):
         if not key.startswith("$$"):
@@ -795,12 +903,27 @@ def main() -> None:
         _clear_session_state()
         _login()
         return
-    tenant_id, tenant_name = _active_tenant()
+    role = st.session_state["role"]
+    if role != "admin" and st.session_state.get("workspace_page") == "Admin":
+        st.warning("Not permitted: administrators only.")
+        return
+    tenant_records = _api("GET", "/admin/tenants") if role == "admin" else None
+    if role == "admin" and tenant_records is None:
+        return
+    tenant_id, tenant_name = _active_tenant(tenant_records)
+    if tenant_name is not None:
+        st.sidebar.caption(f"Viewing: {tenant_name}")
+    pages = ["Investigations", "Verdicts", "Model registry", "Score drift"]
+    if role == "admin":
+        pages.append("Admin")
+    page = st.sidebar.radio("Workspace", pages, key="workspace_page")
+    if role == "admin" and page == "Admin":
+        _admin_page(tenant_records)
+        return
     if tenant_id is None:
         return
-    st.sidebar.caption(f"Viewing: {tenant_name}")
-    page = st.sidebar.radio("Workspace", ["Investigations", "Verdicts", "Model registry", "Score drift"],
-                            key="workspace_page")
+    if role == "admin" and page in {"Investigations", "Verdicts"}:
+        st.info("Read-only (administrator)")
     if page == "Model registry":
         _model_versions(tenant_id)
     elif page == "Score drift":

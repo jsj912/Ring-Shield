@@ -48,6 +48,8 @@ class TenantResponse(BaseModel):
     name: str
     is_loaded: bool
     created_at: datetime
+    ring_count: int = 0
+    verdict_count: int = 0
 
 
 class UserCreateRequest(BaseModel):
