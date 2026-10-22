@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 
 
 class VerdictKind(str, Enum):
@@ -168,12 +168,13 @@ class RingExplanation(BaseModel):
     latency_ms: int
     provenance: dict[str, Any]
     created_at: datetime
+    regenerating: bool = False
 
 
 class VerdictRequest(BaseModel):
     verdict: VerdictKind
-    corrected_members: list[int] = Field(default_factory=list)
-    corrected_edges: list[int] = Field(default_factory=list)
+    corrected_members: list[StrictInt] = Field(default_factory=list)
+    corrected_edges: list[StrictInt] = Field(default_factory=list)
     note: str | None = None
 
     @model_validator(mode="after")
@@ -197,6 +198,25 @@ class VerdictResponse(BaseModel):
     note: str | None
     is_simulated: bool
     created_at: datetime
+    regeneration: "RegenerationResponse | None" = None
+
+
+class RegenerationResponse(BaseModel):
+    status: Literal["queued", "unavailable"]
+    job_id: str | None = None
+
+
+class RegenerateExplanationRequest(BaseModel):
+    verdict_id: int = Field(gt=0)
+
+
+class ExplanationJobResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "running", "succeeded", "failed"]
+    result_revision: int | None = None
+    error: str | None = None
+    created_at: datetime
+    finished_at: datetime | None = None
 
 
 class VerdictHistoryPage(BaseModel):

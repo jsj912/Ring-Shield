@@ -4,9 +4,12 @@ import base64
 import binascii
 import hashlib
 import json
+import logging
+import re
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Iterator, Literal
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import BigInteger, Float, and_, cast, func, or_, select
@@ -15,17 +18,25 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
+from api.regeneration import launch_regeneration_process
+from api.request_context import current_request_id
 from api.label_maps import currency_label, payment_format_label
 from api.schemas import (RingDetail, RingEvidenceEdge, RingEvidenceGraph,
+                         ExplanationJobResponse, RegenerateExplanationRequest,
                          RingEvidenceNode, RingExplanation, RingPage, RingSummary)
 from api.timebasis import from_utc, to_utc
 from contract.schema import TOPOLOGY_TYPES
-from db.models import Account, EdgeScore, Explanation, Ring as PlatformRing, Transaction
+from audit import add_audit_event
+from db.models import (Account, EdgeScore, Explanation, ExplanationJob,
+                       Ring as PlatformRing, Transaction, Verdict)
 from db.session import db_session
 from jobs.explanation_queries import latest_explanation_statement
+from services.verdicts import (PartialCorrectionError,
+                                map_partial_correction_to_exclusions)
 from settings import load_platform_config
 
 router = APIRouter(tags=["rings"])
+logger = logging.getLogger(__name__)
 SortField = Literal["confidence", "total_amount", "start_time", "members"]
 SortOrder = Literal["asc", "desc"]
 AllowedStatuses = {"open", "confirmed", "rejected", "partial"}
@@ -34,6 +45,27 @@ EvidenceRoleKeys = {
     "is_sink": "sink_accounts",
     "is_mule": "mule_accounts",
 }
+_UNSAFE_JOB_ERROR = re.compile(r"(?:https?://|[A-Za-z]:\\|/(?:[^/\s]+/)*[^/\s]+|\b[^\s@]+@[^\s@]+)", re.I)
+
+
+def _safe_job_error(value: str | None) -> str | None:
+    if not value:
+        return None
+    if _UNSAFE_JOB_ERROR.search(value) or "RINGSHIELD_" in value:
+        return "Explanation regeneration could not be completed"
+    return value[:240]
+
+
+def _edge_endpoints(session, tenant_id: int, ring: PlatformRing) -> dict[int, tuple[int, int]]:
+    edge_ids = sorted(set(map(int, ring.member_edges or [])))
+    if not edge_ids:
+        return {}
+    rows = session.execute(
+        select(Transaction.edge_id, Transaction.from_id, Transaction.to_id)
+        .where(Transaction.tenant_id == tenant_id, Transaction.edge_id.in_(edge_ids))
+    ).all()
+    return {int(edge_id): (int(from_id), int(to_id))
+            for edge_id, from_id, to_id in rows}
 
 
 @router.get("/tenants/{tenant_id}/rings/{ring_id}/explanation",
@@ -52,6 +84,11 @@ def get_ring_explanation(
         explanation = session.scalar(latest_explanation_statement(tenant_id, ring_id))
         if explanation is None:
             raise HTTPException(status_code=404, detail="Explanation not found")
+        regenerating = session.scalar(select(ExplanationJob.job_id).where(
+            ExplanationJob.tenant_id == tenant_id,
+            ExplanationJob.ring_id == ring_id,
+            ExplanationJob.status.in_(("queued", "running")),
+        ).limit(1)) is not None
         raw_provenance = explanation.provenance or {}
         public_provenance = {
             key: raw_provenance[key]
@@ -77,6 +114,130 @@ def get_ring_explanation(
             latency_ms=explanation.latency_ms,
             provenance=public_provenance,
             created_at=explanation.created_at,
+            regenerating=regenerating,
+        )
+
+
+@router.post("/tenants/{tenant_id}/rings/{ring_id}/explanation/regenerate",
+             response_model=ExplanationJobResponse, status_code=status.HTTP_202_ACCEPTED)
+def regenerate_ring_explanation(
+    tenant_id: int,
+    ring_id: str,
+    payload: RegenerateExplanationRequest,
+    principal: Principal = Depends(get_principal),
+) -> ExplanationJobResponse:
+    require_tenant_access(tenant_id, principal)
+    if principal.role not in {"analyst", "supervisor"}:
+        raise HTTPException(status_code=403, detail="Not permitted")
+    config = load_platform_config()
+    if not config.get("l4", {}).get("regenerate_url"):
+        raise HTTPException(status_code=503, detail="Explanation regeneration is not configured")
+
+    launch_job_id: str | None = None
+    with db_session(tenant_id=tenant_id, role=principal.role) as session:
+        ring = session.get(PlatformRing, {"tenant_id": tenant_id, "ring_id": ring_id})
+        if ring is None or ring.scope != "tenant":
+            raise HTTPException(status_code=404, detail="Ring not found")
+        verdict = session.scalar(select(Verdict).where(
+            Verdict.tenant_id == tenant_id,
+            Verdict.ring_id == ring_id,
+            Verdict.verdict_id == payload.verdict_id,
+        ))
+        if verdict is None:
+            raise HTTPException(status_code=404, detail="Partial verdict not found")
+        if verdict.verdict != "partial" or verdict.is_simulated:
+            raise HTTPException(status_code=422, detail="A non-simulated partial verdict is required")
+
+        active_job = session.scalar(select(ExplanationJob).where(
+            ExplanationJob.tenant_id == tenant_id,
+            ExplanationJob.ring_id == ring_id,
+            ExplanationJob.verdict_id == verdict.verdict_id,
+            ExplanationJob.status.in_(("queued", "running", "succeeded")),
+        ).order_by(ExplanationJob.created_at.desc(), ExplanationJob.job_id.desc()).limit(1))
+        if active_job is not None:
+            if (active_job.status == "queued" and active_job.created_at is not None
+                    and datetime.now(timezone.utc) - active_job.created_at > timedelta(seconds=30)):
+                launch_job_id = active_job.job_id
+            response = ExplanationJobResponse(
+                job_id=active_job.job_id, status=active_job.status,
+                result_revision=active_job.result_revision,
+                error=_safe_job_error(active_job.error), created_at=active_job.created_at,
+                finished_at=active_job.finished_at,
+            )
+        else:
+            latest_job = session.scalar(select(ExplanationJob).where(
+                ExplanationJob.tenant_id == tenant_id,
+                ExplanationJob.ring_id == ring_id,
+                ExplanationJob.verdict_id == verdict.verdict_id,
+            ).order_by(ExplanationJob.created_at.desc(), ExplanationJob.job_id.desc()).limit(1))
+            if latest_job is not None and latest_job.status != "failed":
+                # A concurrent request may have created an active job after our first read.
+                raise HTTPException(status_code=409, detail="Regeneration job state changed; retry")
+            try:
+                excluded_members, excluded_edges = map_partial_correction_to_exclusions(
+                    member_accounts=ring.member_accounts or [],
+                    member_edges=ring.member_edges or [],
+                    edge_endpoints=_edge_endpoints(session, tenant_id, ring),
+                    corrected_members=verdict.corrected_members or [],
+                    corrected_edges=(verdict.corrected_edges or None),
+                )
+            except PartialCorrectionError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from None
+            job_id = f"{tenant_id}.{uuid4().hex}"
+            job = ExplanationJob(
+                job_id=job_id, tenant_id=tenant_id, ring_id=ring_id,
+                verdict_id=verdict.verdict_id, requested_by=principal.user_id,
+                excluded_members=excluded_members, excluded_edges=excluded_edges,
+                status="queued",
+            )
+            session.add(job)
+            session.flush()
+            add_audit_event(
+                session, tenant_id=tenant_id, user_id=principal.user_id,
+                actor=f"user:{principal.user_id}", action="explanation.regeneration_requested",
+                entity_type="explanation_job", entity_id=job_id,
+                request_id=current_request_id(), details={"status": "queued"},
+            )
+            session.flush()
+            launch_job_id = job_id
+            response = ExplanationJobResponse(
+                job_id=job_id, status="queued", result_revision=None,
+                error=None, created_at=job.created_at or datetime.now(timezone.utc),
+                finished_at=None,
+            )
+    if launch_job_id is not None:
+        try:
+            launch_regeneration_process(launch_job_id)
+        except OSError as exc:
+            logger.info("regeneration_worker_launch_failed", extra={
+                "event": "regeneration_worker_launch_failed",
+                "tenant_id": tenant_id, "job_id": launch_job_id,
+                "error_type": type(exc).__name__,
+            })
+    return response
+
+
+@router.get("/tenants/{tenant_id}/rings/{ring_id}/explanation/jobs/{job_id}",
+            response_model=ExplanationJobResponse)
+def get_explanation_job(
+    tenant_id: int,
+    ring_id: str,
+    job_id: str,
+    principal: Principal = Depends(get_principal),
+) -> ExplanationJobResponse:
+    require_tenant_access(tenant_id, principal)
+    with db_session(tenant_id=tenant_id, role=principal.role) as session:
+        job = session.scalar(select(ExplanationJob).where(
+            ExplanationJob.tenant_id == tenant_id,
+            ExplanationJob.ring_id == ring_id,
+            ExplanationJob.job_id == job_id,
+        ))
+        if job is None:
+            raise HTTPException(status_code=404, detail="Explanation job not found")
+        return ExplanationJobResponse(
+            job_id=job.job_id, status=job.status, result_revision=job.result_revision,
+            error=_safe_job_error(job.error), created_at=job.created_at,
+            finished_at=job.finished_at,
         )
 
 

@@ -12,11 +12,12 @@ behavior. Deferred endpoints are listed only; they are not implemented here.
 | `/tenants/{t}/rings?status=&min_conf=&type=&sort=&q=` | GET | Differs | `platform/api/routers/rings.py::list_rings`; cursor pagination and `q` search exist, but the `type` filter is named `topology_type` in the API. The response includes filtered `total` and unfiltered `tenant_total`. Page size is capped at 100, within the documented maximum of 200. |
 | `/tenants/{t}/rings/{r}` | GET | Present | `platform/api/routers/rings.py::get_ring` |
 | `/tenants/{t}/rings/{r}/subgraph` | GET | Differs | Related graph data is returned by `/tenants/{tenant_id}/rings/{ring_id}/evidence`; no dedicated `subgraph` route (`platform/api/routers/rings.py`) |
-| `/tenants/{t}/rings/{r}/explanation` | GET | Differs | Present at `platform/api/routers/rings.py::get_ring_explanation`, but serves previously loaded L4 output rather than calling L4 on request |
+| `/tenants/{t}/rings/{r}/explanation` | GET | Differs | Present at `platform/api/routers/rings.py::get_ring_explanation`; serves previously loaded L4 output and now adds `regenerating` while a job is queued or running |
 | `/tenants/{t}/rings/{r}/evidence/edges` | GET | Differs | Related combined `/evidence` route returns edge and graph data (`platform/api/routers/rings.py`) |
 | `/tenants/{t}/rings/{r}/evidence/accounts` | GET | Differs | Related combined `/evidence` route returns account and graph data (`platform/api/routers/rings.py`) |
-| `/tenants/{t}/rings/{r}/explanation/regenerate` | POST | Missing | Deferred; no route in `platform/api` |
-| `/tenants/{t}/rings/{r}/verdicts` | POST | Present | `platform/api/routers/verdicts.py::submit_verdict`; partial corrections remain refused pending regeneration |
+| `/tenants/{t}/rings/{r}/explanation/regenerate` | POST | Present | `platform/api/routers/rings.py::regenerate_ring_explanation`; accepts `{verdict_id}`, returns an existing active job idempotently, creates a replacement after failure, and relaunches queued jobs older than 30 seconds |
+| `/tenants/{t}/rings/{r}/explanation/jobs/{job}` | GET | Present | `platform/api/routers/rings.py::get_explanation_job`; returns safe status, revision, error, and timestamps |
+| `/tenants/{t}/rings/{r}/verdicts` | POST | Present | `platform/api/routers/verdicts.py::submit_verdict`; valid partial corrections are recorded, with additive `regeneration` status and optional `job_id`; unavailable L4 no longer causes a 503 |
 | `/tenants/{t}/verdicts?since=` | GET | Present | Tenant-wide filtered history is implemented by `platform/api/routers/verdicts.py::list_tenant_verdicts` |
 | `/tenants/{t}/models` | GET | Present | `platform/api/routers/operations.py::list_model_versions` |
 | `/tenants/{t}/retrain` | POST | Present | `platform/api/routers/operations.py::start_retrain` |
@@ -28,6 +29,6 @@ behavior. Deferred endpoints are listed only; they are not implemented here.
 | `/health` | GET | Present | `platform/api/main.py::health`; returns database and file-store component statuses |
 
 This report is route parity documentation, not a claim that all Section 6 acceptance
-criteria (including pagination limits, L4 invocation, or deferred regeneration) pass.
+criteria (including pagination limits or synchronous L4 invocation) pass.
 
 Migration 0008 adds the GIN index used by tenant ring account-id search.

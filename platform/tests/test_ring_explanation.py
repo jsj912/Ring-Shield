@@ -15,6 +15,7 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 from api.identity import Principal
 from api.routers import rings
 from db.models import Explanation
+from db.models import ExplanationJob
 
 
 class _FakeSession:
@@ -29,6 +30,9 @@ class _FakeSession:
 
     def scalar(self, statement):
         self.query = statement
+        if ExplanationJob in [description["entity"]
+                              for description in statement.column_descriptions]:
+            return None
         assert Explanation in [description["entity"]
                                for description in statement.column_descriptions]
         return self.explanation
@@ -91,6 +95,9 @@ def test_latest_explanation_uses_creation_time_then_revision_not_version_text(mo
     class LatestSession(_FakeSession):
         def scalar(self, statement):
             self.query = statement
+            if ExplanationJob in [description["entity"]
+                                  for description in statement.column_descriptions]:
+                return None
             ordering = statement._order_by_clauses
             assert len(ordering) == 3
             assert "min(" in str(ordering[0]).lower()
