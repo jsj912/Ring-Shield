@@ -229,3 +229,17 @@ def test_worker_launcher_passes_only_the_job_id(monkeypatch):
     assert captured["options"]["stdin"] == regeneration.subprocess.DEVNULL
     assert captured["options"]["stdout"] == regeneration.subprocess.DEVNULL
     assert captured["options"]["stderr"] == regeneration.subprocess.DEVNULL
+
+
+def test_supervisor_mode_defers_regeneration_without_spawning(monkeypatch, caplog):
+    caplog.set_level("INFO")
+    def forbidden_popen(*_args, **_kwargs):
+        raise AssertionError("supervisor mode must not spawn from the API")
+
+    monkeypatch.setattr(regeneration.subprocess, "Popen", forbidden_popen)
+    monkeypatch.setenv("RINGSHIELD_WORKER_MODE", "supervisor")
+
+    regeneration.launch_regeneration_process("21." + "e" * 32)
+
+    assert '"worker":"regenerate"' in caplog.text
+    assert '"outcome":"deferred_to_supervisor"' in caplog.text

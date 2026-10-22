@@ -132,6 +132,40 @@ def test_retrain_launcher_starts_a_child_without_reading_job_credentials(monkeyp
     assert captured["stdout"] is operations.subprocess.DEVNULL
 
 
+def test_supervisor_mode_keeps_retrain_run_without_spawning_child(monkeypatch, caplog):
+    caplog.set_level("INFO")
+    added = []
+
+    class Session:
+        def add(self, row):
+            added.append(row)
+
+        def execute(self, _statement):
+            pass
+
+        def flush(self):
+            pass
+
+    @contextmanager
+    def fake_db_session(*, tenant_id, role):
+        assert (tenant_id, role) == (21, "supervisor")
+        yield Session()
+
+    def forbidden_popen(*_args, **_kwargs):
+        raise AssertionError("supervisor mode must not spawn from the API")
+
+    monkeypatch.setattr(operations, "db_session", fake_db_session)
+    monkeypatch.setattr(operations.subprocess, "Popen", forbidden_popen)
+    monkeypatch.setenv("RINGSHIELD_WORKER_MODE", "supervisor")
+
+    result = operations.start_retrain(21, _principal())
+
+    row = next(row for row in added if hasattr(row, "run_id"))
+    assert row.run_id == result.run_id
+    assert row.status == "running"
+    assert '"outcome":"deferred_to_supervisor"' in caplog.text
+
+
 def test_api_modules_never_read_or_import_loader_credentials():
     import ast
 

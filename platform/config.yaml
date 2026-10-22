@@ -1,6 +1,7 @@
 # Active detector configuration shared by ingestion, tenant ring jobs, and the API.
 active_model_id: gine_causal
 active_seed: 1
+worker_mode: spawn
 model_dir: models/artifacts/full_gine_causal_seed1
 scored_edges: contract/out/scored_edges_gine_causal_1.parquet
 gfp: data/processed/amlworld_gfp_features_test.parquet
