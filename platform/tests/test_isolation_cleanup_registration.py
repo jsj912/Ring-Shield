@@ -72,3 +72,39 @@ def test_shared_database_integration_writes_register_cleanup_ids():
         "shared-database integration tests that write rows must request and call "
         "register_db_test_ids: " + ", ".join(violations)
     )
+
+
+def test_explanation_job_tests_register_ids_and_delete_jobs():
+    """Per-test explanation jobs must be registered and removed by teardown."""
+    violations = []
+    for path in sorted(ISOLATION_DIR.glob("test_*.py")):
+        source = path.read_text(encoding="utf-8-sig")
+        tree = ast.parse(source, filename=str(path))
+        has_job_insert = bool(re.search(r"\bINSERT\s+INTO\s+explanation_jobs\b", source, re.I))
+        if not has_job_insert:
+            continue
+        if "register_db_test_ids" not in source:
+            violations.append(f"{path.name}: missing identifier registration")
+        if not re.search(r"\bDELETE\s+FROM\s+explanation_jobs\b", source, re.I):
+            violations.append(f"{path.name}: missing job cleanup")
+
+        test_functions = [
+            node for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name.startswith("test_")
+        ]
+        if not test_functions:
+            violations.append(f"{path.name}: job insert has no test-owned cleanup")
+
+    assert violations == [], (
+        "isolation explanation-job inserts must use register_db_test_ids and delete "
+        "their rows in cleanup: " + "; ".join(violations)
+    )
+
+
+def test_database_leak_guard_uses_exact_registered_identifier_columns():
+    source = (ISOLATION_DIR / "conftest.py").read_text(encoding="utf-8-sig")
+    for column in ("run_id", "version_tag", "ring_id", "object_id", "job_id", "verdict_id"):
+        assert f"'{column}'" in source
+    assert "{quoted_column}::text = :identifier" in source
+    assert "row_to_json(row_data)" not in source

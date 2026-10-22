@@ -97,6 +97,13 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
         result = load_explanations(explanation_path, explanation_log_path, rings_log_path)
         assert result == {"explanations_loaded": 1, "rows_validated": 1}
         with admin.connect() as connection:
+            load_run_ids = connection.execute(text("""
+                SELECT object_id FROM audit_log
+                WHERE tenant_id = :tenant_id AND action = 'explanations.load_completed'
+                  AND at >= :started_at
+            """), {"tenant_id": TENANT_ID, "started_at": test_started_at}).scalars().all()
+        register_db_test_ids(*load_run_ids)
+        with admin.connect() as connection:
             first_created_at = connection.execute(text("""
                 SELECT created_at FROM explanations
                 WHERE tenant_id = :tenant_id AND ring_id = :ring_id
@@ -104,6 +111,13 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
             """), {"tenant_id": TENANT_ID, "ring_id": ring_id}).scalar_one()
         second_result = load_explanations(explanation_path, explanation_log_path, rings_log_path)
         assert second_result == {"explanations_loaded": 1, "rows_validated": 1}
+        with admin.connect() as connection:
+            load_run_ids = connection.execute(text("""
+                SELECT object_id FROM audit_log
+                WHERE tenant_id = :tenant_id AND action = 'explanations.load_completed'
+                  AND at >= :started_at
+            """), {"tenant_id": TENANT_ID, "started_at": test_started_at}).scalars().all()
+        register_db_test_ids(*load_run_ids)
         with admin.connect() as connection:
             stored = connection.execute(text("""
                 SELECT provenance->>'feature_scope', provenance->>'fx_rates_sha256',
@@ -119,6 +133,12 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
         assert tuple(stored) == ("tenant_view", FX_HASH, FX_HASH, 1, first_created_at, 1)
     finally:
         with admin.begin() as connection:
+            load_run_ids = connection.execute(text("""
+                SELECT object_id FROM audit_log
+                WHERE tenant_id = :tenant_id AND action = 'explanations.load_completed'
+                  AND at >= :started_at
+            """), {"tenant_id": TENANT_ID, "started_at": test_started_at}).scalars().all()
+            register_db_test_ids(*load_run_ids)
             connection.execute(text("""
                 DELETE FROM explanations
                 WHERE tenant_id = :tenant_id AND ring_id = :ring_id
@@ -126,8 +146,8 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
             connection.execute(text("""
                 DELETE FROM audit_log
                 WHERE tenant_id = :tenant_id AND action = 'explanations.load_completed'
-                  AND at >= :started_at
-            """), {"tenant_id": TENANT_ID, "started_at": test_started_at})
+                  AND object_id = ANY(CAST(:object_ids AS text[]))
+            """), {"tenant_id": TENANT_ID, "object_ids": load_run_ids})
             connection.execute(text(
                 "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": TENANT_ID, "ring_id": ring_id})
@@ -205,6 +225,9 @@ def test_latest_explanation_revision_is_not_visible_across_tenants(
         with admin.begin() as connection:
             connection.execute(text("DELETE FROM explanations WHERE ring_id = :ring_id"),
                                {"ring_id": ring_id})
+            connection.execute(text(
+                "DELETE FROM audit_log WHERE tenant_id IN (210, 220) AND object_id = :ring_id"
+            ), {"ring_id": ring_id})
             connection.execute(text("DELETE FROM rings WHERE ring_id = :ring_id"),
                                {"ring_id": ring_id})
         admin.dispose()

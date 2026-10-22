@@ -34,22 +34,25 @@ def pytest_sessionfinish(session, exitstatus) -> None:
     leaks: list[tuple[str, str]] = []
     try:
         with engine.connect() as connection:
-            searchable_tables = tuple(connection.execute(text("""
-                SELECT DISTINCT c.table_name
+            searchable_columns = tuple(connection.execute(text("""
+                SELECT DISTINCT c.table_name, c.column_name
                 FROM information_schema.columns AS c
                 JOIN information_schema.tables AS t
                   ON t.table_schema = c.table_schema AND t.table_name = c.table_name
                 WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'
-                  AND c.column_name IN ('run_id', 'version_tag', 'ring_id', 'object_id')
-                ORDER BY c.table_name
-            """)).scalars())
+                  AND c.column_name IN (
+                    'run_id', 'version_tag', 'ring_id', 'object_id', 'job_id', 'verdict_id'
+                  )
+                ORDER BY c.table_name, c.column_name
+            """)).all())
             quote = engine.dialect.identifier_preparer.quote
-            for table in searchable_tables:
-                quoted = quote(table)
+            for table, column in searchable_columns:
+                quoted_table = quote(table)
+                quoted_column = quote(column)
                 for identifier in identifiers:
                     found = connection.execute(text(
-                        f"SELECT 1 FROM public.{quoted} AS row_data "
-                        "WHERE position(:identifier IN row_to_json(row_data)::text) > 0 LIMIT 1"
+                        f"SELECT 1 FROM public.{quoted_table} "
+                        f"WHERE {quoted_column}::text = :identifier LIMIT 1"
                     ), {"identifier": identifier}).first()
                     if found:
                         leaks.append((table, identifier))

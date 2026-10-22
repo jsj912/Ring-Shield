@@ -168,12 +168,12 @@ def test_worker_runs_job_as_loader_and_preserves_other_tenant_rows(
                                {"tenant_id": TENANT_A, "job_id": job_id})
             connection.execute(text("DELETE FROM explanations WHERE ring_id = :ring_id"),
                                {"ring_id": ring_id})
+            connection.execute(text("DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :job_id"),
+                               {"tenant_id": TENANT_A, "job_id": job_id})
             connection.execute(text("DELETE FROM verdicts WHERE tenant_id = :tenant_id AND ring_id = :ring_id"),
                                {"tenant_id": TENANT_A, "ring_id": ring_id})
             connection.execute(text("DELETE FROM rings WHERE ring_id = :ring_id"),
                                {"ring_id": ring_id})
-            connection.execute(text("DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :job_id"),
-                               {"tenant_id": TENANT_A, "job_id": job_id})
         admin.dispose()
 
 
@@ -210,10 +210,10 @@ def test_locked_queued_job_is_skipped_by_second_worker(register_db_test_ids):
                                {"tenant_id": TENANT_A, "job_id": job_id})
             connection.execute(text("DELETE FROM explanations WHERE tenant_id = :tenant_id AND ring_id = :ring_id"),
                                {"tenant_id": TENANT_A, "ring_id": ring_id})
+            connection.execute(text("DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :job_id"),
+                               {"tenant_id": TENANT_A, "job_id": job_id})
             connection.execute(text("DELETE FROM verdicts WHERE tenant_id = :tenant_id AND ring_id = :ring_id"),
                                {"tenant_id": TENANT_A, "ring_id": ring_id})
             connection.execute(text("DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"),
                                {"tenant_id": TENANT_A, "ring_id": ring_id})
-            connection.execute(text("DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :job_id"),
-                               {"tenant_id": TENANT_A, "job_id": job_id})
         admin.dispose()

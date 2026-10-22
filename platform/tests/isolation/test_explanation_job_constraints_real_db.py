@@ -96,13 +96,13 @@ def test_failed_explanation_job_can_be_retried_but_active_job_cannot(
                 "DELETE FROM explanations WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": tenant_id, "ring_id": ring_id})
             connection.execute(text(
+                "DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :ring_id"
+            ), {"tenant_id": tenant_id, "ring_id": ring_id})
+            connection.execute(text(
                 "DELETE FROM verdicts WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": tenant_id, "ring_id": ring_id})
             connection.execute(text(
                 "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
-            ), {"tenant_id": tenant_id, "ring_id": ring_id})
-            connection.execute(text(
-                "DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :ring_id"
             ), {"tenant_id": tenant_id, "ring_id": ring_id})
 
 
@@ -142,6 +142,12 @@ def test_explanation_job_rejects_verdict_from_another_tenant(register_db_test_id
                 "DELETE FROM explanations WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": tenant_a, "ring_id": ring_a})
             connection.execute(text(
+                "DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :ring_id"
+            ), {"tenant_id": tenant_a, "ring_id": ring_a})
+            connection.execute(text(
+                "DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :ring_id"
+            ), {"tenant_id": tenant_b, "ring_id": ring_b})
+            connection.execute(text(
                 "DELETE FROM verdicts WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": tenant_b, "ring_id": ring_b})
             connection.execute(text(
@@ -149,10 +155,4 @@ def test_explanation_job_rejects_verdict_from_another_tenant(register_db_test_id
             ), {"tenant_id": tenant_a, "ring_id": ring_a})
             connection.execute(text(
                 "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
-            ), {"tenant_id": tenant_b, "ring_id": ring_b})
-            connection.execute(text(
-                "DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :ring_id"
-            ), {"tenant_id": tenant_a, "ring_id": ring_a})
-            connection.execute(text(
-                "DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :ring_id"
             ), {"tenant_id": tenant_b, "ring_id": ring_b})
