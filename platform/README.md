@@ -40,6 +40,13 @@ endpoint-visible transactions and scores. Tenant rings use `scope=tenant`; the L
 loader checks each explanation log, rings-log tenant rule, artifact hash, active
 model/seed, and the pinned FX hash. The API process uses the restricted app and auth
 roles with dotenv loading disabled, so it never inherits loader credentials.
+The demo starts a restricted worker supervisor after API health succeeds. To use
+the local fake L4 service, add `-StartFakeL4`; it binds only to loopback and uses
+a generated in-memory bearer token. Its response is labeled **DEMO STUB** and is
+not real research output. Alternatively, pass `-XaiUrl` for a localhost HTTP(S)
+endpoint and optionally `-XaiToken`; the runner generates an ephemeral token when
+an endpoint is configured without one. Tokens are not written to the credentials
+file, process list, or service logs.
 
 For banks 12 and 20, the expected visible edge-ID and database transaction/score
 counts are **20,039** and **10,315** respectively, with **5 rings per tenant**.
@@ -368,8 +375,10 @@ the additive `regenerating` flag from the explanation endpoint. The status
 route returns only safe job metadata and errors.
 
 Worker job IDs use the form `<tenant_id>.<uuidhex>` so the worker can set
-tenant context and scope every query before it loads a job. The fake-server
-demonstration remains planned for Part C.
+tenant context and scope every query before it loads a job. In supervisor mode,
+queued explanation jobs and unfinished retrain runs are dispatched from
+tenant-scoped scans. The retrain worker launches its ring refresh as a nested
+step because the schema has no separate refresh-run table.
 
 Load contract files with
 `python platform/jobs/load_contract.py --scored-edges <path> --rings <path> --scope tenant`.
