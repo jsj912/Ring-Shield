@@ -42,7 +42,7 @@ def test_full_migration_chain_compiles_upgrade_and_downgrade_offline():
     assert "CREATE TABLE explanation_jobs" in normalized
     assert ("CONSTRAINT pk_explanation_jobs PRIMARY KEY (job_id)" in normalized)
     assert ("CONSTRAINT fk_explanation_jobs_tenant_ring FOREIGN KEY(tenant_id, ring_id) "
-            "REFERENCES rings (tenant_id, ring_id) ON DELETE CASCADE" in normalized)
+            "REFERENCES rings (tenant_id, ring_id)" in normalized)
     assert ("CONSTRAINT fk_explanation_jobs_tenant_verdict FOREIGN KEY(tenant_id, verdict_id) "
             "REFERENCES verdicts (tenant_id, verdict_id)" in normalized)
     assert ("CONSTRAINT fk_explanation_jobs_tenant_user FOREIGN KEY(tenant_id, requested_by) "

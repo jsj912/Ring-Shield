@@ -186,7 +186,7 @@ class ExplanationJob(Base):
               postgresql_where=text("status = 'queued'")),
         Index("ix_explanation_jobs_tenant_ring", "tenant_id", "ring_id"),
         ForeignKeyConstraint(["tenant_id", "ring_id"], ["rings.tenant_id", "rings.ring_id"],
-                             name="fk_explanation_jobs_tenant_ring", ondelete="CASCADE"),
+                             name="fk_explanation_jobs_tenant_ring"),
         ForeignKeyConstraint(["tenant_id", "verdict_id"],
                              ["verdicts.tenant_id", "verdicts.verdict_id"],
                              name="fk_explanation_jobs_tenant_verdict"),

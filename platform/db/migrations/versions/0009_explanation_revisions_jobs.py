@@ -46,7 +46,7 @@ def upgrade() -> None:
         sa.CheckConstraint("status IN ('queued', 'running', 'succeeded', 'failed')",
                            name="ck_explanation_jobs_status"),
         sa.ForeignKeyConstraint(["tenant_id", "ring_id"], ["rings.tenant_id", "rings.ring_id"],
-                                name="fk_explanation_jobs_tenant_ring", ondelete="CASCADE"),
+                                name="fk_explanation_jobs_tenant_ring"),
         sa.ForeignKeyConstraint(["tenant_id", "verdict_id"],
                                 ["verdicts.tenant_id", "verdicts.verdict_id"],
                                 name="fk_explanation_jobs_tenant_verdict"),
