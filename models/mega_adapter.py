@@ -133,13 +133,21 @@ def git_commit(repo: Path = REPO_ROOT) -> str:
         return "unknown"
 
 
-def mega_args(raw_dir: Path, batch_size: int, num_neighs, seed: int, device: str, window_s: int):
+def mega_flags(edge_agg_type: str = "gin", node_agg_type: str = "sum") -> dict:
+    """MEGA_FLAGS with the two aggregator choices overridden. The defaults are the published
+    MEGA-GIN command (R6); MEGA-GenAgg is `genagg` / `genagg` -- the paper (App. C.5) uses
+    GenAgg at both the parallel-edge and the neighbour stage."""
+    return {**MEGA_FLAGS, "edge_agg_type": edge_agg_type, "node_agg_type": node_agg_type}
+
+
+def mega_args(raw_dir: Path, batch_size: int, num_neighs, seed: int, device: str, window_s: int,
+              flags: dict | None = None):
     """The argparse namespace their code reads. `data` is the raw directory's name, so their
     f"{aml_data}/{data}/formatted_transactions.csv" resolves to our own raw CSV."""
     return types.SimpleNamespace(batch_size=batch_size, num_neighs=list(num_neighs), seed=seed, device=device,
                                  data=raw_dir.name, window_s=window_s, inference=False, finetune=False,
                                  testing=True, tqdm=False, save_model=False, unique_name=None, n_epochs=0,
-                                 **MEGA_FLAGS)
+                                 **(flags or MEGA_FLAGS))
 
 
 def load_mega_data(args, raw_dir: Path):
@@ -333,15 +341,22 @@ def main(argv=None):
                          "use a separate --out-dir, never for a reported detector row")
     ap.add_argument("--dry-run", action="store_true",
                     help="load the data, build the model, run one train+val epoch, report the epoch time; writes nothing")
+    ap.add_argument("--edge-agg-type", default="gin", choices=["gin", "genagg", "pna", "sum"],
+                    help="parallel-edge aggregator (their --edge_agg_type); gin = published MEGA-GIN")
+    ap.add_argument("--node-agg-type", default="sum", choices=["sum", "genagg"],
+                    help="neighbour aggregator inside GINEConv (their --node_agg_type); MEGA-GenAgg sets both to genagg")
     a = ap.parse_args(argv)
+    flags = mega_flags(a.edge_agg_type, a.node_agg_type)
+    variant = {("gin", "sum"): "MEGA-GIN", ("genagg", "genagg"): "MEGA-GenAgg"}.get(
+        (a.edge_agg_type, a.node_agg_type), f"MEGA edge={a.edge_agg_type} node={a.node_agg_type}")
     t_start = time.time()
     paths = load_paths()
     out_dir = a.out_dir
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     params = json.loads((MEGA / "model_settings.json").read_text(encoding="utf-8"))["gin"]["params"]
-    print(f"[mega] device {device}; their AML defaults {params}")
+    print(f"[mega] {variant} on {paths.get('dataset', 'HI-Small')}; device {device}; their AML defaults {params}")
 
-    args = mega_args(paths["raw_dir"], a.batch_size, a.num_neighs, a.seeds[0], str(device), a.window_s)
+    args = mega_args(paths["raw_dir"], a.batch_size, a.num_neighs, a.seeds[0], str(device), a.window_s, flags)
     t0 = time.time()
     tr_data, val_data, te_data, tr_inds, val_inds, te_inds = load_mega_data(args, paths["raw_dir"])
     inds_of = {"train": tr_inds, "val": val_inds, "test": te_inds}
@@ -437,13 +452,13 @@ def main(argv=None):
         summary.append({"seed": seed, "best_val_f1": best_f1, "best_epoch": best_epoch})
 
     cfg = {"experiment": out_dir.name, "step": "10 (R6 detector swap)", "model_id": "mega",
-           "model": "MEGA-GNN / MultiMPNN (MEGA-GIN)",
+           "model": f"MEGA-GNN / MultiMPNN ({variant})",
            "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "git_commit": git_commit(),
            "upstream": {"repo": "https://github.com/hcagri/MEGA-GNN", "commit": git_commit(MEGA),
                         "license": "Apache-2.0", "model_code_edited": False,
                         "shims": ["ports_cpp (pure python; unused -- their AML command has no --ports)",
                                   "negative_sampling (stub; link-prediction task only)"]},
-           "params": params, "flags": MEGA_FLAGS, "seeds": a.seeds, "epochs": a.epochs, "patience": a.patience,
+           "params": params, "flags": flags, "seeds": a.seeds, "epochs": a.epochs, "patience": a.patience,
            "batch_size": a.batch_size, "num_neighbors": list(a.num_neighs),
            "causal_sampling": not a.non_causal,
            "loader_route": ("mega_native_noncausal" if a.non_causal else f"ours_{ROUTE['route']}"),
@@ -454,7 +469,11 @@ def main(argv=None):
                "our causal loader (models/causal_loader.py) in place of their LinkNeighborLoader call "
                "-- same loader class, temporal guarantee added",
                "simp_edge_batch recomputed per batch after the causal filter (equivalent grouping)",
-               "seeds 1-5 from configs/seeds.yaml instead of their single seed"],
+               "seeds 1-5 from configs/seeds.yaml instead of their single seed"]
+           + (["GenAgg as published: MLPAutoencoder's inverse-objective forward hook never fires "
+               "(GenAgg calls f.forward() directly, bypassing hooks), so f^-1 is trained only by the "
+               "task loss; the node-stage GenAgg is one instance shared by every GINE layer"]
+              if "genagg" in (a.edge_agg_type, a.node_agg_type) else []),
            "data": {"source": "data/raw/formatted_transactions.csv (the file our own detector reads)",
                     "split": "their get_data, asserted identical to amlworld_{train,val,test}.parquet",
                     "label_informed_preprocessing": False},

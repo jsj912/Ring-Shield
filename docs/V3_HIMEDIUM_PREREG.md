@@ -1346,6 +1346,136 @@ reported **together with the statement that its two sides are not length-matched
 like-for-like question is left as a named, unresolved limitation rather than answered with a
 post-hoc window.
 
+## Amendment 13 — 2026-10-16, V3.3e: P1 and 3d are also evaluated on length-matched windows
+
+**Registered before anything is computed on these blocks.** No per-block pipeline run exists, and
+no per-block number has been seen.
+
+### The reason
+
+HI-Medium's **validation window is 2 days** (4–5) and its **primary test window is 10** (6–15).
+HI-Small's are both 2 days (6–7 validation, 8–9 primary). So HI-Small's val ring-F1 was a
+length-matched proxy for its test result and HI-Medium's is not, and a HI-Medium-vs-HI-Small
+comparison of primary-window numbers compares a 10-day window against a 2-day one. C9 measured that
+the scope convention alone moves ring-F1 by **five times** the largest method effect in this
+project; window length acts through the same mechanism, by growing each ring's visible member set
+until a Jaccard 0.5 match is strictly harder. The first test run showed exactly that signature —
+member coverage 0.943 on validation against 0.721 on the 10-day primary window.
+
+### What is added
+
+**P1 and the main 3d comparison are also evaluated on the five consecutive 2-day blocks of the
+primary window: 6–7, 8–9, 10–11, 12–13, 14–15.**
+
+* **The pipeline is run per block, exactly as it is run on validation** — the seed quantile k\* is
+  taken **within the block**, so each block gets its own budget at the same rate, matching how
+  validation selects seeds within its own 2-day window.
+* **Reported as the mean over the five blocks with a CI over blocks**, beside the 10-day
+  primary-window result, which is **not** replaced.
+* **The blocks are fixed by window geometry alone** — consecutive, equal, non-overlapping, covering
+  days 6–15 exactly. No block is chosen, dropped, re-cut or re-ordered for any reason, and in
+  particular not for anything observed in the data.
+* **This changes no parameter.** Δt, `p_min`, the variant, the cut, k\* and `min_size` stay at the
+  values already recorded. Only the evaluation geometry is added.
+
+### A known property of block 14–15, recorded now so it cannot look like a surprise later
+
+The seed diagnostic run before this amendment (`results/tables/v33_seed_by_day.csv`) shows that
+**day 15 takes 16,531 of the 18,894 primary-window seeds — 87.5 % of the whole budget — at a seed
+precision of 0.0071**, against 0.21–0.87 on days 6–14. Day 15 also carries 3.02 M edges against an
+interior median near 1.93 M.
+
+**Block 14–15 therefore contains a day that behaves unlike the other nine, and its block result
+should be expected to differ.** That is recorded here, **before** the blocks are run, precisely so
+that a poor 14–15 block cannot later be excluded as an outlier. **All five blocks are reported
+whatever they show.** Per-block seed counts and seed precision are reported beside each block's
+ring metrics, so a reader can see the budget each block actually received.
+
+### What this does and does not resolve
+
+**Does:** it makes the HI-Medium number comparable in window length to HI-Small's published
+primary-window number, and it makes validation a length-matched proxy for the blocks.
+
+**Does not:** the blocks are still drawn from a test split whose detector is three to twelve days
+further from its training days than validation is, so temporal degradation is not controlled by
+this amendment and is not claimed to be. Nor does it fix the seed-budget concentration on day 15;
+it localises it to one block.
+
+## Amendment 14 — 2026-10-16, V3.3e: a per-day seed budget, reported beside the registered global cut
+
+**AMENDED AFTER FIRST TEST CONTACT. This is disclosed before anything else is said about it.**
+The seed diagnostic that motivates this amendment (`results/tables/v33_seed_by_day.csv`) used
+**test labels** — it reports seed precision per test day. So this amendment is **not** a clean
+pre-registration: it was written after a label-bearing look at the test split, and it must be read
+as a post-hoc addition, not as a prediction made in advance. Everything registered before this
+point stays exactly as registered, and **the global-quantile rows are reported beside the per-day
+rows in every table, always.**
+
+### What is added
+
+For HI-Medium test runs — both the 10-day primary window and each Amendment 13 block — seeds are
+**also** selected with a **per-day budget**: within each day, the top **0.1 %** of that day's edges
+by `score_raw`, strict cut, the same k\* as the registered rule. No other parameter changes: Δt,
+`p_min`, the variant, the cut, `min_size` all stay as recorded.
+
+### The justification, which is label-free
+
+The registered rule takes a single global quantile of `score_raw` across the whole split. Two facts
+about HI-Medium, **neither of which requires a label**:
+
+1. **Day 15 carries 3,021,866 edges against an interior median near 1.93 M — about 1.56× a normal
+   day.** This is a property of the data's daily volume profile, observable from timestamps alone,
+   and it is the same shape C8 already recorded at the other boundary (day 0, 2.31× the interior
+   median, the identical ratio on all three releases).
+2. **Day 15 receives 16,531 of the 18,894 global-quantile seeds — 87.5 % of the budget.** This is
+   computed from `score_raw` and timestamps only. **No label is involved in observing it.** A
+   single day taking seven-eighths of the budget is visible to anyone holding the scores, before
+   any ground truth is consulted.
+
+**That the seeds on day 15 then turn out to be 0.7 % precise is the part that needed labels, and it
+is the part that is NOT used as justification here.**
+
+**Correction to this justification, 2026-10-16, from the cross-release boundary check (C11).** The
+two facts above are both true, but the implied link between them — that the 1.56× volume is *why*
+day 15 takes 87.5 % of the budget — **is not supported.** HI-Small's own pre-shutdown spike day is
+1.36× the weekday norm and takes **23.4 %** of its global-quantile seeds while holding 23 % of the
+edges, i.e. exactly its share. Volume alone does not capture a global quantile. HI-Medium's day 15
+captures it because **that detector's scores are systematically elevated on that day**, which is a
+property of the model, not of the generator's volume profile.
+
+**What survives as justification for this amendment is therefore narrower, and it is still
+label-free:** under a global quantile, *whatever* the cause, one day currently receives 87.5 % of
+the seed budget — an allocation visible from `score_raw` and timestamps alone — and a per-day
+budget makes the allocation across days an explicit design choice rather than an artefact of the
+score distribution. The operational argument (daily alert review) is unchanged. **The volume
+argument is withdrawn.** The label-free statement is sufficient on its
+own: a global quantile over a multi-day split does not distribute the budget across days, and the
+fraction it gives to the largest-volume day is a property of the score distribution, not of the
+rings.
+
+**Operational justification, also label-free.** A per-day budget is what a deployed alert queue
+actually does: an institution reviews a roughly fixed number of alerts per day, not a fixed number
+per fortnight with seven-eighths of them falling on one Friday. The registered global rule is the
+one HI-Small used and is retained for comparability; the per-day rule is the one that matches daily
+review, and it is reported beside it.
+
+### How it is read
+
+* **Every table carries both rows.** No result is reported under the per-day rule alone.
+* **The registered global-quantile result remains the headline for any comparison with HI-Small**,
+  which was produced under the global rule on a 2-day split where the distinction barely binds.
+* **If the per-day rule does better, that is a finding about seed allocation, not a method win**,
+  and it is stated that way: nothing about the detector, the policy or the partition changed.
+* **If it does worse, it is reported too.** It is not dropped.
+
+### What it does not fix
+
+A per-day budget redistributes the budget; it does not improve the ranking within a day. If the
+detector's scores on day 15 are poorly separated, a per-day cut will take that day's top 0.1 %
+regardless and simply stop them from crowding out the other nine days. The temporal-degradation
+confound (validation sits adjacent to training; the test window runs 3–12 days further out) is
+untouched by this amendment and is not claimed to be addressed by it.
+
 ## Recorded non-predictions
 
 * Nothing is predicted about the **tail** (days 16–27). It is reported beside the primary numbers
