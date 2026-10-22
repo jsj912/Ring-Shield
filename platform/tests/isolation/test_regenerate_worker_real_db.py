@@ -37,6 +37,18 @@ def _ring_insert(connection, tenant_id: int, ring_id: str) -> None:
     """), {"tenant_id": tenant_id, "ring_id": ring_id})
 
 
+def _verdict_insert(connection, tenant_id: int, ring_id: str, user_id: int) -> int:
+    return connection.execute(text("""
+        INSERT INTO verdicts
+          (tenant_id, ring_id, user_id, verdict, corrected_members,
+           corrected_edges, is_simulated)
+        VALUES (:tenant_id, :ring_id, :user_id, 'confirm',
+                ARRAY[]::bigint[], ARRAY[]::bigint[], false)
+        RETURNING verdict_id
+    """), {"tenant_id": tenant_id, "ring_id": ring_id,
+          "user_id": user_id}).scalar_one()
+
+
 def _fake_l4_handler(token: str, received: list[dict]):
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
@@ -78,7 +90,6 @@ def test_worker_runs_job_as_loader_and_preserves_other_tenant_rows(
     suffix = uuid4().hex
     ring_id = f"regen-{suffix}"
     job_id = f"{TENANT_A}.{uuid4().hex}"
-    verdict_id = int(suffix[:12], 16)
     register_db_test_ids(ring_id, job_id)
     token = f"test-token-{suffix}"
     received: list[dict] = []
@@ -93,6 +104,8 @@ def test_worker_runs_job_as_loader_and_preserves_other_tenant_rows(
                 SELECT user_id FROM users WHERE tenant_id = :tenant_id
                 ORDER BY user_id LIMIT 1
             """), {"tenant_id": TENANT_A}).scalar_one()
+            verdict_id = _verdict_insert(connection, TENANT_A, ring_id, requested_by)
+            register_db_test_ids(str(verdict_id))
             for tenant_id, narrative in ((TENANT_A, "Tenant A original"),
                                          (TENANT_B, "Other tenant original")):
                 connection.execute(text("""
@@ -151,14 +164,16 @@ def test_worker_runs_job_as_loader_and_preserves_other_tenant_rows(
         server.server_close()
         thread.join(timeout=5)
         with admin.begin() as connection:
-            connection.execute(text("DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :job_id"),
-                               {"tenant_id": TENANT_A, "job_id": job_id})
             connection.execute(text("DELETE FROM explanation_jobs WHERE tenant_id = :tenant_id AND job_id = :job_id"),
                                {"tenant_id": TENANT_A, "job_id": job_id})
             connection.execute(text("DELETE FROM explanations WHERE ring_id = :ring_id"),
                                {"ring_id": ring_id})
+            connection.execute(text("DELETE FROM verdicts WHERE tenant_id = :tenant_id AND ring_id = :ring_id"),
+                               {"tenant_id": TENANT_A, "ring_id": ring_id})
             connection.execute(text("DELETE FROM rings WHERE ring_id = :ring_id"),
                                {"ring_id": ring_id})
+            connection.execute(text("DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :job_id"),
+                               {"tenant_id": TENANT_A, "job_id": job_id})
         admin.dispose()
 
 
@@ -174,12 +189,14 @@ def test_locked_queued_job_is_skipped_by_second_worker(register_db_test_ids):
                 SELECT user_id FROM users WHERE tenant_id = :tenant_id
                 ORDER BY user_id LIMIT 1
             """), {"tenant_id": TENANT_A}).scalar_one()
+            verdict_id = _verdict_insert(connection, TENANT_A, ring_id, requested_by)
+            register_db_test_ids(str(verdict_id))
             connection.execute(text("""
                 INSERT INTO explanation_jobs
                   (job_id, tenant_id, ring_id, verdict_id, requested_by)
                 VALUES (:job_id, :tenant_id, :ring_id, :verdict_id, :requested_by)
             """), {"job_id": job_id, "tenant_id": TENANT_A, "ring_id": ring_id,
-                  "verdict_id": int(uuid4().hex[:12], 16), "requested_by": requested_by})
+                  "verdict_id": verdict_id, "requested_by": requested_by})
 
         with admin.begin() as connection:
             connection.execute(text("""
@@ -191,6 +208,12 @@ def test_locked_queued_job_is_skipped_by_second_worker(register_db_test_ids):
         with admin.begin() as connection:
             connection.execute(text("DELETE FROM explanation_jobs WHERE tenant_id = :tenant_id AND job_id = :job_id"),
                                {"tenant_id": TENANT_A, "job_id": job_id})
+            connection.execute(text("DELETE FROM explanations WHERE tenant_id = :tenant_id AND ring_id = :ring_id"),
+                               {"tenant_id": TENANT_A, "ring_id": ring_id})
+            connection.execute(text("DELETE FROM verdicts WHERE tenant_id = :tenant_id AND ring_id = :ring_id"),
+                               {"tenant_id": TENANT_A, "ring_id": ring_id})
             connection.execute(text("DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"),
                                {"tenant_id": TENANT_A, "ring_id": ring_id})
+            connection.execute(text("DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :job_id"),
+                               {"tenant_id": TENANT_A, "job_id": job_id})
         admin.dispose()

@@ -66,6 +66,7 @@ def test_failed_explanation_job_can_be_retried_but_active_job_cannot(
                 ORDER BY user_id LIMIT 1
             """), {"tenant_id": tenant_id}).scalar_one()
             verdict_id = _verdict(connection, tenant_id, ring_id, requested_by)
+            register_db_test_ids(str(verdict_id))
             _job(connection, job_id=job_ids[0], tenant_id=tenant_id, ring_id=ring_id,
                  verdict_id=verdict_id, requested_by=requested_by)
             with pytest.raises(DBAPIError):
@@ -92,10 +93,16 @@ def test_failed_explanation_job_can_be_retried_but_active_job_cannot(
                 "DELETE FROM explanation_jobs WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": tenant_id, "ring_id": ring_id})
             connection.execute(text(
+                "DELETE FROM explanations WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
+            ), {"tenant_id": tenant_id, "ring_id": ring_id})
+            connection.execute(text(
                 "DELETE FROM verdicts WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": tenant_id, "ring_id": ring_id})
             connection.execute(text(
                 "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
+            ), {"tenant_id": tenant_id, "ring_id": ring_id})
+            connection.execute(text(
+                "DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :ring_id"
             ), {"tenant_id": tenant_id, "ring_id": ring_id})
 
 
@@ -118,15 +125,22 @@ def test_explanation_job_rejects_verdict_from_another_tenant(register_db_test_id
                 ORDER BY user_id LIMIT 1
             """), {"tenant_id": tenant_b}).scalar_one()
             verdict_b = _verdict(connection, tenant_b, ring_b, user_b)
-            with pytest.raises(DBAPIError):
+            register_db_test_ids(str(verdict_b))
+            with pytest.raises(DBAPIError) as exc_info:
                 with connection.begin_nested():
                     _job(connection, job_id=job_id, tenant_id=tenant_a, ring_id=ring_a,
                          verdict_id=verdict_b, requested_by=user_a)
+            assert exc_info.value.orig.diag.constraint_name == (
+                "fk_explanation_jobs_tenant_verdict"
+            )
     finally:
         with engine.begin() as connection:
             connection.execute(text(
                 "DELETE FROM explanation_jobs WHERE tenant_id = :tenant_id AND job_id = :job_id"
             ), {"tenant_id": tenant_a, "job_id": job_id})
+            connection.execute(text(
+                "DELETE FROM explanations WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
+            ), {"tenant_id": tenant_a, "ring_id": ring_a})
             connection.execute(text(
                 "DELETE FROM verdicts WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": tenant_b, "ring_id": ring_b})
@@ -135,4 +149,10 @@ def test_explanation_job_rejects_verdict_from_another_tenant(register_db_test_id
             ), {"tenant_id": tenant_a, "ring_id": ring_a})
             connection.execute(text(
                 "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
+            ), {"tenant_id": tenant_b, "ring_id": ring_b})
+            connection.execute(text(
+                "DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :ring_id"
+            ), {"tenant_id": tenant_a, "ring_id": ring_a})
+            connection.execute(text(
+                "DELETE FROM audit_log WHERE tenant_id = :tenant_id AND object_id = :ring_id"
             ), {"tenant_id": tenant_b, "ring_id": ring_b})
