@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sys
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -21,9 +22,10 @@ from settings import load_platform_config
 _SAFE_CODES = {
     "not_configured", "timeout", "connection_failed", "ring_not_found",
     "invalid_edit", "unexpected_status", "invalid_response", "validation_failed",
-    "storage_failed", "job_not_found",
+    "storage_failed", "job_not_found", "bad_request", "internal_error",
 }
 _UNSAFE_MESSAGE = re.compile(r"(?:https?://|[A-Za-z]:\\|/[^/\s]+/|\b[^\s@]+@[^\s@]+\b)", re.I)
+_logger = logging.getLogger(__name__)
 
 
 def tenant_from_job_id(job_id: str) -> int:
@@ -111,6 +113,24 @@ def _finish_failure(tenant_id: int, job_id: str, message: str, code: str) -> Non
         )
 
 
+def _warn_health_version_mismatch(row: dict[str, Any], *, config: dict[str, Any]) -> None:
+    """Optionally warn if L4 health reports a different version than the stored row."""
+    l4 = config.get("l4") or {}
+    if not l4.get("check_health_version"):
+        return
+    try:
+        health = xai.health(config=config)
+        health_version = health.get("explainer_version")
+    except Exception:
+        _logger.warning("L4 health version check failed")
+        return
+    stored_version = row.get("explainer_version")
+    if isinstance(health_version, str) and health_version and health_version != stored_version:
+        _logger.warning(
+            "L4 health explainer_version differs from stored explanation row"
+        )
+
+
 def run_job(job_id: str, *, client=None, config: dict[str, Any] | None = None) -> bool:
     tenant_id = tenant_from_job_id(job_id)
     job = _claim(tenant_id, job_id)
@@ -147,6 +167,7 @@ def run_job(job_id: str, *, client=None, config: dict[str, Any] | None = None) -
                     break
         if revision is None:
             raise RuntimeError("storage collision")
+        _warn_health_version_mismatch(row, config=root_config)
         return True
     except Exception as exc:
         message, code = _safe_error(exc)

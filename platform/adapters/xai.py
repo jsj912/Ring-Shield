@@ -49,6 +49,16 @@ class XaiUnexpectedStatusError(XaiError):
     code = "unexpected_status"
 
 
+class XaiBadRequestError(XaiError):
+    code = "bad_request"
+    safe_message = "L4 rejected the regeneration request"
+
+
+class XaiInternalError(XaiError):
+    code = "internal_error"
+    safe_message = "L4 explanation service failed"
+
+
 class XaiInvalidResponseError(XaiError):
     code = "invalid_response"
     safe_message = "L4 returned an invalid response"
@@ -91,6 +101,10 @@ def _decode_response(response: httpx.Response, token: str) -> dict[str, Any]:
         if token in message:
             message = "L4 rejected the requested ring edit"
         raise XaiInvalidEditError(message.strip()[:300])
+    if response.status_code == 400:
+        raise XaiBadRequestError()
+    if response.status_code == 500:
+        raise XaiInternalError()
     if response.status_code != 200:
         raise XaiUnexpectedStatusError(f"L4 returned HTTP {response.status_code}")
     try:

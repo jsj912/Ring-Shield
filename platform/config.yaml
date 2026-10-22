@@ -17,6 +17,7 @@ l4:
   rings_schema_version: 1
   regenerate_url: null
   regenerate_timeout_seconds: 120
+  check_health_version: false
 # L6-A/L6-B configuration. Validation artifacts not present in this checkout
 # stay null; the L6 loader reports the exact missing key before starting work.
 l6:
