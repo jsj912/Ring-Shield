@@ -111,11 +111,21 @@ def _aggregate(name: str, se: pd.DataFrame, params: dict, model_id: str, seed: i
             print("[ringshield run] note: --gfp not given; GFP features are zero", file=sys.stderr)
         if embeddings is None:
             print("[ringshield run] note: --embeddings not given; cosine features are missing (NaN)", file=sys.stderr)
+        # The typing head, when the model dir carries one (<model_dir>/typing/): the SAME head
+        # contract/make_rings_full.py loads, so `run` types rings exactly as the contract files are
+        # typed. Without it topology_type stays UNKNOWN with uniform probs, as before.
+        head = None
+        if (md / "typing" / "head.json").exists():
+            from ringshield.typing.head import TypingHead
+            head = TypingHead.load(md / "typing")
+            report["typing_head"] = str(md / "typing")
+        else:
+            print(f"[ringshield run] note: {md} has no typing/ head; topology_type stays UNKNOWN", file=sys.stderr)
         ctx = build_context(se, gfp_parquet=gfp, embeddings_parquet=embeddings, head_constants=params.get("head_constants"))
         rings = aggregate_full(se, float(params["seed_frac_pct"]), int(params["min_size"]), params.get("max_gap_hours"),
                                policy=policy, ctx=ctx, p_min=float(params["p_min"]), delta_t_h=float(params["delta_t_h"]),
                                affinity=affinity, method=params["partition"], seed=int(params.get("cluster_seed", 0)),
-                               max_hops=int(params.get("max_hops", 2)), aggregator_id="full", report=report,
+                               max_hops=int(params.get("max_hops", 2)), aggregator_id="full", report=report, head=head,
                                **{k: v for k, v in (params.get("partition_cell") or {}).items()})
     else:
         raise UsageError(f"unknown aggregator {name!r}; choose from {', '.join(AGGREGATORS)}")
@@ -130,6 +140,8 @@ def _tenant_of_earliest_seed(ring: Ring, se_idx: pd.DataFrame) -> int:
 
 
 def cmd_run(a) -> int:
+    if a.tenant_id is not None and not a.edge_subset:
+        raise UsageError("--tenant-id is only valid with --edge-subset (tenant-scoped run)")
     model = read_model(a.model_dir)
     aggregator = a.aggregator or model["aggregator"]
     if a.aggregator and a.aggregator != model["aggregator"]:
@@ -146,17 +158,6 @@ def cmd_run(a) -> int:
         subset_n = int(len(ids))
         if se.empty:
             raise UsageError("--edge-subset leaves no edges")
-    tenant_n = None
-    if a.tenant_id is not None:
-        # One tenant's view: the edges whose contract `tenant_id` is N (= the sending bank). Applied
-        # BEFORE seed selection, so the seed quantile is computed within the tenant's own edges --
-        # the same rule as --edge-subset, and what a tenant-only deployment would actually do.
-        if "tenant_id" not in se.columns:
-            raise UsageError("--tenant-id needs a scored_edges file with a tenant_id column")
-        se = se[se["tenant_id"].astype(np.int64) == int(a.tenant_id)].reset_index(drop=True)
-        tenant_n = int(len(se))
-        if se.empty:
-            raise UsageError(f"--tenant-id {a.tenant_id}: no edges with that tenant_id")
     params = dict(model["params"])
     for k in ("seed_frac_pct", "min_size", "max_gap_hours"):
         v = getattr(a, k.replace("-", "_"), None)
@@ -178,7 +179,8 @@ def cmd_run(a) -> int:
         d = r.to_dict()
         d["ring_id"] = f"{aggregator}-{model_id}-{seed}-{i}"
         d["aggregator_id"] = aggregator
-        d["tenant_id"] = _tenant_of_earliest_seed(r, se_idx)
+        d["tenant_id"] = (int(a.tenant_id) if a.tenant_id is not None
+                           else _tenant_of_earliest_seed(r, se_idx))
         out_rings.append(Ring(**{c: d[c] for c in RINGS_ORDER}))
     out = Path(a.out)
     # Schema v2: the `*_ccy` fields are computed here, not left at their defaults. A rings file
@@ -188,9 +190,7 @@ def cmd_run(a) -> int:
     write_rings_parquet(out_rings, out)
     log = {"created_utc": _now(), "git_commit": _git_commit(), "command": "run", "scores": str(a.scores),
            "contract_version": f"rings.parquet v{RINGS_SCHEMA_VERSION}", "currency_v2": ccy,
-           "edge_subset": str(a.edge_subset) if a.edge_subset else None,
-           "tenant_id": int(a.tenant_id) if a.tenant_id is not None else None, "n_edges_tenant": tenant_n,
-           "n_edges_in_file": n_in,
+           "edge_subset": str(a.edge_subset) if a.edge_subset else None, "n_edges_in_file": n_in,
            "n_edge_subset_ids": subset_n, "n_edges_used": int(len(se)), "n_scored": int(se[SELECT_COL].notna().sum()),
            "model_dir": str(a.model_dir), "model": {k: model.get(k) for k in ("model_id", "seed", "aggregator", "version", "feature_set")},
            "aggregator": aggregator, "params": params, "selection_column": SELECT_COL,
@@ -202,7 +202,9 @@ def cmd_run(a) -> int:
            "expansion": report or None, "gfp": str(a.gfp) if a.gfp else None, "embeddings": str(a.embeddings) if a.embeddings else None,
            "partition": params.get("partition"), "partition_cell": params.get("partition_cell"),
            "ring_id_rule": "f'{aggregator}-{model_id}-{seed}-{idx}'",
-           "tenant_rule": "sender bank (from_bank) of the ring's earliest seed edge; ties -> smallest edge_id",
+           "tenant_rule": (f"explicit tenant_id={int(a.tenant_id)} for tenant-scoped edge subset"
+                           if a.tenant_id is not None else
+                           "sender bank (from_bank) of the ring's earliest seed edge; ties -> smallest edge_id"),
            "out": str(out)}
     Path(str(out) + ".log.json").write_text(json.dumps(log, indent=2), encoding="utf-8")
     print(f"[ringshield run] {len(out_rings)} rings from {len(se):,} edges ({log['quantile_cut']['n_seeds']:,} seeds, "
@@ -382,8 +384,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--scores", required=True, help="scored_edges parquet (contract columns)")
     r.add_argument("--edge-subset", default=None, help="parquet with an edge_id column; restricts the input (tenant scope)")
     r.add_argument("--tenant-id", type=int, default=None,
-                   help="run on one tenant's edges only: scored_edges.tenant_id == N (the sending bank); seeds are "
-                        "selected within the tenant. Combines with --edge-subset (intersection)")
+                   help="tenant code to stamp on every ring; requires --edge-subset")
     r.add_argument("--model-dir", required=True)
     r.add_argument("--aggregator", choices=AGGREGATORS, default=None, help="default: the model dir's aggregator")
     r.add_argument("--out", required=True, help="rings.parquet; a .log.json is written beside it")

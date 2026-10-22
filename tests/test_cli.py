@@ -169,25 +169,23 @@ def test_eval_and_holdout(work):
     assert h["holdout"]["n_truth_listed"] == 5 and h["n_truth"] <= 5 and h["window"] == "whole"
 
 
-def test_tenant_id_equals_the_matching_edge_subset(work, tmp_path):
-    """--tenant-id N is the tenant's edges and nothing else: identical rings to --edge-subset with
-    exactly the edge ids whose tenant_id is N, and the tenant recorded in the run log."""
+
+def test_tenant_id_stamps_rings_and_requires_edge_subset(work, tmp_path):
+    """Kashish's --tenant-id (adopted verbatim from regen-api ec7a4c4): it does not filter -- that
+    is --edge-subset's job -- it stamps every output ring with the tenant that ran the subset."""
     d = work["dir"]
     se = pd.read_parquet(d / "scored_edges_dryrun.parquet")
-    tenant = int(se["tenant_id"].value_counts().index[0])          # the busiest tenant in the sample
-    se.loc[se["tenant_id"] == tenant, ["edge_id"]].to_parquet(tmp_path / "subset.parquet", index=False)
+    tenant = int(se["from_bank"].value_counts().index[0])
+    sub = se.loc[(se["from_bank"] == tenant) | (se["to_bank"] == tenant), ["edge_id"]]
+    sub.to_parquet(tmp_path / "visible.parquet", index=False)
     rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "model_cc",
-                       "--tenant-id", tenant, "--out", tmp_path / "t.parquet")
-    assert rc == 0, err
+                       "--tenant-id", tenant, "--out", tmp_path / "x.parquet")
+    assert rc == 2 and "--tenant-id is only valid with --edge-subset" in err
     rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "model_cc",
-                       "--edge-subset", tmp_path / "subset.parquet", "--out", tmp_path / "s.parquet")
+                       "--edge-subset", tmp_path / "visible.parquet", "--tenant-id", tenant, "--out", tmp_path / "t.parquet")
     assert rc == 0, err
-    a = pd.read_parquet(tmp_path / "t.parquet", columns=["member_edges"])["member_edges"]
-    b = pd.read_parquet(tmp_path / "s.parquet", columns=["member_edges"])["member_edges"]
-    key = lambda c: sorted(tuple(sorted(int(e) for e in m)) for m in c)  # noqa: E731
-    assert key(a) == key(b)
+    rings = pd.read_parquet(tmp_path / "t.parquet", columns=["tenant_id", "member_edges"])
+    assert (rings["tenant_id"] == tenant).all()
+    assert all(set(int(e) for e in m) <= set(sub["edge_id"].astype(int)) for m in rings["member_edges"])
     log = json.loads((tmp_path / "t.parquet.log.json").read_text())
-    assert log["tenant_id"] == tenant and log["n_edges_tenant"] == int((se["tenant_id"] == tenant).sum())
-    rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "model_cc",
-                       "--tenant-id", -12345, "--out", tmp_path / "none.parquet")
-    assert rc == 2 and "no edges with that tenant_id" in err
+    assert log["tenant_rule"] == f"explicit tenant_id={tenant} for tenant-scoped edge subset"
