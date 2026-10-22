@@ -64,7 +64,8 @@ def _detail_app(monkeypatch, role, history, tmp_path, calls=None):
         if url.endswith("/explanation"):
             return FakeResponse({
                 "narrative": "Two accounts exchange funds.",
-                "explainer_version": "l4-v7", "latency_ms": 18.5,
+                "explainer_version": "l4-v7", "revision": 1, "regenerated": False,
+                "regenerating": False, "latency_ms": 18.5,
                 "evidence_summary": {}, "edge_weights": [], "account_weights": [],
                 "feature_weights": [], "provenance": {},
             })
@@ -91,7 +92,8 @@ def test_ring_graph_points_from_payer_to_payee_and_explanation_footer_is_visible
 
     chart = app.get("graphviz_chart")[0]
     assert 'acct_p1 -> acct_p2 [label="edge 10"]' in chart.proto.spec
-    assert "Explainer l4-v7 · 18.5 ms" in [item.value for item in app.caption]
+    assert any("Explainer l4-v7" in item.value and "revision 1" in item.value
+               for item in app.caption)
 
 
 def test_simulated_verdict_is_tagged_in_history(monkeypatch, tmp_path):
@@ -112,6 +114,8 @@ def test_admin_sees_read_only_verdict_warning_without_form(monkeypatch, tmp_path
     assert "Record a verdict" not in [item.value for item in app.subheader]
     assert all(button.label not in {"Confirm ring", "Reject ring", "Partially correct"}
                for button in app.button)
+    assert all(not box.label.startswith(("Keep account ", "Keep transaction "))
+               for box in app.checkbox)
 
 
 def test_ring_detail_disables_verdict_after_one_successful_request(monkeypatch, tmp_path):
