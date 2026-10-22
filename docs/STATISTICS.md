@@ -124,11 +124,14 @@ rule B1b's recall advantage matters less than the policy's precision).
 
 | window | matched rings | head accuracy | 95 % CI | rule accuracy | 95 % CI |
 |---|---|---|---|---|---|
-| primary (days 8–9) | 401 | 0.219 | [0.182, 0.259] | 0.207 | [0.170, 0.249] |
+| primary (days 8–9) | 401 | 0.599 | [0.549, 0.648] | 0.551 | [0.499, 0.601] |
 | **whole (days 8–17)** | 433 | **0.594** | [0.547, 0.640] | 0.547 | [0.499, 0.591] |
 
-This is the Step 8 prediction, now measured: typing on a two-day fragment is bounded by the
-window, and the same pipeline typed on the full ten-day test period is **2.7× more accurate**.
+~~This is the Step 8 prediction, now measured: typing on a two-day fragment is bounded by the
+window, and the same pipeline typed on the full ten-day test period is **2.7× more accurate**.~~
+**Corrected 2026-10-22, found by Ruhani (L4 Week 5 check).** The primary row typed the wrong ring (`typing_eval.py` read
+`rings[m.pred_idx]` on `restrict_rings` positions; 316 of 401). With the matched ring the two windows
+agree (0.599 vs 0.594): typing is not window-bounded. FINDINGS B10, C3 (withdrawn).
 The head beats the rule on both windows, and on `whole` the two intervals barely overlap.
 
 ## Files

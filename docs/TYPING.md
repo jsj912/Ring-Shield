@@ -102,11 +102,13 @@ bounded by the evaluation window, not by the model.**
 
 | window | matched rings | head accuracy | 95 % CI | rule accuracy | 95 % CI |
 |---|---|---|---|---|---|
-| primary (days 8–9) | 401 | 0.219 | [0.182, 0.259] | 0.207 | [0.170, 0.249] |
+| primary (days 8–9) | 401 | 0.599 | [0.549, 0.648] | 0.551 | [0.499, 0.601] |
 | **whole (days 8–17)** | 433 | **0.594** | [0.547, 0.640] | 0.547 | [0.499, 0.591] |
 
-The prediction holds: the same rings typed over the full ten-day test period are **2.7× more
-accurate**, because the window no longer truncates a gather-scatter into a fan. Typing is
+~~The prediction holds: the same rings typed over the full ten-day test period are **2.7× more
+accurate**, because the window no longer truncates a gather-scatter into a fan.~~ **Corrected
+2026-10-22, found by Ruhani (L4 Week 5 check): the prediction does not hold.** The primary row typed the wrong ring
+(316 of 401); with the matched ring, primary 0.599 and whole 0.594 agree. FINDINGS B10, C3 (withdrawn). Typing is
 reported as a bounded-by-window result with the confusion matrix and this sensitivity; nothing
 about it is chosen on test.
 
@@ -116,29 +118,33 @@ Typing on matched primary-window rings, pooled over 5 detector seeds (per-seed r
 confusion matrices and per-class counts in `r5_typing.json`). **Check 2**: accuracy is reported on
 matched rings only, with the full 8x8 confusion matrix.
 
+**Corrected 2026-10-22, found by Ruhani (L4 Week 5 check).** The per-seed, pooled and per-class rows below are recomputed with
+the matched ring. The confusion matrix and the reading under it were computed on the wrong rings and
+are **superseded**; the corrected matrix is `head_confusion` in `results/tables/r5_typing.json`.
+
 | | matched rings | head accuracy | rule accuracy |
 |---|---|---|---|
-| seed 1 | 81 | 0.185 | 0.123 |
-| seed 2 | 81 | 0.173 | 0.173 |
-| seed 3 | 77 | 0.156 | 0.169 |
-| seed 4 | 89 | 0.270 | 0.281 |
-| seed 5 | 73 | 0.315 | 0.288 |
-| **pooled (401)** | | **0.219** (macro-F1 0.155) | 0.207 (0.143) |
+| seed 1 | 81 | 0.580 | 0.568 |
+| seed 2 | 81 | 0.654 | 0.580 |
+| seed 3 | 77 | 0.610 | 0.545 |
+| seed 4 | 89 | 0.573 | 0.551 |
+| seed 5 | 73 | 0.575 | 0.507 |
+| **pooled (401)** | | **0.599** (macro-F1 0.458) | 0.551 (0.409) |
 
 Per class (pooled; the counts matter more than the rates here, amendment d):
 
 | true type | n | head recall | rule recall |
 |---|---|---|---|
-| FAN-OUT | 64 | **0.56** | 0.58 |
-| FAN-IN | 56 | 0.30 | 0.41 |
-| GATHER-SCATTER | 117 | 0.13 | 0.09 |
-| SCATTER-GATHER | 78 | 0.17 | 0.08 |
-| CYCLE | 42 | 0.12 | 0.05 |
-| RANDOM | 35 | 0.03 | 0.14 |
+| FAN-OUT | 64 | **0.88** | 0.91 |
+| FAN-IN | 56 | 0.61 | 0.98 |
+| GATHER-SCATTER | 117 | 0.53 | 0.42 |
+| SCATTER-GATHER | 78 | 0.69 | 0.50 |
+| CYCLE | 42 | 0.62 | 0.21 |
+| RANDOM | 35 | 0.11 | 0.31 |
 | BIPARTITE | 5 | 0.00 | 0.00 |
-| STACK | 4 | 0.25 | 0.00 |
+| STACK | 4 | 1.00 | 0.00 |
 
-Head confusion, rows = true, columns = predicted (pooled over seeds):
+~~Head confusion, rows = true, columns = predicted (pooled over seeds):~~ *(superseded 2026-10-22: wrong rings; see above)*
 
 | | FAN-OUT | FAN-IN | G-S | S-G | CYCLE | RANDOM | BIPARTITE | STACK |
 |---|---|---|---|---|---|---|---|---|
@@ -159,10 +165,12 @@ STACK (4) have too few matched rings for a rate to mean anything -- the counts a
 per amendment d. RANDOM is not the hardest class here (the box expected it to absorb the errors);
 the fan classes absorb them, because a truncated pattern *is* a fan.
 
-Rule vs head: the head is 0.012 better pooled (0.219 vs 0.207) and better on 3 of 5 seeds -- a
+~~Rule vs head: the head is 0.012 better pooled (0.219 vs 0.207) and better on 3 of 5 seeds -- a
 difference of five rings. On the training distribution the gap is real (0.558 vs 0.420 OOF on
 2-day train windows, 0.509 vs 0.439 on val); on matched test rings both are bounded by the same
-fragment problem, and neither should be reported as a working topology classifier.
+fragment problem, and neither should be reported as a working topology classifier.~~ **Corrected 2026-10-22,
+found by Ruhani (L4 Week 5 check):** with the matched ring the head is 0.048 better pooled (0.599 vs 0.551), better on all 5 seeds,
+with overlapping intervals; it is a working classifier on matched test rings (FINDINGS B10).
 
 ## Rings without a closure (and what the XAI narrative must say)
 
