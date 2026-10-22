@@ -45,6 +45,8 @@ def test_regenerate_sends_contract_payload_and_bearer_token(monkeypatch):
         (404, {"error": "RingNotFound"}, xai.XaiRingNotFoundError),
         (422, {"error": "InvalidEdit", "message": "At least two accounts must remain"},
          xai.XaiInvalidEditError),
+        (400, {"message": "sensitive response text"}, xai.XaiBadRequestError),
+        (500, {"message": "sensitive response text"}, xai.XaiInternalError),
         (503, {"sensitive": "response body must not leak"}, xai.XaiUnexpectedStatusError),
     ],
 )
@@ -57,6 +59,8 @@ def test_adapter_maps_service_statuses(monkeypatch, status, body, error_type):
     if status == 422:
         assert "At least two accounts" in str(raised.value)
     if status == 503:
+        assert "sensitive" not in str(raised.value)
+    if status in (400, 500):
         assert "sensitive" not in str(raised.value)
 
 

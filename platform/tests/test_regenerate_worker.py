@@ -122,6 +122,42 @@ def test_valid_result_stores_revision_two_and_succeeds(monkeypatch):
     claim_sql = str(state["claim_statement"].compile(dialect=postgresql.dialect())).upper()
     assert "FOR UPDATE" in claim_sql and "SKIP LOCKED" in claim_sql
 
+
+def test_optional_health_version_mismatch_warns_without_failing_job(monkeypatch, caplog):
+    state = _install(monkeypatch)
+    monkeypatch.setattr(worker.xai, "health", lambda **_kwargs: {
+        "status": "ok", "explainer_version": "newer-version",
+    })
+    config = {**CONFIG, "l4": {**CONFIG["l4"], "check_health_version": True}}
+
+    with caplog.at_level("WARNING", logger=worker.__name__):
+        assert worker.run_job(JOB_ID, config=config), state
+
+    assert state["job"].status == "succeeded"
+    assert "differs from stored explanation row" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("error_type", "safe_code", "safe_message"),
+    [
+        (worker.xai.XaiBadRequestError, "bad_request", "L4 rejected the regeneration request"),
+        (worker.xai.XaiInternalError, "internal_error", "L4 explanation service failed"),
+    ],
+)
+def test_bad_request_and_internal_error_fail_jobs_without_body_text(
+        monkeypatch, error_type, safe_code, safe_message):
+    state = _install(monkeypatch)
+    monkeypatch.setattr(
+        worker.xai, "regenerate",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(error_type("private response body")),
+    )
+
+    assert not worker.run_job(JOB_ID, config=CONFIG)
+    assert state["job"].status == "failed"
+    assert state["job"].error == safe_message
+    assert "private response body" not in state["job"].error
+    assert state["audit"][0]["details"] == {"error_code": safe_code}
+
 def test_revision_insert_uses_tenant_scoped_max_and_retries_one_collision(monkeypatch):
     state = _install(monkeypatch, revision_insert_outcomes=[None, 3])
     assert worker.run_job(JOB_ID, config=CONFIG), state
