@@ -43,11 +43,15 @@ def test_full_migration_chain_compiles_upgrade_and_downgrade_offline():
     assert ("CONSTRAINT pk_explanation_jobs PRIMARY KEY (job_id)" in normalized)
     assert ("CONSTRAINT fk_explanation_jobs_tenant_ring FOREIGN KEY(tenant_id, ring_id) "
             "REFERENCES rings (tenant_id, ring_id) ON DELETE CASCADE" in normalized)
+    assert ("CONSTRAINT fk_explanation_jobs_tenant_verdict FOREIGN KEY(tenant_id, verdict_id) "
+            "REFERENCES verdicts (tenant_id, verdict_id)" in normalized)
     assert ("CONSTRAINT fk_explanation_jobs_tenant_user FOREIGN KEY(tenant_id, requested_by) "
             "REFERENCES users (tenant_id, user_id)" in normalized)
     assert ("CREATE UNIQUE INDEX uq_explanation_jobs_active_verdict "
             "ON explanation_jobs (tenant_id, verdict_id) "
             "WHERE status IN ('queued', 'running', 'succeeded')" in normalized)
+    assert ("ALTER TABLE verdicts ADD CONSTRAINT uq_verdicts_tenant_verdict "
+            "UNIQUE (tenant_id, verdict_id)" in normalized)
     assert "UPDATE explanations" not in normalized
     assert "REVOKE ALL ON explanation_jobs FROM PUBLIC" in normalized
     assert "GRANT SELECT, INSERT ON explanation_jobs TO ringshield_api" in normalized
@@ -71,5 +75,14 @@ def test_full_migration_chain_compiles_upgrade_and_downgrade_offline():
     assert {fk.name: tuple(element.target_fullname for element in fk.elements)
             for fk in table.foreign_key_constraints} == {
         "fk_explanation_jobs_tenant_ring": ("rings.tenant_id", "rings.ring_id"),
+        "fk_explanation_jobs_tenant_verdict": (
+            "verdicts.tenant_id", "verdicts.verdict_id",
+        ),
         "fk_explanation_jobs_tenant_user": ("users.tenant_id", "users.user_id"),
     }
+    verdict_table = ExplanationJob.metadata.tables["verdicts"]
+    assert any(
+        constraint.name == "uq_verdicts_tenant_verdict"
+        and tuple(column.name for column in constraint.columns) == ("tenant_id", "verdict_id")
+        for constraint in verdict_table.constraints
+    )

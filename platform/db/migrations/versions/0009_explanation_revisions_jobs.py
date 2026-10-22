@@ -22,6 +22,10 @@ def upgrade() -> None:
         "explanations_pkey", "explanations",
         ["tenant_id", "ring_id", "explainer_version", "revision"],
     )
+    # verdict_id is already the primary key; this composite key enables tenant binding.
+    op.create_unique_constraint(
+        "uq_verdicts_tenant_verdict", "verdicts", ["tenant_id", "verdict_id"],
+    )
     op.create_table(
         "explanation_jobs",
         sa.Column("job_id", sa.String(length=64), nullable=False),
@@ -43,6 +47,9 @@ def upgrade() -> None:
                            name="ck_explanation_jobs_status"),
         sa.ForeignKeyConstraint(["tenant_id", "ring_id"], ["rings.tenant_id", "rings.ring_id"],
                                 name="fk_explanation_jobs_tenant_ring", ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["tenant_id", "verdict_id"],
+                                ["verdicts.tenant_id", "verdicts.verdict_id"],
+                                name="fk_explanation_jobs_tenant_verdict"),
         sa.ForeignKeyConstraint(["tenant_id", "requested_by"],
                                 ["users.tenant_id", "users.user_id"],
                                 name="fk_explanation_jobs_tenant_user"),
@@ -98,6 +105,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS explanation_jobs")
+    op.execute("ALTER TABLE verdicts DROP CONSTRAINT IF EXISTS uq_verdicts_tenant_verdict")
     op.execute("ALTER TABLE explanations DROP CONSTRAINT IF EXISTS explanations_pkey")
     op.execute("ALTER TABLE explanations DROP COLUMN IF EXISTS revision")
     op.alter_column("explanations", "created_at",

@@ -187,6 +187,9 @@ class ExplanationJob(Base):
         Index("ix_explanation_jobs_tenant_ring", "tenant_id", "ring_id"),
         ForeignKeyConstraint(["tenant_id", "ring_id"], ["rings.tenant_id", "rings.ring_id"],
                              name="fk_explanation_jobs_tenant_ring", ondelete="CASCADE"),
+        ForeignKeyConstraint(["tenant_id", "verdict_id"],
+                             ["verdicts.tenant_id", "verdicts.verdict_id"],
+                             name="fk_explanation_jobs_tenant_verdict"),
         ForeignKeyConstraint(["tenant_id", "requested_by"], ["users.tenant_id", "users.user_id"],
                              name="fk_explanation_jobs_tenant_user"),
         PrimaryKeyConstraint("job_id", name="pk_explanation_jobs"),
@@ -218,6 +221,7 @@ class Verdict(Base):
         CheckConstraint("verdict IN ('confirm', 'reject', 'partial')", name="ck_verdicts_kind"),
         Index("ix_verdicts_tenant_created", "tenant_id", "created_at"),
         Index("ix_verdicts_tenant_ring_created", "tenant_id", "ring_id", text("created_at DESC")),
+        UniqueConstraint("tenant_id", "verdict_id", name="uq_verdicts_tenant_verdict"),
     )
 
     verdict_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)

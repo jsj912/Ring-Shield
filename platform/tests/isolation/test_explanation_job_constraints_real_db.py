@@ -97,3 +97,42 @@ def test_failed_explanation_job_can_be_retried_but_active_job_cannot(
             connection.execute(text(
                 "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
             ), {"tenant_id": tenant_id, "ring_id": ring_id})
+
+
+def test_explanation_job_rejects_verdict_from_another_tenant(register_db_test_ids):
+    tenant_a, tenant_b = 210, 220
+    suffix = uuid4().hex
+    ring_a, ring_b = f"job-verdict-a-{suffix}", f"job-verdict-b-{suffix}"
+    job_id = f"{tenant_a}.{uuid4().hex}"
+    register_db_test_ids(ring_a, ring_b, job_id)
+    try:
+        with engine.begin() as connection:
+            _ring(connection, tenant_a, ring_a)
+            _ring(connection, tenant_b, ring_b)
+            user_a = connection.execute(text("""
+                SELECT user_id FROM users WHERE tenant_id = :tenant_id
+                ORDER BY user_id LIMIT 1
+            """), {"tenant_id": tenant_a}).scalar_one()
+            user_b = connection.execute(text("""
+                SELECT user_id FROM users WHERE tenant_id = :tenant_id
+                ORDER BY user_id LIMIT 1
+            """), {"tenant_id": tenant_b}).scalar_one()
+            verdict_b = _verdict(connection, tenant_b, ring_b, user_b)
+            with pytest.raises(DBAPIError):
+                with connection.begin_nested():
+                    _job(connection, job_id=job_id, tenant_id=tenant_a, ring_id=ring_a,
+                         verdict_id=verdict_b, requested_by=user_a)
+    finally:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "DELETE FROM explanation_jobs WHERE tenant_id = :tenant_id AND job_id = :job_id"
+            ), {"tenant_id": tenant_a, "job_id": job_id})
+            connection.execute(text(
+                "DELETE FROM verdicts WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
+            ), {"tenant_id": tenant_b, "ring_id": ring_b})
+            connection.execute(text(
+                "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
+            ), {"tenant_id": tenant_a, "ring_id": ring_a})
+            connection.execute(text(
+                "DELETE FROM rings WHERE tenant_id = :tenant_id AND ring_id = :ring_id"
+            ), {"tenant_id": tenant_b, "ring_id": ring_b})
