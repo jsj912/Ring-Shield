@@ -804,7 +804,7 @@ try {
         if (-not [int]::TryParse($fakePortText, [ref]$fakePort) -or $fakePort -lt 1 -or $fakePort -gt 65535) {
             throw "Step 'start fake L4' returned an invalid local port."
         }
-        $script:DemoL4Options.Url = "http://127.0.0.1:$fakePort/regenerate"
+        $script:DemoL4Options.Url = "http://127.0.0.1:$fakePort"
     }
     $env:RINGSHIELD_WORKER_MODE = 'supervisor'
     if (-not [string]::IsNullOrWhiteSpace($script:DemoL4Options.Url)) {

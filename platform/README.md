@@ -44,7 +44,8 @@ The demo starts a restricted worker supervisor after API health succeeds. To use
 the local fake L4 service, add `-StartFakeL4`; it binds only to loopback and uses
 a generated in-memory bearer token. Its response is labeled **DEMO STUB** and is
 not real research output. Alternatively, pass `-XaiUrl` for a localhost HTTP(S)
-endpoint and optionally `-XaiToken`; the runner generates an ephemeral token when
+service base URL and optionally `-XaiToken`; the adapter appends `/regenerate` and
+`/health` to it. The runner generates an ephemeral token when
 an endpoint is configured without one. Tokens are not written to the credentials
 file, process list, or service logs.
 

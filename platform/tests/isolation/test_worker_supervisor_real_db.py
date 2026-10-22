@@ -50,8 +50,15 @@ def _insert_verdict(connection, tenant_id: int, ring_id: str, user_id: int) -> i
           "user_id": user_id}).scalar_one()
 
 
+def _redact_output(output: str, secrets: list[str]) -> str:
+    for secret in secrets:
+        if secret:
+            output = output.replace(secret, "<redacted>")
+    return output
+
+
 def test_supervisor_once_processes_two_tenants_with_scoped_loader_context(
-        monkeypatch, register_db_test_ids, repo_platform_config):
+        monkeypatch, register_db_test_ids, repo_platform_config, capsys):
     admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
     suffix = uuid4().hex
     ring_id = f"supervisor-{suffix}"
@@ -87,7 +94,7 @@ def test_supervisor_once_processes_two_tenants_with_scoped_loader_context(
                       "requested_by": user_id})
         monkeypatch.setenv("RINGSHIELD_XAI_TOKEN", token)
         monkeypatch.setenv("RINGSHIELD_L4_REGENERATE_URL",
-                           f"http://127.0.0.1:{server.server_port}/regenerate")
+                           f"http://127.0.0.1:{server.server_port}")
         monkeypatch.setenv("RINGSHIELD_WORKER_MODE", "supervisor")
 
         def own_jobs_only() -> list[WorkItem]:
@@ -98,7 +105,7 @@ def test_supervisor_once_processes_two_tenants_with_scoped_loader_context(
 
         with admin.connect() as connection:
             statuses = connection.execute(text("""
-                SELECT tenant_id, status, result_revision FROM explanation_jobs
+                SELECT tenant_id, status, result_revision, error FROM explanation_jobs
                 WHERE job_id IN (:job_a, :job_b) ORDER BY tenant_id
             """), {"job_a": job_ids[TENANTS[0]], "job_b": job_ids[TENANTS[1]]}).all()
             revisions = connection.execute(text("""
@@ -107,7 +114,21 @@ def test_supervisor_once_processes_two_tenants_with_scoped_loader_context(
                 ORDER BY tenant_id
             """), {"tenant_a": TENANTS[0], "tenant_b": TENANTS[1],
                   "ring_id": ring_id}).all()
-        assert statuses == [(TENANTS[0], "succeeded", 1), (TENANTS[1], "succeeded", 1)]
+        captured = capsys.readouterr()
+        redacted_output = _redact_output(
+            f"stdout:\n{captured.out}\nstderr:\n{captured.err}",
+            [token, *(value for key, value in os.environ.items()
+                      if any(secret_name in key for secret_name in ("TOKEN", "SECRET", "URL")))],
+        )
+        expected_statuses = [
+            (TENANTS[0], "succeeded", 1), (TENANTS[1], "succeeded", 1),
+        ]
+        actual_statuses = [(row[0], row[1], row[2]) for row in statuses]
+        job_errors = {row[0]: row[3] for row in statuses}
+        assert actual_statuses == expected_statuses, (
+            f"job statuses={actual_statuses!r}; job errors={job_errors!r}; "
+            f"supervisor output (redacted):\n{redacted_output}"
+        )
         assert [(row[0], row[1], row[2]) for row in revisions] == [
             (TENANTS[0], ring_id, 1), (TENANTS[1], ring_id, 1),
         ]
