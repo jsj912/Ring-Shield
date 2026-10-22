@@ -32,7 +32,8 @@ def _response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, A
 
 
 def create_server(*, port: int, token: str, config: dict[str, Any],
-                  explainer_version: str = "0.5.0-review") -> HTTPServer:
+                  explainer_version: str = "0.5.0-review",
+                  received: list[dict[str, Any]] | None = None) -> HTTPServer:
     if not 0 <= int(port) <= 65535:
         raise ValueError("port must be between 0 and 65535")
     if not token:
@@ -49,16 +50,21 @@ def create_server(*, port: int, token: str, config: dict[str, Any],
             if self.path != "/regenerate":
                 _response(self, 404, {"message": "not found"})
                 return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length < 1 or length > 1_000_000:
+                    raise ValueError
+                body_bytes = self.rfile.read(length)
+            except (TypeError, ValueError):
+                _response(self, 400, {"message": "invalid regeneration request"})
+                return
             authorization = self.headers.get("Authorization", "")
             supplied = authorization[7:] if authorization.startswith("Bearer ") else ""
             if not hmac.compare_digest(supplied.encode("utf-8"), token.encode("utf-8")):
                 _response(self, 401, {"message": "unauthorized"})
                 return
             try:
-                length = int(self.headers.get("Content-Length", "0"))
-                if length < 1 or length > 1_000_000:
-                    raise ValueError
-                request = json.loads(self.rfile.read(length))
+                request = json.loads(body_bytes)
                 tenant_id = request["tenant_id"]
                 ring_id = request["ring_id"]
                 excluded_members = request["excluded_members"]
@@ -71,6 +77,12 @@ def create_server(*, port: int, token: str, config: dict[str, Any],
             except (KeyError, TypeError, ValueError, json.JSONDecodeError):
                 _response(self, 400, {"message": "invalid regeneration request"})
                 return
+            if received is not None:
+                received.append({
+                    "tenant_id": tenant_id, "ring_id": ring_id,
+                    "excluded_members": list(excluded_members),
+                    "excluded_edges": list(excluded_edges),
+                })
 
             provenance = {
                 "scope": "tenant", "tenant_id": tenant_id,

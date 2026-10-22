@@ -603,11 +603,6 @@ finally:
 }
 
 if ($DefinitionsOnly) { return }
-if ($StartFakeL4 -and -not [string]::IsNullOrWhiteSpace($XaiUrl)) {
-    throw '-StartFakeL4 cannot be combined with -XaiUrl.'
-}
-$configuredL4Url = if ($StartFakeL4) { $null } elseif (-not [string]::IsNullOrWhiteSpace($XaiUrl)) { $XaiUrl } else { Get-ConfiguredL4Url }
-$script:DemoL4Options = Resolve-DemoL4Options -Url $configuredL4Url -Token $XaiToken -UseFakeServer:$StartFakeL4
 $Tenants = ConvertTo-DemoTenantIds -TenantValues $Tenants
 if ($ResetPasswords -and $Down) { throw '-ResetPasswords cannot be combined with -Down.' }
 if ($ResetPasswords -and $ValidateOnly) { throw '-ResetPasswords cannot be combined with -ValidateOnly.' }
@@ -618,6 +613,11 @@ if ($Down) {
     catch { Write-Error $_; exit 1 }
     return
 }
+if ($StartFakeL4 -and -not [string]::IsNullOrWhiteSpace($XaiUrl)) {
+    throw '-StartFakeL4 cannot be combined with -XaiUrl.'
+}
+$configuredL4Url = if ($StartFakeL4) { $null } elseif (-not [string]::IsNullOrWhiteSpace($XaiUrl)) { $XaiUrl } else { Get-ConfiguredL4Url }
+$script:DemoL4Options = Resolve-DemoL4Options -Url $configuredL4Url -Token $XaiToken -UseFakeServer:$StartFakeL4
 
 try { Assert-TimeOriginUtc $TimeOriginUtc }
 catch { Write-Error $_; exit 1 }
@@ -901,6 +901,10 @@ try {
     Remove-Item Env:RINGSHIELD_DEMO_ADMIN_URL -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_DEMO_USERS_JSON -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_DEMO_PASSWORD_RESET -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_XAI_TOKEN -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_LOADER_DATABASE_URL -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_WORKER_MODE -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_L4_REGENERATE_URL -ErrorAction SilentlyContinue
     if ($script:LocationPushed) {
         Pop-Location -ErrorAction SilentlyContinue
         $script:LocationPushed = $false

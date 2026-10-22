@@ -64,8 +64,8 @@ To rotate all demo-user passwords without removing demo data, run the demo with
 `-Down -DropVolume` removes the database volume.
 
 To check arguments, input paths, and PowerShell automatic-variable assignments
-without starting Docker, run the six database-free PowerShell checks, or invoke
-the runner with `-ValidateOnly`:
+without starting Docker, run the database-free PowerShell validation script, or
+invoke the runner with `-ValidateOnly`:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\tests\run-demo-validation.tests.ps1
@@ -356,12 +356,12 @@ were supplied, it also derives `excluded_edges = ring edges - corrected_edges`.
 Those server-computed exclusions are saved with the regeneration job.
 
 When `l4.regenerate_url` is configured, the verdict, ring status, queued job,
-and safe audit event commit in one transaction. After commit, the API launches
-`python -m jobs.regenerate_worker <job_id>` as a detached child process, passing
-only the job ID as an argument. The child uses the loader role and reads its
-L4 bearer token from `RINGSHIELD_XAI_TOKEN`; the API does not read that token.
-If launching fails at the operating-system level, the job remains queued and
-the API returns the queued status for a later retry.
+and safe audit event commit in one transaction. With `worker_mode: spawn`, the
+API starts `python -m jobs.regenerate_worker <job_id>` as a detached child after
+commit. With `worker_mode: supervisor`, the API leaves the row queued and the
+supervisor dispatches it on its next poll. The worker uses the loader role and
+reads its L4 bearer token from `RINGSHIELD_XAI_TOKEN`; the API does not read that
+token. If spawn mode cannot launch the child, the job remains queued for retry.
 
 The default `l4.regenerate_url` is `null`. A valid partial verdict is still
 recorded in that configuration, but no job is created and the additive

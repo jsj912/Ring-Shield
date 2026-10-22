@@ -171,12 +171,16 @@ def test_api_modules_never_read_or_import_loader_credentials():
 
     api_root = PLATFORM_ROOT / "api"
     violations = []
+    forbidden_environment = {
+        "RINGSHIELD_LOADER_DATABASE_URL", "RINGSHIELD_XAI_TOKEN",
+        "RINGSHIELD_DATABASE_ADMIN_URL", "RINGSHIELD_SIMULATOR_DATABASE_URL",
+    }
     for path in api_root.rglob("*.py"):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Constant) and node.value == "RINGSHIELD_LOADER_DATABASE_URL":
-                violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: loader URL reference")
+            if isinstance(node, ast.Constant) and node.value in forbidden_environment:
+                violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: restricted worker credential reference")
             if isinstance(node, ast.ImportFrom) and node.module and node.module.endswith("db.session"):
                 if any(alias.name in {"loader_db_session", "get_loader_engine"} for alias in node.names):
                     violations.append(f"{path.relative_to(PLATFORM_ROOT)}:{node.lineno}: loader session import")

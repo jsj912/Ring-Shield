@@ -51,6 +51,11 @@ if ($l4Options.Url -ne 'http://127.0.0.1:8123/regenerate') {
     throw 'A localhost L4 URL was not accepted.'
 }
 $passed++
+$fakeL4Options = Resolve-DemoL4Options -Token 'fake-server-token' -UseFakeServer
+if (-not $fakeL4Options.UseFakeServer -or $fakeL4Options.Token -ne 'fake-server-token') {
+    throw 'StartFakeL4 options were not retained for process startup.'
+}
+$passed++
 try {
     Resolve-DemoL4Options -Url 'https://l4.example.test/regenerate' -Token 'secret' | Out-Null
     throw 'A non-local L4 URL was unexpectedly accepted.'
