@@ -1,4 +1,4 @@
-# L4 Explainability — Weeks 1 to 8 handoff
+# L4 Explainability — Weeks 1 to 9 handoff
 
 **Branch:** `explainability-l4`. It contains Joan's `v2` up to commit `77add7f` (merged by you), your
 fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Week 3 (`c5e2dd5`), all pushed.
@@ -25,8 +25,11 @@ fixtures-patch commit `c2a37ab`, Weeks 1–2 (`7ad944f`) and the migration + Wee
   matches; the narrated shape is right about 60 % of the time on both windows (pending Joan's confirmation).
 - **Week 8** (section 23): the review fixes (wording only; weights and fidelity unchanged), `explainer_version`
   `0.5.0-review`, the before/after page for the 30 reviewed narratives, and the report chapter with its Word copy.
-- **288 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
-  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6, 10 for the tenant run, 6 for Week 7, 4 for Week 8.
+- **Week 9** (section 24): the regeneration service the platform calls for partial verdicts
+  (`python -m explainability.serve`), built to Kashish's contract, with a real example payload.
+- **294 tests pass, 0 skipped, with pandas warnings as errors**: Joan's 116, 30 for the migration, 79 for Week 3,
+  10 for Week 4, 3 for the sync, 24 for Week 5, 6 for Week 6, 10 for the tenant run, 6 for Week 7, 4 for Week 8,
+  6 for Week 9.
 - Every ring of all five detector seeds, plus the old stub file, has an explanation.
 
 This document is written so that someone with basic technical knowledge can understand what was built,
@@ -133,6 +136,8 @@ explainability/                 the L4 layer
                                 WEEK 8: before_after.py (the 30 reviewed narratives, before and after the fixes)
   report/                       WEEK 8: make_figures.py, figures/, xai_chapter.md + xai_chapter.docx (report chapter)
   tenant.py                     tenant-scoped explanations for the platform, incl. tenant regenerate (section 20)
+  serve.py                      WEEK 9: the local HTTP regeneration service the platform calls (section 24)
+  requirements-serve.txt        WEEK 9: the packages serve.py imports directly, pinned
   evaluate.py                   fidelity, the policy comparison report, the XR-05 tuning, WEEK 4 fidelity.json
   stats.py                      WEEK 4: bootstrap confidence intervals and paired tests (mirrors Joan's ring_stats)
   feature_weights.py            WEEK 3: the detector-feature model's inputs, SHAP, the top-10 feature weights
@@ -180,6 +185,7 @@ results/xai/                    our results (kept apart from Joan's results/tabl
                                               review.csv, review_summary.json / .md, fix_proposals.md: WEEK 7, the scored review
                                               item_features.csv (frozen), before_after.md: WEEK 8
   tenant/                                     explanations_{20,12}_1.parquet (+ .log.json); inputs/ = Kashish's files
+                                              regenerate_example_12.json: WEEK 9, a real service request + response
 ```
 
 `.parquet` files are ignored by git in this repository (Joan's convention); the small `.json` / `.csv` /
@@ -592,7 +598,7 @@ Test fidelity, mean over seeds:
 
 ---
 
-## 9. The tests (288 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4, tenant in 20.4, Week 7 in 21-22, Week 8 in 23)
+## 9. The tests (294 pass, 0 skipped; Week 3 in 14.6, Week 4 in 15.6, the sync in 16, Week 5 in 17-18, Week 6 in 19.4, tenant in 20.4, Week 7 in 21-22, Week 8 in 23, Week 9 in 24)
 
 **`test_contract_io.py` (73)**
 - All real files load and validate: v2 rings for 5 seeds plus the stub, **and** the v1 originals, each
@@ -1693,3 +1699,70 @@ outranks the feature clause, and the feature clause has a short form). Every nar
 with its hub's role; shape sentences and the closure state their scope; a self-payment is never cited and the
 narrative still regenerates exactly.
 `test_review.py`: the item-features test now also checks the frozen features add up to the Week 7 summary.
+
+## 24. Week 9 — the regeneration service for the platform
+
+**Why.** When an analyst records a partial verdict (removes accounts or transactions from a ring), the platform
+needs a new explanation of the corrected ring. Kashish's platform never imports research code, so it calls a local
+HTTP service. Her contract (her message of 22 October, and her adapter `platform/adapters/xai.py` on `origin/kashish`)
+is what `explainability/serve.py` implements. The regeneration itself is the tenant regenerate of section 20,
+unchanged.
+
+**Run it** (from the Ring-Shield checkout that holds the data):
+
+```
+set RINGSHIELD_XAI_TOKEN=<a long random token, shared with the platform>
+python -m explainability.serve --tenants 12,20 --data-root <this checkout> --port 8765
+```
+
+| route | answer |
+|---|---|
+| `GET /health` (no token) | `{"status": "ok", "tenants_ready": [12, 20], "explainer_version": "0.5.0-review"}` |
+| `POST /regenerate` with `Authorization: Bearer <token>` and `{"tenant_id", "ring_id", "excluded_members": [...], "excluded_edges": [...]}` | 200: one explanation row as JSON: the explanations parquet columns, `evidence_summary` and `provenance` as JSON strings, NaN as null, plus a top-level `explainer_version` (her validator requires it) |
+| wrong or missing token | 401 `{"error": "Unauthorized"}` |
+| malformed body | 400 `{"error": "BadRequest", "message"}` |
+| unknown ring, or a tenant this service does not serve | 404 `{"error": "RingNotFound"}` |
+| nothing excluded, an id not in the ring, fewer than 2 accounts or no seed / expanded transaction left | 422 `{"error": "InvalidEdit", "message"}` |
+| anything else | 500 `{"error": "InternalError"}`, no detail |
+
+**Rules built in:**
+- Listens on 127.0.0.1 only, and refuses to start without the token.
+- Compares the token in constant time.
+- Logs one line per request (method, path, status, milliseconds), never the token, a body, a ring id or explanation text.
+- Handles requests one at a time, since the tenant explainers are shared.
+- Loads every tenant before the port opens, so `/health` answers only when all are ready.
+- A regenerated row keeps the running `explainer_version` (`0.5.0-review`), the same as the stored rows; only
+  `latency_ms` changes between two identical calls.
+
+**`--data-root` must be this checkout.** Joan's research code (`ringshield/`) finds its data relative to its own
+folder, so a separate data folder would be only half used; the service refuses any other path. The files it reads
+(traced while starting tenants 12 and 20 and regenerating once; about 0.95 GB in all):
+- `contract/`: `fx_rates.json`, `bank_names.json`, `currency_map.json`, `payment_format_map.json`; `configs/roles.yaml`;
+- `data/processed/`: `amlworld_train.parquet`, `amlworld_val.parquet`, `amlworld_test.parquet`,
+  `amlworld_gfp_features_test.parquet`;
+- `experiments/R1_gine_causal/embeddings_test_seed1.parquet` (575 MB);
+- `experiments/R2_b0/gfpxgb_scores/model_seed1.json` and `scores_test_seed1.parquet`;
+- `experiments/R4_partition/affinity/affinity.json` and `affinity.txt`, and `experiments/R4_partition/runs/average/seed1/config.yaml`;
+- `results/xai/tenant/inputs/`: `tenant_{12,20}_rings.parquet` and `scored_edges_visible_{12,20}_1.parquet`. If the
+  visible files are missing, they are rebuilt once from `contract/out/scored_edges_gine_causal_1.parquet` and
+  `tenant_{12,20}_edge_ids.parquet`.
+
+**Python:** 3.11.9 with `explainability/requirements-serve.txt` (the packages the service's code imports directly).
+
+**Measured here** (one run, tenants 12 and 20, on this laptop):
+- start-up: 39 s;
+- memory: peak 1.97 GB during start-up, about 1.0 GB once ready;
+- a regenerate: 0.35–0.43 s.
+
+**Example:** `results/xai/tenant/regenerate_example_12.json` is a real request (bank 12, ring
+`full-gine_causal-1-0`, one member excluded) and the service's full response. A test pins the service to it.
+
+**Tests (`test_serve.py`, +6):**
+- health without a token;
+- 401 for a missing, wrong or un-prefixed token;
+- every 404 / 422 / 400 case;
+- a real regenerate passes every rule the platform's validator checks (restated in the test, since research code
+  never imports platform code) and equals the pinned example except `latency_ms`;
+- the log holds no token, ring id or narrative;
+- the command refuses to start without a token, from another folder, or for an unconfigured tenant.
+
