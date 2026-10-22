@@ -112,7 +112,7 @@ def test_run_rejects_unknown_and_future_aggregators(work):
     assert rc == 2 and "model directory" in err
 
 
-def test_train_copies_and_appends(work):
+def test_train_typing_copies_and_appends(work):
     d = work["dir"]
     rings = work["rings"]
     rows = [{"ring_id": rings.iloc[0]["ring_id"], "member_accounts": list(rings.iloc[0]["members"]),
@@ -124,12 +124,17 @@ def test_train_copies_and_appends(work):
     schema = pa.schema([("ring_id", pa.string()), ("member_accounts", pa.list_(pa.int64())),
                         ("member_edges", pa.list_(pa.int64())), ("verdict", pa.string())])
     pq.write_table(pa.Table.from_pylist(rows, schema=schema), d / "labels.parquet")
+    # expansion / affinity are RETRAINED now (tests/test_retrain.py); a cc model dir has neither
     rc, out, err = cli("train", "--component", "expansion", "--labels", d / "labels.parquet",
+                       "--base-model-dir", d / "model_cc", "--out-model-dir", d / "model_x")
+    assert rc == 2 and "no policy/" in err
+    # typing is still copy-and-append
+    rc, out, err = cli("train", "--component", "typing", "--labels", d / "labels.parquet",
                        "--base-model-dir", d / "model_cc", "--out-model-dir", d / "model_v2")
     assert rc == 0, err
     assert read_model(d / "model_v2")["version"] == 2
     v = json.loads((d / "model_v2" / "version.json").read_text())
-    assert v["n_labels"] == {"confirm": 1, "reject": 1, "partial": 1} and v["retrained"] is False and v["component"] == "expansion"
+    assert v["n_labels"] == {"confirm": 1, "reject": 1, "partial": 1} and v["retrained"] is False and v["component"] == "typing"
     extra = pd.read_parquet(d / "model_v2" / "extra_labels.parquet")
     assert len(extra) == 1 and extra.iloc[0]["verdict"] == "confirm" and extra.iloc[0]["ring_id"] == rows[0]["ring_id"]
     # second round appends and bumps the version
@@ -162,3 +167,25 @@ def test_eval_and_holdout(work):
     assert rc == 0, err
     h = json.loads((d / "metrics_holdout.json").read_text())
     assert h["holdout"]["n_truth_listed"] == 5 and h["n_truth"] <= 5 and h["window"] == "whole"
+
+
+
+def test_tenant_id_stamps_rings_and_requires_edge_subset(work, tmp_path):
+    """Kashish's --tenant-id (adopted verbatim from regen-api ec7a4c4): it does not filter -- that
+    is --edge-subset's job -- it stamps every output ring with the tenant that ran the subset."""
+    d = work["dir"]
+    se = pd.read_parquet(d / "scored_edges_dryrun.parquet")
+    tenant = int(se["from_bank"].value_counts().index[0])
+    sub = se.loc[(se["from_bank"] == tenant) | (se["to_bank"] == tenant), ["edge_id"]]
+    sub.to_parquet(tmp_path / "visible.parquet", index=False)
+    rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "model_cc",
+                       "--tenant-id", tenant, "--out", tmp_path / "x.parquet")
+    assert rc == 2 and "--tenant-id is only valid with --edge-subset" in err
+    rc, out, err = cli("run", "--scores", d / "scored_edges_dryrun.parquet", "--model-dir", d / "model_cc",
+                       "--edge-subset", tmp_path / "visible.parquet", "--tenant-id", tenant, "--out", tmp_path / "t.parquet")
+    assert rc == 0, err
+    rings = pd.read_parquet(tmp_path / "t.parquet", columns=["tenant_id", "member_edges"])
+    assert (rings["tenant_id"] == tenant).all()
+    assert all(set(int(e) for e in m) <= set(sub["edge_id"].astype(int)) for m in rings["member_edges"])
+    log = json.loads((tmp_path / "t.parquet.log.json").read_text())
+    assert log["tenant_rule"] == f"explicit tenant_id={tenant} for tenant-scoped edge subset"

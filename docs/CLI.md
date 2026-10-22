@@ -33,6 +33,7 @@ Tenant-scoped inference — restrict the input to a set of edges:
 .venv312/Scripts/python.exe -m ringshield run \
     --scores contract/out/scored_edges_gfpxgb_1.parquet \
     --edge-subset my_bank_edges.parquet \
+    --tenant-id 12 \
     --model-dir models/artifacts/cc_gfpxgb_seed1 --aggregator cc \
     --out rings_my_bank.parquet
 ```
@@ -41,6 +42,7 @@ Tenant-scoped inference — restrict the input to a set of edges:
 |---|---|
 | `--scores` | a **scored_edges** parquet in the contract layout (`contract/schema.py::SCORED_EDGES_COLUMNS`: `edge_id, tenant_id, from_id, to_id, from_bank, to_bank, timestamp, amount_*, currency_*, payment_format, score_raw, score_calibrated, is_seed, model_id, seed`). `score_calibrated` may equal `score_raw` when no calibration exists. |
 | `--edge-subset` | optional parquet with an `edge_id` column. Only those edges are read; everything else (the quantile, components, member edges) is computed **within the subset**. |
+| `--tenant-id` | optional bank code for a tenant-scoped run; requires `--edge-subset` and stamps every output ring with the tenant that ran the subset. Without it, the legacy earliest-seed sender-bank rule is retained for pooled/research runs. |
 | `--model-dir` | a model directory (§4). It fixes the aggregator, its validation-chosen parameters, and the `model_id` / `seed` of the scorer whose scores are expected. |
 | `--aggregator` | `cc`, `expand` (Step 6) or `full` (Step 7: expansion + partition). If given, it overrides the model dir's aggregator (a note is printed). |
 | `--gfp`, `--embeddings` | `expand` / `full`: the split's GFP parquet (`data/processed/amlworld_gfp_features_<split>.parquet`) and the R1 embeddings parquet of the same detector seed and split. Without `--gfp` the policy's GFP features are zero; without `--embeddings` its cosine features are missing (a note is printed either way). |
@@ -60,8 +62,9 @@ Tenant-scoped inference — restrict the input to a set of edges:
 * **`ring_id = f"{aggregator}-{model_id}-{seed}-{idx}"`**, e.g. `cc-gfpxgb-1-0`, `idx` in
   descending order of `confidence`. Unique within one output file; not stable across runs
   with different inputs.
-* **`tenant_id` = the sender bank (`from_bank`) of the ring's earliest seed edge** (earliest
-  `timestamp`; ties → the smallest `edge_id`). The platform derives the full set of banks
+* **`tenant_id`** = explicit `--tenant-id` for tenant-scoped runs; otherwise it is the sender
+  bank (`from_bank`) of the ring's earliest seed edge (earliest `timestamp`; ties → the
+  smallest `edge_id`). The platform derives the full set of banks
   with a member itself from `members` / `member_edges`; 98.9 % of AMLworld rings span more
   than one bank, so a single tenant column cannot carry that.
 * **Edges.** `seed_edges` = the thresholded edges of the component; `member_edges` = every
@@ -90,13 +93,21 @@ Tenant-scoped inference — restrict the input to a set of edges:
 
 ## 2. `train` — analyst verdicts in, new model directory out
 
+`expansion` and `affinity` are **retrained** (`ringshield/retrain.py`); `typing` still copies the
+base model and appends confirmed rows to `extra_labels.parquet` (`retrained: false`).
+
 ```bash
 .venv312/Scripts/python.exe -m ringshield train \
     --component expansion \
-    --labels labels_2026-09-18.parquet \
-    --base-model-dir models/artifacts/cc_gfpxgb_seed1 \
-    --out-model-dir models/artifacts/cc_gfpxgb_seed1_v2
-# [ringshield train] expansion: {'confirm': 12, 'reject': 3} -> ... (version 2, 12 confirmed rings in extra_labels.parquet; no retraining yet)
+    --labels labels_2026-10-17.parquet \
+    --base-model-dir models/artifacts/full_gine_causal_seed1 \
+    --out-model-dir  models/artifacts/full_gine_causal_seed1_v2 \
+    --scores contract/out/scored_edges_gine_causal_1.parquet \
+    --rings  contract/out/rings_full_gine_causal_1.parquet \
+    --gfp data/processed/amlworld_gfp_features_test.parquet \
+    --embeddings experiments/R1_gine_causal/embeddings_test_seed1.parquet
+# [ringshield train] expansion RETRAINED -> ... (version 2): 85 new rows (3 positive) from 3 labels,
+#   247,796 rows in total; CV AUC-PR 0.8326 -> 0.8360; holdout check passed
 ```
 
 `labels.parquet` schema (validated; any violation → exit 2 with the reason):
@@ -105,16 +116,60 @@ Tenant-scoped inference — restrict the input to a set of edges:
 |---|---|---|
 | `ring_id` | string | non-null, unique in the file (the `ring_id` the platform received from `run`) |
 | `member_accounts` | list\<int64\> | non-empty for `confirm` / `partial` |
-| `member_edges` | list\<int64\> | integers |
-| `verdict` | string | one of `confirm`, `reject`, `partial` |
+| `member_edges` | list\<int64\> | integers; for `partial`, the analyst's **corrected** member edges |
+| `verdict` | string | `confirm` (every member edge is a member), `partial` (corrected members), `reject` (none are) |
 
-What it does today (no learned component exists yet): validates the file, copies the base
-model directory to `--out-model-dir` (must be a different path; an existing target is
-replaced), appends the **confirmed** rows to `<out>/extra_labels.parquet` (kept across rounds,
-with `added_utc`, `source_labels`, `component`), bumps `version` in `model.json` and writes
-`version.json` (`retrained: false`, label counts, base dir, git commit). `--component` is one
-of `expansion | affinity | typing` and is recorded. Steps 6–8 put real retraining behind this
-exact interface; the platform's call does not change.
+**What becomes training data.** Each verdict is turned into rows by the same code that built the
+component's original training set, in the operating context the labels came from (`--scores`,
+`--gfp`, `--embeddings`; the ring's seed and expanded edges come from `--rings`):
+
+* **expansion** — candidates around the ring's seed edges (`candidates()`, `compute_features()`,
+  with the original set's `delta_t_h` / `max_hops`); positive iff the candidate is in the
+  confirmed or corrected members; every candidate of a `reject` is negative.
+* **affinity** — pairs among the ring's included edges plus any corrected member; positive only
+  when **both** edges are confirmed members; every pair of a `reject` is negative.
+
+The rows are **appended to the original training set** and the component is retrained with its
+shipped settings, seed (`--train-seed`, default 1) and ring-grouped CV — each labelled ring is one
+CV group. Rows accumulate across versions: retraining from a retrained model dir includes its
+earlier labels, and a later verdict on the same `ring_id` replaces the earlier one.
+
+**Determinism.** An empty label file reproduces the shipped model exactly: identical trees, and an
+identical holdout ring-F1 (`tests/test_retrain.py`). Any change in a retrained model therefore comes
+from the labels.
+
+**Leakage guard.** The retraining gate scores on the holdout in `configs/holdout_manifest.json`
+(the 114 ground-truth rings of the val window, days 6–7, `test_visible`, ≥ 3 visible members;
+fixed once and content-hash-checked on every load). `train` refuses a label whose `ring_id` is one
+of those truth ids, or any of whose edges falls in days 6–7, unless `--allow-holdout-overlap` is
+passed. **Test-window labels are allowed** — that is the operating period. Predicted ring ids are
+deliberately not used for the guard: the contract `ring_id` has no split in it, so
+`full-gine_causal-1-0` names a test ring *and* a val ring; the edge-day check is what catches a
+predicted val ring, and it catches all of them. The result — passed, refused, or overridden — is in
+`version.json["holdout_check"]`.
+
+**`version.json`** (`retrained: true`) records: the labels file and its sha256; the original
+training set's path, sha256 and size; rows appended (new, inherited, total); **old and new CV
+scores**; the holdout check; and `training_labels` — **every `ring_id` used in training, with its
+verdict and edge count, cumulative over versions**.
+
+### Evaluating after a retrain (R11 / R12)
+
+A retrained model has been trained on the rings in `version.json["training_labels"]["rings"]`.
+Those rings are in the test window, so:
+
+* **R11 / R12 test-window metrics after retraining must exclude every ring listed there**, on
+  both sides of the match: drop those predicted ring ids, and drop any truth ring a listed ring was
+  confirmed or corrected against. Otherwise the metric credits the model for rings it was shown.
+* **R12's post-retrain CYCLE recall is computed only on CYCLE rings absent from any training
+  label** — a CYCLE ring that an analyst confirmed and that was then trained on is not evidence
+  that retraining improved CYCLE recall.
+* Holdout ring-F1 (`ringshield.retrain.holdout_ring_f1`) needs no exclusion: the guard keeps
+  labels out of the holdout.
+
+**Inputs `train` needs on disk** (all gitignored): the original training sets the model records —
+`experiments/R3_expansion/training_set.parquet` (+ `training_set.json`, 22 MB) for `expansion`,
+`experiments/R4_partition/pairs_train.parquet` (0.3 MB) for `affinity` — or `--training-set`.
 
 ## 3. `eval` — rings vs ground truth
 
@@ -158,7 +213,7 @@ A model directory is a folder with `model.json`:
 }
 ```
 
-`train` adds `version.json` and `extra_labels.parquet`; Steps 6–8 add the learned components
+`train` adds `version.json`, and for a retrained component `retrain_labels.parquet` and `retrain_rows_<component>.parquet`; Steps 6–8 add the learned components
 next to them. The research side creates one from a validated experiment:
 
 ```bash
