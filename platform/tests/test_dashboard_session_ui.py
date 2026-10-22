@@ -41,6 +41,14 @@ def test_successful_login_stores_token_and_shows_tenant_and_role(monkeypatch):
     assert "Role: supervisor" in [item.value for item in app.caption]
 
 
+def test_login_page_renders_without_exception():
+    app = AppTest.from_file(str(APP_FILE)).run()
+
+    assert not app.exception
+    assert "RingShield Investigator" in [item.value for item in app.title]
+    assert [item.label for item in app.text_input] == ["Email", "Password"]
+
+
 def test_sign_out_clears_session_and_returns_to_login(tmp_path):
     script = tmp_path / "sign_out.py"
     script.write_text(

@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(REPO_ROOT / ".env")
 sys.path.insert(0, str(REPO_ROOT))
 from contract.schema import TOPOLOGY_TYPES  # noqa: E402
-from dashboard.regeneration_flow import deadline_expired, new_poll_deadline  # noqa: E402
+from regeneration_flow import deadline_expired, new_poll_deadline  # noqa: E402
 
 API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip("/")
 _API_CALL_COUNTER = itertools.count()

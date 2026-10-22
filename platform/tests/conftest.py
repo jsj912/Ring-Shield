@@ -10,7 +10,9 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+PLATFORM_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PLATFORM_ROOT))
+sys.path.insert(0, str(PLATFORM_ROOT / "dashboard"))
 
 
 @pytest.fixture
