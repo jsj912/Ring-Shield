@@ -1,0 +1,39 @@
+{
+  "created_utc": "2026-09-16T15:24:56+00:00",
+  "git_commit": "617805865432d73e6e9a59dfa153940f6a65f327",
+  "run_dir": "experiments\\R1_gine_causal",
+  "checkpoint": "experiments\\R1_gine_causal\\model_best_seed1.pt",
+  "run_config_commit": "617805865432d73e6e9a59dfa153940f6a65f327",
+  "seed": 1,
+  "split": "test",
+  "dry_run": false,
+  "causal": true,
+  "loader_route": "fallback",
+  "loader_window_s": 1800,
+  "num_neighbors": [
+    100,
+    100
+  ],
+  "batch_size": 8192,
+  "n_rows": 863900,
+  "n_split_edges": 863900,
+  "n_nan_scores": 0,
+  "score_min": 0.0,
+  "score_max": 1.0,
+  "score_mean": 0.010781973680701107,
+  "timestamp_basis": "loader (seconds since first day 00:00 - 10 s)",
+  "timestamp_min": 691210,
+  "timestamp_max": 1527490,
+  "embeddings": {
+    "path": "experiments\\R1_gine_causal\\embeddings_test_seed1.parquet",
+    "shape": [
+      863900,
+      199
+    ],
+    "definition": "classifier-head input for the `to` edge type: cat(relu(x_src), relu(x_dst), edge_repr), 3 * n_hidden"
+  },
+  "device": "cuda",
+  "seconds": 377.0,
+  "data_load_seconds": 1037.9,
+  "scores_path": "experiments\\R1_gine_causal\\scores_test_seed1.parquet"
+}

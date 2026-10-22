@@ -1,0 +1,18 @@
+{
+  "created_utc": "2026-09-23T03:21:47+00:00",
+  "runs_root": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\runs",
+  "n_methods": 9,
+  "seeds_per_method": {
+    "b0": "1 2 3 4 5",
+    "expand": "1 2 3 4 5",
+    "b2": "1 2 3 4 5",
+    "b3": "1 2 3 4 5",
+    "b4": "1 2 3 4 5",
+    "b5": "1",
+    "pivot": "1 2 3 4 5",
+    "average": "1 2 3 4 5",
+    "proposed": "1 2 3 4 5"
+  },
+  "proposed_rule": "per seed: pivot vs average by val ring-F1 (ties -> pivot)",
+  "out": "E:\\JSJ\\Ring-Shield\\results\\tables\\r4_partition.csv"
+}

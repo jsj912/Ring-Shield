@@ -1,0 +1,322 @@
+{
+  "created_utc": "2026-09-29T19:04:22+00:00",
+  "window": "primary",
+  "scope": "test_visible",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "note": "description of the class (b) targets; no miner is built or tuned in this step",
+  "amount_tolerance": 0.25,
+  "composition": [
+    {
+      "detector": "gine_causal",
+      "pattern": "BIPARTITE",
+      "class_b_per_seed": 8.2,
+      "share_of_class_b": 0.2469879518,
+      "n_in_scope_rings": 16,
+      "share_of_in_scope": 0.091954023,
+      "over_representation": 2.6859939759,
+      "n_seeds": 5
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "CYCLE",
+      "class_b_per_seed": 3.6,
+      "share_of_class_b": 0.1084337349,
+      "n_in_scope_rings": 22,
+      "share_of_in_scope": 0.1264367816,
+      "over_representation": 0.8576122673,
+      "n_seeds": 5
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "FAN-IN",
+      "class_b_per_seed": 2.4,
+      "share_of_class_b": 0.0722891566,
+      "n_in_scope_rings": 18,
+      "share_of_in_scope": 0.1034482759,
+      "over_representation": 0.6987951807,
+      "n_seeds": 5
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "FAN-OUT",
+      "class_b_per_seed": 1.2,
+      "share_of_class_b": 0.0361445783,
+      "n_in_scope_rings": 20,
+      "share_of_in_scope": 0.1149425287,
+      "over_representation": 0.3144578313,
+      "n_seeds": 5
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "GATHER-SCATTER",
+      "class_b_per_seed": 3.4,
+      "share_of_class_b": 0.1024096386,
+      "n_in_scope_rings": 37,
+      "share_of_in_scope": 0.2126436782,
+      "over_representation": 0.481602084,
+      "n_seeds": 5
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "RANDOM",
+      "class_b_per_seed": 4.2,
+      "share_of_class_b": 0.1265060241,
+      "n_in_scope_rings": 17,
+      "share_of_in_scope": 0.0977011494,
+      "over_representation": 1.2948263643,
+      "n_seeds": 5
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "SCATTER-GATHER",
+      "class_b_per_seed": 1.0,
+      "share_of_class_b": 0.0301204819,
+      "n_in_scope_rings": 22,
+      "share_of_in_scope": 0.1264367816,
+      "over_representation": 0.2382256298,
+      "n_seeds": 5
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "STACK",
+      "class_b_per_seed": 9.2,
+      "share_of_class_b": 0.2771084337,
+      "n_in_scope_rings": 22,
+      "share_of_in_scope": 0.1264367816,
+      "over_representation": 2.1916757941,
+      "n_seeds": 5
+    },
+    {
+      "detector": "mega",
+      "pattern": "BIPARTITE",
+      "class_b_per_seed": 6.6,
+      "share_of_class_b": 0.275,
+      "n_in_scope_rings": 16,
+      "share_of_in_scope": 0.091954023,
+      "over_representation": 2.990625,
+      "n_seeds": 5
+    },
+    {
+      "detector": "mega",
+      "pattern": "CYCLE",
+      "class_b_per_seed": 1.6,
+      "share_of_class_b": 0.0666666667,
+      "n_in_scope_rings": 22,
+      "share_of_in_scope": 0.1264367816,
+      "over_representation": 0.5272727273,
+      "n_seeds": 5
+    },
+    {
+      "detector": "mega",
+      "pattern": "FAN-IN",
+      "class_b_per_seed": 1.2,
+      "share_of_class_b": 0.05,
+      "n_in_scope_rings": 18,
+      "share_of_in_scope": 0.1034482759,
+      "over_representation": 0.4833333333,
+      "n_seeds": 5
+    },
+    {
+      "detector": "mega",
+      "pattern": "FAN-OUT",
+      "class_b_per_seed": 0.2,
+      "share_of_class_b": 0.0083333333,
+      "n_in_scope_rings": 20,
+      "share_of_in_scope": 0.1149425287,
+      "over_representation": 0.0725,
+      "n_seeds": 5
+    },
+    {
+      "detector": "mega",
+      "pattern": "GATHER-SCATTER",
+      "class_b_per_seed": 2.2,
+      "share_of_class_b": 0.0916666667,
+      "n_in_scope_rings": 37,
+      "share_of_in_scope": 0.2126436782,
+      "over_representation": 0.4310810811,
+      "n_seeds": 5
+    },
+    {
+      "detector": "mega",
+      "pattern": "RANDOM",
+      "class_b_per_seed": 3.2,
+      "share_of_class_b": 0.1333333333,
+      "n_in_scope_rings": 17,
+      "share_of_in_scope": 0.0977011494,
+      "over_representation": 1.3647058824,
+      "n_seeds": 5
+    },
+    {
+      "detector": "mega",
+      "pattern": "SCATTER-GATHER",
+      "class_b_per_seed": 0.4,
+      "share_of_class_b": 0.0166666667,
+      "n_in_scope_rings": 22,
+      "share_of_in_scope": 0.1264367816,
+      "over_representation": 0.1318181818,
+      "n_seeds": 5
+    },
+    {
+      "detector": "mega",
+      "pattern": "STACK",
+      "class_b_per_seed": 8.6,
+      "share_of_class_b": 0.3583333333,
+      "n_in_scope_rings": 22,
+      "share_of_in_scope": 0.1264367816,
+      "over_representation": 2.8340909091,
+      "n_seeds": 5
+    }
+  ],
+  "shape_summary": [
+    {
+      "detector": "gine_causal",
+      "pattern": "BIPARTITE",
+      "n": 41,
+      "median_members": 6.0,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "CYCLE",
+      "n": 18,
+      "median_members": 3.0,
+      "median_longest_path": 2.0,
+      "share_conserving_chain": 0.1666666667,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "FAN-IN",
+      "n": 12,
+      "median_members": 5.0,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "FAN-OUT",
+      "n": 6,
+      "median_members": 6.0,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "GATHER-SCATTER",
+      "n": 17,
+      "median_members": 3.0,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "RANDOM",
+      "n": 21,
+      "median_members": 4.0,
+      "median_longest_path": 2.0,
+      "share_conserving_chain": 0.2857142857,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "SCATTER-GATHER",
+      "n": 5,
+      "median_members": 5.0,
+      "median_longest_path": 2.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "gine_causal",
+      "pattern": "STACK",
+      "n": 46,
+      "median_members": 7.0,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "mega",
+      "pattern": "BIPARTITE",
+      "n": 33,
+      "median_members": 8.0,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "mega",
+      "pattern": "CYCLE",
+      "n": 8,
+      "median_members": 3.0,
+      "median_longest_path": 2.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "mega",
+      "pattern": "FAN-IN",
+      "n": 6,
+      "median_members": 4.5,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "mega",
+      "pattern": "FAN-OUT",
+      "n": 1,
+      "median_members": 3.0,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "mega",
+      "pattern": "GATHER-SCATTER",
+      "n": 11,
+      "median_members": 3.0,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "mega",
+      "pattern": "RANDOM",
+      "n": 16,
+      "median_members": 4.0,
+      "median_longest_path": 2.0,
+      "share_conserving_chain": 0.0625,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "mega",
+      "pattern": "SCATTER-GATHER",
+      "n": 2,
+      "median_members": 3.5,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    },
+    {
+      "detector": "mega",
+      "pattern": "STACK",
+      "n": 43,
+      "median_members": 6.0,
+      "median_longest_path": 1.0,
+      "share_conserving_chain": 0.0,
+      "share_bipartite": 0.0
+    }
+  ]
+}

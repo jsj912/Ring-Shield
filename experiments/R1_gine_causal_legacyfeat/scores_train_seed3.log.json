@@ -1,0 +1,32 @@
+{
+  "created_utc": "2026-09-17T07:24:51+00:00",
+  "git_commit": "617805865432d73e6e9a59dfa153940f6a65f327",
+  "run_dir": "experiments\\R1_gine_causal",
+  "checkpoint": "experiments\\R1_gine_causal\\model_best_seed3.pt",
+  "run_config_commit": "617805865432d73e6e9a59dfa153940f6a65f327",
+  "seed": 3,
+  "split": "train",
+  "dry_run": false,
+  "causal": true,
+  "loader_route": "fallback",
+  "loader_window_s": 1800,
+  "num_neighbors": [
+    100,
+    100
+  ],
+  "batch_size": 8192,
+  "n_rows": 3248921,
+  "n_split_edges": 3248921,
+  "n_nan_scores": 0,
+  "score_min": 0.0,
+  "score_max": 0.9999750852584839,
+  "score_mean": 0.0033411961605041185,
+  "timestamp_basis": "loader (seconds since first day 00:00 - 10 s)",
+  "timestamp_min": 10,
+  "timestamp_max": 518350,
+  "embeddings": null,
+  "device": "cuda",
+  "seconds": 139.2,
+  "data_load_seconds": 1000.1,
+  "scores_path": "experiments\\R1_gine_causal\\scores_train_seed3.parquet"
+}

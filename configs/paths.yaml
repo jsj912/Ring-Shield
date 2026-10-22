@@ -1,0 +1,19 @@
+# Canonical data / output locations, relative to the repository root.
+# `dataset` names the AMLworld release: <raw_dir>/<dataset>_{Trans.csv,accounts.csv,
+# Patterns.txt}. Step 11 added it so a second release runs the same commands against
+# its own paths file ($RINGSHIELD_PATHS) instead of overwriting this one.
+dataset: HI-Small
+raw_dir: data/raw
+processed_dir: data/processed
+experiments_dir: experiments
+
+# account_id -> bank_id map (built once by contract/make_scored_edges.py, Step 2.1 reuses it)
+account_bank_map: data/processed/account_bank.parquet
+
+# The legacy model scripts (models/tgn.py, score_test_set.py, ring_aggregator.py) re-based
+# time to df.Timestamp.min(); the loader re-based to (first day 00:00 - 10 s). Every legacy
+# CSV timestamp is therefore this many seconds LOWER than the loader-basis parquets.
+# contract/* asserts and adds it; models/ring_aggregator.py takes its scope window from the
+# split parquet and only checks the CSV against this. models/score.py (Step 3.3) writes loader
+# basis directly, after which this constant is unused.
+legacy_csv_time_offset_s: 10

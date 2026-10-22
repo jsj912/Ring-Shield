@@ -1,0 +1,108 @@
+{
+  "created_utc": "2026-09-24T18:23:30+00:00",
+  "git_commit": "b1a28204ba6ddd11ce9883a1e53a443242a530f2",
+  "inputs": {
+    "cross_scores": "experiments\\R6_gfpxgb_cross\\cross_scores_train.parquet",
+    "training_set": "experiments\\R6_gfpxgb_expand\\training_set.parquet",
+    "policy_json": "experiments\\R6_gfpxgb_expand\\policy_gfpxgb\\policy.json",
+    "p_min": 0.7,
+    "seed_frac_pct": 0.1,
+    "seeds_per_fold": [
+      {
+        "fold": 0,
+        "n_edges": 1114921,
+        "q": 0.5122365427017569,
+        "n_seeds": 1115,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10000708570383013
+      },
+      {
+        "fold": 1,
+        "n_edges": 754449,
+        "q": 0.46082342195511317,
+        "n_seeds": 755,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.100073033432346
+      },
+      {
+        "fold": 2,
+        "n_edges": 414812,
+        "q": 0.801794078946186,
+        "n_seeds": 415,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10004532173611178
+      },
+      {
+        "fold": 3,
+        "n_edges": 482650,
+        "q": 0.8739011541605015,
+        "n_seeds": 483,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10007251631617115
+      },
+      {
+        "fold": 4,
+        "n_edges": 482089,
+        "q": 0.8601001744271399,
+        "n_seeds": 483,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10018896925671401
+      }
+    ]
+  },
+  "included": {
+    "n": 3624,
+    "n_seeds": 3251,
+    "n_expanded": 373,
+    "n_expanded_member": 348,
+    "n_components": 2642,
+    "largest_component": 51,
+    "components_with_gt1_ring": 10,
+    "components_with_pairs": 780
+  },
+  "pairs": {
+    "n": 6821,
+    "n_pos": 3524,
+    "n_neg": 3297,
+    "pos_rate": 0.5166397888872599,
+    "by_kind": {
+      "seed_seed": {
+        "n": 3843,
+        "n_pos": 950
+      },
+      "seed_exp": {
+        "n": 1998,
+        "n_pos": 1748
+      },
+      "exp_exp": {
+        "n": 980,
+        "n_pos": 826
+      }
+    },
+    "by_role": {
+      "source": {
+        "n": 1726,
+        "n_pos": 1299
+      },
+      "sink": {
+        "n": 2025,
+        "n_pos": 1484
+      },
+      "mule": {
+        "n": 2360,
+        "n_pos": 380
+      },
+      "other": {
+        "n": 710,
+        "n_pos": 361
+      }
+    },
+    "components_all_positive": 75,
+    "components_mixed": 32,
+    "components_all_negative": 673,
+    "cos_emb_nan": 6821,
+    "n_features": 20
+  },
+  "seconds": 27.6,
+  "out": "experiments\\R6_gfpxgb_partition\\pairs_train.parquet"
+}

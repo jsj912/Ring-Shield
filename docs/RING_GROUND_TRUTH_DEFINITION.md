@@ -37,7 +37,12 @@ For a given ring `r` with `ring_id = r`:
 
 ### 4.1 Which rings are scored?
 
-Only rings whose **majority of transactions** (≥50% by count) fall in the **test period** are scored. Rings entirely in train/val are training signal. Rings straddling val/test are scored only if ≥50% of their transactions are in test.
+Scope policy is **`test_visible`** (decided 2026-09-16): a ring is in scope for the test
+split if it has at least one pattern-line transaction in the test period, and its scored
+member set is the union of `from_id`/`to_id` over its transactions **in that split only**.
+N_test_rings = 183, N_val_rings = 157. The `strict` (all transactions in the split,
+86 test rings) and `majority` (> 50 %, 120 test rings) policies are reported only in
+Appendix A of the D1 document below. Numbers: `docs/ring_scope.json`.
 
 ### 4.2 Ring-level detection
 
@@ -161,23 +166,106 @@ convention in `formatted_transactions.csv`.
 
 ## 4. Which rings are scored
 
-A ring is **in scope for test evaluation** if its transactions fall inside the
-test split (day boundaries i=6, j=8; 863,900 transactions).
+**Decision (2026-09-16): the primary scope policy is `test_visible`.**
 
-Rings are the denominator of Ring-Recall, so this set must be computed once
-and reused. Compute it before writing the aggregator:
+A ring is **in scope for a split** if it has **≥ 1 pattern-line transaction in that
+split**. Its **scored member set** is the union of `from_id` / `to_id` over its
+transactions **in that split only** (the accounts a model scoring that split can see).
+Scope is defined on the 3,209 pattern lines, never on the 3,455 matched rows, so
+duplicate payments in the transaction table cannot change which rings are in scope.
+A pattern line belongs to the split whose day range contains its timestamp (loader
+basis).
 
-```python
-# rings whose transactions fall entirely within the test split
-gt = pd.read_parquet("data/processed/amlworld_ring_ground_truth.parquet")
-# ... intersect ring transaction ids with te_inds, group by ring_id
+Rationale for replacing the earlier `strict` default:
+
+1. strict scope leaves **13 validation rings** — too few to choose any threshold or
+   hyper-parameter on;
+2. it discards the **97 rings straddling the val/test boundary**, which hold most
+   of the illicit test transactions (1,240 of 1,611 laundering-labelled
+   test transactions lie in a `test_visible` ring, only 721 in a strict one);
+3. the model only sees test-period edges, so comparing its predictions to a ring's
+   full member list penalises it for accounts that never transacted in the window.
+
+`strict` (all lines in the split, full membership) and `majority` (> 50 % of lines in
+the split, full membership) remain as **appendix** policies (Appendix A).
+
+Computed by Step 2.2 (`preprocessing/ring_scope.py`, output `docs/ring_scope.json`):
+
+```bash
+python preprocessing/ring_scope.py --gt data/processed/amlworld_ring_ground_truth.parquet --splits data/processed --out docs/ring_scope.json
 ```
 
-Record the count here once computed: **N_test_rings = ____**
+**N_test_rings = 183** and **N_val_rings = 157** (`test_visible`).
 
-> If this number is small (under ~100), Ring-Recall moves in visible jumps and
-> a single ring is worth more than a percentage point. Say so in the paper's
-> limitations rather than reporting Ring-Recall to three decimals.
+| policy | test rings | test rings < 3 scored members | val rings | val rings < 3 scored members |
+|---|---|---|---|---|
+| **test_visible** (primary) | **183** | **51** | **157** | **43** |
+| strict | 86 | 29 | 13 | 9 |
+| majority | 120 | 29 | 49 | 9 |
+
+Rings straddling a boundary: 97 touching test, 144 touching val, 147 overall.
+"Scored members" is the visible set for `test_visible` and full membership otherwise.
+
+Pattern type of the rings with < 3 scored members:
+
+| | test_visible test | test_visible val | strict test | strict val |
+|---|---|---|---|---|
+| count | 51 | 43 | 29 | 9 |
+| by pattern | BIPARTITE 10, CYCLE 7, FAN-IN 4, FAN-OUT 5, GATHER-SCATTER 6, RANDOM 4, SCATTER-GATHER 5, STACK 10 | BIPARTITE 1, CYCLE 7, FAN-IN 7, FAN-OUT 9, GATHER-SCATTER 4, RANDOM 5, SCATTER-GATHER 5, STACK 5 | BIPARTITE 10, CYCLE 1, FAN-IN 2, FAN-OUT 2, GATHER-SCATTER 2, RANDOM 4, SCATTER-GATHER 4, STACK 4 | BIPARTITE 1, FAN-OUT 2, RANDOM 4, SCATTER-GATHER 1, STACK 1 |
+
+Over all 370 rings, **88 have fewer than three members** in full: BIPARTITE 18, CYCLE 14, FAN-IN 4, FAN-OUT 8, GATHER-SCATTER 8, RANDOM 13, SCATTER-GATHER 11, STACK 12.
+Two-member CYCLE / BIPARTITE / STACK blocks are how the AMLworld generator emits its
+smallest patterns; they are undetectable under FR04.6's minimum ring size of 3 and stay in
+the denominator (section 6).
+
+`test_visible` test rings by pattern: BIPARTITE 20, CYCLE 22, FAN-IN 19, FAN-OUT 21, GATHER-SCATTER 37, RANDOM 17, SCATTER-GATHER 22, STACK 25.
+
+**Why the strict count is 86 and not the 85 in the legacy E7 metrics.**
+`models/ring_aggregator.py` took the test window from `predictions_with_ids.csv`, whose
+timestamps are 10 s lower than the loader basis used by the ground truth
+(`configs/paths.yaml: legacy_csv_time_offset_s`). Ring 346's last transaction sits exactly
+at the test-window maximum (1,527,490) and was pushed out by that 10 s mismatch. The
+majority count (120) is unchanged; counting matched rows instead of pattern lines would
+give 123 (rings 213, 221, 264 have exactly half their lines in test and duplicate rows tip
+them over), which is why scope is defined on pattern lines.
+
+**Labels versus membership.** Ring membership comes from the pattern lines
+(`ring_id` on matched rows); edge labels come from `Is Laundering`. The 99 ring-labelled
+rows in the test split with `Is Laundering = 0` are duplicate-payment matches (section 1),
+and no code treats the two as identical. Flow sums over a ring are deduplicated on
+(from, to, timestamp, amount).
+
+**Banks.** 366 of 370 rings (98.9%) span more than one bank (`n_banks > 1`,
+banks from `data/processed/account_bank.parquet`), most likely because the AMLworld
+generator draws pattern accounts across banks uniformly. The tenancy experiment (R10)
+must therefore treat a ring as belonging to every bank with a member, and this
+near-universal cross-bank rate is a synthetic-data caveat, not a property of real
+laundering rings.
+
+## 4a. Evaluation windows inside the test split (Step 3b-w apply, 2026-09-17)
+
+`docs/TEST_TAIL.md`: the last eight test days (days 10–17, 1,108 edges) hold 655 of the
+1,611 test positives at a 59 % base rate and no licit background. Headline numbers are
+therefore computed on the **primary window, test days 8–9** (`configs/eval_window.yaml`);
+the **tail, days 10–17**, is always reported beside them and never merged in; the whole
+split is kept as a labelled third column.
+
+The `test_visible` rule is applied **per window**: a ring is in scope of a window if ≥ 1 of
+its pattern-line transactions falls in the window, and its scored members are the
+endpoints of its transactions inside that window only. **A straddling ring's tail edges
+belong to the tail block**, on the truth side and on the prediction side (a predicted ring
+is likewise restricted to the endpoints of its member edges inside the window;
+`ringshield/evaluate.py`). Counts (`tests/test_eval_window.py` asserts them):
+
+| window | days | in-scope rings (`test_visible`) | rings with ≥ 3 scored members |
+|---|---|---|---|
+| primary | 8–9 | **174** (= 183 − 9 rings whose every visible edge is in the tail) | 114 |
+| tail | 10–17 | **109** (rings with ≥ 1 tail edge; 100 of them also have primary edges) | 84 |
+| whole | 8–17 | 183 | 132 |
+
+Ring-Recall on the primary window has 174 in the denominator; the 9 all-tail rings and
+the tail-only edges of the 100 partial rings are scored in the tail block. Val (days 6–7)
+has no tail; thresholds and grids are chosen there as before.
 
 ## 5. Matching a predicted ring to a ground-truth ring
 
@@ -197,24 +285,86 @@ Each predicted ring matches at most one ground-truth ring and vice versa. Where
 several pairings clear the threshold, take the highest-Jaccard pairing first
 and remove both from the pool (greedy one-to-one).
 
-## 6. Open decisions — need team sign-off
+## 6. Decisions (recorded 2026-09-16, Step 2; scope policy revised the same day)
 
-- [ ] **Boundary rings.** What happens to a ring whose transactions straddle
-      the val/test boundary? Options: (a) exclude from both, (b) assign to the
-      split holding the majority of its transactions, (c) assign by
-      `start_time`. Recommend (a) — cleanest, and the count is small.
-      **Decision: ____**
+- [x] **Scope policy: `test_visible`.** A ring is in scope for a split if ≥ 1 of its
+      pattern-line transactions falls in that split; its scored members are the accounts
+      on those in-split transactions. Boundary (straddling) rings are therefore in scope
+      for both splits they touch, each with its own visible member set. `strict` and
+      `majority` are appendix-only. **Decision: test_visible; strict and majority in
+      Appendix A only.**
 
-- [ ] **N_test_rings** computed and recorded in section 4. **Value: ____**
+- [x] **N_test_rings** and **N_val_rings** computed and recorded in section 4.
+      **Value: N_test_rings = 183, N_val_rings = 157 (`test_visible`).**
 
-- [ ] **Jaccard threshold of 0.5** confirmed, or changed with a reason.
-      **Decision: ____**
+- [x] **Jaccard threshold of 0.5** confirmed (computed between the predicted member set and
+      the ring's *visible* member set). A sensitivity sweep at 0.3 and 0.7 is reported
+      alongside every headline ring number. **Decision: 0.5, sweep {0.3, 0.7}.**
 
-- [ ] **Singleton and pair components.** FR04.6 sets min ring size 3. Some
-      ground-truth rings may have fewer than 3 members — check, and if any
-      exist, decide whether they are excluded from the denominator (they are
-      undetectable by construction) or counted as guaranteed misses.
-      **Decision: ____**
+- [x] **Singleton and pair components.** 51 of the 183 `test_visible` test rings
+      (43 of the 157 val rings) have fewer than three visible members. They **stay in the
+      denominator** of Ring-Recall. The aggregator's minimum ring size is a
+      **validation-grid parameter, `min_size ∈ {2, 3}`**, chosen on the val rings together
+      with the score threshold and recorded in the run config before any test run; under
+      `min_size = 3` these rings are guaranteed misses and recall is bounded above by 0.721 on the test set. **Decision: keep in
+      denominator.**
+
+## 6a. Ceiling on test-period evidence (Step 2.3, `test_visible`)
+
+Produced by the same command as section 4 (`preprocessing/ring_scope.py`, key
+`ceiling.by_policy.test_visible` in `docs/ring_scope.json`). Quote these in the report's
+limitations.
+
+| | value |
+|---|---|
+| (a) laundering-labelled transactions in the test split | **1,611** |
+| (b) of those, inside an in-scope (`test_visible`) ring | **1,240** (77.0%); the other 371 laundering-labelled test transactions belong to no ring |
+| (c) in-scope-ring members (full membership) with **no test-period transaction** | **155 / 1,962 = 7.9%** — unrecoverable from test evidence |
+| (c′) additionally, members whose every test transaction is licit-labelled | 497 / 1,962; together with (c): 652 = 33.2% |
+
+(c) is the share of full ring membership that no model scoring the test period can
+recover, whatever it does; it is exactly the gap between full and visible membership and
+is why `test_visible` scores visible members. (c′) members do have test transactions but
+none labelled illicit; they are not in the visible set either.
+
+**Ring-level ceiling on the primary window (Step 7 close, 2026-09-22.)** The same question at
+ring level: of the 174 `test_visible` rings in the primary window (test days 8–9), how many can
+a pipeline match at Jaccard 0.5 at all? Mean per detector seed over 5 seeds, from
+`evaluation/unmatched_rings.py` (`results/tables/r4_unmatched.csv`), for the best pipeline to
+date (`full` = detector at 0.1 % + expansion + partition):
+
+| | primary (174 rings) | val (157 rings) |
+|---|---|---|
+| matched at Jaccard 0.5 | **80.2** | 86.2 |
+| **(a) fewer than 3 visible members** — undetectable under `min_size` 3 | **48.6 (28 %)** | 39.6 (25 %) |
+| **(b) ≥ 3 members, untouched by any seed or expanded edge** | **33.2 (19 %)** | 15.0 (10 %) |
+| (c) touched, Jaccard < 0.5: over-merged / under-covered | 5.2 / 6.8 | 7.2 / 9.0 |
+
+*(c) corrected 2026-09-27 — see the note in `docs/PARTITION.md`; matched, (a) and (b) are unaffected.*
+
+(a) is a property of the ground truth under `min_size` 3, not of a model: 1,359 of the 1,387
+(a)-rings counted across seeds have exactly 2 visible members and 28 have 1. With `min_size` 3
+fixed, **ring recall on the primary window is capped at about 0.72** ((174 − 48.6) / 174) and the
+reachable part beyond today's 0.46 is mostly class (b) — rings the detector does not fire on at
+all. Quote (a) and (b) in the limitations next to (c) above; the per-pattern split (BIPARTITE is
+almost entirely (a) + (b)) is in `docs/PARTITION.md`.
+
+## Appendix A. Strict and majority policies (not used for reported numbers)
+
+| | strict | majority |
+|---|---|---|
+| test rings | 86 | 120 |
+| test rings < 3 members | 29 | 29 |
+| val rings | 13 | 49 |
+| val rings < 3 members | 9 | 9 |
+| (b) test laundering txns in scope | 721 (44.8%) | 1,038 (64.4%) |
+| (c) members with no test txn | 0 / 694 = 0.0% | 18 / 1,125 = 1.6% |
+| (c) unrecoverable incl. licit-only | 0 / 694 = 0.0% | 80 / 1,125 = 7.1% |
+
+Under strict scope (c) is 0 % by construction: every member has a laundering-labelled
+ring transaction in the test split. Strict scope was the default until 2026-09-16; the
+legacy E7 numbers (`experiments/legacy_E7_test_tuned`) were computed under it with the
+10 s window error described in section 4 and are not reported.
 
 ## 7. Metrics built on this definition
 
@@ -222,9 +372,22 @@ Given the matching rule in section 5:
 
 - **Ring-Precision** = matched predicted rings / all predicted rings
 - **Ring-Recall** = matched ground-truth rings / all in-scope ground-truth rings
-- **Ring-F1** = harmonic mean of the two
+  (`test_visible`: 183 test rings, 157 val rings — rings with < 3 visible members included)
+- **Ring-Recall≥3** (secondary) = matched ground-truth rings with ≥ 3 visible members /
+  in-scope ground-truth rings with ≥ 3 visible members (132 test, 114 val). Reported
+  next to Ring-Recall so the size floor's cost is visible rather than hidden in the
+  denominator.
+- **Ring-F1** = harmonic mean of Ring-Precision and Ring-Recall (the primary recall)
 - **Member-Coverage** = mean over matched pairs of `|P ∩ T| / |T|`
 - **Time-to-Detection** = see caveat below
+
+**Validation grid.** Every aggregator parameter is chosen on the validation split
+(`test_visible` val rings) and written to the run's `config.yaml` before the test run:
+the seed quantile (`seed_frac_pct`, `configs/threshold_rule.yaml`) and `min_size ∈ {2, 3}`.
+That is the whole B0 grid ("threshold, components, size"); a time-gap split or a density
+filter is not a B0 knob but a baseline variant (B3, Step 7), evaluated on the same expanded
+subgraph as the proposed method (corrected 2026-09-17, Step 4). Nothing is tuned on the
+test period. Jaccard stays fixed at 0.5 (sweep 0.3 / 0.7 reported, not tuned).
 
 > **Time-to-Detection caveat.** Neighbour sampling in `LinkNeighborLoader` has
 > no temporal filter, so a transaction's score can depend on transactions that

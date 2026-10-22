@@ -2,17 +2,27 @@
 Graph Feature Preprocessor (GFP) — parallelized per-edge pattern counting.
 Uses all CPU cores via multiprocessing for the heavy per-transaction loop.
 
-For each transaction e = (u → v, timestamp t):
-    fan_out:          # txns u sends in [t-Δ, t+Δ]
-    fan_in:           # txns v receives in [t-Δ, t+Δ]
-    deg_out_src:      cumulative out-degree of u at time t
-    deg_in_src:       cumulative in-degree of u at time t
-    deg_out_dst:      cumulative out-degree of v at time t
-    deg_in_dst:       cumulative in-degree of v at time t
+For each transaction e = (u → v, timestamp t) -- every feature reads only edges with
+timestamp < t (or <= t for the cumulative degrees, which count e itself):
+    fan_out:          # txns u sends in [t-Δ, t)          (trailing window, strictly before t)
+    fan_in:           # txns v receives in [t-Δ, t)
+    deg_out_src:      # txns u has sent up to and including t
+    deg_in_src:       # txns u has received up to and including t
+    deg_out_dst:      # txns v has sent up to and including t
+    deg_in_dst:       # txns v has received up to and including t
     scatter_gather:   # 2-hop paths u→w→v with ts < t
-    gather_scatter:   # 2-hop paths w→src, dst→w with ts < t
-    temporal_cycle:   can we reach u from v via edges after t? (bounded BFS)
-    cycle_length:     shortest such cycle length
+    gather_scatter:   # 2-hop paths w→u, v→w with ts < t
+    temporal_cycle:   closes_cycle -- 1 if a temporal path v → … → u exists using only edges
+                      with timestamp < t, strictly increasing along the path, at most
+                      --max-cycle-hops hops, and no edge older than t - LOOKBACK
+                      (--lookback-days, default 14). Backward BFS from u over incoming
+                      edges with decreasing timestamps. Column name kept for compatibility.
+    cycle_length:     number of hops of the shortest such path, else 0
+
+Step 3b-z (2026-09-17): temporal_cycle / cycle_length used to be a FORWARD search over
+edges after t with no time bound (see docs/FEATURE_CAUSALITY.md); the SCC gate that went
+with it was computed on the whole static graph and is gone. The look-back bound is written
+into the parquet schema metadata (key b"gfp") together with the window and hop limit.
 
 Usage:
     python graph/motif_features.py \
@@ -20,13 +30,15 @@ Usage:
         --out-dir data/processed \
         --window 86400 \
         --max-cycle-hops 5 \
+        --lookback-days 14 \
         --workers 0        # 0 = use all CPU cores
 
 Produces:
-    data/processed/amlworld_gfp_features_{train,val,test}.parquet
+    data/processed/amlworld_gfp_features_{train,val,test}.parquet   (EdgeID-keyed)
 """
 
 import argparse
+import json
 import multiprocessing as mp
 import os
 import time
@@ -34,9 +46,12 @@ from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from pathlib import Path
 
-import networkx as nx
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+LOOKBACK_DAYS_DEFAULT = 14
 
 
 # ============================================================================
@@ -46,20 +61,20 @@ _ADJ_OUT = None       # dict: node -> sorted list of (timestamp, target)
 _ADJ_IN = None        # dict: node -> sorted list of (timestamp, source)
 _ADJ_OUT_TS = None    # dict: node -> numpy array of timestamps (out edges)
 _ADJ_IN_TS = None     # dict: node -> numpy array of timestamps (in edges)
-_SCC_NODES = None     # set of nodes in non-trivial SCCs
 _WINDOW = None
 _MAX_HOPS = None
+_LOOKBACK = None      # seconds; closes_cycle never reads an edge older than t - _LOOKBACK
 
 
-def _init_worker(adj_out, adj_in, adj_out_ts, adj_in_ts, scc_nodes, window, max_hops):
-    global _ADJ_OUT, _ADJ_IN, _ADJ_OUT_TS, _ADJ_IN_TS, _SCC_NODES, _WINDOW, _MAX_HOPS
+def _init_worker(adj_out, adj_in, adj_out_ts, adj_in_ts, window, max_hops, lookback_s):
+    global _ADJ_OUT, _ADJ_IN, _ADJ_OUT_TS, _ADJ_IN_TS, _WINDOW, _MAX_HOPS, _LOOKBACK
     _ADJ_OUT = adj_out
     _ADJ_IN = adj_in
     _ADJ_OUT_TS = adj_out_ts
     _ADJ_IN_TS = adj_in_ts
-    _SCC_NODES = scc_nodes
     _WINDOW = window
     _MAX_HOPS = max_hops
+    _LOOKBACK = lookback_s
 
 
 # ============================================================================
@@ -129,33 +144,40 @@ def _scatter_gather(src, dst, t):
     return sg, gs
 
 
-def _temporal_cycle(src, dst, t):
-    """BFS from dst to find path back to src using edges after t (bounded hops)."""
-    if src not in _SCC_NODES or dst not in _SCC_NODES:
-        return 0, 0
+def _closes_cycle(src, dst, t):
+    """(closes_cycle, cycle_length) for edge src -> dst at time t.
 
-    visited = {dst}
-    queue = [(dst, t, 1)]
-
-    while queue:
-        current, min_ts, hops = queue.pop(0)
-        if hops > _MAX_HOPS:
-            continue
-
-        edges = _ADJ_OUT.get(current)
-        if not edges:
-            continue
-        ts_arr = _ADJ_OUT_TS[current]
-        lo = bisect_right(ts_arr, min_ts)
-
-        for idx in range(lo, len(edges)):
-            edge_ts, neighbor = edges[idx]
-            if neighbor == src:
-                return 1, hops
-            if neighbor not in visited and hops < _MAX_HOPS:
-                visited.add(neighbor)
-                queue.append((neighbor, edge_ts, hops + 1))
-
+    Is there a temporal path dst -> ... -> src whose edges all have timestamp < t, strictly
+    increasing along the path, with at most _MAX_HOPS edges and none older than
+    t - _LOOKBACK?  Backward BFS from src: a state (node, bound) means "node is reached by a
+    path whose earliest edge is at `bound`"; it expands over the incoming edges of node with
+    timestamp in [t - _LOOKBACK, bound), newest first. Level k of the BFS holds paths of k
+    edges, so the first level at which dst appears is the shortest cycle. A node is
+    re-expanded only when reached with a larger bound (a larger bound admits a superset of
+    continuations), which keeps the search exact and bounded.
+    """
+    t_lo = t - _LOOKBACK
+    best = {src: t}
+    frontier = {src: t}
+    for hops in range(1, _MAX_HOPS + 1):
+        nxt = {}
+        for node, bound in frontier.items():
+            ts_arr = _ADJ_IN_TS.get(node)
+            if ts_arr is None:
+                continue
+            edges = _ADJ_IN[node]
+            hi = bisect_left(ts_arr, bound)   # ts < bound
+            lo = bisect_left(ts_arr, t_lo)    # ts >= t - lookback
+            for idx in range(hi - 1, lo - 1, -1):
+                edge_ts, w = edges[idx]
+                if w == dst:
+                    return 1, hops
+                if hops < _MAX_HOPS and edge_ts > best.get(w, -1):
+                    best[w] = edge_ts
+                    nxt[w] = edge_ts
+        if not nxt:
+            break
+        frontier = nxt
     return 0, 0
 
 
@@ -182,7 +204,7 @@ def _process_chunk(chunk_data):
         results[i, 6] = sg
         results[i, 7] = gs
 
-        cyc, cyc_len = _temporal_cycle(src, dst, t)
+        cyc, cyc_len = _closes_cycle(src, dst, t)
         results[i, 8] = cyc
         results[i, 9] = cyc_len
 
@@ -220,27 +242,11 @@ def build_adjacency(edges_df):
     return adj_out_sorted, adj_in_sorted, adj_out_ts, adj_in_ts
 
 
-def build_scc_set(adj_out):
-    """Find nodes in non-trivial SCCs."""
-    G = nx.DiGraph()
-    for src, edges in adj_out.items():
-        for ts, dst in edges:
-            G.add_edge(src, dst)
-    scc_nodes = set()
-    for scc in nx.strongly_connected_components(G):
-        if len(scc) > 1:
-            scc_nodes |= scc
-    n_scc = sum(1 for scc in nx.strongly_connected_components(G) if len(scc) > 1)
-    print(f"  {len(scc_nodes)} nodes in {n_scc} non-trivial SCCs")
-    del G
-    return scc_nodes
-
-
 # ============================================================================
 # Main
 # ============================================================================
 def compute_features_parallel(df, adj_out, adj_in, adj_out_ts, adj_in_ts,
-                               scc_nodes, window, max_hops, n_workers):
+                               window, max_hops, lookback_s, n_workers):
     """Parallel GFP feature computation using multiprocessing Pool."""
     n = len(df)
     from_ids = df["from_id"].values.astype(np.int64)
@@ -268,7 +274,7 @@ def compute_features_parallel(df, adj_out, adj_in, adj_out_ts, adj_in_ts,
     with mp.Pool(
         processes=n_workers,
         initializer=_init_worker,
-        initargs=(adj_out, adj_in, adj_out_ts, adj_in_ts, scc_nodes, window, max_hops),
+        initargs=(adj_out, adj_in, adj_out_ts, adj_in_ts, window, max_hops, lookback_s),
     ) as pool:
         for chunk_idx, chunk_result in pool.imap_unordered(_process_chunk, chunks):
             chunk_len = len(chunk_result)
@@ -298,19 +304,26 @@ def main():
                         help="Time window in seconds for fan-in/out (default: 1 day)")
     parser.add_argument("--max-cycle-hops", type=int, default=5,
                         help="Max BFS depth for temporal cycles (default: 5)")
+    parser.add_argument("--lookback-days", type=float, default=LOOKBACK_DAYS_DEFAULT,
+                        help="closes_cycle never reads an edge older than t - this (default: 14 days)")
     parser.add_argument("--workers", type=int, default=0,
                         help="Number of worker processes (0 = all cores)")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     n_workers = args.workers if args.workers > 0 else mp.cpu_count()
+    lookback_s = int(round(args.lookback_days * 86400))
     print(f"Using {n_workers} worker processes (CPU cores: {mp.cpu_count()})")
+    print(f"fan window {args.window}s | closes_cycle: <= {args.max_cycle_hops} hops, look-back {lookback_s}s "
+          f"({args.lookback_days} d)")
 
     # --- Build temporal graph from ALL edges (incremental adjacency) ---
-    # Each transaction's features only look BACKWARD (timestamp < t), so
-    # including val/test edges in the adjacency is NOT leakage — a transaction
-    # at time t never sees edges after t. This matches IBM's incremental GFP
-    # and ensures fan_in/fan_out are nonzero for val/test transactions.
+    # Every feature reads only edges with timestamp < t (<= t for the cumulative
+    # degrees) through bisect on the per-account sorted arrays, so including
+    # val/test edges in the adjacency is not leakage -- a transaction at time t
+    # never sees edges after t (verified: tests/test_gfp_causality.py,
+    # tests/audit_feature_causality.py). This matches the incremental GFP
+    # protocol and keeps fan_in/fan_out nonzero for val/test transactions.
     print("\nLoading ALL edges (train + val + test) for incremental adjacency...")
     edge_frames = []
     for split in ["train", "val", "test"]:
@@ -328,11 +341,6 @@ def main():
     print(f"  Done in {time.time()-t0:.1f}s "
           f"({len(adj_out)} out-nodes, {len(adj_in)} in-nodes)")
 
-    print("Finding SCC nodes for cycle detection...")
-    t0 = time.time()
-    scc_nodes = build_scc_set(adj_out)
-    print(f"  Done in {time.time()-t0:.1f}s")
-
     # --- Compute GFP features for each split ---
     for split in ["train", "val", "test"]:
         split_path = args.data_dir / f"amlworld_{split}.parquet"
@@ -347,13 +355,23 @@ def main():
 
         gfp_df = compute_features_parallel(
             df, adj_out, adj_in, adj_out_ts, adj_in_ts,
-            scc_nodes, args.window, args.max_cycle_hops, n_workers
+            args.window, args.max_cycle_hops, lookback_s, n_workers
         )
 
         gfp_df["EdgeID"] = df["EdgeID"].values
 
         out_path = args.out_dir / f"amlworld_gfp_features_{split}.parquet"
-        gfp_df.to_parquet(out_path, index=False)
+        table = pa.Table.from_pandas(gfp_df, preserve_index=False)
+        meta = dict(table.schema.metadata or {})
+        meta[b"gfp"] = json.dumps({
+            "window_s": args.window, "max_cycle_hops": args.max_cycle_hops,
+            "cycle_lookback_s": lookback_s, "cycle_lookback_days": args.lookback_days,
+            "cycle_definition": "closes_cycle: temporal path dst->...->src, all edges < t, strictly "
+                                "increasing, <= max_cycle_hops hops, none older than t - lookback "
+                                "(backward BFS over incoming edges); cycle_length = shortest such path",
+            "trailing": True, "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }).encode()
+        pq.write_table(table.replace_schema_metadata(meta), out_path)
         print(f"  Saved to {out_path}")
 
         print(f"  Feature stats:")

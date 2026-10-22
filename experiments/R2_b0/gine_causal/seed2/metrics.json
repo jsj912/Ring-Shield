@@ -1,0 +1,1029 @@
+{
+  "experiment": "seed2",
+  "created_utc": "2026-09-18T08:41:46+00:00",
+  "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+  "aggregator": "cc",
+  "scope": "test_visible",
+  "chosen": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "max_gap_hours": null,
+    "val_ring_f1": 0.5303
+  },
+  "feature_set": "trailing_closescycle",
+  "reportable": true,
+  "selection_column": "score_raw",
+  "confidence_column": "score_calibrated",
+  "eval_windows": {
+    "val": {
+      "name": "val",
+      "split": "val",
+      "days": [
+        6,
+        7
+      ],
+      "bounds": [
+        518410,
+        691209
+      ]
+    },
+    "primary": {
+      "name": "primary",
+      "split": "test",
+      "days": [
+        8,
+        9
+      ],
+      "bounds": [
+        691210,
+        864009
+      ]
+    },
+    "tail": {
+      "name": "tail",
+      "split": "test",
+      "days": [
+        10,
+        17
+      ],
+      "bounds": [
+        864010,
+        1555209
+      ]
+    },
+    "whole": {
+      "name": "whole",
+      "split": "test",
+      "days": [
+        8,
+        17
+      ],
+      "bounds": [
+        691210,
+        1555209
+      ]
+    }
+  },
+  "primary_block": "primary",
+  "blocks": {
+    "primary": {
+      "window": {
+        "name": "primary",
+        "split": "test",
+        "days": [
+          8,
+          9
+        ],
+        "bounds": [
+          691210,
+          864009
+        ]
+      },
+      "n_pred_rings_in_window": 82,
+      "n_pred_rings_total": 96,
+      "ring_precision": 0.8415,
+      "ring_recall": 0.3966,
+      "ring_f1": 0.5391,
+      "member_coverage": 0.8519,
+      "mean_jaccard": 0.8341,
+      "n_predicted": 82,
+      "n_truth": 174,
+      "n_matched": 69,
+      "per_pattern": {
+        "GATHER-SCATTER": {
+          "n_truth": 37.0,
+          "n_matched": 24.0,
+          "recall": 0.6486486486486487
+        },
+        "STACK": {
+          "n_truth": 22.0,
+          "n_matched": 1.0,
+          "recall": 0.045454545454545456
+        },
+        "CYCLE": {
+          "n_truth": 22.0,
+          "n_matched": 6.0,
+          "recall": 0.2727272727272727
+        },
+        "SCATTER-GATHER": {
+          "n_truth": 22.0,
+          "n_matched": 13.0,
+          "recall": 0.5909090909090909
+        },
+        "RANDOM": {
+          "n_truth": 17.0,
+          "n_matched": 4.0,
+          "recall": 0.23529411764705882
+        },
+        "FAN-IN": {
+          "n_truth": 18.0,
+          "n_matched": 9.0,
+          "recall": 0.5
+        },
+        "FAN-OUT": {
+          "n_truth": 20.0,
+          "n_matched": 12.0,
+          "recall": 0.6
+        },
+        "BIPARTITE": {
+          "n_truth": 16.0,
+          "n_matched": 0.0,
+          "recall": 0.0
+        }
+      },
+      "ring_recall_ge3": 0.5263,
+      "n_truth_ge3": 114,
+      "n_matched_ge3": 60,
+      "jaccard_sweep": {
+        "0.3": {
+          "ring_precision": 0.8659,
+          "ring_recall": 0.408,
+          "ring_f1": 0.5547,
+          "n_matched": 71
+        },
+        "0.7": {
+          "ring_precision": 0.5976,
+          "ring_recall": 0.2816,
+          "ring_f1": 0.3828,
+          "n_matched": 49
+        }
+      },
+      "pred_size": {
+        "n_rings": 82,
+        "mean_members": 4.219512195121951,
+        "max_members": 10
+      },
+      "appendix": {
+        "strict": {
+          "ring_precision": 0.0366,
+          "ring_recall": 0.15,
+          "ring_f1": 0.0588,
+          "member_coverage": 1.0,
+          "mean_jaccard": 0.7778,
+          "n_predicted": 82,
+          "n_truth": 20,
+          "n_matched": 3,
+          "per_pattern": {
+            "BIPARTITE": {
+              "n_truth": 6.0,
+              "n_matched": 2.0,
+              "recall": 0.3333333333333333
+            },
+            "STACK": {
+              "n_truth": 2.0,
+              "n_matched": 1.0,
+              "recall": 0.5
+            },
+            "GATHER-SCATTER": {
+              "n_truth": 2.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "FAN-IN": {
+              "n_truth": 2.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "FAN-OUT": {
+              "n_truth": 2.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "RANDOM": {
+              "n_truth": 4.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "CYCLE": {
+              "n_truth": 1.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "SCATTER-GATHER": {
+              "n_truth": 1.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            }
+          },
+          "ring_recall_ge3": 1.0,
+          "n_truth_ge3": 1,
+          "n_matched_ge3": 1,
+          "jaccard_sweep": {},
+          "pred_size": {
+            "n_rings": 82,
+            "mean_members": 4.219512195121951,
+            "max_members": 10
+          }
+        },
+        "majority": {
+          "ring_precision": 0.0976,
+          "ring_recall": 0.2105,
+          "ring_f1": 0.1333,
+          "member_coverage": 0.8597,
+          "mean_jaccard": 0.7514,
+          "n_predicted": 82,
+          "n_truth": 38,
+          "n_matched": 8,
+          "per_pattern": {
+            "RANDOM": {
+              "n_truth": 5.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "SCATTER-GATHER": {
+              "n_truth": 3.0,
+              "n_matched": 1.0,
+              "recall": 0.3333333333333333
+            },
+            "CYCLE": {
+              "n_truth": 5.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "FAN-OUT": {
+              "n_truth": 5.0,
+              "n_matched": 3.0,
+              "recall": 0.6
+            },
+            "STACK": {
+              "n_truth": 5.0,
+              "n_matched": 1.0,
+              "recall": 0.2
+            },
+            "BIPARTITE": {
+              "n_truth": 9.0,
+              "n_matched": 2.0,
+              "recall": 0.2222222222222222
+            },
+            "GATHER-SCATTER": {
+              "n_truth": 3.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "FAN-IN": {
+              "n_truth": 3.0,
+              "n_matched": 1.0,
+              "recall": 0.3333333333333333
+            }
+          },
+          "ring_recall_ge3": 0.3158,
+          "n_truth_ge3": 19,
+          "n_matched_ge3": 6,
+          "jaccard_sweep": {},
+          "pred_size": {
+            "n_rings": 82,
+            "mean_members": 4.219512195121951,
+            "max_members": 10
+          }
+        }
+      },
+      "seed_edges_vs_labels": {
+        "n_edges_in_window": 862792,
+        "n_illicit_in_window": 956,
+        "n_seed_edges": 289,
+        "seed_edge_precision": 0.9134948096885813,
+        "seed_edge_recall_of_illicit": 0.27615062761506276,
+        "n_member_edges": 530,
+        "member_edge_precision": 0.5018867924528302,
+        "member_edge_recall_of_illicit": 0.27824267782426776
+      }
+    },
+    "tail": {
+      "window": {
+        "name": "tail",
+        "split": "test",
+        "days": [
+          10,
+          17
+        ],
+        "bounds": [
+          864010,
+          1555209
+        ]
+      },
+      "n_pred_rings_in_window": 64,
+      "n_pred_rings_total": 96,
+      "ring_precision": 0.7969,
+      "ring_recall": 0.4679,
+      "ring_f1": 0.5896,
+      "member_coverage": 0.8585,
+      "mean_jaccard": 0.8585,
+      "n_predicted": 64,
+      "n_truth": 109,
+      "n_matched": 51,
+      "per_pattern": {
+        "GATHER-SCATTER": {
+          "n_truth": 27.0,
+          "n_matched": 20.0,
+          "recall": 0.7407407407407407
+        },
+        "SCATTER-GATHER": {
+          "n_truth": 16.0,
+          "n_matched": 11.0,
+          "recall": 0.6875
+        },
+        "STACK": {
+          "n_truth": 12.0,
+          "n_matched": 0.0,
+          "recall": 0.0
+        },
+        "CYCLE": {
+          "n_truth": 11.0,
+          "n_matched": 3.0,
+          "recall": 0.2727272727272727
+        },
+        "FAN-OUT": {
+          "n_truth": 12.0,
+          "n_matched": 6.0,
+          "recall": 0.5
+        },
+        "FAN-IN": {
+          "n_truth": 13.0,
+          "n_matched": 6.0,
+          "recall": 0.46153846153846156
+        },
+        "RANDOM": {
+          "n_truth": 9.0,
+          "n_matched": 5.0,
+          "recall": 0.5555555555555556
+        },
+        "BIPARTITE": {
+          "n_truth": 9.0,
+          "n_matched": 0.0,
+          "recall": 0.0
+        }
+      },
+      "ring_recall_ge3": 0.5595,
+      "n_truth_ge3": 84,
+      "n_matched_ge3": 47,
+      "jaccard_sweep": {
+        "0.3": {
+          "ring_precision": 0.8906,
+          "ring_recall": 0.5229,
+          "ring_f1": 0.659,
+          "n_matched": 57
+        },
+        "0.7": {
+          "ring_precision": 0.6094,
+          "ring_recall": 0.3578,
+          "ring_f1": 0.4509,
+          "n_matched": 39
+        }
+      },
+      "pred_size": {
+        "n_rings": 64,
+        "mean_members": 6.546875,
+        "max_members": 22
+      },
+      "appendix": {
+        "strict": {
+          "ring_precision": 0.0312,
+          "ring_recall": 0.2857,
+          "ring_f1": 0.0563,
+          "member_coverage": 1.0,
+          "mean_jaccard": 0.8333,
+          "n_predicted": 64,
+          "n_truth": 7,
+          "n_matched": 2,
+          "per_pattern": {
+            "BIPARTITE": {
+              "n_truth": 4.0,
+              "n_matched": 2.0,
+              "recall": 0.5
+            },
+            "STACK": {
+              "n_truth": 3.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            }
+          },
+          "ring_recall_ge3": null,
+          "n_truth_ge3": 0,
+          "n_matched_ge3": 0,
+          "jaccard_sweep": {},
+          "pred_size": {
+            "n_rings": 64,
+            "mean_members": 6.546875,
+            "max_members": 22
+          }
+        },
+        "majority": {
+          "ring_precision": 0.4062,
+          "ring_recall": 0.4643,
+          "ring_f1": 0.4333,
+          "member_coverage": 0.7468,
+          "mean_jaccard": 0.734,
+          "n_predicted": 64,
+          "n_truth": 56,
+          "n_matched": 26,
+          "per_pattern": {
+            "GATHER-SCATTER": {
+              "n_truth": 16.0,
+              "n_matched": 11.0,
+              "recall": 0.6875
+            },
+            "FAN-IN": {
+              "n_truth": 8.0,
+              "n_matched": 3.0,
+              "recall": 0.375
+            },
+            "FAN-OUT": {
+              "n_truth": 6.0,
+              "n_matched": 3.0,
+              "recall": 0.5
+            },
+            "SCATTER-GATHER": {
+              "n_truth": 5.0,
+              "n_matched": 4.0,
+              "recall": 0.8
+            },
+            "RANDOM": {
+              "n_truth": 6.0,
+              "n_matched": 3.0,
+              "recall": 0.5
+            },
+            "CYCLE": {
+              "n_truth": 5.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "BIPARTITE": {
+              "n_truth": 6.0,
+              "n_matched": 2.0,
+              "recall": 0.3333333333333333
+            },
+            "STACK": {
+              "n_truth": 4.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            }
+          },
+          "ring_recall_ge3": 0.4898,
+          "n_truth_ge3": 49,
+          "n_matched_ge3": 24,
+          "jaccard_sweep": {},
+          "pred_size": {
+            "n_rings": 64,
+            "mean_members": 6.546875,
+            "max_members": 22
+          }
+        }
+      },
+      "seed_edges_vs_labels": {
+        "n_edges_in_window": 1108,
+        "n_illicit_in_window": 655,
+        "n_seed_edges": 397,
+        "seed_edge_precision": 0.9395465994962217,
+        "seed_edge_recall_of_illicit": 0.5694656488549619,
+        "n_member_edges": 730,
+        "member_edge_precision": 0.536986301369863,
+        "member_edge_recall_of_illicit": 0.5984732824427481
+      }
+    },
+    "whole": {
+      "window": {
+        "name": "whole",
+        "split": "test",
+        "days": [
+          8,
+          17
+        ],
+        "bounds": [
+          691210,
+          1555209
+        ]
+      },
+      "n_pred_rings_in_window": 96,
+      "n_pred_rings_total": 96,
+      "ring_precision": 0.6979,
+      "ring_recall": 0.3661,
+      "ring_f1": 0.4803,
+      "member_coverage": 0.8387,
+      "mean_jaccard": 0.8208,
+      "n_predicted": 96,
+      "n_truth": 183,
+      "n_matched": 67,
+      "per_pattern": {
+        "GATHER-SCATTER": {
+          "n_truth": 37.0,
+          "n_matched": 27.0,
+          "recall": 0.7297297297297297
+        },
+        "STACK": {
+          "n_truth": 25.0,
+          "n_matched": 1.0,
+          "recall": 0.04
+        },
+        "CYCLE": {
+          "n_truth": 22.0,
+          "n_matched": 4.0,
+          "recall": 0.18181818181818182
+        },
+        "SCATTER-GATHER": {
+          "n_truth": 22.0,
+          "n_matched": 13.0,
+          "recall": 0.5909090909090909
+        },
+        "RANDOM": {
+          "n_truth": 17.0,
+          "n_matched": 4.0,
+          "recall": 0.23529411764705882
+        },
+        "FAN-IN": {
+          "n_truth": 19.0,
+          "n_matched": 8.0,
+          "recall": 0.42105263157894735
+        },
+        "FAN-OUT": {
+          "n_truth": 21.0,
+          "n_matched": 10.0,
+          "recall": 0.47619047619047616
+        },
+        "BIPARTITE": {
+          "n_truth": 20.0,
+          "n_matched": 0.0,
+          "recall": 0.0
+        }
+      },
+      "ring_recall_ge3": 0.5,
+      "n_truth_ge3": 132,
+      "n_matched_ge3": 66,
+      "jaccard_sweep": {
+        "0.3": {
+          "ring_precision": 0.8125,
+          "ring_recall": 0.4262,
+          "ring_f1": 0.5591,
+          "n_matched": 78
+        },
+        "0.7": {
+          "ring_precision": 0.4792,
+          "ring_recall": 0.2514,
+          "ring_f1": 0.3297,
+          "n_matched": 46
+        }
+      },
+      "pred_size": {
+        "n_rings": 96,
+        "mean_members": 7.041666666666667,
+        "max_members": 23
+      },
+      "appendix": {
+        "strict": {
+          "ring_precision": 0.3021,
+          "ring_recall": 0.3372,
+          "ring_f1": 0.3187,
+          "member_coverage": 0.8474,
+          "mean_jaccard": 0.8291,
+          "n_predicted": 96,
+          "n_truth": 86,
+          "n_matched": 29,
+          "per_pattern": {
+            "BIPARTITE": {
+              "n_truth": 15.0,
+              "n_matched": 1.0,
+              "recall": 0.06666666666666667
+            },
+            "STACK": {
+              "n_truth": 6.0,
+              "n_matched": 1.0,
+              "recall": 0.16666666666666666
+            },
+            "RANDOM": {
+              "n_truth": 12.0,
+              "n_matched": 3.0,
+              "recall": 0.25
+            },
+            "CYCLE": {
+              "n_truth": 9.0,
+              "n_matched": 0.0,
+              "recall": 0.0
+            },
+            "SCATTER-GATHER": {
+              "n_truth": 10.0,
+              "n_matched": 5.0,
+              "recall": 0.5
+            },
+            "FAN-IN": {
+              "n_truth": 9.0,
+              "n_matched": 4.0,
+              "recall": 0.4444444444444444
+            },
+            "GATHER-SCATTER": {
+              "n_truth": 16.0,
+              "n_matched": 10.0,
+              "recall": 0.625
+            },
+            "FAN-OUT": {
+              "n_truth": 9.0,
+              "n_matched": 5.0,
+              "recall": 0.5555555555555556
+            }
+          },
+          "ring_recall_ge3": 0.4912,
+          "n_truth_ge3": 57,
+          "n_matched_ge3": 28,
+          "jaccard_sweep": {},
+          "pred_size": {
+            "n_rings": 96,
+            "mean_members": 7.041666666666667,
+            "max_members": 23
+          }
+        },
+        "majority": {
+          "ring_precision": 0.4583,
+          "ring_recall": 0.3667,
+          "ring_f1": 0.4074,
+          "member_coverage": 0.8008,
+          "mean_jaccard": 0.7887,
+          "n_predicted": 96,
+          "n_truth": 120,
+          "n_matched": 44,
+          "per_pattern": {
+            "GATHER-SCATTER": {
+              "n_truth": 24.0,
+              "n_matched": 17.0,
+              "recall": 0.7083333333333334
+            },
+            "RANDOM": {
+              "n_truth": 13.0,
+              "n_matched": 3.0,
+              "recall": 0.23076923076923078
+            },
+            "SCATTER-GATHER": {
+              "n_truth": 17.0,
+              "n_matched": 10.0,
+              "recall": 0.5882352941176471
+            },
+            "FAN-OUT": {
+              "n_truth": 12.0,
+              "n_matched": 6.0,
+              "recall": 0.5
+            },
+            "CYCLE": {
+              "n_truth": 12.0,
+              "n_matched": 1.0,
+              "recall": 0.08333333333333333
+            },
+            "FAN-IN": {
+              "n_truth": 15.0,
+              "n_matched": 5.0,
+              "recall": 0.3333333333333333
+            },
+            "STACK": {
+              "n_truth": 11.0,
+              "n_matched": 1.0,
+              "recall": 0.09090909090909091
+            },
+            "BIPARTITE": {
+              "n_truth": 16.0,
+              "n_matched": 1.0,
+              "recall": 0.0625
+            }
+          },
+          "ring_recall_ge3": 0.4725,
+          "n_truth_ge3": 91,
+          "n_matched_ge3": 43,
+          "jaccard_sweep": {},
+          "pred_size": {
+            "n_rings": 96,
+            "mean_members": 7.041666666666667,
+            "max_members": 23
+          }
+        }
+      },
+      "seed_edges_vs_labels": {
+        "n_edges_in_window": 863900,
+        "n_illicit_in_window": 1611,
+        "n_seed_edges": 686,
+        "seed_edge_precision": 0.9285714285714286,
+        "seed_edge_recall_of_illicit": 0.3954065797641217,
+        "n_member_edges": 1260,
+        "member_edge_precision": 0.5222222222222223,
+        "member_edge_recall_of_illicit": 0.4084419615145872
+      }
+    }
+  },
+  "test": {
+    "window": {
+      "name": "primary",
+      "split": "test",
+      "days": [
+        8,
+        9
+      ],
+      "bounds": [
+        691210,
+        864009
+      ]
+    },
+    "n_pred_rings_in_window": 82,
+    "n_pred_rings_total": 96,
+    "ring_precision": 0.8415,
+    "ring_recall": 0.3966,
+    "ring_f1": 0.5391,
+    "member_coverage": 0.8519,
+    "mean_jaccard": 0.8341,
+    "n_predicted": 82,
+    "n_truth": 174,
+    "n_matched": 69,
+    "per_pattern": {
+      "GATHER-SCATTER": {
+        "n_truth": 37.0,
+        "n_matched": 24.0,
+        "recall": 0.6486486486486487
+      },
+      "STACK": {
+        "n_truth": 22.0,
+        "n_matched": 1.0,
+        "recall": 0.045454545454545456
+      },
+      "CYCLE": {
+        "n_truth": 22.0,
+        "n_matched": 6.0,
+        "recall": 0.2727272727272727
+      },
+      "SCATTER-GATHER": {
+        "n_truth": 22.0,
+        "n_matched": 13.0,
+        "recall": 0.5909090909090909
+      },
+      "RANDOM": {
+        "n_truth": 17.0,
+        "n_matched": 4.0,
+        "recall": 0.23529411764705882
+      },
+      "FAN-IN": {
+        "n_truth": 18.0,
+        "n_matched": 9.0,
+        "recall": 0.5
+      },
+      "FAN-OUT": {
+        "n_truth": 20.0,
+        "n_matched": 12.0,
+        "recall": 0.6
+      },
+      "BIPARTITE": {
+        "n_truth": 16.0,
+        "n_matched": 0.0,
+        "recall": 0.0
+      }
+    },
+    "ring_recall_ge3": 0.5263,
+    "n_truth_ge3": 114,
+    "n_matched_ge3": 60,
+    "jaccard_sweep": {
+      "0.3": {
+        "ring_precision": 0.8659,
+        "ring_recall": 0.408,
+        "ring_f1": 0.5547,
+        "n_matched": 71
+      },
+      "0.7": {
+        "ring_precision": 0.5976,
+        "ring_recall": 0.2816,
+        "ring_f1": 0.3828,
+        "n_matched": 49
+      }
+    },
+    "pred_size": {
+      "n_rings": 82,
+      "mean_members": 4.219512195121951,
+      "max_members": 10
+    },
+    "appendix": {
+      "strict": {
+        "ring_precision": 0.0366,
+        "ring_recall": 0.15,
+        "ring_f1": 0.0588,
+        "member_coverage": 1.0,
+        "mean_jaccard": 0.7778,
+        "n_predicted": 82,
+        "n_truth": 20,
+        "n_matched": 3,
+        "per_pattern": {
+          "BIPARTITE": {
+            "n_truth": 6.0,
+            "n_matched": 2.0,
+            "recall": 0.3333333333333333
+          },
+          "STACK": {
+            "n_truth": 2.0,
+            "n_matched": 1.0,
+            "recall": 0.5
+          },
+          "GATHER-SCATTER": {
+            "n_truth": 2.0,
+            "n_matched": 0.0,
+            "recall": 0.0
+          },
+          "FAN-IN": {
+            "n_truth": 2.0,
+            "n_matched": 0.0,
+            "recall": 0.0
+          },
+          "FAN-OUT": {
+            "n_truth": 2.0,
+            "n_matched": 0.0,
+            "recall": 0.0
+          },
+          "RANDOM": {
+            "n_truth": 4.0,
+            "n_matched": 0.0,
+            "recall": 0.0
+          },
+          "CYCLE": {
+            "n_truth": 1.0,
+            "n_matched": 0.0,
+            "recall": 0.0
+          },
+          "SCATTER-GATHER": {
+            "n_truth": 1.0,
+            "n_matched": 0.0,
+            "recall": 0.0
+          }
+        },
+        "ring_recall_ge3": 1.0,
+        "n_truth_ge3": 1,
+        "n_matched_ge3": 1,
+        "jaccard_sweep": {},
+        "pred_size": {
+          "n_rings": 82,
+          "mean_members": 4.219512195121951,
+          "max_members": 10
+        }
+      },
+      "majority": {
+        "ring_precision": 0.0976,
+        "ring_recall": 0.2105,
+        "ring_f1": 0.1333,
+        "member_coverage": 0.8597,
+        "mean_jaccard": 0.7514,
+        "n_predicted": 82,
+        "n_truth": 38,
+        "n_matched": 8,
+        "per_pattern": {
+          "RANDOM": {
+            "n_truth": 5.0,
+            "n_matched": 0.0,
+            "recall": 0.0
+          },
+          "SCATTER-GATHER": {
+            "n_truth": 3.0,
+            "n_matched": 1.0,
+            "recall": 0.3333333333333333
+          },
+          "CYCLE": {
+            "n_truth": 5.0,
+            "n_matched": 0.0,
+            "recall": 0.0
+          },
+          "FAN-OUT": {
+            "n_truth": 5.0,
+            "n_matched": 3.0,
+            "recall": 0.6
+          },
+          "STACK": {
+            "n_truth": 5.0,
+            "n_matched": 1.0,
+            "recall": 0.2
+          },
+          "BIPARTITE": {
+            "n_truth": 9.0,
+            "n_matched": 2.0,
+            "recall": 0.2222222222222222
+          },
+          "GATHER-SCATTER": {
+            "n_truth": 3.0,
+            "n_matched": 0.0,
+            "recall": 0.0
+          },
+          "FAN-IN": {
+            "n_truth": 3.0,
+            "n_matched": 1.0,
+            "recall": 0.3333333333333333
+          }
+        },
+        "ring_recall_ge3": 0.3158,
+        "n_truth_ge3": 19,
+        "n_matched_ge3": 6,
+        "jaccard_sweep": {},
+        "pred_size": {
+          "n_rings": 82,
+          "mean_members": 4.219512195121951,
+          "max_members": 10
+        }
+      }
+    },
+    "seed_edges_vs_labels": {
+      "n_edges_in_window": 862792,
+      "n_illicit_in_window": 956,
+      "n_seed_edges": 289,
+      "seed_edge_precision": 0.9134948096885813,
+      "seed_edge_recall_of_illicit": 0.27615062761506276,
+      "n_member_edges": 530,
+      "member_edge_precision": 0.5018867924528302,
+      "member_edge_recall_of_illicit": 0.27824267782426776
+    }
+  },
+  "rings_total": {
+    "n_rings": 96,
+    "n_seed_edges": 686,
+    "n_member_edges": 1260
+  },
+  "test_seed_edges_vs_labels": {
+    "n_seed_edges": 686,
+    "seed_edge_precision": 0.9285714285714286,
+    "seed_edge_recall_of_illicit": 0.3954065797641217,
+    "n_member_edges": 1260,
+    "member_edge_precision": 0.5222222222222223,
+    "member_edge_recall_of_illicit": 0.4084419615145872
+  },
+  "test_boundary_plateau": {
+    "q": 0.626897575259209,
+    "n_on_boundary": 0,
+    "n_seeds": 864
+  },
+  "val_at_chosen": {
+    "ring_precision": 0.6542,
+    "ring_recall": 0.4459,
+    "ring_f1": 0.5303,
+    "member_coverage": 0.8846,
+    "mean_jaccard": 0.8708,
+    "n_predicted": 107,
+    "n_truth": 157,
+    "n_matched": 70,
+    "per_pattern": {
+      "GATHER-SCATTER": {
+        "n_truth": 23.0,
+        "n_matched": 16.0,
+        "recall": 0.6956521739130435
+      },
+      "SCATTER-GATHER": {
+        "n_truth": 21.0,
+        "n_matched": 16.0,
+        "recall": 0.7619047619047619
+      },
+      "FAN-OUT": {
+        "n_truth": 20.0,
+        "n_matched": 8.0,
+        "recall": 0.4
+      },
+      "STACK": {
+        "n_truth": 25.0,
+        "n_matched": 2.0,
+        "recall": 0.08
+      },
+      "FAN-IN": {
+        "n_truth": 20.0,
+        "n_matched": 10.0,
+        "recall": 0.5
+      },
+      "RANDOM": {
+        "n_truth": 15.0,
+        "n_matched": 6.0,
+        "recall": 0.4
+      },
+      "CYCLE": {
+        "n_truth": 24.0,
+        "n_matched": 12.0,
+        "recall": 0.5
+      },
+      "BIPARTITE": {
+        "n_truth": 9.0,
+        "n_matched": 0.0,
+        "recall": 0.0
+      }
+    },
+    "ring_recall_ge3": 0.6053,
+    "n_truth_ge3": 114,
+    "n_matched_ge3": 69,
+    "jaccard_sweep": {
+      "0.3": {
+        "ring_precision": 0.6636,
+        "ring_recall": 0.4522,
+        "ring_f1": 0.5379,
+        "n_matched": 71
+      },
+      "0.7": {
+        "ring_precision": 0.5514,
+        "ring_recall": 0.3758,
+        "ring_f1": 0.447,
+        "n_matched": 59
+      }
+    },
+    "pred_size": {
+      "n_rings": 107,
+      "mean_members": 4.644859813084112,
+      "max_members": 14
+    }
+  },
+  "val_seed_edges_vs_labels": {
+    "n_seed_edges": 476,
+    "seed_edge_precision": 0.8172268907563025,
+    "seed_edge_recall_of_illicit": 0.3754826254826255,
+    "n_member_edges": 799,
+    "member_edge_precision": 0.490613266583229,
+    "member_edge_recall_of_illicit": 0.3783783783783784
+  },
+  "seconds": 52.0
+}

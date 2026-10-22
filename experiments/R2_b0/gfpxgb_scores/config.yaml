@@ -1,0 +1,81 @@
+experiment: gfpxgb_scores
+model_id: gfpxgb
+step: 4.3 (R2 gfpxgb refit; supersedes E5b, which is retired)
+created_utc: '2026-09-17T18:17:56+00:00'
+refit_from: experiments\E5b_gfp_xgboost\config.yaml
+e5b_best_params:
+  max_depth: 12
+  learning_rate: 0.060940535383840054
+  scale_pos_weight: 1520.556239246705
+  subsample: 0.7998599207043823
+  colsample_bytree: 0.6181474277059628
+  min_child_weight: 20
+  gamma: 3.1500934149790636
+  reg_alpha: 0.00021867463749492656
+  reg_lambda: 0.00019286951588141392
+  num_round: 724
+e5b_best_val_f1: 0.36171284634760703
+params_used:
+  max_depth: 12
+  learning_rate: 0.060940535383840054
+  scale_pos_weight: 1520.556239246705
+  subsample: 0.7998599207043823
+  colsample_bytree: 0.6181474277059628
+  min_child_weight: 20
+  gamma: 3.1500934149790636
+  reg_alpha: 0.00021867463749492656
+  reg_lambda: 0.00019286951588141392
+  num_round: 724
+  early_stopping: null
+early_stopping_note: 'not used: with patience 30 on val aucpr the noisy first rounds
+  stopped seeds 1-3 after 1-5 trees (val AP 0.12-0.15) while seed 4 ran to round 512
+  (val AP 0.37); E5b''s own final fit used the fixed num_round, so the refit does
+  too'
+fit_on: train only (E5b refit on train+val; here val must stay out-of-sample for thresholds
+  and grids)
+seeds:
+- 1
+- 2
+- 3
+- 4
+- 5
+seed_source: configs/seeds.yaml
+feature_cols:
+- Amount Sent
+- Sent Currency
+- Amount Received
+- Received Currency
+- Payment Format
+- hour_of_day
+- day_of_week
+- fan_out
+- fan_in
+- deg_out_src
+- deg_in_src
+- deg_out_dst
+- deg_in_dst
+- scatter_gather
+- gather_scatter
+- temporal_cycle
+- cycle_length
+excluded_features:
+- day_index
+- from_bank
+- to_bank
+- sender_out_degree
+- sender_out_amount_mean
+- sender_out_amount_std
+- sender_out_amount_max
+- sender_out_volume_total
+- receiver_in_degree
+- receiver_in_amount_mean
+- receiver_in_amount_std
+- receiver_in_amount_max
+- receiver_in_volume_total
+feature_set: trailing_closescycle
+gfp_parquets: data/processed/amlworld_gfp_features_<split>.parquet (re-keyed, trailing;
+  asserted)
+outputs: scores_<split>_seed<S>.parquet (edge_id, timestamp, score_raw = predict_proba),
+  val + test
+dry_run: false
+seconds: 1238.1

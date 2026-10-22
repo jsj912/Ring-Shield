@@ -39,3 +39,7 @@ seaborn>=0.13
 
 # --- Notebooks (exploratory only, per repo structure) ---
 jupyter>=1.0
+
+# --- Tests ---
+pytest>=8
+

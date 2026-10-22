@@ -9,6 +9,23 @@ Usage:
         --data-dir data/processed \
         --out-dir experiments/E5b_gfp_xgboost \
         --n-trials 50
+
+Step 4 refit (model_id 'gfpxgb', supersedes the E5b figure; E5b itself is retired):
+
+    python baselines/gfp_xgboost_aml.py --refit-from experiments/E5b_gfp_xgboost/config.yaml \
+        --seeds 1 2 3 4 5 --out-dir experiments/R2_b0/gfpxgb_scores
+
+Takes the E5b best hyper-parameters including num_round (fixed, no early stopping -- exactly
+how E5b fit its final model; with early stopping at patience 30 the val aucpr curve's noisy
+first rounds stopped three of five seeds after 1-5 trees), fits on TRAIN only once per XGBoost
+seed (val is only scored, never fit on), and writes scores_<split>_seed<S>.parquet (edge_id,
+timestamp, score_raw = predict_proba) for val and test in the models/score.py layout, plus
+config.yaml / metrics.json / environment.txt. The GFP parquets must be the re-keyed, trailing
+(Step 3b-z) files: the EdgeID join is asserted one-to-one and the schema metadata is checked.
+Feature set: the 7 transaction fields (amounts, currencies, payment format, hour, weekday) +
+the 10 GFP columns. Not used: day_index (absolute calendar day -- identifies the split and the
+test tail), the sender_*/receiver_* train-period account aggregates (look ahead within train,
+docs/FEATURE_CAUSALITY.md section 6), from_bank/to_bank (not in E5b's 28 features).
 """
 
 import argparse
@@ -28,7 +45,95 @@ from sklearn.metrics import f1_score, precision_score, recall_score, average_pre
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-SEED = 42
+# The feature set and the loader live in baselines/refit_data.py, which does NOT import optuna --
+# this module does, at ~2.6 s, and a caller that only wants the data should not pay for the tuner.
+# Re-exported here so `from baselines.gfp_xgboost_aml import load_split_for_refit` keeps working
+# and hands back the same function object.
+from baselines.refit_data import (  # noqa: E402,F401
+    GFP_COLS,
+    REFIT_EXCLUDED,
+    REFIT_TABULAR,
+    SEED,
+    load_split_for_refit,
+)
+
+
+
+
+def refit(args):
+    """Step 4: E5b best params, five XGBoost seeds, train-only fit, val/test score files."""
+    from datetime import datetime, timezone
+    cfg = yaml.safe_load(Path(args.refit_from).read_text(encoding="utf-8"))
+    best = dict(cfg["best_params"])
+    num_round = int(best.pop("num_round"))
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+    frames, X, y = {}, {}, {}
+    for split in ("train", "val", "test"):
+        frames[split], X[split], y[split], feature_cols = load_split_for_refit(args.data_dir, split)
+        if args.dry_run:
+            rng = np.random.default_rng(args.seeds[0])
+            keep = np.sort(rng.choice(len(y[split]), size=max(1, len(y[split]) // 100), replace=False))
+            frames[split], X[split], y[split] = frames[split].iloc[keep].reset_index(drop=True), X[split][keep], y[split][keep]
+        print(f"  {split}: {len(y[split]):,} rows, {int(y[split].sum()):,} illicit")
+    print(f"  features ({len(feature_cols)}): {feature_cols}")
+    dtrain = xgb.DMatrix(X["train"], label=y["train"], feature_names=feature_cols)
+    dval = xgb.DMatrix(X["val"], label=y["val"], feature_names=feature_cols)
+    dtest = xgb.DMatrix(X["test"], feature_names=feature_cols)
+
+    per_seed, logs = [], {}
+    for seed in args.seeds:
+        params = {"objective": "binary:logistic", "eval_metric": "aucpr", "tree_method": "hist", "device": "cpu",
+                  "seed": int(seed), **best}
+        t1 = time.time()
+        evals_result = {}
+        model = xgb.train(params, dtrain, num_boost_round=num_round, evals=[(dval, "val")],
+                          evals_result=evals_result, verbose_eval=False)      # fixed rounds, as E5b's final fit
+        curve = evals_result["val"]["aucpr"]
+        best_iter = int(np.argmax(curve))                                    # informational only
+        p_val = model.predict(dval)
+        p_test = model.predict(dtest)
+        for split, p in (("val", p_val), ("test", p_test)):
+            out = pd.DataFrame({"edge_id": frames[split]["EdgeID"].to_numpy(np.int64),
+                                "timestamp": frames[split]["Timestamp"].to_numpy(np.int64),
+                                "score_raw": p.astype(np.float64)}).sort_values("edge_id").reset_index(drop=True)
+            tag = f"{split}_seed{seed}" + ("_dryrun" if args.dry_run else "")
+            out.to_parquet(args.out_dir / f"scores_{tag}.parquet", index=False)
+        model.save_model(str(args.out_dir / f"model_seed{seed}.json"))
+        ap_val = average_precision_score(y["val"], p_val)
+        ap_test = average_precision_score(y["test"], p_test)
+        imp = model.get_score(importance_type="gain")
+        gfp_pct = 100 * sum(v for k, v in imp.items() if k in GFP_COLS) / max(sum(imp.values()), 1e-12)
+        per_seed.append({"seed": int(seed), "rounds": num_round, "val_aucpr_argmax_round_informational": best_iter,
+                         "val_aucpr_final": float(curve[-1]), "val_aucpr_max": float(max(curve)),
+                         "val_ap": float(ap_val), "test_ap_whole_split_informational": float(ap_test),
+                         "gfp_gain_pct": float(gfp_pct), "seconds": round(time.time() - t1, 1),
+                         "top_features": [k for k, _ in sorted(imp.items(), key=lambda kv: -kv[1])[:8]]})
+        logs[seed] = evals_result["val"]["aucpr"]
+        print(f"  seed {seed}: {num_round} rounds (val aucpr max {max(curve):.4f} at round {best_iter}, final {curve[-1]:.4f}) "
+              f"| val AP {ap_val:.4f} | GFP gain {gfp_pct:.1f}% | {time.time() - t1:.0f}s")
+    pd.DataFrame({f"seed{s}": pd.Series(v) for s, v in logs.items()}).to_csv(args.out_dir / "training_log.csv", index_label="round")
+    config = {
+        "experiment": args.out_dir.name, "model_id": "gfpxgb", "step": "4.3 (R2 gfpxgb refit; supersedes E5b, which is retired)",
+        "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "refit_from": str(args.refit_from), "e5b_best_params": cfg["best_params"], "e5b_best_val_f1": cfg.get("best_val_f1"),
+        "params_used": {**best, "num_round": num_round, "early_stopping": None},
+        "early_stopping_note": "not used: with patience 30 on val aucpr the noisy first rounds stopped seeds 1-3 after "
+                               "1-5 trees (val AP 0.12-0.15) while seed 4 ran to round 512 (val AP 0.37); E5b's own final "
+                               "fit used the fixed num_round, so the refit does too",
+        "fit_on": "train only (E5b refit on train+val; here val must stay out-of-sample for thresholds and grids)",
+        "seeds": [int(s) for s in args.seeds], "seed_source": "configs/seeds.yaml",
+        "feature_cols": feature_cols, "excluded_features": REFIT_EXCLUDED,
+        "feature_set": "trailing_closescycle", "gfp_parquets": "data/processed/amlworld_gfp_features_<split>.parquet (re-keyed, trailing; asserted)",
+        "outputs": "scores_<split>_seed<S>.parquet (edge_id, timestamp, score_raw = predict_proba), val + test",
+        "dry_run": bool(args.dry_run), "seconds": round(time.time() - t0, 1),
+    }
+    (args.out_dir / "config.yaml").write_text(yaml.dump(config, sort_keys=False), encoding="utf-8")
+    (args.out_dir / "metrics.json").write_text(json.dumps({"per_seed": per_seed, "note": "edge metrics per window: "
+                                                           "evaluation/edge_metrics.py; ring rows: ringshield/run_rings.py"},
+                                                          indent=2), encoding="utf-8")
+    write_environment(args.out_dir / "environment.txt")
+    print(f"[gfpxgb] wrote {args.out_dir}")
 
 
 def load_split_with_gfp(data_dir: Path, split: str):
@@ -77,8 +182,15 @@ def main():
     parser.add_argument("--out-dir", type=Path, default=Path("experiments/E5b_gfp_xgboost"))
     parser.add_argument("--n-trials", type=int, default=50)
     parser.add_argument("--max-rounds", type=int, default=1000)
+    parser.add_argument("--refit-from", type=Path, default=None,
+                        help="Step 4 refit mode: E5b config.yaml with best_params; no Optuna")
+    parser.add_argument("--seeds", "--seed", dest="seeds", type=int, nargs="+", default=[1, 2, 3, 4, 5])
+    parser.add_argument("--dry-run", action="store_true", help="refit mode: 1%% of every split")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    if args.refit_from is not None:
+        refit(args)
+        return
 
     # --- Load data ---
     print("Loading AMLworld data + per-edge GFP features...")

@@ -1,0 +1,104 @@
+{
+  "created_utc": "2026-09-27T10:40:35+00:00",
+  "git_commit": "257ac03b384601cb0d04fa0cb63326af68dd0f92",
+  "step": "11 (R7 held-out pattern)",
+  "window": "primary",
+  "scope": "test_visible",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "n_bootstrap": 1000,
+  "detector": "R1_gine_causal (frozen in every arm)",
+  "added_member_precision_definition": "per prediction that matched a truth ring of pattern P, the share of its in-window expanded edges that are member edges of that same truth ring; pooled over seeds",
+  "pre_specified_reading": "docs/GENERALISATION.md -- for the held-out pattern the evidence is quiet-member recall and added-member precision, not ring-F1",
+  "provenance": {
+    "all_patterns/expand": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\runs\\proposed",
+      "held_out": null,
+      "n_seeds": 5,
+      "hold_out_pattern": null
+    },
+    "all_patterns/full": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\runs\\average",
+      "held_out": null,
+      "n_seeds": 5,
+      "hold_out_pattern": null
+    },
+    "l3_bipartite/expand": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R7_l3only_bipartite\\runs\\expand",
+      "held_out": "BIPARTITE",
+      "n_seeds": 5,
+      "hold_out_pattern": "BIPARTITE",
+      "n_held_out_rings": 49,
+      "n_held_out_edges_by_split": {
+        "test": 68,
+        "train": 150,
+        "val": 49
+      },
+      "relabelled_licit_in": [
+        "train",
+        "val"
+      ],
+      "test_labels_untouched": true,
+      "graph_unchanged": true
+    },
+    "l3_bipartite/full": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R7_l3only_bipartite\\runs\\full",
+      "held_out": "BIPARTITE",
+      "n_seeds": 5,
+      "hold_out_pattern": "BIPARTITE",
+      "n_held_out_rings": 49,
+      "n_held_out_edges_by_split": {
+        "test": 68,
+        "train": 150,
+        "val": 49
+      },
+      "relabelled_licit_in": [
+        "train",
+        "val"
+      ],
+      "test_labels_untouched": true,
+      "graph_unchanged": true
+    },
+    "l3_cycle/expand": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R7_l3only_cycle\\runs\\expand",
+      "held_out": "CYCLE",
+      "n_seeds": 5,
+      "hold_out_pattern": "CYCLE",
+      "n_held_out_rings": 54,
+      "n_held_out_edges_by_split": {
+        "test": 123,
+        "train": 147,
+        "val": 80
+      },
+      "relabelled_licit_in": [
+        "train",
+        "val"
+      ],
+      "test_labels_untouched": true,
+      "graph_unchanged": true
+    },
+    "l3_cycle/full": {
+      "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R7_l3only_cycle\\runs\\full",
+      "held_out": "CYCLE",
+      "n_seeds": 5,
+      "hold_out_pattern": "CYCLE",
+      "n_held_out_rings": 54,
+      "n_held_out_edges_by_split": {
+        "test": 123,
+        "train": 147,
+        "val": 80
+      },
+      "relabelled_licit_in": [
+        "train",
+        "val"
+      ],
+      "test_labels_untouched": true,
+      "graph_unchanged": true
+    }
+  }
+}

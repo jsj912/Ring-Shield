@@ -1,0 +1,30 @@
+{
+  "model_id": "gfpxgb",
+  "seed": 1,
+  "aggregator": "cc",
+  "params": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "max_gap_hours": null
+  },
+  "feature_set": "trailing_closescycle",
+  "threshold_rule": "configs/threshold_rule.yaml (strict quantile on score_raw)",
+  "source": "experiments/R2_b0/gfpxgb/seed1 (ringshield/run_rings.py config.yaml, chosen on val)",
+  "version": 1,
+  "created_utc": "2026-09-17T19:02:26+00:00",
+  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "val_ring_f1_at_chosen": 0.391,
+  "scope": "test_visible",
+  "eval_window": {
+    "name": "primary",
+    "split": "test",
+    "days": [
+      8,
+      9
+    ],
+    "bounds": [
+      691210,
+      864009
+    ]
+  }
+}

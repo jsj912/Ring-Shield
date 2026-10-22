@@ -1,0 +1,61 @@
+# Which detector ships — decided on VALIDATION, recorded before any test row was consulted.
+# Step 14 item 2. This file is the decision record; FINDINGS.md carries the evidence.
+
+rule: >
+  Ship the detector with the higher validation ring-F1 of the `full` aggregator, each detector
+  using its own val-chosen L3 parameters. Ties go to the incumbent (gine_causal). The test window
+  plays no part in this choice and was not consulted before the outcome below was written.
+
+decided_utc: '2026-09-29'
+window: validation (days 6-7), test_visible scope, Jaccard 0.5
+aggregator: full (expansion + average-linkage partition)
+
+candidates:
+  gine_causal:
+    source: experiments/R4_partition/runs/average/seed{1..5}/config.yaml -> chosen.val_ring_f1
+    val_ring_f1_per_seed: [0.6138, 0.5770, 0.6048, 0.6048, 0.5632]
+    val_ring_f1_mean: 0.5927
+    val_ring_f1_sd: 0.0215
+  mega:
+    source: experiments/R6_full/mega/seed{1..5}/config.yaml -> chosen.val_ring_f1
+    val_ring_f1_per_seed: [0.5338, 0.5574, 0.5636, 0.5762, 0.5789]
+    val_ring_f1_mean: 0.5620
+    val_ring_f1_sd: 0.0181
+
+outcome:
+  shipped_detector: gine_causal
+  changed: false
+  margin: 0.0307        # gine - mega, on validation
+  seeds_won_by_gine: 4  # of 5, paired by seed; mega wins only seed 5 (0.5789 vs 0.5632)
+  reasoning: >
+    gine_causal has the higher validation ring-F1 on 4 of 5 seeds and in the mean (0.5927 vs
+    0.5620, a margin of 0.031 against seed SDs of 0.022 and 0.018). The rule therefore keeps the
+    incumbent and nothing is re-shipped. No contract artefact changes.
+
+# ---------------------------------------------------------------------------------------------
+# The part that matters most, recorded deliberately:
+test_window_disagrees: >
+  On the TEST primary window the ordering reverses -- mega full 0.6074 [0.5436, 0.6693] against
+  gine full 0.5894 [0.5234, 0.6529], with mega also showing lower class (b) (24.0 vs 33.2), higher
+  quiet-member recall (0.2417 vs 0.2032) and roughly half the seed spread. None of those
+  differences is significant (r6_pvalues.csv: mega/full vs gine/full p_holm 0.807), and none of
+  them is admissible as a reason to switch, because the rule was fixed on validation. Shipping
+  MEGA on the strength of the test row would be choosing on test. It is recorded here so the
+  disagreement is visible rather than buried.
+
+known_gap:
+  bootstrap_ci_over_val_rings: not computed
+  why: >
+    Each run records the val ring-F1 of its chosen cell as a point estimate computed in memory
+    during the grid search; no run materialised a val rings.parquet, so a bootstrap over validation
+    rings would require re-running the `full` aggregator on the val split for 2 detectors x 5 seeds
+    (~1-2 h). The decision does not turn on it: the margin is consistent in direction across 4 of 5
+    paired seeds, and an interval would not reverse a 0.031 gap that already sits inside the
+    "ties go to the incumbent" clause in the conservative direction. Flagged rather than silently
+    skipped; materialising val rings remains the open Step 9 item 1.
+
+notes_for_the_platform_side: >
+  No action. The shipped contract artefacts remain the gine_causal ones. Had MEGA been chosen the
+  note would have been: contract columns unchanged, `model_id` differs, embeddings are 192-dim
+  instead of 198, and MEGA's expansion policy is the gine-trained policy applied to MEGA's
+  candidates (the measured control for that transfer is `mega_noembed`, 0.5881 vs 0.6074).

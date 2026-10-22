@@ -1,0 +1,381 @@
+{
+  "created_utc": "2026-09-26T22:48:57+00:00",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "scope": "test_visible",
+  "classes": {
+    "a_lt3_members": "< 3 visible members in the window",
+    "b_untouched": ">= 3 members, no included edge touches it",
+    "c_over_merged": "touched, J < 0.5, best prediction also covers another truth ring",
+    "c_under_covered": "touched, J < 0.5, no prediction holds a second ring"
+  },
+  "summary": {
+    "primary/b0": {
+      "n_truth_per_seed": 174.0,
+      "n_seeds": 5,
+      "matched": {
+        "total": 334,
+        "per_seed": 66.8
+      },
+      "a_lt3_members": {
+        "total": 260,
+        "per_seed": 52.0
+      },
+      "b_untouched": {
+        "total": 201,
+        "per_seed": 40.2
+      },
+      "c_over_merged": {
+        "total": 25,
+        "per_seed": 5.0
+      },
+      "c_under_covered": {
+        "total": 50,
+        "per_seed": 10.0
+      }
+    },
+    "primary/b2": {
+      "n_truth_per_seed": 174.0,
+      "n_seeds": 5,
+      "matched": {
+        "total": 388,
+        "per_seed": 77.6
+      },
+      "a_lt3_members": {
+        "total": 260,
+        "per_seed": 52.0
+      },
+      "b_untouched": {
+        "total": 166,
+        "per_seed": 33.2
+      },
+      "c_over_merged": {
+        "total": 26,
+        "per_seed": 5.2
+      },
+      "c_under_covered": {
+        "total": 30,
+        "per_seed": 6.0
+      }
+    },
+    "primary/full": {
+      "n_truth_per_seed": 174.0,
+      "n_seeds": 5,
+      "matched": {
+        "total": 401,
+        "per_seed": 80.2
+      },
+      "a_lt3_members": {
+        "total": 243,
+        "per_seed": 48.6
+      },
+      "b_untouched": {
+        "total": 166,
+        "per_seed": 33.2
+      },
+      "c_over_merged": {
+        "total": 26,
+        "per_seed": 5.2
+      },
+      "c_under_covered": {
+        "total": 34,
+        "per_seed": 6.8
+      }
+    },
+    "val/b0": {
+      "n_truth_per_seed": 157.0,
+      "n_seeds": 5,
+      "matched": {
+        "total": 362,
+        "per_seed": 72.4
+      },
+      "a_lt3_members": {
+        "total": 213,
+        "per_seed": 42.6
+      },
+      "b_untouched": {
+        "total": 116,
+        "per_seed": 23.2
+      },
+      "c_over_merged": {
+        "total": 59,
+        "per_seed": 11.8
+      },
+      "c_under_covered": {
+        "total": 35,
+        "per_seed": 7.0
+      }
+    },
+    "val/b2": {
+      "n_truth_per_seed": 157.0,
+      "n_seeds": 5,
+      "matched": {
+        "total": 393,
+        "per_seed": 78.6
+      },
+      "a_lt3_members": {
+        "total": 213,
+        "per_seed": 42.6
+      },
+      "b_untouched": {
+        "total": 75,
+        "per_seed": 15.0
+      },
+      "c_over_merged": {
+        "total": 59,
+        "per_seed": 11.8
+      },
+      "c_under_covered": {
+        "total": 45,
+        "per_seed": 9.0
+      }
+    },
+    "val/full": {
+      "n_truth_per_seed": 157.0,
+      "n_seeds": 5,
+      "matched": {
+        "total": 431,
+        "per_seed": 86.2
+      },
+      "a_lt3_members": {
+        "total": 198,
+        "per_seed": 39.6
+      },
+      "b_untouched": {
+        "total": 75,
+        "per_seed": 15.0
+      },
+      "c_over_merged": {
+        "total": 36,
+        "per_seed": 7.2
+      },
+      "c_under_covered": {
+        "total": 45,
+        "per_seed": 9.0
+      }
+    }
+  },
+  "per_pattern_primary": [
+    {
+      "method": "b0",
+      "pattern_type": "BIPARTITE",
+      "matched": 0,
+      "a_lt3_members": 30,
+      "b_untouched": 41,
+      "c_over_merged": 4,
+      "c_under_covered": 5
+    },
+    {
+      "method": "b0",
+      "pattern_type": "CYCLE",
+      "matched": 24,
+      "a_lt3_members": 40,
+      "b_untouched": 37,
+      "c_over_merged": 7,
+      "c_under_covered": 2
+    },
+    {
+      "method": "b0",
+      "pattern_type": "FAN-IN",
+      "matched": 48,
+      "a_lt3_members": 22,
+      "b_untouched": 15,
+      "c_over_merged": 0,
+      "c_under_covered": 5
+    },
+    {
+      "method": "b0",
+      "pattern_type": "FAN-OUT",
+      "matched": 60,
+      "a_lt3_members": 27,
+      "b_untouched": 6,
+      "c_over_merged": 7,
+      "c_under_covered": 0
+    },
+    {
+      "method": "b0",
+      "pattern_type": "GATHER-SCATTER",
+      "matched": 103,
+      "a_lt3_members": 50,
+      "b_untouched": 19,
+      "c_over_merged": 0,
+      "c_under_covered": 13
+    },
+    {
+      "method": "b0",
+      "pattern_type": "RANDOM",
+      "matched": 26,
+      "a_lt3_members": 25,
+      "b_untouched": 28,
+      "c_over_merged": 4,
+      "c_under_covered": 2
+    },
+    {
+      "method": "b0",
+      "pattern_type": "SCATTER-GATHER",
+      "matched": 71,
+      "a_lt3_members": 26,
+      "b_untouched": 7,
+      "c_over_merged": 0,
+      "c_under_covered": 6
+    },
+    {
+      "method": "b0",
+      "pattern_type": "STACK",
+      "matched": 2,
+      "a_lt3_members": 40,
+      "b_untouched": 48,
+      "c_over_merged": 3,
+      "c_under_covered": 17
+    },
+    {
+      "method": "b2",
+      "pattern_type": "BIPARTITE",
+      "matched": 0,
+      "a_lt3_members": 30,
+      "b_untouched": 41,
+      "c_over_merged": 5,
+      "c_under_covered": 4
+    },
+    {
+      "method": "b2",
+      "pattern_type": "CYCLE",
+      "matched": 44,
+      "a_lt3_members": 40,
+      "b_untouched": 18,
+      "c_over_merged": 6,
+      "c_under_covered": 2
+    },
+    {
+      "method": "b2",
+      "pattern_type": "FAN-IN",
+      "matched": 55,
+      "a_lt3_members": 22,
+      "b_untouched": 12,
+      "c_over_merged": 1,
+      "c_under_covered": 0
+    },
+    {
+      "method": "b2",
+      "pattern_type": "FAN-OUT",
+      "matched": 60,
+      "a_lt3_members": 27,
+      "b_untouched": 6,
+      "c_over_merged": 7,
+      "c_under_covered": 0
+    },
+    {
+      "method": "b2",
+      "pattern_type": "GATHER-SCATTER",
+      "matched": 111,
+      "a_lt3_members": 51,
+      "b_untouched": 17,
+      "c_over_merged": 0,
+      "c_under_covered": 6
+    },
+    {
+      "method": "b2",
+      "pattern_type": "RANDOM",
+      "matched": 35,
+      "a_lt3_members": 25,
+      "b_untouched": 21,
+      "c_over_merged": 3,
+      "c_under_covered": 1
+    },
+    {
+      "method": "b2",
+      "pattern_type": "SCATTER-GATHER",
+      "matched": 79,
+      "a_lt3_members": 25,
+      "b_untouched": 5,
+      "c_over_merged": 1,
+      "c_under_covered": 0
+    },
+    {
+      "method": "b2",
+      "pattern_type": "STACK",
+      "matched": 4,
+      "a_lt3_members": 40,
+      "b_untouched": 46,
+      "c_over_merged": 3,
+      "c_under_covered": 17
+    },
+    {
+      "method": "full",
+      "pattern_type": "BIPARTITE",
+      "matched": 5,
+      "a_lt3_members": 25,
+      "b_untouched": 41,
+      "c_over_merged": 5,
+      "c_under_covered": 4
+    },
+    {
+      "method": "full",
+      "pattern_type": "CYCLE",
+      "matched": 42,
+      "a_lt3_members": 40,
+      "b_untouched": 18,
+      "c_over_merged": 6,
+      "c_under_covered": 4
+    },
+    {
+      "method": "full",
+      "pattern_type": "FAN-IN",
+      "matched": 56,
+      "a_lt3_members": 21,
+      "b_untouched": 12,
+      "c_over_merged": 1,
+      "c_under_covered": 0
+    },
+    {
+      "method": "full",
+      "pattern_type": "FAN-OUT",
+      "matched": 64,
+      "a_lt3_members": 24,
+      "b_untouched": 6,
+      "c_over_merged": 6,
+      "c_under_covered": 0
+    },
+    {
+      "method": "full",
+      "pattern_type": "GATHER-SCATTER",
+      "matched": 117,
+      "a_lt3_members": 43,
+      "b_untouched": 17,
+      "c_over_merged": 0,
+      "c_under_covered": 8
+    },
+    {
+      "method": "full",
+      "pattern_type": "RANDOM",
+      "matched": 35,
+      "a_lt3_members": 25,
+      "b_untouched": 21,
+      "c_over_merged": 3,
+      "c_under_covered": 1
+    },
+    {
+      "method": "full",
+      "pattern_type": "SCATTER-GATHER",
+      "matched": 78,
+      "a_lt3_members": 25,
+      "b_untouched": 5,
+      "c_over_merged": 2,
+      "c_under_covered": 0
+    },
+    {
+      "method": "full",
+      "pattern_type": "STACK",
+      "matched": 4,
+      "a_lt3_members": 40,
+      "b_untouched": 46,
+      "c_over_merged": 3,
+      "c_under_covered": 17
+    }
+  ]
+}

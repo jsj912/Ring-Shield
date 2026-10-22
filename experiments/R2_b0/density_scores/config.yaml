@@ -1,0 +1,115 @@
+experiment: density_scores
+model_id: density
+step: 4.4 (R2 unsupervised density detector)
+created_utc: '2026-09-17T17:53:35+00:00'
+git_commit: ee8fadfd88603eff0c3e4c3daa2f7e72743f111e
+labels_used: false
+deterministic: true
+seeds:
+- 1
+- 2
+- 3
+- 4
+- 5
+seeds_note: the detector has no randomness; the five scores_<split>_seed<S>.parquet
+  files are byte-identical copies written so ringshield/run_rings.py and evaluation/aggregate_results.py
+  treat it like the other detectors (mean over 'seeds' = the single value, std = 0)
+signals:
+- sender_out_count_24h
+- sender_out_sum_24h
+- receiver_in_count_24h
+- receiver_in_sum_24h
+- scatter_gather
+- temporal_cycle
+window_s: 86400
+definition: z-score each signal with train-period mean/std, clip at 0 from below,
+  average the six, rank-normalise within the split (average ranks -> exact ties kept);
+  score in (0, 1]
+trailing: window counts use edges strictly before t via bisect on per-account sorted
+  arrays (same layout as graph/motif_features.py); scatter_gather and temporal_cycle
+  are the trailing Step 3b-z GFP columns
+train_stats:
+  sender_out_count_24h:
+    mean: 752.4373624350977
+    std: 3379.747785997549
+  sender_out_sum_24h:
+    mean: 650505452.8345938
+    std: 5340496530.864081
+  receiver_in_count_24h:
+    mean: 2.443673145638198
+    std: 5.330884866163932
+  receiver_in_sum_24h:
+    mean: 26439109.64861406
+    std: 3300203167.2970815
+  scatter_gather:
+    mean: 1.0536251881778598
+    std: 0.8431330285602355
+  temporal_cycle:
+    mean: 0.05727409192159489
+    std: 0.23236559624038924
+per_split:
+  train:
+    n_edges: 3248921
+    n_all_six_below_train_mean: 1103843
+    share_all_six_below_train_mean: 0.3397567992573534
+    score_min: 0.16987855352592446
+    n_unique_scores: 169795
+    raw_means:
+      sender_out_count_24h: 752.4373624350977
+      sender_out_sum_24h: 650505452.8345938
+      receiver_in_count_24h: 2.443673145638198
+      receiver_in_sum_24h: 26439109.64861406
+      scatter_gather: 1.0536251881778598
+      temporal_cycle: 0.05727409192159489
+    z_clipped_share_positive:
+      sender_out_count_24h: 0.07683381651939213
+      sender_out_sum_24h: 0.07119779151293613
+      receiver_in_count_24h: 0.38761976668561654
+      receiver_in_sum_24h: 0.01587173095313798
+      scatter_gather: 0.3834593084904188
+      temporal_cycle: 0.05727409192159489
+  val:
+    n_edges: 965524
+    n_all_six_below_train_mean: 153650
+    share_all_six_below_train_mean: 0.15913638604529767
+    score_min: 0.07956871087616672
+    n_unique_scores: 56031
+    raw_means:
+      sender_out_count_24h: 1056.3068841375252
+      sender_out_sum_24h: 359702163.27518463
+      receiver_in_count_24h: 2.900773051731495
+      receiver_in_sum_24h: 49082180.70313574
+      scatter_gather: 1.510252463947038
+      temporal_cycle: 0.02266230564957474
+    z_clipped_share_positive:
+      sender_out_count_24h: 0.10151586081754571
+      sender_out_sum_24h: 0.08325220294886507
+      receiver_in_count_24h: 0.4842292889664058
+      receiver_in_sum_24h: 0.01304058728731756
+      scatter_gather: 0.5850025478393079
+      temporal_cycle: 0.02266230564957474
+  test:
+    n_edges: 863900
+    n_all_six_below_train_mean: 183726
+    share_all_six_below_train_mean: 0.21267044796851486
+    score_min: 0.10633580275494849
+    n_unique_scores: 54646
+    raw_means:
+      sender_out_count_24h: 985.6816645445075
+      sender_out_sum_24h: 460691517.97235864
+      receiver_in_count_24h: 3.0927908322722537
+      receiver_in_sum_24h: 16328490.14071281
+      scatter_gather: 1.4427329552031485
+      temporal_cycle: 0.022521125130223404
+    z_clipped_share_positive:
+      sender_out_count_24h: 0.09117374696145387
+      sender_out_sum_24h: 0.0802893853455261
+      receiver_in_count_24h: 0.47651348535710153
+      receiver_in_sum_24h: 0.013744646371107767
+      scatter_gather: 0.5303275842111356
+      temporal_cycle: 0.022521125130223404
+feature_set: trailing_closescycle
+reference: GARG-AML style ring-density proxy (Deprez et al. 2024, network analytics
+  for AML)
+dry_run: false
+seconds: 18.5

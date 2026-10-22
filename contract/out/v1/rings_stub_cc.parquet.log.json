@@ -1,0 +1,44 @@
+{
+  "created_utc": "2026-09-22T14:40:18+00:00",
+  "git_commit": "d4217353ec33ab99714b61b6fc8078f5f17a1c76",
+  "command": "run",
+  "scores": "contract/out/scored_edges_gine_causal_1.parquet",
+  "edge_subset": null,
+  "n_edges_in_file": 863900,
+  "n_edge_subset_ids": null,
+  "n_edges_used": 863900,
+  "n_scored": 863900,
+  "model_dir": "models/artifacts/cc_gine_causal_seed1",
+  "model": {
+    "model_id": "gine_causal",
+    "seed": 1,
+    "aggregator": "cc",
+    "version": 1,
+    "feature_set": "trailing_closescycle"
+  },
+  "aggregator": "cc",
+  "params": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "max_gap_hours": null
+  },
+  "selection_column": "score_raw",
+  "quantile_cut": {
+    "q": 0.9295209672451074,
+    "rule": "strict: score_raw > q, computed within the edges given (after --edge-subset)",
+    "n_seeds": 864,
+    "n_on_boundary": 0
+  },
+  "n_rings": 98,
+  "n_seed_edges": 728,
+  "n_member_edges": 1295,
+  "n_expanded_edges": 0,
+  "expansion": null,
+  "gfp": null,
+  "embeddings": null,
+  "partition": null,
+  "partition_cell": null,
+  "ring_id_rule": "f'{aggregator}-{model_id}-{seed}-{idx}'",
+  "tenant_rule": "sender bank (from_bank) of the ring's earliest seed edge; ties -> smallest edge_id",
+  "out": "contract\\out\\rings_stub_cc.parquet"
+}

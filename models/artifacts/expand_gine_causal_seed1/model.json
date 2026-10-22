@@ -1,0 +1,40 @@
+{
+  "model_id": "gine_causal",
+  "seed": 1,
+  "aggregator": "expand",
+  "params": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "max_gap_hours": null,
+    "delta_t_h": 24.0,
+    "p_min": 0.7,
+    "max_hops": 2,
+    "max_events_per_query": 500,
+    "policy_kind": "model",
+    "head_constants": [
+      0.0796026811003685,
+      0.01074153557419777
+    ]
+  },
+  "feature_set": "trailing_closescycle",
+  "threshold_rule": "configs/threshold_rule.yaml (strict quantile on score_raw)",
+  "source": "experiments/R3_expansion/runs/proposed/seed1 (ringshield/run_rings.py config.yaml, chosen on val)",
+  "version": 1,
+  "created_utc": "2026-09-19T05:43:41+00:00",
+  "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+  "val_ring_f1_at_chosen": 0.5765,
+  "scope": "test_visible",
+  "eval_window": {
+    "name": "primary",
+    "split": "test",
+    "days": [
+      8,
+      9
+    ],
+    "bounds": [
+      691210,
+      864009
+    ]
+  },
+  "expansion_inputs": "run needs --gfp <split GFP parquet> and --embeddings <R1 embeddings parquet of the same detector seed>"
+}

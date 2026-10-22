@@ -1,0 +1,39 @@
+{
+  "created_utc": "2026-10-11T06:11:53+00:00",
+  "contract_version": "rings.parquet v2",
+  "split": "val",
+  "window": [
+    518410,
+    691150
+  ],
+  "detector_seed": 1,
+  "aggregator": "full",
+  "method": "average",
+  "chosen_cell": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "delta_t_h": 24.0,
+    "p_min": 0.7,
+    "method": "average",
+    "cut": 0.5,
+    "val_ring_f1": 0.6138
+  },
+  "model_id": "gine_causal",
+  "n_rings": 133,
+  "typing_head": "experiments\\R5_typing\\head_w2",
+  "membership_matches_val_grid_rings": true,
+  "currency_v2": {
+    "n_rings": 133,
+    "n_accounts_undetermined_ccy": 65,
+    "n_rings_with_undetermined": 45,
+    "n_roles_changed_ccy_total": 69,
+    "n_rings_roles_unchanged": 84,
+    "conservation_closure_ccy": {
+      "n_nan": 7,
+      "mean_non_nan": 0.8076975142289324
+    },
+    "currency_mode": "partitioned (v2 fields only; v1 fields remain raw cross-currency sums)",
+    "ccy_min_two_sided_share": 0.5
+  },
+  "note": "the chosen cell only; the grid's other cells are not materialised"
+}

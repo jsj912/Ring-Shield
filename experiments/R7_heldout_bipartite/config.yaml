@@ -1,0 +1,46 @@
+experiment: R7_heldout_bipartite
+model: Multi-GINe v2
+arch: gine
+git_commit: 257ac03b384601cb0d04fa0cb63326af68dd0f92
+adaptations:
+- edge_MLPs
+- ports
+- time_deltas
+- reverse_MP
+- ego_IDs
+- GFP_features
+hold_out_pattern: BIPARTITE
+n_held_out_rings: 49
+n_held_out_edges_by_split:
+  test: 68
+  train: 150
+  val: 49
+relabelled_licit_in:
+- train
+- val
+test_labels_untouched: true
+graph_unchanged: true
+dataset: AMLworld HI-Small
+split: 60/20/20 day-based
+seeds:
+- 1
+- 2
+- 3
+- 4
+- 5
+epochs: 100
+patience: 20
+batch_size: 8192
+lr: 0.006
+n_hidden: 66
+n_gnn_layers: 2
+w_ce1: 1.0
+w_ce2: 9.0
+num_neighbors:
+- 100
+- 100
+n_parameters: 148812
+causal_sampling: true
+loader_route: fallback
+loader_window_s: 1800
+dry_run: false

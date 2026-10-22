@@ -1,0 +1,273 @@
+experiment: seed4
+step: 6.4 (R3 expansion)
+created_utc: '2026-09-26T09:09:20+00:00'
+git_commit: b1a28204ba6ddd11ce9883a1e53a443242a530f2
+aggregator: expand
+method: policy:experiments\R6_gfpxgb_expand\policy_gfpxgb
+policy_kind: model
+policy_features:
+- hop
+- gap_to_anchor_s
+- abs_gap_to_anchor_s
+- after_anchor
+- abs_gap_via_s
+- gap_to_nearest_seed_s
+- nearest_seed_before
+- n_anchors
+- n_included
+- log_amount
+- amount_below_p25
+- inc_in_sum
+- inc_out_sum
+- inc_in_cnt
+- inc_out_cnt
+- closure_before
+- closure_after
+- delta_closure
+- hold_time_s
+- cand_is_inflow
+- pair_in_out
+- pair_out_out
+- pair_in_in
+- pair_out_in
+- far_is_member
+- reach_1hop
+- reach_2hop
+- reach_count
+- far_24h_in_cnt
+- far_24h_out_cnt
+- far_24h_in_sum
+- far_24h_out_sum
+- far_24h_uniq_in
+- far_24h_uniq_out
+- far_24h_low_frac
+- far_72h_in_cnt
+- far_72h_out_cnt
+- far_72h_in_sum
+- far_72h_out_sum
+- far_72h_uniq_in
+- far_72h_uniq_out
+- far_72h_low_frac
+- shared_24h_in_cnt
+- shared_24h_out_cnt
+- shared_24h_in_sum
+- shared_24h_out_sum
+- shared_24h_uniq_in
+- shared_24h_uniq_out
+- shared_24h_low_frac
+- shared_72h_in_cnt
+- shared_72h_out_cnt
+- shared_72h_in_sum
+- shared_72h_out_sum
+- shared_72h_uniq_in
+- shared_72h_uniq_out
+- shared_72h_low_frac
+- score_quantile
+- dead_region
+- gfp_fan_out
+- gfp_fan_in
+- gfp_deg_out_src
+- gfp_deg_in_src
+- gfp_deg_out_dst
+- gfp_deg_in_dst
+- gfp_scatter_gather
+- gfp_gather_scatter
+- gfp_temporal_cycle
+- gfp_cycle_length
+policy_drop_groups:
+- embedding
+policy_hop1_only: false
+policy_cv: 0.9241422553961935
+detector_seed: 4
+r1_dir: experiments\R2_b0\gfpxgb_scores
+model_id: gfpxgb
+scope: test_visible
+choose_on: val
+b0_config: experiments\R2_b0\gfpxgb\seed4\config.yaml
+b0_cell_fixed:
+  seed_frac_pct: 0.1
+  min_size: 3
+grid:
+  delta_t_h:
+  - 24
+  - 48
+  - 72
+  p_min:
+  - 0.3
+  - 0.5
+  - 0.7
+grid_results_val:
+- delta_t_h: 24
+  p_min: 0.3
+  n_rings: 326
+  ring_precision: 0.2055
+  ring_recall: 0.4268
+  ring_f1: 0.2774
+  member_coverage: 0.9432
+  n_matched: 67
+  n_expanded_edges: 1711
+  n_components_expanded: 313
+  seconds: 248.1
+- delta_t_h: 24
+  p_min: 0.5
+  n_rings: 313
+  ring_precision: 0.2077
+  ring_recall: 0.414
+  ring_f1: 0.2766
+  member_coverage: 0.9515
+  n_matched: 65
+  n_expanded_edges: 1626
+  n_components_expanded: 289
+  seconds: 250.0
+- delta_t_h: 24
+  p_min: 0.7
+  n_rings: 290
+  ring_precision: 0.2207
+  ring_recall: 0.4076
+  ring_f1: 0.2864
+  member_coverage: 0.9368
+  n_matched: 64
+  n_expanded_edges: 1535
+  n_components_expanded: 259
+  seconds: 251.9
+- delta_t_h: 48
+  p_min: 0.3
+  n_rings: 329
+  ring_precision: 0.2036
+  ring_recall: 0.4268
+  ring_f1: 0.2757
+  member_coverage: 0.9658
+  n_matched: 67
+  n_expanded_edges: 1773
+  n_components_expanded: 327
+  seconds: 284.1
+- delta_t_h: 48
+  p_min: 0.5
+  n_rings: 314
+  ring_precision: 0.2102
+  ring_recall: 0.4204
+  ring_f1: 0.2803
+  member_coverage: 0.9647
+  n_matched: 66
+  n_expanded_edges: 1679
+  n_components_expanded: 299
+  seconds: 286.1
+- delta_t_h: 48
+  p_min: 0.7
+  n_rings: 290
+  ring_precision: 0.2241
+  ring_recall: 0.414
+  ring_f1: 0.2908
+  member_coverage: 0.9453
+  n_matched: 65
+  n_expanded_edges: 1572
+  n_components_expanded: 266
+  seconds: 287.9
+- delta_t_h: 72
+  p_min: 0.3
+  n_rings: 329
+  ring_precision: 0.2036
+  ring_recall: 0.4268
+  ring_f1: 0.2757
+  member_coverage: 0.9658
+  n_matched: 67
+  n_expanded_edges: 1773
+  n_components_expanded: 327
+  seconds: 286.2
+- delta_t_h: 72
+  p_min: 0.5
+  n_rings: 314
+  ring_precision: 0.2102
+  ring_recall: 0.4204
+  ring_f1: 0.2803
+  member_coverage: 0.9647
+  n_matched: 66
+  n_expanded_edges: 1679
+  n_components_expanded: 299
+  seconds: 288.1
+- delta_t_h: 72
+  p_min: 0.7
+  n_rings: 290
+  ring_precision: 0.2241
+  ring_recall: 0.414
+  ring_f1: 0.2908
+  member_coverage: 0.9453
+  n_matched: 65
+  n_expanded_edges: 1572
+  n_components_expanded: 266
+  seconds: 290.0
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  max_gap_hours: null
+  delta_t_h: 48.0
+  p_min: 0.7
+  val_ring_f1: 0.2908
+candidate_definition:
+  max_hops: 2
+  max_events_per_query: 500
+  window: '[min seed time - delta_t, max seed time + delta_t]'
+selection_column: score_raw
+confidence_column: score_calibrated
+calibrated: true
+context:
+  val:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed\amlworld_gfp_features_val.parquet
+    embeddings_parquet: null
+    checkpoint: null
+    head_constants: null
+    n_dead_region: 0
+  test:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed\amlworld_gfp_features_test.parquet
+    embeddings_parquet: null
+    checkpoint: null
+    head_constants: null
+    n_dead_region: 0
+scope_windows:
+  val:
+  - 518410
+  - 691150
+  test:
+  - 691210
+  - 1527490
+eval_window: E:\JSJ\Ring-Shield\configs\eval_window.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 6
+    - 7
+    bounds:
+    - 518410
+    - 691209
+  primary:
+    name: primary
+    split: test
+    days:
+    - 8
+    - 9
+    bounds:
+    - 691210
+    - 864009
+  tail:
+    name: tail
+    split: test
+    days:
+    - 10
+    - 17
+    bounds:
+    - 864010
+    - 1555209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 8
+    - 17
+    bounds:
+    - 691210
+    - 1555209
+primary_block: primary
+n_val_truth_rings: 157
+dry_run: false

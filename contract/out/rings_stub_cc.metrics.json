@@ -1,0 +1,87 @@
+{
+  "created_utc": "2026-09-18T08:51:03+00:00",
+  "git_commit": "5ad625c2476fdf8ae8d8aecb31f5a0f8b31b8cbd",
+  "command": "eval",
+  "rings": "contract/out/rings_stub_cc.parquet",
+  "truth": "data/processed/amlworld_ring_ground_truth.parquet",
+  "scope": "test_visible",
+  "window": "primary",
+  "t_min": 691210,
+  "t_max": 864009,
+  "match_threshold": 0.5,
+  "holdout": null,
+  "n_rings_in_file": 98,
+  "predicted_restricted_to_window": true,
+  "ring_precision": 0.8415,
+  "ring_recall": 0.3966,
+  "ring_f1": 0.5391,
+  "member_coverage": 0.8828,
+  "mean_jaccard": 0.8661,
+  "n_predicted": 82,
+  "n_truth": 174,
+  "n_matched": 69,
+  "per_pattern": {
+    "GATHER-SCATTER": {
+      "n_truth": 37.0,
+      "n_matched": 21.0,
+      "recall": 0.5675675675675675
+    },
+    "STACK": {
+      "n_truth": 22.0,
+      "n_matched": 1.0,
+      "recall": 0.045454545454545456
+    },
+    "CYCLE": {
+      "n_truth": 22.0,
+      "n_matched": 5.0,
+      "recall": 0.22727272727272727
+    },
+    "SCATTER-GATHER": {
+      "n_truth": 22.0,
+      "n_matched": 14.0,
+      "recall": 0.6363636363636364
+    },
+    "RANDOM": {
+      "n_truth": 17.0,
+      "n_matched": 7.0,
+      "recall": 0.4117647058823529
+    },
+    "FAN-IN": {
+      "n_truth": 18.0,
+      "n_matched": 9.0,
+      "recall": 0.5
+    },
+    "FAN-OUT": {
+      "n_truth": 20.0,
+      "n_matched": 12.0,
+      "recall": 0.6
+    },
+    "BIPARTITE": {
+      "n_truth": 16.0,
+      "n_matched": 0.0,
+      "recall": 0.0
+    }
+  },
+  "ring_recall_ge3": 0.5263,
+  "n_truth_ge3": 114,
+  "n_matched_ge3": 60,
+  "jaccard_sweep": {
+    "0.3": {
+      "ring_precision": 0.8659,
+      "ring_recall": 0.408,
+      "ring_f1": 0.5547,
+      "n_matched": 71
+    },
+    "0.7": {
+      "ring_precision": 0.6463,
+      "ring_recall": 0.3046,
+      "ring_f1": 0.4141,
+      "n_matched": 53
+    }
+  },
+  "pred_size": {
+    "n_rings": 82,
+    "mean_members": 4.353658536585366,
+    "max_members": 11
+  }
+}

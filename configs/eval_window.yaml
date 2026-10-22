@@ -1,0 +1,26 @@
+# Evaluation windows (Step 3b-w apply, 2026-09-17; docs/TEST_TAIL.md).
+#
+# Day index = (Timestamp - 10) // 86400 in the loader basis (day 0 = the first calendar day of
+# the data; train = days 0-5, val = 6-7, test = 8-17). Ranges are inclusive and written out in
+# full so a later dataset with a different tail does not inherit them silently.
+#
+# primary: the reportable test window -- the two full test days, same regime as val
+#          (base rate 0.111 % vs 0.107 %). Every headline edge and ring number is computed here.
+# tail:    days 10-17, 1,108 edges / 655 positives at a 59 % base rate (pattern injection with
+#          no licit background). Always reported next to the primary numbers, never merged in.
+# whole:   the full test split, kept as a labelled third column for continuity with Step 3b.
+# val:     the validation split (no tail); thresholds and grids are chosen here, unchanged.
+#
+# Rings (docs/RING_GROUND_TRUTH_DEFINITION.md section 4a): a ground-truth ring is in scope of a
+# window if >= 1 of its pattern-line transactions falls in it and its scored members are the
+# endpoints of those in-window transactions only; a straddling ring's tail edges belong to the
+# tail block. Predicted rings are restricted the same way (members = endpoints of their
+# member_edges inside the window; rings with no in-window edge are dropped from that block).
+day_zero_timestamp: 10
+seconds_per_day: 86400
+windows:
+  primary: {split: test, days: [8, 9]}
+  tail:    {split: test, days: [10, 17]}
+  whole:   {split: test, days: [8, 17]}
+  val:     {split: val,  days: [6, 7]}
+report_order: [val, primary, tail, whole]

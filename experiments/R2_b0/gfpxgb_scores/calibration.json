@@ -1,0 +1,125 @@
+{
+  "created_utc": "2026-09-17T18:18:28+00:00",
+  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "scores_dir": "experiments\\R2_b0\\gfpxgb_scores",
+  "method": "isotonic (sklearn IsotonicRegression, clip out of bounds)",
+  "fit_on": "val labels; val values cross-fitted (StratifiedKFold)",
+  "labels_dir": "E:\\JSJ\\Ring-Shield\\contract\\out",
+  "ece_bins": 15,
+  "per_seed": [
+    {
+      "seed": 1,
+      "n_folds": 5,
+      "n_isotonic_knots": 116,
+      "val_cross_fitted": {
+        "brier_raw": 0.0014727192147703768,
+        "brier_cal": 0.0008066602456781195,
+        "ece_raw": 0.0018236647674469198,
+        "ece_cal": 2.586549559995248e-05
+      },
+      "test": {
+        "brier_raw": 0.0022541326403692375,
+        "brier_cal": 0.0012466974779941444,
+        "ece_raw": 0.002476471126517034,
+        "ece_cal": 0.0002857680163115752
+      },
+      "monotone_check": true,
+      "n_unique_raw_test": 815006,
+      "n_unique_cal_test": 139
+    },
+    {
+      "seed": 2,
+      "n_folds": 5,
+      "n_isotonic_knots": 112,
+      "val_cross_fitted": {
+        "brier_raw": 0.00145172501651896,
+        "brier_cal": 0.0008086631230139169,
+        "ece_raw": 0.001770733410369012,
+        "ece_cal": 2.5228196762265345e-05
+      },
+      "test": {
+        "brier_raw": 0.0022296262595963125,
+        "brier_cal": 0.001247256470395332,
+        "ece_raw": 0.002491322015570607,
+        "ece_cal": 0.0002932768479017753
+      },
+      "monotone_check": true,
+      "n_unique_raw_test": 812375,
+      "n_unique_cal_test": 128
+    },
+    {
+      "seed": 3,
+      "n_folds": 5,
+      "n_isotonic_knots": 116,
+      "val_cross_fitted": {
+        "brier_raw": 0.0014142628043997921,
+        "brier_cal": 0.0008263301038861735,
+        "ece_raw": 0.0016151753238228626,
+        "ece_cal": 2.777056563567668e-05
+      },
+      "test": {
+        "brier_raw": 0.0022424966109252536,
+        "brier_cal": 0.0012508473297345077,
+        "ece_raw": 0.002446510238977539,
+        "ece_cal": 0.00023994371185592057
+      },
+      "monotone_check": true,
+      "n_unique_raw_test": 811090,
+      "n_unique_cal_test": 139
+    },
+    {
+      "seed": 4,
+      "n_folds": 5,
+      "n_isotonic_knots": 110,
+      "val_cross_fitted": {
+        "brier_raw": 0.001498939794915964,
+        "brier_cal": 0.000812868096361979,
+        "ece_raw": 0.001887948624819423,
+        "ece_cal": 3.187898934877501e-05
+      },
+      "test": {
+        "brier_raw": 0.0022400733683916037,
+        "brier_cal": 0.0012433438175828353,
+        "ece_raw": 0.002510357326587357,
+        "ece_cal": 0.0002931916457293672
+      },
+      "monotone_check": true,
+      "n_unique_raw_test": 812503,
+      "n_unique_cal_test": 144
+    },
+    {
+      "seed": 5,
+      "n_folds": 5,
+      "n_isotonic_knots": 114,
+      "val_cross_fitted": {
+        "brier_raw": 0.0014850614049645263,
+        "brier_cal": 0.0008113979858828269,
+        "ece_raw": 0.0018167318226803518,
+        "ece_cal": 2.675315963171978e-05
+      },
+      "test": {
+        "brier_raw": 0.0023450005997438885,
+        "brier_cal": 0.0012531106211325178,
+        "ece_raw": 0.0025766512389714955,
+        "ece_cal": 0.0003071130895572613
+      },
+      "monotone_check": true,
+      "n_unique_raw_test": 812820,
+      "n_unique_cal_test": 139
+    }
+  ],
+  "mean": {
+    "val_cv": {
+      "brier_raw": 0.0014645416471139238,
+      "brier_cal": 0.0008131839109646032,
+      "ece_raw": 0.0017828507898277138,
+      "ece_cal": 2.749928139567786e-05
+    },
+    "test": {
+      "brier_raw": 0.0022622658958052592,
+      "brier_cal": 0.0012482511433678674,
+      "ece_raw": 0.002500262389324807,
+      "ece_cal": 0.00028385866227117996
+    }
+  }
+}

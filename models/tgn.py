@@ -39,9 +39,15 @@ import yaml
 from sklearn.metrics import f1_score, precision_score, recall_score, average_precision_score
 
 from torch_geometric.data import Data, HeteroData
-from torch_geometric.loader import LinkNeighborLoader
 from torch_geometric.nn import GINEConv, BatchNorm, Linear, to_hetero
 from torch_geometric.transforms import BaseTransform
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from models.causal_loader import ROUTE as LOADER_ROUTE, WINDOW_S, make_loader, seed_mask  # noqa: E402
+from ringshield.holdout import TRAINING_SPLITS, Holdout  # noqa: E402
+from ringshield.holdout import add_argument as _add_holdout_argument  # noqa: E402
+
+DRY_RUN_FRAC = 0.01
 
 
 # ===========================================================================
@@ -221,13 +227,21 @@ class GINe(nn.Module):
 # ===========================================================================
 # Data loading
 # ===========================================================================
-def load_gfp_features(data_dir, split, edge_count):
-    """Load per-edge GFP features if available, apply log1p to high-magnitude cols."""
+def load_gfp_features(data_dir, split, edge_ids):
+    """Load per-edge GFP features if available, apply log1p to high-magnitude cols.
+
+    Rows are aligned to `edge_ids` (the split's EdgeID values, in order) through the
+    parquet's EdgeID column, so a row subset (--dry-run) or a re-keyed parquet is handled;
+    when the parquet is already in split order this equals the old positional read.
+    """
     gfp_path = data_dir / f"amlworld_gfp_features_{split}.parquet"
     if not gfp_path.exists():
         return None
     gfp = pd.read_parquet(gfp_path)
+    assert "EdgeID" in gfp.columns, f"{gfp_path} has no EdgeID column"
     gfp_cols = [c for c in gfp.columns if c != "EdgeID"]
+    gfp = gfp.set_index("EdgeID").reindex(np.asarray(edge_ids))
+    assert not gfp.isna().any().any(), f"{gfp_path}: GFP rows missing for some EdgeIDs of the {split} split"
     # log1p transform for high-magnitude features (fan_out max ~49k)
     for col in gfp_cols:
         gfp[col] = np.log1p(gfp[col].values.astype(np.float32))
@@ -238,11 +252,33 @@ def load_data(raw_dir, data_dir, args):
     fmt_path = raw_dir / "formatted_transactions.csv"
     print(f"  Loading {fmt_path}...")
     df = pd.read_csv(fmt_path)
-    df["Timestamp"] = df["Timestamp"] - df["Timestamp"].min()
-
     max_n_id = df[["from_id", "to_id"]].to_numpy().max() + 1
+    # Timestamps stay in the LOADER basis (seconds since first day 00:00 - 10 s), the same
+    # basis as data/processed/amlworld_*.parquet. The old `Timestamp - min` rebase is gone;
+    # after z-normalisation the constant made no difference to the model, and every output
+    # file (scores, embeddings, predictions) is now directly joinable to the parquets.
+    tr_pq = data_dir / "amlworld_train.parquet"
+    if tr_pq.exists():
+        pq_min = int(pd.read_parquet(tr_pq, columns=["Timestamp"])["Timestamp"].min())
+        assert int(df["Timestamp"].min()) == pq_min, (
+            f"formatted_transactions.csv Timestamp basis (min {int(df['Timestamp'].min())}) differs from "
+            f"{tr_pq} (min {pq_min}); regenerate one of them")
+    if getattr(args, "dry_run", False):
+        seed = getattr(args, "dry_run_seed", 1)
+        df = df.sample(frac=DRY_RUN_FRAC, random_state=seed).sort_values("EdgeID").reset_index(drop=True)
+        print(f"  DRY RUN: {len(df)} rows ({DRY_RUN_FRAC:.0%}, seed {seed}); node table kept at {max_n_id} ids")
     timestamps = torch.tensor(df["Timestamp"].values, dtype=torch.float32)
     y = torch.tensor(df["Is Laundering"].values, dtype=torch.long)
+
+    # Step 11 (R7): hold a whole pattern type out of TRAINING. Its edges keep their place in the
+    # graph and in the test labels; only the train+val labels are zeroed, so the detector is never
+    # taught the pattern it will be measured on. Default None -> nothing happens.
+    holdout = Holdout.load(getattr(args, "hold_out_pattern", None), processed_dir=data_dir)
+    if holdout.is_active:
+        n_before = int(y.sum())
+        y = holdout.relabel_licit(df["EdgeID"].values, y, splits=TRAINING_SPLITS)
+        print(f"  HOLD-OUT {holdout.pattern}: {n_before - int(y.sum())} train+val labels relabelled licit "
+              f"({holdout.summary()['n_held_out_rings']} rings); test labels and the graph untouched")
 
     print(f"  Illicit: {y.sum()}/{len(y)} = {y.float().mean()*100:.2f}%")
     print(f"  Nodes: {max_n_id}, Transactions: {len(df)}")
@@ -302,9 +338,10 @@ def load_data(raw_dir, data_dir, args):
         # tr_data edges = train edges only
         # val_data edges = train + val edges
         # te_data edges = all edges
-        gfp_tr = load_gfp_features(data_dir, "train", len(e_tr))
-        gfp_val = load_gfp_features(data_dir, "val", None)
-        gfp_te = load_gfp_features(data_dir, "test", None)
+        edge_ids = df["EdgeID"].values
+        gfp_tr = load_gfp_features(data_dir, "train", edge_ids[tr_inds.numpy()])
+        gfp_val = load_gfp_features(data_dir, "val", edge_ids[val_inds.numpy()])
+        gfp_te = load_gfp_features(data_dir, "test", edge_ids[te_inds.numpy()])
 
         if gfp_tr is not None and gfp_val is not None and gfp_te is not None:
             tr_data.edge_attr = torch.cat([tr_data.edge_attr, gfp_tr], dim=1)
@@ -324,7 +361,7 @@ def load_data(raw_dir, data_dir, args):
         for name, data in [("train", tr_data), ("val", val_data), ("test", te_data)]:
             n_before = data.edge_attr.shape[1]
             data = add_ports_and_tds(data, args.ports, args.tds)
-            print(f"    {name}: {n_before} → {data.edge_attr.shape[1]} edge features")
+            print(f"    {name}: {n_before} -> {data.edge_attr.shape[1]} edge features")
             if name == "train":
                 tr_data = data
             elif name == "val":
@@ -357,60 +394,33 @@ def load_data(raw_dir, data_dir, args):
         te_data = create_hetero_obj(te_data.x, te_data.y, te_data.edge_index,
                                      te_data.edge_attr, te_data.timestamps, swap_ports)
 
-    te_meta = pd.DataFrame({
-        "EdgeID": df["EdgeID"].values[te_inds.numpy()],
-        "from_id": df["from_id"].values[te_inds.numpy()],
-        "to_id": df["to_id"].values[te_inds.numpy()],
-        "Timestamp": df["Timestamp"].values[te_inds.numpy()],
+    # Per-edge metadata for ALL edges, in data order (global edge index == row). Callers
+    # slice it with tr_inds / val_inds / te_inds. Timestamp is loader basis.
+    edge_meta = pd.DataFrame({
+        "EdgeID": df["EdgeID"].values,
+        "from_id": df["from_id"].values,
+        "to_id": df["to_id"].values,
+        "Timestamp": df["Timestamp"].values,
     })
 
-    return tr_data, val_data, te_data, tr_inds, val_inds, te_inds, te_meta
+    return tr_data, val_data, te_data, tr_inds, val_inds, te_inds, edge_meta
 
 
 # ===========================================================================
 # Loaders
 # ===========================================================================
 def get_loaders(tr_data, val_data, te_data, tr_inds, val_inds, te_inds, args):
+    """Train / val / test loaders from models.causal_loader.make_loader.
+
+    Seeds: train = every train edge (shuffled), val = val edges, test = test edges, as
+    before. `args.causal` selects causal sampling; False keeps today's sampler. Every
+    batch carries `seed_mask` / `seed_global` and has the global-id column stripped.
+    """
     transform = AddEgoIds() if args.ego else None
-
-    if isinstance(tr_data, HeteroData):
-        tr_eli = tr_data['node', 'to', 'node'].edge_index
-        tr_el = tr_data['node', 'to', 'node'].y
-        tr_loader = LinkNeighborLoader(tr_data, num_neighbors=args.num_neighs,
-                                        edge_label_index=(('node', 'to', 'node'), tr_eli),
-                                        edge_label=tr_el,
-                                        batch_size=args.batch_size, shuffle=True,
-                                        transform=transform)
-
-        val_eli = val_data['node', 'to', 'node'].edge_index[:, val_inds]
-        val_el = val_data['node', 'to', 'node'].y[val_inds]
-        val_loader = LinkNeighborLoader(val_data, num_neighbors=args.num_neighs,
-                                         edge_label_index=(('node', 'to', 'node'), val_eli),
-                                         edge_label=val_el,
-                                         batch_size=args.batch_size, shuffle=False,
-                                         transform=transform)
-
-        te_eli = te_data['node', 'to', 'node'].edge_index[:, te_inds]
-        te_el = te_data['node', 'to', 'node'].y[te_inds]
-        te_loader = LinkNeighborLoader(te_data, num_neighbors=args.num_neighs,
-                                        edge_label_index=(('node', 'to', 'node'), te_eli),
-                                        edge_label=te_el,
-                                        batch_size=args.batch_size, shuffle=False,
-                                        transform=transform)
-    else:
-        tr_loader = LinkNeighborLoader(tr_data, num_neighbors=args.num_neighs,
-                                        batch_size=args.batch_size, shuffle=True,
-                                        transform=transform)
-        val_loader = LinkNeighborLoader(val_data, num_neighbors=args.num_neighs,
-                                         edge_label_index=val_data.edge_index[:, val_inds],
-                                         edge_label=val_data.y[val_inds],
-                                         batch_size=args.batch_size, shuffle=False,
-                                         transform=transform)
-        te_loader = LinkNeighborLoader(te_data, num_neighbors=args.num_neighs,
-                                        edge_label_index=te_data.edge_index[:, te_inds],
-                                        edge_label=te_data.y[te_inds],
-                                        batch_size=args.batch_size, shuffle=False,
-                                        transform=transform)
+    causal = bool(getattr(args, "causal", False))
+    tr_loader = make_loader(tr_data, tr_inds, args, causal=causal, shuffle=True, transform=transform)
+    val_loader = make_loader(val_data, val_inds, args, causal=causal, shuffle=False, transform=transform)
+    te_loader = make_loader(te_data, te_inds, args, causal=causal, shuffle=False, transform=transform)
     return tr_loader, val_loader, te_loader
 
 
@@ -418,20 +428,29 @@ def get_loaders(tr_data, val_data, te_data, tr_inds, val_inds, te_inds, args):
 # Training & evaluation
 # ===========================================================================
 def _get_mask_and_clean(batch, loader, inds, is_hetero):
-    """Get seed edge mask and strip ID column from edge features."""
-    inds_cpu = inds.detach().cpu()
-    if is_hetero:
-        batch_edge_inds = inds_cpu[batch['node', 'to', 'node'].input_id.detach().cpu()]
-        batch_edge_ids = loader.data['node', 'to', 'node'].edge_attr.detach().cpu()[batch_edge_inds, 0]
-        mask = torch.isin(batch['node', 'to', 'node'].edge_attr[:, 0].detach().cpu(), batch_edge_ids)
-        batch['node', 'to', 'node'].edge_attr = batch['node', 'to', 'node'].edge_attr[:, 1:]
-        batch['node', 'rev_to', 'node'].edge_attr = batch['node', 'rev_to', 'node'].edge_attr[:, 1:]
-    else:
-        batch_edge_inds = inds_cpu[batch.input_id.detach().cpu()]
-        batch_edge_ids = loader.data.edge_attr.detach().cpu()[batch_edge_inds, 0]
-        mask = torch.isin(batch.edge_attr[:, 0].detach().cpu(), batch_edge_ids)
-        batch.edge_attr = batch.edge_attr[:, 1:]
-    return mask
+    """Seed mask of a batch from make_loader (id column already stripped).
+
+    Returns (mask over the `to` edges, global seed indices in the same order). Every seed
+    edge of the batch is present exactly once, so `mask.sum() == len(input_id)`.
+    """
+    mask, seed_global = seed_mask(batch)
+    return mask, seed_global
+
+
+def _align_to_inds(inds, seed_globals, *arrays):
+    """Reorder per-seed arrays (collected in batch order) into the order of `inds`."""
+    inds = inds.detach().cpu()
+    got = torch.cat(seed_globals)
+    pos = torch.full((int(max(inds.max(), got.max())) + 1,), -1, dtype=torch.long)
+    pos[inds] = torch.arange(inds.numel())
+    order = pos[got]
+    assert (order >= 0).all(), "scored an edge that is not a seed"
+    assert order.numel() == inds.numel() and torch.unique(order).numel() == inds.numel(), (
+        f"scored {order.numel()} edges for {inds.numel()} seeds")
+    inv = torch.empty_like(order)
+    inv[order] = torch.arange(order.numel())
+    inv = inv.numpy()
+    return [a[inv] for a in arrays]
 
 
 def train_epoch(loader, inds, model, optimizer, loss_fn, device, is_hetero):
@@ -441,7 +460,7 @@ def train_epoch(loader, inds, model, optimizer, loss_fn, device, is_hetero):
 
     for batch in loader:
         optimizer.zero_grad()
-        mask = _get_mask_and_clean(batch, loader, inds, is_hetero)
+        mask, _ = _get_mask_and_clean(batch, loader, inds, is_hetero)
         batch.to(device)
 
         if is_hetero:
@@ -471,10 +490,11 @@ def train_epoch(loader, inds, model, optimizer, loss_fn, device, is_hetero):
 @torch.no_grad()
 def evaluate(loader, inds, model, device, is_hetero, threshold=0.5):
     model.eval()
-    preds_all, gts_all, probs_all = [], [], []
+    preds_all, gts_all, probs_all, ids_all = [], [], [], []
 
     for batch in loader:
-        mask = _get_mask_and_clean(batch, loader, inds, is_hetero)
+        mask, seed_global = _get_mask_and_clean(batch, loader, inds, is_hetero)
+        ids_all.append(seed_global.detach().cpu())
         batch.to(device)
 
         if is_hetero:
@@ -496,6 +516,9 @@ def evaluate(loader, inds, model, device, is_hetero, threshold=0.5):
     preds_all = torch.cat(preds_all).numpy()
     gts_all = torch.cat(gts_all).numpy()
     probs_all = torch.cat(probs_all).numpy()
+    # batches may come in time-window order; return everything in the order of `inds`
+    preds_all, gts_all, probs_all = _align_to_inds(inds, ids_all, preds_all, gts_all, probs_all)
+    assert not np.isnan(probs_all).any(), "NaN probability for a seed edge"
 
     return {
         "f1_minority": f1_score(gts_all, preds_all, pos_label=1, zero_division=0),
@@ -538,8 +561,9 @@ def run_single_seed(seed, args, device):
     print(f"  SEED {seed}")
     print(f"{'='*60}")
 
-    tr_data, val_data, te_data, tr_inds, val_inds, te_inds, te_meta = load_data(
+    tr_data, val_data, te_data, tr_inds, val_inds, te_inds, edge_meta = load_data(
         args.raw_dir, args.data_dir, args)
+    te_meta = edge_meta.iloc[te_inds.numpy()].reset_index(drop=True)
 
     is_hetero = isinstance(tr_data, HeteroData)
 
@@ -550,10 +574,10 @@ def run_single_seed(seed, args, device):
     sample_batch = next(iter(tr_loader))
     if is_hetero:
         n_feats = sample_batch['node'].x.shape[1]
-        e_dim = sample_batch['node', 'to', 'node'].edge_attr.shape[1] - 1
+        e_dim = sample_batch['node', 'to', 'node'].edge_attr.shape[1]  # id column already stripped
     else:
         n_feats = sample_batch.x.shape[1]
-        e_dim = sample_batch.edge_attr.shape[1] - 1
+        e_dim = sample_batch.edge_attr.shape[1]
 
     model = GINe(
         num_features=n_feats, num_gnn_layers=args.n_gnn_layers,
@@ -646,15 +670,20 @@ def run_single_seed(seed, args, device):
     pred_df["pred_prob"] = test_probs
     pred_df.to_csv(args.out_dir / f"predictions_seed{seed}.csv", index=False)
 
-    return {
+    result = {
         "seed": seed,
         "best_val_f1": best_val_f1,
         "best_epoch": best_epoch,
-        "best_threshold": best_thresh,
+        "best_threshold": float(best_thresh),
         "test": test_metrics,
         "n_params": n_params,
+        "epochs_run": len(training_log),
+        "mean_epoch_time_s": float(np.mean([r["time_s"] for r in training_log])),
         "training_log": training_log,
     }
+    per_seed = {k: v for k, v in result.items() if k != "training_log"}
+    (args.out_dir / f"metrics_seed{seed}.json").write_text(json.dumps(per_seed, indent=2), encoding="utf-8")
+    return result
 
 
 # ===========================================================================
@@ -665,6 +694,7 @@ def main():
     parser.add_argument("--data-dir", type=Path, default=Path("data/processed"))
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
     parser.add_argument("--out-dir", type=Path, default=Path("experiments/E6_tgn"))
+    _add_holdout_argument(parser)
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=8192)
     parser.add_argument("--lr", type=float, default=0.006)
@@ -683,7 +713,17 @@ def main():
     parser.add_argument("--num-neighs", nargs="+", type=int, default=[100, 100])
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--seeds", nargs="+", type=int, default=[42])
+    parser.add_argument("--arch", choices=["gine"], default="gine", help="model architecture (only gine)")
+    parser.add_argument("--causal", action="store_true",
+                        help="causal neighbour sampling (models/causal_loader.py); default keeps the "
+                             "original sampler")
+    parser.add_argument("--window-s", type=int, default=WINDOW_S,
+                        help="causal fallback window in seconds (seeds batched in contiguous windows "
+                             f"this wide; within-batch leak <= this); default {WINDOW_S}")
+    parser.add_argument("--dry-run", action="store_true",
+                        help=f"train on a {DRY_RUN_FRAC:.0%} row sample of formatted_transactions.csv")
     args = parser.parse_args()
+    args.dry_run_seed = args.seeds[0]
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -706,9 +746,16 @@ def main():
         result = run_single_seed(seed, args, device)
         all_results.append(result)
 
-    # Aggregate results
+    # Aggregate results over EVERY seed present in out-dir (this invocation's seeds plus
+    # any metrics_seed*.json written by earlier invocations), so seeds can be run in
+    # separate processes.
+    all_results = []
+    for f in sorted(args.out_dir.glob("metrics_seed*.json")):
+        all_results.append(json.loads(f.read_text(encoding="utf-8")))
+    all_results.sort(key=lambda r: r["seed"])
+    seeds_all = [r["seed"] for r in all_results]
     print(f"\n{'='*60}")
-    print(f"  AGGREGATE RESULTS ({len(args.seeds)} seeds)")
+    print(f"  AGGREGATE RESULTS ({len(seeds_all)} seeds: {seeds_all})")
     print(f"{'='*60}")
 
     test_f1s = [r["test"]["f1_minority"] for r in all_results]
@@ -733,22 +780,36 @@ def main():
         print("  Multi-GINe does NOT beat E5b — report honestly per roadmap.")
 
     # Save final config + aggregate metrics
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=Path(__file__).resolve().parents[1],
+                                         text=True).strip()
+    except Exception:
+        commit = "unknown"
     config = {
-        "experiment": "E6_tgn",
+        "experiment": args.out_dir.name,
         "model": "Multi-GINe v2",
+        "arch": args.arch,
+        "git_commit": commit,
         "adaptations": adaptations,
+        **Holdout.load(getattr(args, "hold_out_pattern", None), processed_dir=args.data_dir).summary(),
         "dataset": "AMLworld HI-Small",
         "split": "60/20/20 day-based",
-        "seeds": args.seeds,
+        "seeds": seeds_all,
         "epochs": args.epochs, "patience": args.patience,
         "batch_size": args.batch_size, "lr": args.lr,
         "n_hidden": args.n_hidden, "n_gnn_layers": args.n_gnn_layers,
         "w_ce1": args.w_ce1, "w_ce2": args.w_ce2,
         "num_neighbors": args.num_neighs,
         "n_parameters": all_results[0]["n_params"],
+        "causal_sampling": bool(args.causal),
+        "loader_route": LOADER_ROUTE["route"] if args.causal else "non-causal",
+        "loader_window_s": (args.window_s if LOADER_ROUTE["route"] == "fallback" else None) if args.causal else None,
+        "dry_run": bool(args.dry_run),
     }
     (args.out_dir / "config.yaml").write_text(yaml.dump(config, sort_keys=False), encoding="utf-8")
 
+    # Training-time summary only; the reported edge metrics come from
+    # evaluation/edge_metrics.py on the score files (metrics.json is written there).
     metrics_out = {
         "mean_test_f1": mean_f1, "std_test_f1": std_f1,
         "mean_test_ap": mean_ap, "std_test_ap": std_ap,
@@ -757,10 +818,12 @@ def main():
             "best_val_f1": r["best_val_f1"],
             "best_epoch": r["best_epoch"],
             "best_threshold": r["best_threshold"],
+            "epochs_run": r.get("epochs_run"),
+            "mean_epoch_time_s": r.get("mean_epoch_time_s"),
             "test": r["test"],
         } for r in all_results],
     }
-    (args.out_dir / "metrics.json").write_text(json.dumps(metrics_out, indent=2), encoding="utf-8")
+    (args.out_dir / "training_summary.json").write_text(json.dumps(metrics_out, indent=2), encoding="utf-8")
 
     # Save best seed's predictions as the main predictions.csv
     best_seed_result = max(all_results, key=lambda r: r["best_val_f1"])

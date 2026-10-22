@@ -1,0 +1,108 @@
+experiment: seed4
+step: 7.4 (R4 partition)
+created_utc: '2026-09-27T16:12:01+00:00'
+git_commit: 257ac03b384601cb0d04fa0cb63326af68dd0f92
+aggregator: full
+method: b2
+detector_seed: 4
+r1_dir: experiments\R6_mega
+r3_config: experiments\R6_full\mega\expand\seed4\config.yaml
+expansion_fixed:
+  delta_t_h: 24.0
+  p_min: 0.7
+  policy_dir: experiments\R3_expansion\policy_proposed
+affinity_dir: null
+affinity_cv_auc_pr: null
+cluster_seed: 0
+b0_cell_fixed:
+  seed_frac_pct: 0.1
+  min_size: 3
+grid:
+- {}
+grid_results_val:
+- n_rings: 136
+  ring_precision: 0.5882
+  ring_recall: 0.5096
+  ring_f1: 0.5461
+  mean_jaccard: 0.9498
+  member_coverage: 0.984
+  n_matched: 80
+  components_split: 0
+  n_clusters: 471
+  n_rings_gt100: 0
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  delta_t_h: 24.0
+  p_min: 0.7
+  method: b2
+  val_ring_f1: 0.5461
+scope: test_visible
+model_id: mega
+selection_column: score_raw
+confidence_column: score_calibrated
+context:
+  val:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed\amlworld_gfp_features_val.parquet
+    embeddings_parquet: experiments\R6_mega\embeddings_val_seed4.parquet
+    checkpoint: experiments\R6_mega\model_best_seed4.pt
+    head_constants:
+    - 0.06869290769100189
+    - 0.038939762860536575
+    n_dead_region: 536
+  test:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed\amlworld_gfp_features_test.parquet
+    embeddings_parquet: experiments\R6_mega\embeddings_test_seed4.parquet
+    checkpoint: experiments\R6_mega\model_best_seed4.pt
+    head_constants:
+    - 0.06869290769100189
+    - 0.038939762860536575
+    n_dead_region: 653
+scope_windows:
+  val:
+  - 518410
+  - 691150
+  test:
+  - 691210
+  - 1527490
+eval_window: E:\JSJ\Ring-Shield\configs\eval_window.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 6
+    - 7
+    bounds:
+    - 518410
+    - 691209
+  primary:
+    name: primary
+    split: test
+    days:
+    - 8
+    - 9
+    bounds:
+    - 691210
+    - 864009
+  tail:
+    name: tail
+    split: test
+    days:
+    - 10
+    - 17
+    bounds:
+    - 864010
+    - 1555209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 8
+    - 17
+    bounds:
+    - 691210
+    - 1555209
+primary_block: primary
+n_val_truth_rings: 157
+dry_run: false

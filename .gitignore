@@ -78,3 +78,29 @@ data_config.json
 wandb/data/processed/*.parquet
 experiments/**/predictions.csv
 experiments/*/predictions_seed*.csv
+
+# ============================================
+# PREDICTIONS / CHECKPOINTS / PARQUET (never committed)
+# ============================================
+experiments/**/predictions*.csv
+*.parquet
+*.ckpt
+contract/out/*_dryrun*
+docs/*_dryrun.json
+external/
+
+# ============================================
+# THIRD-PARTY CLONES (not vendored)
+# ============================================
+# MEGA-GNN (Apache-2.0). The exact upstream commit is recorded in
+# experiments/R6_mega/config.yaml; re-clone it rather than committing a nested repo.
+# third_party/shims/ IS ours and is committed.
+third_party/mega_gnn/
+
+data/raw*/
+data/processed*/
+experiments_li_small/
+
+# Worktree convenience only: machine-absolute paths pointing at the primary checkout's
+# data/ and experiments/ (both gitignored, so a worktree has neither). Create your own.
+configs/paths_main.yaml

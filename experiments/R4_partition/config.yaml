@@ -1,0 +1,11 @@
+step: 7.1 pairs training set
+out: experiments\R4_partition
+cross_scores: E:\JSJ\Ring-Shield\experiments\R3_cross_scores
+training_set: E:\JSJ\Ring-Shield\experiments\R3_expansion\training_set.parquet
+policy_json: E:\JSJ\Ring-Shield\experiments\R3_expansion\policy_proposed\policy.json
+p_min: None
+seed_frac_pct: '0.1'
+no_embed: 'False'
+p_min_used: 0.7
+created_utc: '2026-09-22T07:36:19+00:00'
+git_commit: 858afd46c4bffc0e229341a3eebcecb148d8f1e9

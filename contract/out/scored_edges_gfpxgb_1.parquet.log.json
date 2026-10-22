@@ -1,0 +1,9 @@
+{
+  "created_utc": "2026-09-17T19:02:28+00:00",
+  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "source": "ringshield.scored_edges.build_scored_edges",
+  "scores": "experiments/R2_b0/gfpxgb_scores/scores_test_seed1.parquet",
+  "split": "test",
+  "n_rows": 863900,
+  "calibrated": true
+}

@@ -1,0 +1,32 @@
+{
+  "created_utc": "2026-09-16T15:18:14+00:00",
+  "git_commit": "617805865432d73e6e9a59dfa153940f6a65f327",
+  "run_dir": "experiments\\E6_tgn",
+  "checkpoint": "experiments\\E6_tgn\\model_best_seed1.pt",
+  "run_config_commit": null,
+  "seed": 1,
+  "split": "val",
+  "dry_run": false,
+  "causal": false,
+  "loader_route": "non-causal",
+  "loader_window_s": null,
+  "num_neighbors": [
+    100,
+    100
+  ],
+  "batch_size": 8192,
+  "n_rows": 965524,
+  "n_split_edges": 965524,
+  "n_nan_scores": 0,
+  "score_min": 0.0,
+  "score_max": 0.9999998807907104,
+  "score_mean": 0.003137772731238007,
+  "timestamp_basis": "loader (seconds since first day 00:00 - 10 s)",
+  "timestamp_min": 518410,
+  "timestamp_max": 691150,
+  "embeddings": null,
+  "device": "cuda",
+  "seconds": 109.0,
+  "data_load_seconds": 1027.8,
+  "scores_path": "experiments\\R1_gine_noncausal\\scores_val_seed1.parquet"
+}

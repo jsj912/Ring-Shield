@@ -1,0 +1,17 @@
+{
+  "created_utc": "2026-09-23T03:21:20+00:00",
+  "runs_root": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\runs",
+  "b0_root": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\gine_causal",
+  "n_methods": 8,
+  "seeds_per_method": {
+    "b0": "1 2 3 4 5",
+    "b1": "1 2 3 4 5",
+    "b1b": "1 2 3 4 5",
+    "proposed": "1 2 3 4 5",
+    "no_detector": "1 2 3 4 5",
+    "no_account_state": "1 2 3 4 5",
+    "no_embedding": "1 2 3 4 5",
+    "hop1": "1 2 3 4 5"
+  },
+  "out": "E:\\JSJ\\Ring-Shield\\results\\tables\\r3_expansion.csv"
+}

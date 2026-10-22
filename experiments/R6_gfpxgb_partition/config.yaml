@@ -1,0 +1,11 @@
+step: 7.1 pairs training set
+out: experiments\R6_gfpxgb_partition
+cross_scores: experiments\R6_gfpxgb_cross
+training_set: experiments\R6_gfpxgb_expand\training_set.parquet
+policy_json: experiments\R6_gfpxgb_expand\policy_gfpxgb\policy.json
+p_min: None
+seed_frac_pct: '0.1'
+no_embed: 'True'
+p_min_used: 0.7
+created_utc: '2026-09-24T18:23:30+00:00'
+git_commit: b1a28204ba6ddd11ce9883a1e53a443242a530f2

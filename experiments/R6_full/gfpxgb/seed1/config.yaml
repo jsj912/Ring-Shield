@@ -1,0 +1,142 @@
+experiment: seed1
+step: 7.4 (R4 partition)
+created_utc: '2026-09-26T08:11:37+00:00'
+git_commit: b1a28204ba6ddd11ce9883a1e53a443242a530f2
+aggregator: full
+method: average
+detector_seed: 1
+r1_dir: experiments\R2_b0\gfpxgb_scores
+r3_config: experiments\R6_full\gfpxgb\expand\seed1\config.yaml
+expansion_fixed:
+  delta_t_h: 24.0
+  p_min: 0.7
+  policy_dir: experiments\R6_gfpxgb_expand\policy_gfpxgb
+affinity_dir: experiments\R6_gfpxgb_partition\affinity_gfpxgb
+affinity_cv_auc_pr: 0.9387998675059741
+cluster_seed: 0
+b0_cell_fixed:
+  seed_frac_pct: 0.1
+  min_size: 3
+grid:
+- cut: 0.3
+- cut: 0.5
+- cut: 0.7
+- cut: 0.9
+grid_results_val:
+- cut: 0.3
+  n_rings: 308
+  ring_precision: 0.2338
+  ring_recall: 0.4586
+  ring_f1: 0.3097
+  mean_jaccard: 0.9262
+  member_coverage: 0.95
+  n_matched: 72
+  components_split: 6
+  n_clusters: 681
+  n_rings_gt100: 0
+- cut: 0.5
+  n_rings: 306
+  ring_precision: 0.2353
+  ring_recall: 0.4586
+  ring_f1: 0.311
+  mean_jaccard: 0.9201
+  member_coverage: 0.9467
+  n_matched: 72
+  components_split: 3
+  n_clusters: 678
+  n_rings_gt100: 0
+- cut: 0.7
+  n_rings: 304
+  ring_precision: 0.2336
+  ring_recall: 0.4522
+  ring_f1: 0.308
+  mean_jaccard: 0.9225
+  member_coverage: 0.9459
+  n_matched: 71
+  components_split: 2
+  n_clusters: 676
+  n_rings_gt100: 0
+- cut: 0.9
+  n_rings: 300
+  ring_precision: 0.2233
+  ring_recall: 0.4268
+  ring_f1: 0.2932
+  mean_jaccard: 0.9291
+  member_coverage: 0.9427
+  n_matched: 67
+  components_split: 0
+  n_clusters: 672
+  n_rings_gt100: 0
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  delta_t_h: 24.0
+  p_min: 0.7
+  method: average
+  cut: 0.5
+  val_ring_f1: 0.311
+scope: test_visible
+model_id: gfpxgb
+selection_column: score_raw
+confidence_column: score_calibrated
+context:
+  val:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed\amlworld_gfp_features_val.parquet
+    embeddings_parquet: null
+    checkpoint: null
+    head_constants: null
+    n_dead_region: 0
+  test:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed\amlworld_gfp_features_test.parquet
+    embeddings_parquet: null
+    checkpoint: null
+    head_constants: null
+    n_dead_region: 0
+scope_windows:
+  val:
+  - 518410
+  - 691150
+  test:
+  - 691210
+  - 1527490
+eval_window: E:\JSJ\Ring-Shield\configs\eval_window.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 6
+    - 7
+    bounds:
+    - 518410
+    - 691209
+  primary:
+    name: primary
+    split: test
+    days:
+    - 8
+    - 9
+    bounds:
+    - 691210
+    - 864009
+  tail:
+    name: tail
+    split: test
+    days:
+    - 10
+    - 17
+    bounds:
+    - 864010
+    - 1555209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 8
+    - 17
+    bounds:
+    - 691210
+    - 1555209
+primary_block: primary
+n_val_truth_rings: 157
+dry_run: false

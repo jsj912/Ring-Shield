@@ -1,0 +1,122 @@
+{
+  "created_utc": "2026-09-26T20:30:14+00:00",
+  "git_commit": "257ac03b384601cb0d04fa0cb63326af68dd0f92",
+  "hold_out_pattern": "BIPARTITE",
+  "n_held_out_rings": 49,
+  "n_held_out_edges_by_split": {
+    "test": 68,
+    "train": 150,
+    "val": 49
+  },
+  "relabelled_licit_in": [
+    "train",
+    "val"
+  ],
+  "test_labels_untouched": true,
+  "graph_unchanged": true,
+  "n_pairs_dropped_by_holdout": 219,
+  "inputs": {
+    "cross_scores": "E:\\JSJ\\Ring-Shield\\experiments\\R3_cross_scores\\cross_scores_train.parquet",
+    "training_set": "experiments\\R7_l3only_bipartite\\training_set.parquet",
+    "policy_json": "experiments\\R7_l3only_bipartite\\policy\\policy.json",
+    "p_min": 0.7,
+    "seed_frac_pct": 0.1,
+    "seeds_per_fold": [
+      {
+        "fold": 0,
+        "n_edges": 1114921,
+        "q": 0.791920650005367,
+        "n_seeds": 1115,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10000708570383013
+      },
+      {
+        "fold": 1,
+        "n_edges": 754449,
+        "q": 0.3922860312462106,
+        "n_seeds": 755,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.100073033432346
+      },
+      {
+        "fold": 2,
+        "n_edges": 414812,
+        "q": 0.3388851441741094,
+        "n_seeds": 415,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10004532173611178
+      },
+      {
+        "fold": 3,
+        "n_edges": 482650,
+        "q": 0.37008566793803027,
+        "n_seeds": 483,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10007251631617115
+      },
+      {
+        "fold": 4,
+        "n_edges": 482089,
+        "q": 0.29662197828292874,
+        "n_seeds": 483,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10018896925671401
+      }
+    ]
+  },
+  "included": {
+    "n": 3396,
+    "n_seeds": 3251,
+    "n_expanded": 145,
+    "n_expanded_member": 136,
+    "n_components": 2008,
+    "largest_component": 57,
+    "components_with_gt1_ring": 11,
+    "components_with_pairs": 529
+  },
+  "pairs": {
+    "n": 10089,
+    "n_pos": 4101,
+    "n_neg": 5988,
+    "pos_rate": 0.40648230746357417,
+    "by_kind": {
+      "seed_seed": {
+        "n": 9005,
+        "n_pos": 3105
+      },
+      "seed_exp": {
+        "n": 935,
+        "n_pos": 854
+      },
+      "exp_exp": {
+        "n": 149,
+        "n_pos": 142
+      }
+    },
+    "by_role": {
+      "source": {
+        "n": 1738,
+        "n_pos": 1374
+      },
+      "sink": {
+        "n": 5927,
+        "n_pos": 1666
+      },
+      "mule": {
+        "n": 1216,
+        "n_pos": 365
+      },
+      "other": {
+        "n": 1208,
+        "n_pos": 696
+      }
+    },
+    "components_all_positive": 94,
+    "components_mixed": 36,
+    "components_all_negative": 399,
+    "cos_emb_nan": 0,
+    "n_features": 20
+  },
+  "seconds": 1714.2,
+  "out": "experiments\\R7_l3only_bipartite\\pairs_train.parquet"
+}

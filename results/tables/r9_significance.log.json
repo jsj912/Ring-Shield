@@ -1,0 +1,50 @@
+{
+  "created_utc": "2026-09-23T03:18:53+00:00",
+  "git_commit": "d4217353ec33ab99714b61b6fc8078f5f17a1c76",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "windows": [
+    "primary",
+    "tail",
+    "whole"
+  ],
+  "n_bootstrap": 1000,
+  "n_permutations": 10000,
+  "rng_seed": 0,
+  "methods": {
+    "b0": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\gine_causal",
+    "gfpxgb": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\gfpxgb",
+    "density": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\density",
+    "b1": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\runs\\b1",
+    "b1b": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\runs\\b1b",
+    "proposed": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\runs\\proposed",
+    "no_detector": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\runs\\no_detector",
+    "no_account_state": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\runs\\no_account_state",
+    "no_embedding": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\runs\\no_embedding",
+    "hop1": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\runs\\hop1",
+    "b2": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\runs\\b2",
+    "b3": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\runs\\b3",
+    "b4": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\runs\\b4",
+    "pivot": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\runs\\pivot",
+    "average": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\runs\\average",
+    "b5": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\runs\\b5",
+    "cc_partition": "E:\\JSJ\\Ring-Shield\\experiments\\R4_sweep\\cc_partition"
+  },
+  "comparisons": [
+    "proposed_vs_b1b",
+    "proposed_vs_b0",
+    "full_vs_b2",
+    "cc_partition_vs_b0",
+    "full_vs_b1b"
+  ],
+  "full_alias": "average",
+  "quiet_member_rule": "scored members of an in-scope truth ring with no incident SEED edge inside the window",
+  "bootstrap_unit": "truth ring, with replacement; seeds averaged inside each resample",
+  "permutation": "paired sign-flip on per-ring matched indicators (seeds averaged per ring), Holm across the table",
+  "seconds": 160.5
+}

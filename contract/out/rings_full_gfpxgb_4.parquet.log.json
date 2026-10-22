@@ -1,0 +1,170 @@
+{
+  "created_utc": "2026-10-15T17:52:06+00:00",
+  "git_commit": "b35b233ffa1743ac5ac2b9f18fd625c341bc986e",
+  "contract_version": "rings.parquet v2 (v1 Step 8; v2 Step 14 currency fields)",
+  "detector_seed": 4,
+  "aggregator": "full",
+  "detector": "gfpxgb",
+  "detector_note": "GFP+XGBoost detector with its OWN policy and affinity, both trained WITHOUT embeddings: the affinity has 19 features and no cos_emb",
+  "inputs": {
+    "scores": "E:\\JSJ\\Ring-Shield\\experiments\\R2_b0\\gfpxgb_scores\\scores_test_seed4.parquet",
+    "embeddings": null,
+    "checkpoint": null,
+    "gfp": "E:\\JSJ\\Ring-Shield\\data\\processed\\amlworld_gfp_features_test.parquet",
+    "policy": "E:\\JSJ\\Ring-Shield\\experiments\\R6_gfpxgb_expand\\policy_gfpxgb",
+    "affinity": "E:\\JSJ\\Ring-Shield\\experiments\\R6_gfpxgb_partition\\affinity_gfpxgb",
+    "affinity_features": [
+      "time_gap_s",
+      "amount_ratio",
+      "dir_in_out",
+      "dir_out_out",
+      "dir_in_in",
+      "dir_out_in",
+      "cos_gfp",
+      "kind_seed_seed",
+      "kind_seed_exp",
+      "kind_exp_exp",
+      "role_source",
+      "role_sink",
+      "role_mule",
+      "role_other",
+      "acc_closure",
+      "acc_n_included",
+      "acc_n_counterparties",
+      "acc_log_degree_window",
+      "on_chain"
+    ],
+    "affinity_uses_embeddings": false,
+    "typing_head": "E:\\JSJ\\RS-det\\experiments\\R5_typing\\head_w2",
+    "roles_config": "configs/roles.yaml",
+    "reproduced_run": "E:\\JSJ\\Ring-Shield\\experiments\\R6_full\\gfpxgb\\seed4"
+  },
+  "params": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "delta_t_h": 48.0,
+    "p_min": 0.7,
+    "partition": "average",
+    "cut": 0.3,
+    "max_events_per_query": 500
+  },
+  "n_rings": 185,
+  "columns": [
+    "ring_id",
+    "tenant_id",
+    "aggregator_id",
+    "members",
+    "n_members",
+    "member_edges",
+    "seed_edges",
+    "expanded_edges",
+    "expanded_edge_probs",
+    "n_edges",
+    "start_time",
+    "end_time",
+    "duration_hours",
+    "confidence",
+    "max_edge_prob",
+    "density",
+    "conservation_closure",
+    "topology_type",
+    "topology_probs",
+    "source_accounts",
+    "sink_accounts",
+    "mule_accounts",
+    "conservation_closure_ccy",
+    "n_accounts_ccy_undefined",
+    "source_accounts_ccy",
+    "sink_accounts_ccy",
+    "mule_accounts_ccy",
+    "undetermined_accounts_ccy",
+    "n_roles_changed_ccy",
+    "n_currencies"
+  ],
+  "fields": {
+    "n_seed_edges": 603,
+    "n_expanded_edges": 773,
+    "n_member_edges": 2061,
+    "expanded_edge_probs_aligned": true,
+    "n_rings_with_expansion": 155,
+    "n_rings_closure_nan": 6,
+    "n_rings_with_source": 181,
+    "n_rings_with_sink": 183,
+    "n_rings_with_mule": 49,
+    "n_accounts_by_role": {
+      "source": 804,
+      "sink": 477,
+      "mule_or_holder": 105
+    },
+    "topology_counts": {
+      "FAN-IN": 71,
+      "FAN-OUT": 33,
+      "STACK": 27,
+      "SCATTER-GATHER": 21,
+      "GATHER-SCATTER": 20,
+      "RANDOM": 8,
+      "CYCLE": 5
+    },
+    "n_topology_unknown": 0,
+    "confidence": {
+      "min": 0.018233417194973844,
+      "max": 0.9629629629629629,
+      "mean": 0.6054722270144992
+    },
+    "conservation_closure": {
+      "n_nan": 6,
+      "mean_non_nan": 0.9517060205704979
+    },
+    "currency_v2": {
+      "n_rings": 185,
+      "n_accounts_undetermined_ccy": 102,
+      "n_rings_with_undetermined": 45,
+      "n_roles_changed_ccy_total": 104,
+      "n_rings_roles_unchanged": 138,
+      "conservation_closure_ccy": {
+        "n_nan": 7,
+        "mean_non_nan": 0.8687781395592653
+      },
+      "currency_mode": "partitioned (v2 fields only; v1 fields remain raw cross-currency sums)",
+      "ccy_min_two_sided_share": 0.5
+    }
+  },
+  "primary_window": {
+    "n_predicted": 164,
+    "n_truth": 174,
+    "n_matched": 81,
+    "ring_precision": 0.4939,
+    "ring_recall": 0.4655,
+    "ring_f1": 0.4793,
+    "mean_jaccard": 0.8762,
+    "member_coverage": 0.9319,
+    "ring_recall_ge3": 0.5702
+  },
+  "reproduces_run": {
+    "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R6_full\\gfpxgb\\seed4",
+    "metrics": {
+      "ring_precision": true,
+      "ring_recall": true,
+      "ring_f1": true,
+      "mean_jaccard": true,
+      "member_coverage": true
+    },
+    "counts": {
+      "n_predicted": true,
+      "n_truth": true,
+      "n_matched": true
+    },
+    "reference_decimals": 4,
+    "tolerance": 5e-05,
+    "member_edge_sets_identical": true
+  },
+  "reproduces_r4_average_run": {
+    "ring_precision": true,
+    "ring_recall": true,
+    "ring_f1": true,
+    "mean_jaccard": true,
+    "member_coverage": true
+  },
+  "seconds": 203.5,
+  "out": "E:\\JSJ\\RS-det\\contract\\out\\rings_full_gfpxgb_4.parquet"
+}

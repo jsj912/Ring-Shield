@@ -1,0 +1,316 @@
+{
+  "created_utc": "2026-09-17T09:19:38+00:00",
+  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "run_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal",
+  "split": "val",
+  "window_s": 1800,
+  "loader_route": "fallback",
+  "num_neighbors": [
+    100,
+    100
+  ],
+  "batch_size": 8192,
+  "dry_run": false,
+  "max_batches": null,
+  "definition": "per seed edge (u->v, t): hop-1 = batch edges incident to u or v (own copy excluded), hop-2 = edges incident to endpoints of hop-1 edges minus hop-1 / own copy; counted in both stores (to, rev_to) which are sampled independently; in-window future = timestamp in (t, max seed timestamp of the batch]. Fractions are per seed; seeds with an empty hop are excluded from mean/percentiles and counted in n_seeds_with_empty_hop. pooled_fraction = sum(future) / sum(edges).",
+  "n_batches": 118,
+  "n_seeds": 965524,
+  "n_illicit_seeds": 1036,
+  "seconds": 795.2,
+  "batch_seeds": {
+    "mean": 8183.722712226729,
+    "max": 8192
+  },
+  "seed_to_batch_max_gap_s": {
+    "mean": 733.4886341509895,
+    "p90": 1380.0,
+    "max": 1560
+  },
+  "by_group": {
+    "illicit": {
+      "n_seeds": 1036,
+      "hop1": {
+        "both_stores": {
+          "n_seeds": 1036,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.01672465682137201,
+          "p50": 0.0,
+          "p90": 0.0281364099087284,
+          "p99": 0.36363636363636365,
+          "share_seeds_with_any_future": 0.23455598455598456,
+          "total_edges": 1455071,
+          "total_future_edges": 21656,
+          "pooled_fraction": 0.014883122541786621
+        },
+        "to": {
+          "n_seeds": 1036,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.015745652833028218,
+          "p50": 0.0,
+          "p90": 0.018371030317574595,
+          "p99": 0.36363636363636365,
+          "share_seeds_with_any_future": 0.23455598455598456,
+          "total_edges": 1363066,
+          "total_future_edges": 10920,
+          "pooled_fraction": 0.008011350881028504
+        },
+        "rev_to": {
+          "n_seeds": 1036,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.038388107031523615,
+          "p50": 0.0,
+          "p90": 0.1348499061913696,
+          "p99": 0.511509274873526,
+          "share_seeds_with_any_future": 0.2335907335907336,
+          "total_edges": 92005,
+          "total_future_edges": 10736,
+          "pooled_fraction": 0.1166893103635672
+        }
+      },
+      "hop2": {
+        "both_stores": {
+          "n_seeds": 1036,
+          "n_seeds_with_empty_hop": 6,
+          "mean": 0.0034860006749379345,
+          "p50": 0.0,
+          "p90": 0.011490096344836552,
+          "p99": 0.02202100929373657,
+          "share_seeds_with_any_future": 0.4276061776061776,
+          "total_edges": 5820857,
+          "total_future_edges": 41178,
+          "pooled_fraction": 0.0070742160475682535
+        },
+        "to": {
+          "n_seeds": 1036,
+          "n_seeds_with_empty_hop": 7,
+          "mean": 0.0037259535493021725,
+          "p50": 0.0,
+          "p90": 0.012650337742863935,
+          "p99": 0.022915360501567405,
+          "share_seeds_with_any_future": 0.4276061776061776,
+          "total_edges": 5198737,
+          "total_future_edges": 39817,
+          "pooled_fraction": 0.0076589756319659945
+        },
+        "rev_to": {
+          "n_seeds": 1036,
+          "n_seeds_with_empty_hop": 7,
+          "mean": 0.00227242599735949,
+          "p50": 0.0,
+          "p90": 0.004529000411353353,
+          "p99": 0.02746117732033232,
+          "share_seeds_with_any_future": 0.24227799227799227,
+          "total_edges": 622120,
+          "total_future_edges": 1361,
+          "pooled_fraction": 0.002187680833279753
+        }
+      },
+      "hop1+2": {
+        "both_stores": {
+          "n_seeds": 1036,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.007516720670000806,
+          "p50": 0.0005992156061786606,
+          "p90": 0.016290476954804775,
+          "p99": 0.11433385936288074,
+          "share_seeds_with_any_future": 0.5115830115830116,
+          "total_edges": 7275928,
+          "total_future_edges": 62834,
+          "pooled_fraction": 0.008635874351697818
+        }
+      },
+      "share_with_future_illicit_neighbour": {
+        "hop1": 0.011583011583011582,
+        "hop2": 0.04247104247104247,
+        "either": 0.05019305019305019,
+        "n_illicit_seeds": 1036
+      }
+    },
+    "licit": {
+      "n_seeds": 964488,
+      "hop1": {
+        "both_stores": {
+          "n_seeds": 964488,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.012830428779451826,
+          "p50": 0.0,
+          "p90": 0.029411764705882353,
+          "p99": 0.12903225806451613,
+          "share_seeds_with_any_future": 0.43199085939897647,
+          "total_edges": 1170516131,
+          "total_future_edges": 18088476,
+          "pooled_fraction": 0.015453418813243164
+        },
+        "to": {
+          "n_seeds": 964488,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.011957513723750984,
+          "p50": 0.0,
+          "p90": 0.02702702702702703,
+          "p99": 0.125,
+          "share_seeds_with_any_future": 0.43199085939897647,
+          "total_edges": 1077378751,
+          "total_future_edges": 9100821,
+          "pooled_fraction": 0.00844718813282034
+        },
+        "rev_to": {
+          "n_seeds": 964488,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.03146179142187428,
+          "p50": 0.0,
+          "p90": 0.06097560975609756,
+          "p99": 0.48860759493670886,
+          "share_seeds_with_any_future": 0.4305714534550974,
+          "total_edges": 93137380,
+          "total_future_edges": 8987655,
+          "pooled_fraction": 0.09649890301831553
+        }
+      },
+      "hop2": {
+        "both_stores": {
+          "n_seeds": 964488,
+          "n_seeds_with_empty_hop": 3484,
+          "mean": 0.0034502605634168485,
+          "p50": 0.0,
+          "p90": 0.01139421162715051,
+          "p99": 0.02168021680216802,
+          "share_seeds_with_any_future": 0.42502757939964003,
+          "total_edges": 5022805480,
+          "total_future_edges": 36963859,
+          "pooled_fraction": 0.007359205756062845
+        },
+        "to": {
+          "n_seeds": 964488,
+          "n_seeds_with_empty_hop": 3796,
+          "mean": 0.003686812975012506,
+          "p50": 0.0,
+          "p90": 0.01220220801859384,
+          "p99": 0.02233576142550722,
+          "share_seeds_with_any_future": 0.4236268362073971,
+          "total_edges": 4536422990,
+          "total_future_edges": 35806084,
+          "pooled_fraction": 0.007893021457419252
+        },
+        "rev_to": {
+          "n_seeds": 964488,
+          "n_seeds_with_empty_hop": 5227,
+          "mean": 0.0025106920612029604,
+          "p50": 0.0,
+          "p90": 0.005434782608695652,
+          "p99": 0.033707865168539325,
+          "share_seeds_with_any_future": 0.23912687353290035,
+          "total_edges": 486382490,
+          "total_future_edges": 1157775,
+          "pooled_fraction": 0.0023803796884217603
+        }
+      },
+      "hop1+2": {
+        "both_stores": {
+          "n_seeds": 964488,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.006717006925084205,
+          "p50": 0.003745318352059925,
+          "p90": 0.015238095238095238,
+          "p99": 0.05263157894736842,
+          "share_seeds_with_any_future": 0.6283427061819328,
+          "total_edges": 6193321611,
+          "total_future_edges": 55052335,
+          "pooled_fraction": 0.008888983724375169
+        }
+      }
+    },
+    "all": {
+      "n_seeds": 965524,
+      "hop1": {
+        "both_stores": {
+          "n_seeds": 965524,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.01283460725689146,
+          "p50": 0.0,
+          "p90": 0.029411764705882353,
+          "p99": 0.12962962962962962,
+          "share_seeds_with_any_future": 0.4317790132611929,
+          "total_edges": 1171971202,
+          "total_future_edges": 18110132,
+          "pooled_fraction": 0.015452710756966194
+        },
+        "to": {
+          "n_seeds": 965524,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.011961578368562724,
+          "p50": 0.0,
+          "p90": 0.02702702702702703,
+          "p99": 0.12727272727272726,
+          "share_seeds_with_any_future": 0.4317790132611929,
+          "total_edges": 1078741817,
+          "total_future_edges": 9111741,
+          "pooled_fraction": 0.008446637421862363
+        },
+        "rev_to": {
+          "n_seeds": 965524,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.03146922330650024,
+          "p50": 0.0,
+          "p90": 0.06103286384976526,
+          "p99": 0.48860759493670886,
+          "share_seeds_with_any_future": 0.43036009462219477,
+          "total_edges": 93229385,
+          "total_future_edges": 8998391,
+          "pooled_fraction": 0.09651882826428598
+        }
+      },
+      "hop2": {
+        "both_stores": {
+          "n_seeds": 965524,
+          "n_seeds_with_empty_hop": 3490,
+          "mean": 0.003450298828504014,
+          "p50": 0.0,
+          "p90": 0.011394284212772424,
+          "p99": 0.02168021680216802,
+          "share_seeds_with_any_future": 0.42503034621614794,
+          "total_edges": 5028626337,
+          "total_future_edges": 37005037,
+          "pooled_fraction": 0.007358875867892906
+        },
+        "to": {
+          "n_seeds": 965524,
+          "n_seeds_with_empty_hop": 3803,
+          "mean": 0.00368685485373923,
+          "p50": 0.0,
+          "p90": 0.012202562538133009,
+          "p99": 0.0223439735795709,
+          "share_seeds_with_any_future": 0.4236311060108294,
+          "total_edges": 4541621727,
+          "total_future_edges": 35845901,
+          "pooled_fraction": 0.00789275354812041
+        },
+        "rev_to": {
+          "n_seeds": 965524,
+          "n_seeds_with_empty_hop": 5234,
+          "mean": 0.0025104367468919754,
+          "p50": 0.0,
+          "p90": 0.005434782608695652,
+          "p99": 0.033707865168539325,
+          "share_seeds_with_any_future": 0.23913025465964596,
+          "total_edges": 487004610,
+          "total_future_edges": 1159136,
+          "pooled_fraction": 0.0023801335268674355
+        }
+      },
+      "hop1+2": {
+        "both_stores": {
+          "n_seeds": 965524,
+          "n_seeds_with_empty_hop": 0,
+          "mean": 0.0067178650119258925,
+          "p50": 0.003745318352059925,
+          "p90": 0.015239737288114232,
+          "p99": 0.05263157894736842,
+          "share_seeds_with_any_future": 0.6282174239066041,
+          "total_edges": 6200597539,
+          "total_future_edges": 55115169,
+          "pooled_fraction": 0.008888686719842921
+        }
+      }
+    }
+  }
+}

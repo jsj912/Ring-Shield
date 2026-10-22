@@ -1,0 +1,37 @@
+{
+  "SUPERSEDED": {
+    "date": "2026-10-14",
+    "by": "contract/fx_rates.json (contract/make_fx_rates.py)",
+    "found_by": "the XAI teammate's measurement",
+    "what_was_wrong": "the verdict below answers an ACCOUNT-level question and was then generalised into a claim about EDGES. 13,627 test edges (1.58 %) are cross-currency with an amount on each side, so each states a rate; the generator's rates are fixed (round trip and triangle close to 3e-5).",
+    "what_is_still_true": "only 50 of 393,544 accounts are single-currency-in / single-currency-out with the two differing. That measurement stands; it is simply not the question that decides whether a rate exists.",
+    "do_not_use_for": "deciding whether an amount can be converted -- use contract/fx_rates.json"
+  },
+  "created_utc": "2026-10-11T06:22:11+00:00",
+  "purpose": "REPORT ONLY -- implied FX rates are never applied; an `undetermined` account stays undetermined until these are shown stable",
+  "method": "median outflow/inflow over accounts with exactly one currency in and one out, at least min_edges on each side, pooled over the whole dataset, RING MEMBERS EXCLUDED so no label informs a rate",
+  "thresholds": {
+    "min_edges": 3,
+    "min_accounts": 20,
+    "stable_iqr_ratio": 0.1
+  },
+  "n_pairs": 1,
+  "n_judged": 0,
+  "n_stable": 0,
+  "verdict": "NOT STABLE \u2014 nothing converts",
+  "cross_dataset": null,
+  "if_stable_next_step": "report how many of the 571 `undetermined` ring-accounts resolve to mule versus another role after conversion -- still report only",
+  "pairs": [
+    {
+      "cur_in": 0,
+      "cur_out": 8,
+      "n_accounts": 1,
+      "median_rate": 0.7741998742,
+      "iqr_rel": 0.0,
+      "n_days": 0,
+      "day_spread_rel": null,
+      "judged": false,
+      "stable": false
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+# Seeds used by every script. Read via --seed / --seeds; never hard-code.
+seeds: [1, 2, 3, 4, 5]

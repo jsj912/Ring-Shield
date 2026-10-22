@@ -1,0 +1,42 @@
+{
+  "created_utc": "2026-09-16T11:22:01+00:00",
+  "git_commit": "fe15cdda284e3e41ef5d3b6f87e50845e3ea02a8",
+  "model_id": "gine",
+  "seed": 1,
+  "dry_run": false,
+  "dry_run_frac": null,
+  "inputs": {
+    "preds_csv": "experiments\\E6_tgn\\predictions_with_ids.csv",
+    "test_parquet": "E:\\JSJ\\Ring-Shield\\data\\processed\\amlworld_test.parquet",
+    "accounts_csv": "E:\\JSJ\\Ring-Shield\\data\\raw\\HI-Small_accounts.csv",
+    "raw_trans_csv": "E:\\JSJ\\Ring-Shield\\data\\raw\\HI-Small_Trans.csv",
+    "account_map_cache": "E:\\JSJ\\Ring-Shield\\data\\processed\\account_bank.parquet"
+  },
+  "n_rows_predictions": 863900,
+  "n_rows_out": 863900,
+  "n_nan_pred_prob": 841,
+  "n_is_seed": 1616,
+  "n_true_label_positive": 1611,
+  "timestamp_offset_seconds": 10,
+  "columns": [
+    "edge_id",
+    "tenant_id",
+    "from_id",
+    "to_id",
+    "from_bank",
+    "to_bank",
+    "timestamp",
+    "amount_sent",
+    "amount_received",
+    "currency_sent",
+    "currency_received",
+    "payment_format",
+    "score_raw",
+    "score_calibrated",
+    "is_seed",
+    "model_id",
+    "seed"
+  ],
+  "out_path": "E:\\JSJ\\Ring-Shield\\contract\\out\\scored_edges_gine_1.parquet",
+  "labels_path": "E:\\JSJ\\Ring-Shield\\contract\\out\\labels_test.parquet"
+}

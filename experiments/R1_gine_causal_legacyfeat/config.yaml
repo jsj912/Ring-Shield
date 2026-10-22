@@ -1,0 +1,35 @@
+experiment: R1_gine_causal
+model: Multi-GINe v2
+arch: gine
+git_commit: 617805865432d73e6e9a59dfa153940f6a65f327
+adaptations:
+- edge_MLPs
+- ports
+- time_deltas
+- reverse_MP
+- ego_IDs
+- GFP_features
+dataset: AMLworld HI-Small
+split: 60/20/20 day-based
+seeds:
+- 1
+- 2
+- 3
+- 4
+- 5
+epochs: 100
+patience: 20
+batch_size: 8192
+lr: 0.006
+n_hidden: 66
+n_gnn_layers: 2
+w_ce1: 1.0
+w_ce2: 9.0
+num_neighbors:
+- 100
+- 100
+n_parameters: 148812
+causal_sampling: true
+loader_route: fallback
+loader_window_s: 1800
+dry_run: false

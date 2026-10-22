@@ -1,0 +1,125 @@
+{
+  "created_utc": "2026-10-11T06:03:30+00:00",
+  "git_commit": "003401baef8629686dbebf90b838729b821f923e",
+  "contract_version": "rings.parquet v2 (v1 Step 8; v2 Step 14 currency fields)",
+  "detector_seed": 2,
+  "aggregator": "full",
+  "inputs": {
+    "scores": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal\\scores_test_seed2.parquet",
+    "embeddings": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal\\embeddings_test_seed2.parquet",
+    "policy": "E:\\JSJ\\Ring-Shield\\experiments\\R3_expansion\\policy_proposed",
+    "affinity": "E:\\JSJ\\Ring-Shield\\experiments\\R4_partition\\affinity",
+    "typing_head": "E:\\JSJ\\RS-ccy-valrings\\experiments\\R5_typing\\head_w2",
+    "roles_config": "configs/roles.yaml"
+  },
+  "params": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "delta_t_h": 24.0,
+    "p_min": 0.7,
+    "partition": "average",
+    "cut": 0.5,
+    "max_events_per_query": 500
+  },
+  "n_rings": 112,
+  "columns": [
+    "ring_id",
+    "tenant_id",
+    "aggregator_id",
+    "members",
+    "n_members",
+    "member_edges",
+    "seed_edges",
+    "expanded_edges",
+    "expanded_edge_probs",
+    "n_edges",
+    "start_time",
+    "end_time",
+    "duration_hours",
+    "confidence",
+    "max_edge_prob",
+    "density",
+    "conservation_closure",
+    "topology_type",
+    "topology_probs",
+    "source_accounts",
+    "sink_accounts",
+    "mule_accounts",
+    "conservation_closure_ccy",
+    "n_accounts_ccy_undefined",
+    "source_accounts_ccy",
+    "sink_accounts_ccy",
+    "mule_accounts_ccy",
+    "undetermined_accounts_ccy",
+    "n_roles_changed_ccy",
+    "n_currencies"
+  ],
+  "fields": {
+    "n_seed_edges": 709,
+    "n_expanded_edges": 177,
+    "n_member_edges": 1557,
+    "expanded_edge_probs_aligned": true,
+    "n_rings_with_expansion": 57,
+    "n_rings_closure_nan": 6,
+    "n_rings_with_source": 107,
+    "n_rings_with_sink": 108,
+    "n_rings_with_mule": 33,
+    "n_accounts_by_role": {
+      "source": 358,
+      "sink": 388,
+      "mule_or_holder": 89
+    },
+    "topology_counts": {
+      "FAN-OUT": 29,
+      "GATHER-SCATTER": 24,
+      "SCATTER-GATHER": 15,
+      "FAN-IN": 15,
+      "STACK": 15,
+      "CYCLE": 13,
+      "RANDOM": 1
+    },
+    "n_topology_unknown": 0,
+    "confidence": {
+      "min": 0.2157917061997863,
+      "max": 1.0,
+      "mean": 0.7867058814446809
+    },
+    "conservation_closure": {
+      "n_nan": 6,
+      "mean_non_nan": 0.9310074476694729
+    },
+    "currency_v2": {
+      "n_rings": 112,
+      "n_accounts_undetermined_ccy": 124,
+      "n_rings_with_undetermined": 49,
+      "n_roles_changed_ccy_total": 125,
+      "n_rings_roles_unchanged": 63,
+      "conservation_closure_ccy": {
+        "n_nan": 10,
+        "mean_non_nan": 0.7422404567440789
+      },
+      "currency_mode": "partitioned (v2 fields only; v1 fields remain raw cross-currency sums)",
+      "ccy_min_two_sided_share": 0.5
+    }
+  },
+  "primary_window": {
+    "n_predicted": 97,
+    "n_truth": 174,
+    "n_matched": 81,
+    "ring_precision": 0.8351,
+    "ring_recall": 0.4655,
+    "ring_f1": 0.5978,
+    "mean_jaccard": 0.9324,
+    "member_coverage": 0.9582,
+    "ring_recall_ge3": 0.6053
+  },
+  "reproduces_r4_average_run": {
+    "ring_precision": true,
+    "ring_recall": true,
+    "ring_f1": true,
+    "mean_jaccard": true,
+    "member_coverage": true
+  },
+  "seconds": 62.9,
+  "out": "E:\\JSJ\\RS-ccy-valrings\\contract\\out\\rings_full_gine_causal_2.parquet"
+}

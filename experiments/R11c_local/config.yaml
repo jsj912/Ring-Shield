@@ -1,0 +1,64 @@
+experiment: R11c_local
+step: 11c (per-account local seed budget)
+created_utc: '2026-09-27T18:36:25+00:00'
+git_commit: 257ac03b384601cb0d04fa0cb63326af68dd0f92
+model_id: local
+base_scores: E:\JSJ\Ring-Shield\experiments\R1_gine_causal
+rule: an edge is a local maximum if it is the top-scoring edge of either endpoint
+  account; local maxima rank above all others, then the ordinary strict quantile cut
+  at k* applies
+budget: UNCHANGED at k* = 0.1 %
+expected_bound: FINDINGS B13 -- a local budget cannot reach members in a component
+  disconnected from the seeded fragment inside the window (80.7 % of the under-covered
+  mass)
+per_run:
+- seed: 1
+  split: val
+  n_edges: 965524
+  n_local_maxima: 339735
+  n_seeds_at_k: 966
+- seed: 1
+  split: test
+  n_edges: 863900
+  n_local_maxima: 351229
+  n_seeds_at_k: 864
+- seed: 2
+  split: val
+  n_edges: 965524
+  n_local_maxima: 356677
+  n_seeds_at_k: 966
+- seed: 2
+  split: test
+  n_edges: 863900
+  n_local_maxima: 336296
+  n_seeds_at_k: 864
+- seed: 3
+  split: val
+  n_edges: 965524
+  n_local_maxima: 486258
+  n_seeds_at_k: 966
+- seed: 3
+  split: test
+  n_edges: 863900
+  n_local_maxima: 455549
+  n_seeds_at_k: 864
+- seed: 4
+  split: val
+  n_edges: 965524
+  n_local_maxima: 616362
+  n_seeds_at_k: 966
+- seed: 4
+  split: test
+  n_edges: 863900
+  n_local_maxima: 430992
+  n_seeds_at_k: 864
+- seed: 5
+  split: val
+  n_edges: 965524
+  n_local_maxima: 322910
+  n_seeds_at_k: 966
+- seed: 5
+  split: test
+  n_edges: 863900
+  n_local_maxima: 375104
+  n_seeds_at_k: 864

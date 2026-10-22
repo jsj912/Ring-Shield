@@ -1,0 +1,377 @@
+{
+  "created_utc": "2026-09-17T13:25:25+00:00",
+  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "tail_from_day": 10,
+  "day_definition": "(Timestamp - 10) // 86400, loader basis",
+  "per_day": {
+    "test": [
+      {
+        "day": 8,
+        "n_edges": 654467,
+        "n_illicit": 514,
+        "base_rate": 0.0007853719133279447,
+        "cum_share_of_positives": 0.319056486654252
+      },
+      {
+        "day": 9,
+        "n_edges": 208325,
+        "n_illicit": 442,
+        "base_rate": 0.002121684867394696,
+        "cum_share_of_positives": 0.5934202358783365
+      },
+      {
+        "day": 10,
+        "n_edges": 396,
+        "n_illicit": 232,
+        "base_rate": 0.5858585858585859,
+        "cum_share_of_positives": 0.7374301675977654
+      },
+      {
+        "day": 11,
+        "n_edges": 281,
+        "n_illicit": 170,
+        "base_rate": 0.604982206405694,
+        "cum_share_of_positives": 0.8429546865301055
+      },
+      {
+        "day": 12,
+        "n_edges": 184,
+        "n_illicit": 106,
+        "base_rate": 0.5760869565217391,
+        "cum_share_of_positives": 0.9087523277467412
+      },
+      {
+        "day": 13,
+        "n_edges": 121,
+        "n_illicit": 70,
+        "base_rate": 0.5785123966942148,
+        "cum_share_of_positives": 0.952203600248293
+      },
+      {
+        "day": 14,
+        "n_edges": 46,
+        "n_illicit": 28,
+        "base_rate": 0.6086956521739131,
+        "cum_share_of_positives": 0.9695841092489137
+      },
+      {
+        "day": 15,
+        "n_edges": 46,
+        "n_illicit": 26,
+        "base_rate": 0.5652173913043478,
+        "cum_share_of_positives": 0.9857231533209186
+      },
+      {
+        "day": 16,
+        "n_edges": 23,
+        "n_illicit": 15,
+        "base_rate": 0.6521739130434783,
+        "cum_share_of_positives": 0.9950341402855369
+      },
+      {
+        "day": 17,
+        "n_edges": 11,
+        "n_illicit": 8,
+        "base_rate": 0.7272727272727273,
+        "cum_share_of_positives": 1.0
+      }
+    ],
+    "val": [
+      {
+        "day": 6,
+        "n_edges": 482751,
+        "n_illicit": 497,
+        "base_rate": 0.001029516251649401,
+        "cum_share_of_positives": 0.4797297297297297
+      },
+      {
+        "day": 7,
+        "n_edges": 482773,
+        "n_illicit": 539,
+        "base_rate": 0.0011164667452405169,
+        "cum_share_of_positives": 1.0
+      }
+    ]
+  },
+  "tail_positives": {
+    "n": 655,
+    "n_total": 1611,
+    "share": 0.4065797641216636,
+    "n_edges": 1108,
+    "edge_share": 0.0012825558513716866
+  },
+  "rings": {
+    "n_rings_test_visible": 183,
+    "t_min": 691210,
+    "t_max": 1527490,
+    "n_visible_edges": 1240,
+    "n_visible_edges_in_tail": 655,
+    "rings_with_any_tail_edge": 109,
+    "rings_with_all_edges_in_tail": 9,
+    "tail_fraction_hist": {
+      "0": 74,
+      "(0,0.25]": 18,
+      "(0.25,0.5]": 29,
+      "(0.5,0.75]": 29,
+      "(0.75,1)": 24,
+      "1": 9
+    },
+    "tail_fraction": {
+      "mean": 0.35271783878823415,
+      "median": 0.25
+    },
+    "per_pattern": {
+      "BIPARTITE": {
+        "rings": 20,
+        "any_tail": 9,
+        "all_tail": 4,
+        "mean_tail_frac": 0.32083333333333336,
+        "visible_edges": 66,
+        "tail_edges": 22
+      },
+      "CYCLE": {
+        "rings": 22,
+        "any_tail": 11,
+        "all_tail": 0,
+        "mean_tail_frac": 0.280362062180244,
+        "visible_edges": 99,
+        "tail_edges": 44
+      },
+      "FAN-IN": {
+        "rings": 19,
+        "any_tail": 13,
+        "all_tail": 1,
+        "mean_tail_frac": 0.40345663108821,
+        "visible_edges": 123,
+        "tail_edges": 66
+      },
+      "FAN-OUT": {
+        "rings": 21,
+        "any_tail": 12,
+        "all_tail": 1,
+        "mean_tail_frac": 0.34704647204647204,
+        "visible_edges": 131,
+        "tail_edges": 66
+      },
+      "GATHER-SCATTER": {
+        "rings": 37,
+        "any_tail": 27,
+        "all_tail": 0,
+        "mean_tail_frac": 0.45745258274670036,
+        "visible_edges": 381,
+        "tail_edges": 254
+      },
+      "RANDOM": {
+        "rings": 17,
+        "any_tail": 9,
+        "all_tail": 0,
+        "mean_tail_frac": 0.3246434937611408,
+        "visible_edges": 84,
+        "tail_edges": 41
+      },
+      "SCATTER-GATHER": {
+        "rings": 22,
+        "any_tail": 16,
+        "all_tail": 0,
+        "mean_tail_frac": 0.38284992784992783,
+        "visible_edges": 239,
+        "tail_edges": 129
+      },
+      "STACK": {
+        "rings": 25,
+        "any_tail": 12,
+        "all_tail": 3,
+        "mean_tail_frac": 0.2456678876678877,
+        "visible_edges": 117,
+        "tail_edges": 33
+      }
+    }
+  },
+  "detectability": {
+    "scores_dir": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal_legacyfeat",
+    "seed": 1,
+    "val_threshold": 0.6200000000000001,
+    "by_window": {
+      "days_8_9": {
+        "n_edges": 862792,
+        "n_illicit": 956,
+        "base_rate": 0.0011080306725143488,
+        "ap": 0.4307887549619574,
+        "ap_over_prevalence": 388.7877525848715,
+        "p_at_r50": 0.3380281690140845,
+        "f1_at_val_thr": 0.49268578115857226,
+        "precision_at_val_thr": 0.5590969455511288,
+        "recall_at_val_thr": 0.44037656903765693,
+        "share_above_val_thr": 0.0008727480087900676,
+        "share_illicit_above_val_thr": 0.44037656903765693,
+        "share_licit_above_val_thr": 0.00038522410296158434
+      },
+      "days_ge_10": {
+        "n_edges": 1108,
+        "n_illicit": 655,
+        "base_rate": 0.5911552346570397,
+        "ap": 0.9137247253030807,
+        "ap_over_prevalence": 1.5456595353218525,
+        "p_at_r50": 0.9452449567723343,
+        "f1_at_val_thr": 0.7608888888888888,
+        "precision_at_val_thr": 0.9106382978723404,
+        "recall_at_val_thr": 0.6534351145038167,
+        "share_above_val_thr": 0.42418772563176893,
+        "share_illicit_above_val_thr": 0.6534351145038167,
+        "share_licit_above_val_thr": 0.09271523178807947
+      },
+      "all": {
+        "n_edges": 863900,
+        "n_illicit": 1611,
+        "base_rate": 0.0018647991665702048,
+        "ap": 0.5488232562171648,
+        "ap_over_prevalence": 294.30689698697,
+        "p_at_r50": 0.7428833792470156,
+        "f1_at_val_thr": 0.5991531404375441,
+        "precision_at_val_thr": 0.6941946034341783,
+        "recall_at_val_thr": 0.527001862197393,
+        "share_above_val_thr": 0.0014156731103136936,
+        "share_illicit_above_val_thr": 0.527001862197393,
+        "share_licit_above_val_thr": 0.00043372929493476085
+      }
+    },
+    "gnn_predicted_positives": {
+      "n": 1223,
+      "n_in_tail": 470,
+      "tp": 849,
+      "tp_in_tail": 428
+    },
+    "trivial_tail_baseline": {
+      "definition": "score = 1 if day >= 10 else 0, whole test split",
+      "f1": 0.4817947774917249,
+      "precision": 0.5911552346570397,
+      "recall": 0.4065797641216636,
+      "ap": 0.2414583654274377,
+      "n_predicted_positive": 1108
+    },
+    "gnn_plus_tail_rule": {
+      "definition": "score = 1 on the tail, GNN score elsewhere (upper bound of exploiting the tail)",
+      "ap": 0.4480759928363685,
+      "f1_at_val_thr": 0.619815668202765
+    }
+  },
+  "neighbourhood": {
+    "config": "E:\\JSJ\\Ring-Shield\\experiments\\R1_gine_causal_legacyfeat",
+    "window_s": 1800,
+    "n_seeds": 863900,
+    "by_window": {
+      "days_8_9": {
+        "n_seeds": 862792,
+        "n_illicit": 956,
+        "hop1_both_stores": {
+          "mean": 1271.1659472966833,
+          "median": 153.0,
+          "p10": 45.0,
+          "share_zero": 0.0
+        },
+        "hop1_to": {
+          "mean": 1168.1241689769956,
+          "median": 78.0
+        },
+        "hop1_rev_to": {
+          "mean": 103.04177831968771,
+          "median": 75.0
+        },
+        "hop2_both_stores": {
+          "mean": 5394.140710623186,
+          "median": 394.0
+        },
+        "hop1_illicit_seeds_mean": 1662.137029288703,
+        "hop1_licit_seeds_mean": 1270.7322588056197,
+        "seeds_per_batch_mean": 7303.19290628564
+      },
+      "days_ge_10": {
+        "n_seeds": 1108,
+        "n_illicit": 655,
+        "hop1_both_stores": {
+          "mean": 121.14891696750902,
+          "median": 89.5,
+          "p10": 14.0,
+          "share_zero": 0.0
+        },
+        "hop1_to": {
+          "mean": 64.83574007220217,
+          "median": 46.0
+        },
+        "hop1_rev_to": {
+          "mean": 56.31317689530686,
+          "median": 43.0
+        },
+        "hop2_both_stores": {
+          "mean": 482.3258122743682,
+          "median": 393.5
+        },
+        "hop1_illicit_seeds_mean": 151.55267175572519,
+        "hop1_licit_seeds_mean": 77.18763796909492,
+        "seeds_per_batch_mean": 12.068592057761732
+      }
+    },
+    "per_day": {
+      "8": {
+        "n_seeds": 654467,
+        "hop1_mean": 1361.6094516606643,
+        "hop1_median": 146.0,
+        "hop2_mean": 5826.822576233791
+      },
+      "9": {
+        "n_seeds": 208325,
+        "hop1_mean": 987.0315948637946,
+        "hop1_median": 174.0,
+        "hop2_mean": 4034.8415264610585
+      },
+      "10": {
+        "n_seeds": 396,
+        "hop1_mean": 108.10858585858585,
+        "hop1_median": 81.5,
+        "hop2_mean": 374.84343434343435
+      },
+      "11": {
+        "n_seeds": 281,
+        "hop1_mean": 116.37722419928825,
+        "hop1_median": 80.0,
+        "hop2_mean": 425.98220640569394
+      },
+      "12": {
+        "n_seeds": 184,
+        "hop1_mean": 122.375,
+        "hop1_median": 81.0,
+        "hop2_mean": 498.79891304347825
+      },
+      "13": {
+        "n_seeds": 121,
+        "hop1_mean": 122.19834710743801,
+        "hop1_median": 95.0,
+        "hop2_mean": 546.3553719008264
+      },
+      "14": {
+        "n_seeds": 46,
+        "hop1_mean": 158.80434782608697,
+        "hop1_median": 147.0,
+        "hop2_mean": 819.2608695652174
+      },
+      "15": {
+        "n_seeds": 46,
+        "hop1_mean": 184.1086956521739,
+        "hop1_median": 151.0,
+        "hop2_mean": 894.1521739130435
+      },
+      "16": {
+        "n_seeds": 23,
+        "hop1_mean": 168.1304347826087,
+        "hop1_median": 167.0,
+        "hop2_mean": 879.0
+      },
+      "17": {
+        "n_seeds": 11,
+        "hop1_mean": 161.45454545454547,
+        "hop1_median": 150.0,
+        "hop2_mean": 850.5454545454545
+      }
+    }
+  }
+}
