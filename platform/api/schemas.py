@@ -168,6 +168,7 @@ class RingExplanation(BaseModel):
     latency_ms: int
     provenance: dict[str, Any]
     created_at: datetime
+    regenerating: bool = False
 
 
 class VerdictRequest(BaseModel):
@@ -203,6 +204,19 @@ class VerdictResponse(BaseModel):
 class RegenerationResponse(BaseModel):
     status: Literal["queued", "unavailable"]
     job_id: str | None = None
+
+
+class RegenerateExplanationRequest(BaseModel):
+    verdict_id: int = Field(gt=0)
+
+
+class ExplanationJobResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "running", "succeeded", "failed"]
+    result_revision: int | None = None
+    error: str | None = None
+    created_at: datetime
+    finished_at: datetime | None = None
 
 
 class VerdictHistoryPage(BaseModel):

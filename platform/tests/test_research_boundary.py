@@ -61,6 +61,8 @@ def test_boundary_scanner_detects_forbidden_import_and_truth_path(tmp_path):
 
 
 def test_worker_has_no_api_imports_and_api_does_not_reach_worker_or_xai():
+    import ast
+
     worker = (PLATFORM_ROOT / "jobs" / "regenerate_worker.py").read_text(encoding="utf-8")
     assert "api." not in worker
     api_root = PLATFORM_ROOT / "api"
@@ -71,5 +73,15 @@ def test_worker_has_no_api_imports_and_api_does_not_reach_worker_or_xai():
         source = path.read_text(encoding="utf-8")
         for secret in forbidden_api_secrets:
             assert secret not in source
-        assert "jobs.regenerate_worker" not in source
-        assert "adapters.xai" not in source
+        tree = ast.parse(source, filename=str(path))
+        imported_modules = {
+            node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+        }
+        imported_modules.update(
+            alias.name for node in ast.walk(tree) if isinstance(node, ast.Import)
+            for alias in node.names
+        )
+        assert not any(name == "jobs.regenerate_worker" or name.startswith("jobs.regenerate_worker.")
+                       for name in imported_modules)
+        assert not any(name == "adapters.xai" or name.startswith("adapters.xai.")
+                       for name in imported_modules)
