@@ -1,5 +1,7 @@
 # RingShield
 
+RingShield detects money-laundering rings, groups of accounts working together, instead of flagging single transactions. A causal Multi-GINe graph neural network scores every transaction in the IBM AMLworld HI-Small dataset. The top-scoring ones seed candidate rings, which a learned policy then expands and partitions into separate laundering attempts. Each ring comes with account roles, a pattern type and a traceable explanation. The full pipeline reaches a ring-F1 of 0.589 at 0.82 precision. It raises recovery of ring members the detector never flags from 0.5% to 21%. It also shows that a stronger edge detector doesn’t produce better rings, and it documents dataset artefacts that inflate published AMLworld results.
+
 RingShield is a research prototype for detecting money-laundering *rings* — groups of
 accounts that move funds through cycles, fan-in/fan-out, scatter-gather and similar
 motifs — in transaction graphs. Rather than scoring transactions one at a time, it
