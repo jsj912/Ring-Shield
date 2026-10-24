@@ -1,43 +1,49 @@
 from __future__ import annotations
 
-import csv
+import json
+import subprocess
+
+import pytest
 
 from jobs import experiment_worker
 
 
-def test_r10_dashboard_results_returns_only_tenant_metrics(tmp_path, monkeypatch):
-    monkeypatch.setattr(experiment_worker, "REPO_ROOT", tmp_path)
-    result_file = tmp_path / "r10_table.csv"
-    rows = [
-        {
-            "tenant_id": "210", "seed": "1", "n_truth_rings": "9",
-            "tenant_ring_recall": "0.8", "tenant_ring_recall_ci_low": "0.7",
-            "tenant_ring_recall_ci_high": "0.9", "tenant_member_coverage": "0.6",
-            "pooled_ring_recall": "0.75", "pooled_ring_recall_ci_low": "0.65",
-            "pooled_ring_recall_ci_high": "0.85", "pooled_member_coverage": "0.55",
-            "tenant_truth_cross_bank_fraction": "0.4",
-            "tenant_truth_mean_banks_per_ring": "1.5",
-            "cross_bank_truth_fraction": "0.3", "mean_banks_per_truth_ring": "1.4",
-            "pattern_group_id": "private-label",
-        },
-        {
-            "tenant_id": "MEAN", "seed": "1", "tenant_ring_recall": "0.8",
-            "pooled_ring_recall": "0.75",
-        },
-    ]
-    with result_file.open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=rows[0])
-        writer.writeheader()
-        writer.writerows(rows)
+def test_r10_results_are_the_registered_rows_with_only_aggregate_numbers():
+    result = experiment_worker.r10_registered_results()
 
-    result = experiment_worker._r10_dashboard_results(str(result_file))
+    assert set(result["rows"]) == {"primary", "pooled_scores", "budget_matched", "robustness"}
+    primary = result["rows"]["primary"]
+    assert primary["tenants"] == [1, 20, 11, 118, 12]
+    assert primary["tenant"] == {"value": 0.0882, "low": 0.0314, "high": 0.1606}
+    assert primary["pooled"] == {"value": 0.3588, "low": 0.2395, "high": 0.5}
+    assert result["rows"]["robustness"]["tenants"] == [70, 12, 11, 1, 10]
+    assert {item["row"] for item in result["per_tenant"]} == set(result["rows"])
+    assert result["cross_bank_rings"] == 172 and result["n_in_scope_rings"] == 174
+    text = json.dumps(result)
+    for private in ("ring_id", "account", "pattern", "bounds"):
+        assert private not in text
 
-    assert result["table_rows"][0]["tenant_id"] == 210
-    assert result["table_rows"][0]["tenant_ring_recall"] == 0.8
-    assert result["table_rows"][1]["tenant_id"] == "Mean across tenants"
-    assert result["recall_series"] == [{
-        "tenant_id": 210, "seed": 1,
-        "tenant_ring_recall": 0.8, "pooled_ring_recall": 0.75,
-    }]
-    assert "n_truth_rings" not in str(result)
-    assert "pattern_group_id" not in str(result)
+
+def test_r10_results_reject_a_non_finite_metric(tmp_path):
+    payload = json.loads(experiment_worker.R10_RESULT.read_text(encoding="utf-8"))
+    payload["rows"]["primary"]["tenant"]["value"] = float("nan")
+    path = tmp_path / "r10_registered.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError):
+        experiment_worker.r10_registered_results(path)
+
+
+def test_run_starts_the_registered_script_and_stores_its_result(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda args, **kwargs: calls.append(args))
+    job_id = "a" * 32
+    state_path = tmp_path / f"{job_id}.json"
+    state_path.write_text(json.dumps({"job_id": job_id, "status": "queued"}), encoding="utf-8")
+    monkeypatch.setattr(experiment_worker, "_state_path", lambda _job: state_path)
+
+    assert experiment_worker.main(["r10", job_id]) == 0
+
+    assert calls[0][-1].endswith("r10_registered.py")
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["status"] == "succeeded"
+    assert state["results"]["rows"]["primary"]["n_pairs"] == 68

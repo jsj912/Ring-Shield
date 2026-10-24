@@ -30,46 +30,45 @@ def _write_state(path: Path, value: dict) -> None:
     temporary.replace(path)
 
 
-_R10_METRIC_COLUMNS = (
-    "tenant_ring_recall", "tenant_ring_recall_ci_low", "tenant_ring_recall_ci_high",
-    "tenant_member_coverage", "pooled_ring_recall", "pooled_ring_recall_ci_low",
-    "pooled_ring_recall_ci_high", "pooled_member_coverage",
-    "tenant_truth_cross_bank_fraction", "tenant_truth_mean_banks_per_ring",
-    "cross_bank_truth_fraction", "mean_banks_per_truth_ring",
-)
+R10_SCRIPT = REPO_ROOT / "evaluation" / "r10_registered.py"
+R10_RESULT = REPO_ROOT / "results" / "tables" / "r10_registered.json"
+_R10_ROWS = ("primary", "pooled_scores", "budget_matched", "robustness")
 
 
-def _r10_dashboard_results(csv_value: str) -> dict:
-    """Read only tenant-level R10 metrics for the administrator result view."""
-    csv_path = Path(csv_value).resolve()
-    if not csv_path.is_relative_to(REPO_ROOT.resolve()) or csv_path.name != "r10_table.csv":
-        raise ValueError("R10 result table is unavailable")
-    rows = []
-    with csv_path.open(encoding="utf-8", newline="") as stream:
-        for source in csv.DictReader(stream):
-            tenant_value = source.get("tenant_id", "")
-            if tenant_value.isdigit():
-                tenant_id: int | str = int(tenant_value)
-            elif tenant_value == "MEAN":
-                tenant_id = "Mean across tenants"
-            else:
-                continue
-            row = {"tenant_id": tenant_id, "seed": int(source["seed"])}
-            for column in _R10_METRIC_COLUMNS:
-                raw = source.get(column, "")
-                metric = float(raw) if raw else None
-                if metric is not None and not math.isfinite(metric):
-                    raise ValueError("R10 result table contains an invalid metric")
-                row[column] = metric
-            rows.append(row)
+def _finite(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def r10_registered_results(path: Path = None) -> dict:
+    """The registered R10 result (docs/TENANT_SIZES.md) as the administrator view reads it: the
+    pooled-across-tenants rows with CIs, the descriptive per-tenant rows and the cross-bank
+    summary. Only aggregate recalls and counts; no ring ids, accounts or patterns."""
+    payload = json.loads((path or R10_RESULT).read_text(encoding="utf-8"))
+    rows = {}
+    for name in _R10_ROWS:
+        row = payload["rows"][name]
+        intervals = {}
+        for part in ("tenant", "pooled", "difference"):
+            interval = row[part]
+            if not all(_finite(interval[key]) for key in ("value", "low", "high")):
+                raise ValueError("R10 result contains an invalid metric")
+            intervals[part] = {key: interval[key] for key in ("value", "low", "high")}
+        rows[name] = {"tenants": [int(t) for t in row["tenants"]], "n_pairs": int(row["n_pairs"]),
+                      "n_rings": int(row["n_rings"]), **intervals}
+    per_tenant = []
+    for item in payload["per_tenant"]:
+        if item["row"] not in rows or not all(_finite(item[k]) for k in ("tenant_recall", "pooled_recall")):
+            raise ValueError("R10 result contains an invalid per-tenant row")
+        per_tenant.append({key: item[key] for key in ("row", "tenant_id", "n_rings",
+                                                      "tenant_recall", "pooled_recall")})
     return {
-        "table_rows": rows,
-        "recall_series": [
-            {"tenant_id": row["tenant_id"], "seed": row["seed"],
-             "tenant_ring_recall": row["tenant_ring_recall"],
-             "pooled_ring_recall": row["pooled_ring_recall"]}
-            for row in rows if isinstance(row["tenant_id"], int)
-        ],
+        "created_utc": payload["created_utc"], "seeds": payload["seeds"],
+        "window_days": payload["window"]["days"], "scope": payload["scope"],
+        "jaccard": payload["jaccard"], "n_boot": payload["n_boot"],
+        "n_in_scope_rings": payload["n_in_scope_rings"], "cross_bank_rings": payload["cross_bank_rings"],
+        "cross_bank_fraction": payload["cross_bank_fraction"],
+        "mean_banks_per_ring": payload["mean_banks_per_ring"],
+        "rows": rows, "per_tenant": per_tenant,
     }
 
 
@@ -87,24 +86,13 @@ def main(argv: list[str] | None = None) -> int:
     _write_state(state_path, state)
     log_event("experiment.started", status="running", job_id=job_id)
     try:
-        from experiments.r10_tenant_vs_pooled import run_experiment
-        from settings import configured_path, load_platform_config
+        import subprocess
 
-        config = load_platform_config()
-        truth_value = config["l6"]["retrain"].get("truth_parquet")
-        if not truth_value:
-            raise RuntimeError("platform config requires l6.retrain.truth_parquet; path is unavailable")
-        truth_path = Path(truth_value)
-        if not truth_path.is_absolute():
-            truth_path = REPO_ROOT / truth_path
-        result = run_experiment(
-            truth_path=truth_path,
-            account_map=configured_path(config, "account_map"),
-        )
-        clean_result = {key: Path(value).resolve().relative_to(REPO_ROOT).as_posix()
-                        for key, value in result.items() if key in {"csv", "markdown", "run_json"}}
-        if result.get("csv"):
-            clean_result.update(_r10_dashboard_results(result["csv"]))
+        # The registered R10 (evaluation/r10_registered.py); ring sets are cached, so a rerun
+        # recomputes the bootstrap from the cached runs.
+        subprocess.run([sys.executable, str(R10_SCRIPT)], cwd=str(REPO_ROOT), check=True,
+                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        clean_result = r10_registered_results()
         state.update(status="succeeded", results=clean_result)
         _write_state(state_path, state)
         log_event("experiment.finished", status="succeeded", job_id=job_id)
