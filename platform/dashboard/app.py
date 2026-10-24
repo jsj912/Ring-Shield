@@ -730,7 +730,9 @@ def _verdicts(tenant_id: int) -> None:
         simulation = st.selectbox("Simulated or real", ["All", "Simulated", "Real"],
                                   index=(0 if filters.get("simulated") is None else
                                          1 if filters["simulated"] else 2))
-        date_range = st.date_input("Verdict date range", value=())
+        stored_range = tuple(datetime.fromisoformat(filters[key]).date()
+                             for key in ("since", "until") if filters.get(key))
+        date_range = st.date_input("Verdict date range", value=stored_range)
         apply_filters = st.form_submit_button("Apply verdict filters")
     if apply_filters:
         st.session_state["verdict_filter_values"] = {

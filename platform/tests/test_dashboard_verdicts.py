@@ -221,3 +221,16 @@ def test_verdict_csv_export_requests_only_session_tenant_and_all_filtered_pages(
     export_query = [call[2] for call in export_calls if call[2].get("limit") == "100"]
     assert export_query and all(call.get("verdict") == "reject" for call in export_query)
     assert any(call.get("cursor") == "tenant-210-next" for call in export_query)
+
+
+def test_the_applied_date_range_is_still_shown_after_the_page_reloads(monkeypatch):
+    app = _app(monkeypatch, []).run(timeout=10)
+    next(radio for radio in app.radio if radio.label == "Workspace").set_value("Verdict history").run(timeout=10)
+    field = next(field for field in app.date_input if field.label == "Verdict date range")
+    field.set_value((date(2026, 1, 1), date(2026, 1, 31)))
+    next(b for b in app.button if b.label == "Apply verdict filters").click().run(timeout=10)
+    workspace = lambda: next(radio for radio in app.radio if radio.label == "Workspace")
+    workspace().set_value("Ring queue").run(timeout=10)            # leave the page and come back
+    workspace().set_value("Verdict history").run(timeout=10)
+    field = next(field for field in app.date_input if field.label == "Verdict date range")
+    assert tuple(field.value) == (date(2026, 1, 1), date(2026, 1, 31))
