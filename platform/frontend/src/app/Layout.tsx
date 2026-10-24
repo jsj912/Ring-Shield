@@ -3,7 +3,7 @@
  * out at the bottom, and a top bar with the tenant (a switcher for the admin), the user and role.
  */
 import { useState, type ReactNode } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Activity, Building2, ClipboardCheck, Cpu, LogOut, Menu, Network, ShieldCheck, Shield, X } from "lucide-react";
 import { API_BASE } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +79,8 @@ function TenantSwitcher() {
   const session = useSession()!;
   const { tenantId, tenantName, loaded, tenantsQuery } = useActiveTenant();
   const { setSelectedTenant } = useWorkspace();
+  const location = useLocation();
+  const navigate = useNavigate();
   if (session.role !== "admin") {
     return (
       <div className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm">
@@ -93,7 +95,11 @@ function TenantSwitcher() {
   return (
     <div className="flex items-center gap-2">
       <Building2 className="text-muted-foreground size-4" />
-      <Select value={String(tenantId)} onValueChange={(value) => setSelectedTenant(Number(value))}>
+      <Select value={String(tenantId)} onValueChange={(value) => {
+        setSelectedTenant(Number(value));
+        // A ring belongs to one tenant: switching tenant on a ring page goes back to that tenant's queue.
+        if (location.pathname.startsWith("/rings/")) navigate("/rings");
+      }}>
         <SelectTrigger className="h-9 w-60" aria-label="Tenant">
           <SelectValue />
         </SelectTrigger>
