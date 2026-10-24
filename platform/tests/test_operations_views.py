@@ -61,15 +61,18 @@ def test_model_registry_includes_shared_versions_and_hides_artifact_paths(monkey
         SimpleNamespace(model_version_id=5, tenant_id=21, component="typing",
                         version_tag="typing-v2", trained_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
                         train_label_count=80, holdout_ring_f1=0.82, promoted=True,
-                        artifact_path="private/path"),
+                        artifact_path="private/path", gate_reason="initial holdout baseline",
+                        retrain_run_id=None),
         SimpleNamespace(model_version_id=4, tenant_id=None, component="detector",
                         version_tag="shared-v1", trained_at=datetime(2025, 12, 1, tzinfo=timezone.utc),
                         train_label_count=100, holdout_ring_f1=None, promoted=True,
-                        artifact_path="private/shared-path"),
+                        artifact_path="private/shared-path", gate_reason=None, retrain_run_id=None),
         SimpleNamespace(model_version_id=3, tenant_id=21, component="expansion",
                         version_tag="expansion-v1", trained_at=datetime(2025, 11, 1, tzinfo=timezone.utc),
                         train_label_count=70, holdout_ring_f1=0.79, promoted=False,
-                        artifact_path="private/old-path"),
+                        artifact_path="private/old-path",
+                        gate_reason="holdout ring_f1 0.7900 < current 0.8200 - 0.005",
+                        retrain_run_id="run-a"),
     ])
     _install_session(monkeypatch, session)
 
@@ -80,6 +83,7 @@ def test_model_registry_includes_shared_versions_and_hides_artifact_paths(monkey
     assert [item.shared for item in result.items] == [False, True]
     assert result.next_before_id == 4
     assert "artifact_path" not in result.items[0].model_dump()
+    assert result.items[0].gate_reason == "initial holdout baseline"
     assert result.active_model_id == "gine_causal"
     assert result.active_seed == 1
 
@@ -189,6 +193,11 @@ def test_retrain_run_history_is_supervisor_tenant_scoped(monkeypatch):
         def scalars(self, statement):
             self.queries.append(statement)
             compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+            if "FROM model_versions" in compiled:              # the run's candidates
+                assert "model_versions.tenant_id = 21" in compiled
+                return [SimpleNamespace(model_version_id=9, component="expansion",
+                                        holdout_ring_f1=0.6612, promoted=False, retrain_run_id="run-a",
+                                        gate_reason="holdout ring_f1 0.6612 < current 0.6883 - 0.005")]
             assert "retrain_runs.tenant_id = 21" in compiled
             return rows
 
@@ -204,6 +213,7 @@ def test_retrain_run_history_is_supervisor_tenant_scoped(monkeypatch):
     page = operations.list_retrain_runs(21, limit=50, principal=_principal())
     assert page.items[0].run_id == "run-a"
     assert page.items[0].status == "succeeded"
+    assert page.items[0].candidates[0].gate_reason.startswith("holdout ring_f1 0.6612 <")
 
     session.queries.clear()
     with pytest.raises(HTTPException) as exc_info:

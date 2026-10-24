@@ -304,6 +304,8 @@ class ModelVersionSummary(BaseModel):
     holdout_ring_f1: float | None = Field(default=None, ge=0, le=1)
     promoted: bool
     shared: bool
+    gate_reason: str | None = None
+    retrain_run_id: str | None = None
 
 
 class ModelVersionPage(BaseModel):
@@ -365,12 +367,21 @@ class RetrainRunCreated(BaseModel):
     run_id: str
 
 
+class RetrainCandidate(BaseModel):
+    model_version_id: int
+    component: str
+    holdout_ring_f1: float | None
+    promoted: bool
+    gate_reason: str | None
+
+
 class RetrainRunSummary(BaseModel):
     run_id: str
     status: str
     started_at: datetime | None
     finished_at: datetime | None
     model_version_id: int | None
+    candidates: list[RetrainCandidate] = Field(default_factory=list)
 
 
 class RetrainRunPage(BaseModel):
@@ -382,4 +393,5 @@ class RetrainRunStatusResponse(BaseModel):
     status: str
     model_version_id: int | None
     log_lines: list[str]
+    candidates: list[RetrainCandidate] = Field(default_factory=list)
 

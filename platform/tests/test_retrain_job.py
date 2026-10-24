@@ -189,6 +189,7 @@ def test_retrain_job_gates_candidate_and_runs_refresh_as_a_separate_step(
             shutil.rmtree(run_directory)
 
     assert inserted[0]["promoted"] is expected_promoted
+    assert inserted[0]["retrain_run_id"] == run_id          # a refused run can find its candidates
     assert fake_cli.eval_calls == (1 if retrained else 0)
     assert bool(refresh_calls) is expected_promoted
     if expected_promoted:

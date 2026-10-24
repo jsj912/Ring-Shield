@@ -228,7 +228,8 @@ def _promoted_version(session, tenant_id: int, component: str) -> ModelVersion |
 
 def _insert_model_version(*, tenant_id: int, component: str, version_tag: str,
                           trained_at: datetime, label_count: int, f1: float | None,
-                          promoted: bool, gate_reason: str | None, artifact_path: Path | None) -> int:
+                          promoted: bool, gate_reason: str | None, artifact_path: Path | None,
+                          retrain_run_id: str | None = None) -> int:
     with loader_db_session(tenant_id=tenant_id) as session:
         old = _promoted_version(session, tenant_id, component)
         if promoted and old is not None:
@@ -245,6 +246,7 @@ def _insert_model_version(*, tenant_id: int, component: str, version_tag: str,
             trained_at=trained_at, train_label_count=label_count,
             holdout_ring_f1=f1, promoted=promoted, gate_reason=gate_reason,
             artifact_path=str(artifact_path) if artifact_path is not None else None,
+            retrain_run_id=retrain_run_id,
         )
         session.add(version)
         session.flush()
@@ -492,6 +494,7 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli,
                         tenant_id=tenant_id, component=component, version_tag=version_tag,
                         trained_at=trained_at, label_count=len(labels), f1=None,
                         promoted=False, gate_reason=disabled_reason, artifact_path=output_model,
+                        retrain_run_id=run_id,
                     )
                     _write_log(log_path, f"{component}: candidate not promoted: {disabled_reason}")
                     continue
@@ -511,6 +514,7 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli,
                     tenant_id=tenant_id, component=component, version_tag=version_tag,
                     trained_at=trained_at, label_count=len(labels), f1=candidate_f1,
                     promoted=promote, gate_reason=reason, artifact_path=output_model,
+                    retrain_run_id=run_id,
                 )
                 _write_log(log_path, f"{component}: {reason}")
                 if promote:

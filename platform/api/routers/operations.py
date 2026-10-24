@@ -26,7 +26,7 @@ from api.worker_mode import log_worker_event, supervisor_mode_enabled
 from api.schemas import (DriftEventPage, DriftEventSummary, ModelVersionPage,
                          ModelVersionSummary, RetrainRunCreated, RetrainRunStatusResponse,
                          DriftActedOnUpdate, DriftSeriesResponse, DailyDriftStatistic,
-                         RetrainRunPage, RetrainRunSummary, DriftCheckStarted)
+                         RetrainCandidate, RetrainRunPage, RetrainRunSummary, DriftCheckStarted)
 from db.models import DriftEvent, EdgeScore, ModelVersion, RetrainRun, Transaction
 from db.session import db_session
 from settings import load_platform_config
@@ -75,6 +75,8 @@ def list_model_versions(
             ModelVersion.train_label_count,
             ModelVersion.holdout_ring_f1,
             ModelVersion.promoted,
+            ModelVersion.gate_reason,
+            ModelVersion.retrain_run_id,
         ).where(
             or_(ModelVersion.tenant_id == tenant_id, ModelVersion.tenant_id.is_(None))
         )
@@ -98,6 +100,8 @@ def list_model_versions(
             holdout_ring_f1=row.holdout_ring_f1,
             promoted=row.promoted,
             shared=row.tenant_id is None,
+            gate_reason=row.gate_reason,
+            retrain_run_id=row.retrain_run_id,
         )
         for row in rows
     ]
@@ -236,6 +240,21 @@ def retrain_log_lines(log_path: str | None, *, limit: int = 50) -> list[str]:
             for line in lines]
 
 
+def _run_candidates(session: Session, tenant_id: int, run_ids: list[str]) -> dict[str, list[RetrainCandidate]]:
+    """The model versions each run produced, with the holdout gate's reason."""
+    out: dict[str, list[RetrainCandidate]] = {run_id: [] for run_id in run_ids}
+    if not run_ids:
+        return out
+    rows = session.scalars(select(ModelVersion).where(
+        ModelVersion.tenant_id == tenant_id, ModelVersion.retrain_run_id.in_(run_ids),
+    ).order_by(ModelVersion.model_version_id))
+    for row in rows:
+        out[row.retrain_run_id].append(RetrainCandidate(
+            model_version_id=row.model_version_id, component=row.component,
+            holdout_ring_f1=row.holdout_ring_f1, promoted=row.promoted, gate_reason=row.gate_reason))
+    return out
+
+
 def launch_retrain_process(tenant_id: int, run_id: str) -> None:
     """Start retraining in a child process; API code does not inspect job credentials."""
     if supervisor_mode_enabled():
@@ -318,6 +337,7 @@ def get_retrain_status(
             status=run.status,
             model_version_id=run.model_version_id,
             log_lines=retrain_log_lines(run.log_path),
+            candidates=_run_candidates(session, tenant_id, [run.run_id])[run.run_id],
         )
     return response
 
@@ -334,9 +354,11 @@ def list_retrain_runs(
         rows = list(session.scalars(
             query.order_by(RetrainRun.started_at.desc(), RetrainRun.run_id.desc()).limit(limit)
         ))
+        candidates = _run_candidates(session, tenant_id, [row.run_id for row in rows])
     return RetrainRunPage(
         items=[RetrainRunSummary(
             run_id=row.run_id, status=row.status, started_at=row.started_at,
             finished_at=row.finished_at, model_version_id=row.model_version_id,
+            candidates=candidates[row.run_id],
         ) for row in rows],
     )

@@ -244,6 +244,7 @@ class ModelVersion(Base):
         Index("uq_model_versions_promoted", "tenant_id", "component", unique=True,
               postgresql_where=text("promoted IS TRUE")),
         Index("ix_model_versions_tenant_component", "tenant_id", "component", "trained_at"),
+        Index("ix_model_versions_tenant_run", "tenant_id", "retrain_run_id"),
     )
 
     model_version_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -256,6 +257,7 @@ class ModelVersion(Base):
     promoted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     gate_reason: Mapped[str | None] = mapped_column(Text)
     artifact_path: Mapped[str | None] = mapped_column(Text)
+    retrain_run_id: Mapped[str | None] = mapped_column(String(64))
 
 
 class RetrainRun(Base):
