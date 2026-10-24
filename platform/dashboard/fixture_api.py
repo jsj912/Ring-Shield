@@ -22,6 +22,10 @@ class FixtureAPI:
         self.root = Path(root)
         self.users = self._load("users.json")
         self.tenants = self._load("tenants.json")
+        self.rings = {}
+        for path in sorted((self.root / "rings").glob("*.json")):
+            ring = json.loads(path.read_text(encoding="utf-8"))
+            self.rings[(ring["tenant_id"], ring["summary"]["ring_id"])] = ring
         self.request_count = 0
 
     def _load(self, name: str, default=None):
@@ -39,7 +43,10 @@ class FixtureAPI:
                               request=httpx.Request("GET", "http://fixture.local"))
 
     def _error(self, status: int, error: str, message: str) -> httpx.Response:
-        return self._response(status, {"error": error, "message": message})
+        """The API's error body: error_code, message, request_id (platform/api/errors.py)."""
+        code = {401: "AUTHENTICATION_REQUIRED", 403: "NOT_PERMITTED", 404: "NOT_FOUND",
+                422: "VALIDATION_ERROR"}.get(status, "REQUEST_FAILED")
+        return self._response(status, {"error_code": code, "message": message})
 
     def _session_user(self, headers: dict) -> dict | None:
         token = (headers or {}).get("Authorization", "").removeprefix("Bearer ")
@@ -63,7 +70,44 @@ class FixtureAPI:
             return self._error(403, "Forbidden", "Not permitted")
         if method == "GET" and path == "/admin/tenants":
             return self._response(200, self.tenants)
+        if tenant_match:
+            tenant_id, rest = int(tenant_match.group(1)), tenant_match.group(2) or ""
+            if method == "GET" and rest == "/rings":
+                return self._ring_page(tenant_id, _param_dict(params))
+            ring_match = re.match(r"^/rings/([^/]+)$", rest)
+            if method == "GET" and ring_match:
+                ring = self.rings.get((tenant_id, ring_match.group(1)))
+                if ring is None:
+                    return self._error(404, "NotFound", "Ring not found")
+                return self._response(200, ring["detail"])
         return self._error(404, "NotFound", f"No fixture for {method} {path}")
+
+    def _ring_page(self, tenant_id: int, params: dict) -> httpx.Response:
+        """The API's GET /tenants/{t}/rings over the fixtures: filters, sort, cursor and counts."""
+        tenant_rings = [ring["summary"] for (tenant, _), ring in self.rings.items() if tenant == tenant_id]
+        statuses = params.get("status") or ["open"]
+        types = params.get("topology_type") or []
+        min_conf = float(_one(params, "min_conf") or 0)
+        cross_only = (_one(params, "cross_bank_only") or "false") == "true"
+        after, before = _one(params, "start_after"), _one(params, "start_before")
+        query = (_one(params, "q") or "").strip()
+        rows = [r for r in tenant_rings
+                if r["status"] in statuses and (not types or r["topology_type"] in types)
+                and r["confidence"] >= min_conf and (not cross_only or r["cross_bank"])
+                and (not after or r["start_time"] >= after[:19]) and (not before or r["start_time"] <= before[:19])
+                and (not query or query == r["ring_id"]
+                     or query in {str(a) for a in self.rings[(tenant_id, r["ring_id"])]["detail"]["member_accounts"]})]
+        sort = _one(params, "sort") or "confidence"
+        key = {"confidence": "confidence", "total_amount": "total_amount", "start_time": "start_time",
+               "members": "n_members"}.get(sort, "confidence")
+        rows.sort(key=lambda r: (r[key] is None, r[key] or 0, r["ring_id"]),
+                  reverse=(_one(params, "order") or "desc") == "desc")
+        offset = int(_one(params, "cursor") or 0)
+        limit = int(_one(params, "limit") or 50)
+        page = rows[offset:offset + limit]
+        next_cursor = str(offset + limit) if offset + limit < len(rows) else None
+        return self._response(200, {"items": page, "next_cursor": next_cursor, "total": len(rows),
+                                     "tenant_total": len(tenant_rings)})
 
     def _login(self, body: dict) -> httpx.Response:
         user = next((u for u in self.users if u["email"] == body.get("email")
@@ -77,3 +121,17 @@ class FixtureAPI:
             "token": f"{FIXTURE_TOKEN_PREFIX}{user['user_id']}",
             "expires_at": "2099-01-01T00:00:00Z",
         })
+
+
+def _param_dict(params) -> dict[str, list[str]]:
+    """httpx-style params (a dict or a list of pairs) as {name: [values]}."""
+    out: dict[str, list[str]] = {}
+    items = params.items() if isinstance(params, dict) else (params or [])
+    for name, value in items:
+        out.setdefault(name, []).extend(value if isinstance(value, list) else [value])
+    return out
+
+
+def _one(params: dict, name: str):
+    values = params.get(name) or []
+    return values[0] if values else None

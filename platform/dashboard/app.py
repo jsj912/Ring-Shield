@@ -21,6 +21,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from contract.schema import TOPOLOGY_TYPES  # noqa: E402
 from regeneration_flow import deadline_expired, new_poll_deadline  # noqa: E402
 import client  # noqa: E402
+from formatters import (fmt_amount, fmt_as_received, fmt_bool, fmt_time,  # noqa: E402
+                        fmt_time_utc, fmt_weight)
 
 API_BASE = client.API_BASE
 _API_CALL_COUNTER = itertools.count()
@@ -126,6 +128,10 @@ def _active_tenant(tenant_records=None) -> tuple[int | None, str | None]:
     return item["tenant_id"], item["name"]
 
 
+def _set_ring_page(page: int) -> None:
+    st.session_state["ring_page"] = page
+
+
 def _queue(tenant_id: int) -> None:
     st.header("Ring queue")
     # The widgets start from the stored filters, so returning from a ring shows what is applied.
@@ -145,7 +151,19 @@ def _queue(tenant_id: int) -> None:
         start_range = st.date_input("Start date range", value=())
         apply_filters = st.form_submit_button("Apply filters")
 
-    if apply_filters or "ring_filter_values" not in st.session_state:
+    chosen = {
+        "status": statuses or ["open"], "topology_type": topology,
+        "q": search.strip() or None,
+        "min_conf": minimum, "cross_bank_only": cross_bank,
+        "sort": sort, "order": order,
+        "start_after": (datetime.combine(start_range[0], time.min, timezone.utc).isoformat()
+                        if len(start_range) >= 1 else None),
+        "start_before": (datetime.combine(start_range[-1], time.max, timezone.utc).isoformat()
+                         if len(start_range) == 2 else None),
+    }
+    # Reset paging only when the filters really changed, so a repeated submit keeps the page.
+    if ((apply_filters and chosen != st.session_state.get("ring_filter_values"))
+            or "ring_filter_values" not in st.session_state):
         st.session_state["ring_filter_values"] = {
             "status": statuses or ["open"], "topology_type": topology,
             "q": search.strip() or None,
@@ -182,16 +200,29 @@ def _queue(tenant_id: int) -> None:
         else:
             st.info("No rings match these filters")
         return
-    st.dataframe(
-        [{"Ring ID": row["ring_id"], "Type": f"{row['topology_type']} ({row['topology_prob']:.0%})",
+    zone = st.context.timezone
+    table = st.dataframe(
+        [{"Ring ID": row["ring_id"],
+          "Type": f"{row['topology_type']} (p = {fmt_as_received(row['topology_prob'])})",
           "Members": row["n_members"], "Edges": row["n_edges"],
-          "Total": (f"{row['total_amount']:,.2f} {row['total_currency']}"
-                    if row["total_amount"] is not None else "—"),
-          "Window": f"{row['start_time']} → {row['end_time']} ({row['window_text']})",
-          "Confidence": row["confidence"], "Cross-bank": row["cross_bank"],
+          "Total": fmt_amount(row["total_amount"], row["total_currency"], row.get("total_partial")),
+          "Window": f"{fmt_time(row['start_time'], zone)} → {fmt_time(row['end_time'], zone)}, "
+                    f"{row['window_text']}",
+          "Window (UTC)": f"{fmt_time_utc(row['start_time'])} → {fmt_time_utc(row['end_time'])}",
+          "Confidence": fmt_weight(row["confidence"]), "Cross-bank": fmt_bool(row["cross_bank"]),
           "Status": row["status"]} for row in rows],
-        use_container_width=True, hide_index=True,
+        use_container_width=True, hide_index=True, key=f"ring_table_{tenant_id}",
+        on_select="rerun", selection_mode="single-row",
+        column_config={"Total": st.column_config.TextColumn(
+            help="From the ring's explanation, in its hub currency; '(partial)' means some "
+                 "transactions had no exchange rate. Never converted here.")},
     )
+    picked = table.selection.rows if table is not None and hasattr(table, "selection") else []
+    if picked:                                         # FR-D14: clicking a row opens ring detail
+        st.session_state["open_ring"] = {"tenant_id": tenant_id, "ring_id": rows[picked[0]]["ring_id"]}
+        st.query_params["ring"] = rows[picked[0]]["ring_id"]
+        st.session_state.pop(f"ring_table_{tenant_id}", None)   # do not reopen it on return
+        st.rerun()
     role = st.session_state["role"]
     if role == "admin":
         st.warning("Administrators cannot record verdicts.")
@@ -246,13 +277,12 @@ def _queue(tenant_id: int) -> None:
             cursors.append(result["next_cursor"])
     nav_left, nav_right = st.columns(2)
     with nav_left:
-        if st.button("Previous page", disabled=page == 0):
-            st.session_state["ring_page"] = max(0, page - 1)
-            st.rerun()
+        # Callbacks change the page before the next run, with no mid-run st.rerun().
+        st.button("Previous page", disabled=page == 0, key="ring_page_previous",
+                  on_click=_set_ring_page, args=(max(0, page - 1),))
     with nav_right:
-        if st.button("Next page", disabled=not result.get("next_cursor")):
-            st.session_state["ring_page"] = page + 1
-            st.rerun()
+        st.button("Next page", disabled=not result.get("next_cursor"), key="ring_page_next",
+                  on_click=_set_ring_page, args=(page + 1,))
 
     selected_ring = st.selectbox("Open ring", [row["ring_id"] for row in rows],
                                  key=f"select_ring_{tenant_id}")
@@ -264,6 +294,7 @@ def _queue(tenant_id: int) -> None:
 def _ring_detail(tenant_id: int, ring_id: str) -> None:
     if st.button("← Back to queue"):
         st.session_state.pop("open_ring", None)
+        st.query_params.pop("ring", None)       # the queue keeps its filters and page (FR-D14)
         st.rerun()
     ring = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}")
     if ring is None:
