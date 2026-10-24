@@ -142,7 +142,7 @@ sequenceDiagram
     API-->>UI: JWT with tenant_id and role
     Analyst->>UI: open ring
     UI->>API: GET /rings/{id}, /rings/{id}/explanation
-    API->>DB: SELECT ... (app.tenant_id set; RLS filters rows)
+    API->>DB: SELECT with app.tenant_id set, RLS filters rows
     DB-->>API: ring, transactions, explanation
     API-->>UI: ring detail
     Analyst->>UI: Confirm ring
