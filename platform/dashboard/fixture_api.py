@@ -27,6 +27,8 @@ class FixtureAPI:
             ring = json.loads(path.read_text(encoding="utf-8"))
             self.rings[(ring["tenant_id"], ring["summary"]["ring_id"])] = ring
         self.request_count = 0
+        self.models = {k: v for k, v in self._load("models.json", {}).items() if not k.startswith("_")}
+        self.retrain_polls: dict[str, int] = {}
         self.jobs: dict[str, dict] = {}          # regeneration jobs started by partial verdicts
         self.verdict_posts = 0
 
@@ -76,6 +78,8 @@ class FixtureAPI:
             tenant_id, rest = int(tenant_match.group(1)), tenant_match.group(2) or ""
             if method == "GET" and rest == "/rings":
                 return self._ring_page(tenant_id, _param_dict(params))
+            if rest == "/models" or rest.startswith("/retrain"):
+                return self._models(tenant_id, method, rest, user)
             if method == "GET" and rest == "/verdicts":
                 return self._verdict_page(tenant_id, _param_dict(params))
             if method == "POST":
@@ -124,6 +128,61 @@ class FixtureAPI:
         next_cursor = str(offset + limit) if offset + limit < len(rows) else None
         return self._response(200, {"items": page, "next_cursor": next_cursor, "total": len(rows),
                                      "tenant_total": len(tenant_rings)})
+
+    def _models(self, tenant_id: int, method: str, rest: str, user: dict) -> httpx.Response:
+        """GET /models, and the supervisor-only retrain routes (operations.py)."""
+        store = self.models.setdefault(str(tenant_id), {"versions": [], "runs": []})
+        if rest == "/models" and method == "GET":
+            items = [{k: v for k, v in item.items()} for item in store["versions"]]
+            return self._response(200, {"items": items, "next_before_id": None,
+                                         "active_model_id": "gine_causal", "active_seed": 1})
+        if user["role"] != "supervisor":
+            return self._error(403, "Forbidden", "Only a tenant supervisor can access retraining")
+        if rest == "/retrain" and method == "POST":
+            run_id = f"fixture-run-{len(store['runs']) + 1}"
+            store["runs"].insert(0, {"run_id": run_id, "status": "running", "started_at": "2026-10-24T12:00:00Z",
+                                     "finished_at": None, "model_version_id": None,
+                                     "log_lines": ["labels: 7 verdicts"]})
+            return self._response(202, {"run_id": run_id})
+        run_match = re.match(r"^/retrain/([^/]+)$", rest)
+        if method == "GET" and run_match:
+            run = next((r for r in store["runs"] if r["run_id"] == run_match.group(1)), None)
+            if run is None:
+                return self._error(404, "NotFound", "Retrain run not found")
+            if run["status"] == "running":
+                self._advance_run(store, run)
+            return self._response(200, {**{k: run[k] for k in ("run_id", "status", "model_version_id",
+                                                                "log_lines")},
+                                        "candidates": self._candidates(store, run["run_id"])})
+        if method == "GET" and rest == "/retrain":
+            return self._response(200, {"items": [
+                {**{k: run[k] for k in ("run_id", "status", "started_at", "finished_at", "model_version_id")},
+                 "candidates": self._candidates(store, run["run_id"])} for run in store["runs"]]})
+        return self._error(404, "NotFound", f"No fixture for {method} {rest}")
+
+    def _advance_run(self, store: dict, run: dict) -> None:
+        """Polls move a new run along: the first poll adds a log line, the second finishes it with
+        both candidates refused by the gate, as R11 found."""
+        polls = self.retrain_polls[run["run_id"]] = self.retrain_polls.get(run["run_id"], 0) + 1
+        if polls == 1:
+            run["log_lines"].append("expansion: training")
+            return
+        next_id = max((v["model_version_id"] for v in store["versions"]), default=0) + 1
+        for offset, (component, f1) in enumerate((("expansion", 0.6601), ("affinity", 0.6574))):
+            reason = f"holdout ring_f1 {f1:.4f} < current 0.6883 - 0.005"
+            store["versions"].insert(0, {
+                "model_version_id": next_id + offset, "component": component,
+                "version_tag": f"v0.3.1-{run['run_id'][-8:]}", "trained_at": "2026-10-24T12:20:00Z",
+                "train_label_count": 7, "holdout_ring_f1": f1, "promoted": False, "shared": False,
+                "gate_reason": reason, "retrain_run_id": run["run_id"]})
+            run["log_lines"].append(f"{component}: {reason}")
+        run.update(status="succeeded", finished_at="2026-10-24T12:30:00Z")
+
+    @staticmethod
+    def _candidates(store: dict, run_id: str) -> list[dict]:
+        return [{k: v[k] for k in ("model_version_id", "component", "holdout_ring_f1", "promoted", "gate_reason")}
+                for v in sorted(store["versions"], key=lambda v: v["model_version_id"])
+                if v.get("retrain_run_id") == run_id]
 
     def _verdict_page(self, tenant_id: int, params: dict) -> httpx.Response:
         """GET /tenants/{t}/verdicts: filters, newest first, counts, analysts and an offset cursor."""

@@ -11,6 +11,7 @@ from datetime import datetime, time, timezone
 from pathlib import Path
 
 import httpx
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from dotenv import load_dotenv
@@ -653,49 +654,121 @@ def _show_regeneration_state(tenant_id: int, ring_id: str,
         st.info("Regenerating explanation...")
 
 
+RETRAIN_SCOPE = ("Retrains the expansion and affinity models; the typing model is fixed. "
+                 "The result is promoted only if it passes the holdout gate.")
+
+
 def _model_versions(tenant_id: int) -> None:
-    st.header("Model registry")
+    """FR-D70-73: model versions with the gate's reason, and (supervisors) retraining runs."""
+    st.header("Models")
     result = _api("GET", f"/tenants/{tenant_id}/models", params={"limit": "100"})
     if result is None:
         return
+    st.caption(f"Active model {result['active_model_id']} · seed {result['active_seed']}")
     if st.session_state["role"] == "supervisor":
-        runs = _api("GET", f"/tenants/{tenant_id}/retrain", params={"limit": "50"})
-        if runs is not None:
-            if not runs["items"]:
-                st.info("No retraining runs yet.")
-            else:
-                st.dataframe(
-                    [{"Run ID": row["run_id"], "Status": row["status"],
-                      "Started (UTC)": row["started_at"], "Finished (UTC)": row["finished_at"],
-                      "Model version": row["model_version_id"]} for row in runs["items"]],
-                    use_container_width=True, hide_index=True,
-                )
-        if st.button("Retrain now", key=f"retrain_{tenant_id}"):
-            queued = _api("POST", f"/tenants/{tenant_id}/retrain")
-            if queued:
-                st.session_state[f"retrain_run_{tenant_id}"] = queued["run_id"]
-        run_id = st.session_state.get(f"retrain_run_{tenant_id}")
-        if run_id:
-            status_result = _api("GET", f"/tenants/{tenant_id}/retrain/{run_id}")
-            if status_result:
-                st.write(f"Retrain run: {status_result['status']}")
-                if status_result["log_lines"]:
-                    st.code("\n".join(status_result["log_lines"]), language="text")
-                else:
-                    st.caption("No retraining log output yet.")
+        _retrain_section(tenant_id)
+    st.subheader("Model versions")
     if not result["items"]:
         st.info("No model versions are registered for this tenant.")
         return
-    st.dataframe(
-        [{"Component": item["component"], "Version": item["version_tag"],
-          "Trained at (UTC)": item["trained_at"], "Training labels": item["train_label_count"],
-          "Holdout ring F1": item["holdout_ring_f1"], "Promoted": item["promoted"],
-          "Shared model": item["shared"]} for item in result["items"]],
-        use_container_width=True, hide_index=True,
-    )
+    focus = st.session_state.get(f"model_focus_{tenant_id}")
+    zone = st.context.timezone
+    rows = [{"Version ID": item["model_version_id"], "Component": item["component"],
+             "Version": item["version_tag"], "Trained at": fmt_time(item["trained_at"], zone),
+             "Training labels": item["train_label_count"],
+             "Holdout ring-F1": fmt_as_received(item["holdout_ring_f1"]),
+             "Promoted": fmt_bool(item["promoted"]),
+             "Gate reason": item["gate_reason"] or "",
+             "Shared": fmt_bool(item["shared"])} for item in result["items"]]
+
+    def highlight(row):                                # the promoted version per component (FR-D70)
+        if row["Version ID"] == focus:
+            colour = "background-color: rgba(255, 196, 0, 0.30)"
+        elif row["Promoted"] == "Yes":
+            colour = "background-color: rgba(46, 160, 67, 0.22)"
+        else:
+            colour = ""
+        return [colour for _ in row]
+
+    st.dataframe(pd.DataFrame(rows).style.apply(highlight, axis=1), use_container_width=True,
+                 hide_index=True, key=f"model_table_{tenant_id}")
+    st.caption("Green rows are the versions currently promoted for each component; newest first.")
     if result.get("next_before_id") is not None:
         st.caption("More versions are available through the API cursor.")
-    st.caption("Artifact paths and model files are not exposed in the investigator dashboard.")
+
+
+def _confirm_retrain(tenant_id: int) -> None:
+    """The confirmation step before a retrain (FR-D71), inline so it cannot be dismissed half-open."""
+    box = st.container(border=True)
+    box.markdown("**Retrain now?**")
+    box.write(RETRAIN_SCOPE)
+    left, right = box.columns(2)
+    if left.button("Start retraining", type="primary", key=f"retrain_confirm_{tenant_id}"):
+        st.session_state.pop(f"retrain_dialog_{tenant_id}", None)
+        queued = _api("POST", f"/tenants/{tenant_id}/retrain")
+        if queued:
+            st.session_state[f"retrain_run_{tenant_id}"] = queued["run_id"]
+            st.rerun()
+    if right.button("Cancel", key=f"retrain_cancel_{tenant_id}"):
+        st.session_state.pop(f"retrain_dialog_{tenant_id}", None)
+        st.rerun()
+
+
+def _retrain_section(tenant_id: int) -> None:
+    st.subheader("Retraining")
+    if st.button("Retrain now", key=f"retrain_{tenant_id}"):
+        st.session_state[f"retrain_dialog_{tenant_id}"] = True
+    if st.session_state.get(f"retrain_dialog_{tenant_id}"):   # open until started or cancelled
+        _confirm_retrain(tenant_id)
+    run_id = st.session_state.get(f"retrain_run_{tenant_id}")
+    if run_id:
+        _retrain_status(tenant_id, run_id)
+    runs = _api("GET", f"/tenants/{tenant_id}/retrain", params={"limit": "50"})
+    if runs is None:
+        return
+    if not runs["items"]:
+        st.info("No retraining runs yet.")
+        return
+    zone = st.context.timezone
+    st.dataframe(
+        [{"Run ID": row["run_id"], "Status": row["status"],
+          "Started": fmt_time(row["started_at"], zone), "Finished": fmt_time(row["finished_at"], zone),
+          "Promoted version": row["model_version_id"] if row["model_version_id"] is not None else "—",
+          "Candidates": ", ".join(f"{c['component']} #{c['model_version_id']}" for c in row["candidates"])}
+         for row in runs["items"]],
+        use_container_width=True, hide_index=True, key=f"retrain_runs_{tenant_id}")
+    for row in runs["items"]:
+        _refusals(tenant_id, row["run_id"], row["candidates"])
+
+
+def _refusals(tenant_id: int, run_id: str, candidates: list[dict]) -> None:
+    """FR-D73: a refused candidate's gate reason, prominently, with a link to its version row."""
+    for candidate in candidates:
+        if candidate["promoted"]:
+            continue
+        st.error(f"Run {run_id}: {candidate['component']} refused by the holdout gate: "
+                 f"{candidate['gate_reason']}")
+        version_id = candidate["model_version_id"]
+        if st.button(f"Show model version {version_id}", key=f"focus_{tenant_id}_{run_id}_{version_id}"):
+            st.session_state[f"model_focus_{tenant_id}"] = version_id
+            st.rerun()
+
+
+@st.fragment(run_every="5s")
+def _retrain_status(tenant_id: int, run_id: str) -> None:
+    """FR-D72: poll the run every 5 s until it finishes; the log tail sits in an expander."""
+    status = _api("GET", f"/tenants/{tenant_id}/retrain/{run_id}")
+    if status is None:
+        return
+    finished = status["status"] in {"succeeded", "failed"}
+    st.markdown(f"**Run {run_id}:** `{status['status']}`")
+    with st.expander("Log tail", expanded=not finished):
+        if status["log_lines"]:
+            st.code("\n".join(status["log_lines"]), language="text")
+        else:
+            st.caption("No retraining log output yet.")
+    if finished and st.session_state.pop(f"retrain_run_{tenant_id}", None):
+        st.rerun()                                     # stop polling; the runs list shows the result
 
 
 def _verdicts(tenant_id: int) -> None:

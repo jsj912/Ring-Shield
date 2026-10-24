@@ -18,7 +18,10 @@ class _FakeStreamlit:
         self.buttons = []
         self.charts = []
 
+    context = type("Context", (), {"timezone": None})()
+
     def header(self, *_args, **_kwargs): pass
+    def subheader(self, *_args, **_kwargs): pass
     def caption(self, *_args, **_kwargs): pass
     def dataframe(self, *_args, **_kwargs): pass
     def info(self, value): self.infos.append(value)
@@ -46,7 +49,8 @@ def test_models_page_smoke_for_analyst(view):
         calls.append((method, path, kwargs))
         return {"items": [{"component": "affinity", "version_tag": "v1", "trained_at": "2026-01-01",
                            "train_label_count": 10, "holdout_ring_f1": 0.8, "promoted": True,
-                           "shared": False}], "next_before_id": None}
+                           "shared": False, "model_version_id": 1, "gate_reason": None}],
+                "next_before_id": None, "active_model_id": "gine_causal", "active_seed": 1}
 
     fake_st = view("analyst", api)
     dashboard._model_versions(210)
@@ -55,7 +59,8 @@ def test_models_page_smoke_for_analyst(view):
 
 
 def test_models_page_empty_state_and_supervisor_control(view):
-    fake_st = view("supervisor", lambda *_args, **_kwargs: {"items": [], "next_before_id": None})
+    fake_st = view("supervisor", lambda *_args, **_kwargs: {
+        "items": [], "next_before_id": None, "active_model_id": "gine_causal", "active_seed": 1})
     dashboard._model_versions(210)
     assert any("No model versions" in message for message in fake_st.infos)
     assert any("No retraining runs yet" in message for message in fake_st.infos)
