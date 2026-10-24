@@ -28,9 +28,11 @@ def test_l6_settings_resolve_paths_after_required_artifact_locations_are_provide
     assert l6["paths"]["val_scored_edges"].name == "scored_edges_gine_causal_1_val.parquet"
 
 
-def test_default_l6_settings_fail_clearly_for_unavailable_val_gfp():
+def test_l6_settings_fail_clearly_for_unavailable_val_gfp():
+    config = deepcopy(load_platform_config())
+    config["l6"]["retrain"]["val_gfp"] = None
     with pytest.raises(RuntimeError, match="l6.retrain.val_gfp"):
-        load_l6_config(load_platform_config())
+        load_l6_config(config)
 
 
 def test_l6_config_names_an_unavailable_required_path():

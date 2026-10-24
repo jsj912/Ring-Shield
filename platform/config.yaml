@@ -33,9 +33,9 @@ l6:
     holdout_manifest: platform/holdout/production/holdout_manifest.json
     holdout_sha256_file: platform/holdout/production/holdout_manifest.sha256
     val_scored_edges: contract/out/scored_edges_gine_causal_1_val.parquet
-    val_gfp: null
-    val_embeddings: null
-    truth_parquet: null
+    val_gfp: data/processed/amlworld_gfp_features_val.parquet
+    val_embeddings: experiments/R1_gine_causal/embeddings_val_seed1.parquet
+    truth_parquet: data/processed/amlworld_ring_ground_truth.parquet
     eval_window: val
     eval_scope: test_visible
     base_model_dir: models/artifacts/full_gine_causal_seed1
@@ -45,14 +45,17 @@ l6:
 scheduler:
   enabled: false
 
+# CYCLE, not BIPARTITE: holding out BIPARTITE removes no training rows (expansion never reaches it).
+# The model is experiments/R7_l3only_cycle/runs/full/seed1 exported with ringshield export-model.
 r12:
-  pattern: BIPARTITE
-  model_dir: null
+  pattern: CYCLE
+  model_dir: models/artifacts/l3only_cycle_full_seed1
 
-# Research-lead decision required before R10 runs. Pooled scores remain the
-# comparison baseline; the operational score source is unresolved and must be selected explicitly.
+# Pooled scores remain the comparison baseline.
 # Tenant-visible templates must contain {tenant_id}, {model_id}, and {seed}.
 r10:
-  tenant_score_source: null
+  # Registered in docs/TENANT_SIZES.md: primary = tenant-visible scores at the fixed cutoff (option b);
+  # pooled is a secondary row (--tenant-score-source pooled).
+  tenant_score_source: tenant_visible
   pooled_scores_template: contract/out/scored_edges_{model_id}_{seed}.parquet
-  tenant_visible_scores_template: null
+  tenant_visible_scores_template: data/tenant_visible/scored_edges_visible_{tenant_id}_{model_id}_{seed}.parquet

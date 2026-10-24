@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 import sys
 
@@ -40,8 +41,10 @@ def test_r10_requires_explicit_score_source(repo_platform_config):
     from experiments.r10_tenant_vs_pooled import _candidate_seed_inputs
     from settings import load_platform_config
 
+    config = copy.deepcopy(load_platform_config())
+    config["r10"]["tenant_score_source"] = None
     with pytest.raises(ExperimentInputError, match="score source is unresolved"):
-        _candidate_seed_inputs(load_platform_config(), [1])
+        _candidate_seed_inputs(config, [1])
 
 
 def test_r10_tenant_visible_score_template_is_per_tenant(tmp_path, monkeypatch):
