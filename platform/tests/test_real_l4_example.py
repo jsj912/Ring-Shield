@@ -28,6 +28,10 @@ def test_real_l4_example_round_trips_adapter_and_worker_validation(monkeypatch, 
     response = example["response"]
     config = copy.deepcopy(load_platform_config())
     config["l4"]["regenerate_url"] = "https://l4.example.test"
+    # The pinned example is a real L4 response made on v1 (22-column) rings; the repo config is now
+    # v2, so the test uses the example's own schema version.
+    config["l4"]["rings_schema_version"] = json.loads(response["provenance"])["rings_schema_version"] \
+        if isinstance(response.get("provenance"), str) else response["provenance"]["rings_schema_version"]
     calls = []
 
     def handler(http_request):
