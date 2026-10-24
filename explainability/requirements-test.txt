@@ -1,0 +1,6 @@
+# Running explainability/tests: the service packages plus what the test files import directly.
+# test_serve.py needs httpx; test_api.py needs fastapi. Versions match platform/requirements.txt.
+-r requirements-serve.txt
+pytest==9.1.1
+httpx==0.28.1
+fastapi==0.115.12

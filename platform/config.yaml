@@ -13,7 +13,7 @@ seed_score_column: score_raw
 survey_candidate_count: 30
 fx_rates_sha256: ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6
 l4:
-  rings_schema_version: 1
+  rings_schema_version: 2
   regenerate_url: null
   regenerate_timeout_seconds: 120
 # L6-A/L6-B configuration. Validation artifacts not present in this checkout

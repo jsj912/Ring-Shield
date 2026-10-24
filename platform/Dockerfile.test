@@ -2,8 +2,10 @@ FROM python:3.12-slim
 WORKDIR /workspace
 COPY requirements-dev.txt ./
 COPY platform/requirements.txt platform/requirements.txt
-RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
+# Debian over HTTPS: some networks time out or rewrite plain-HTTP apt downloads.
+RUN sed -i "s|http://deb.debian.org|https://deb.debian.org|g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir -r requirements-dev.txt
+    && pip install --no-cache-dir --default-timeout=120 --retries 10 -r requirements-dev.txt
 COPY . .
 ENV PYTHONPATH=/workspace/platform:/workspace

@@ -63,7 +63,7 @@ def test_synthetic_tenant_explanation_handoff_loads_and_persists_fx_hash(
 
         provenance = {
             "aggregator_id": "full", "model_id": "gine_causal", "seed": 1,
-            "explainer_version": "0.4.0-narrative", "rings_schema_version": 1,
+            "explainer_version": "0.4.0-narrative", "rings_schema_version": 2,
             "currency_policy": "converted", "scope": "tenant", "tenant_id": TENANT_ID,
             "feature_scope": "tenant_view", "fx_rates_sha256": FX_HASH,
             "loo": {"reproduces_shipped_ring": True},

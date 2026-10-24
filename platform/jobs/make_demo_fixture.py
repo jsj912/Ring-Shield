@@ -78,6 +78,15 @@ def _ring(tenant_id: int) -> dict:
         "source_accounts": [101],
         "sink_accounts": [102],
         "mule_accounts": [201, 202],
+        # Schema v2 currency-aware fields: every fixture edge is currency 1, so they equal the raw ones.
+        "conservation_closure_ccy": 0.88,
+        "n_accounts_ccy_undefined": 0,
+        "source_accounts_ccy": [101],
+        "sink_accounts_ccy": [102],
+        "mule_accounts_ccy": [201, 202],
+        "undetermined_accounts_ccy": [],
+        "n_roles_changed_ccy": 0,
+        "n_currencies": 1,
     }
 
 

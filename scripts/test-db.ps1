@@ -40,6 +40,7 @@ try {
     $env:RINGSHIELD_DATABASE_URL = 'postgresql+psycopg://ringshield_test_app:test-app-only@localhost:55432/ringshield?options=-c%20role%3Dringshield_api'
     $env:RINGSHIELD_AUTH_DATABASE_URL = 'postgresql+psycopg://ringshield_test_auth:test-auth-only@localhost:55432/ringshield?options=-c%20role%3Dringshield_auth'
     $env:RINGSHIELD_LOADER_DATABASE_URL = 'postgresql+psycopg://ringshield_test_loader:test-loader-only@localhost:55432/ringshield?options=-c%20role%3Dringshield_loader'
+    $env:RINGSHIELD_SIMULATOR_DATABASE_URL = 'postgresql+psycopg://ringshield_test_simulator:test-simulator-only@localhost:55432/ringshield?options=-c%20role%3Dringshield_simulator'
     $env:RINGSHIELD_JWT_SECRET = 'ringshield-test-secret-that-is-long-enough'
     # Test-only fixed anchor for deterministic synthetic fixtures; never use as a demo origin.
     # Test-only fixed anchor for deterministic synthetic fixtures; never use as a demo origin.

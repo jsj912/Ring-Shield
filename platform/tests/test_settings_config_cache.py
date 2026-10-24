@@ -20,7 +20,7 @@ def test_environment_config_switch_uses_each_resolved_path(monkeypatch):
 
     monkeypatch.setenv("RINGSHIELD_PLATFORM_CONFIG", str(repo_config))
     assert load_platform_config()["active_model_id"] == "gine_causal"
-    assert load_platform_config()["l4"]["rings_schema_version"] == 1
+    assert load_platform_config()["l4"]["rings_schema_version"] == 2
 
 
 @pytest.mark.parametrize("l4_config", [None, {}, {"rings_schema_version": "1"},

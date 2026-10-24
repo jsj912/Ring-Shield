@@ -28,7 +28,7 @@ sys.path.insert(0, str(REPO_ROOT / "platform"))
 from db.models import Explanation, Ring as PlatformRing  # noqa: E402
 from db.session import loader_db_session  # noqa: E402
 from settings import load_platform_config  # noqa: E402
-from contract.schema import RINGS_ORDER  # noqa: E402
+from contract.schema import RINGS_ORDER, RINGS_ORDER_V1  # noqa: E402
 from audit import add_audit_event  # noqa: E402
 from jobs.explanation_validation import (  # noqa: E402
     ExplanationValidationError,
@@ -91,9 +91,9 @@ def _rings_schema_version(path: Path) -> int:
         columns = pq.ParquetFile(path).schema_arrow.names
     except Exception as exc:
         raise ExplanationLoadError("source tenant rings parquet has an unreadable schema") from exc
-    if columns == RINGS_ORDER:
+    if columns == RINGS_ORDER_V1:
         return 1
-    if len(columns) == 30 and len(set(columns)) == 30:
+    if columns == RINGS_ORDER:
         return 2
     raise ExplanationLoadError(
         "source tenant rings parquet columns do not match schema version 1 "
