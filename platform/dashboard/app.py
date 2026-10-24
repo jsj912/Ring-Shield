@@ -755,21 +755,26 @@ def _verdicts(tenant_id: int) -> None:
     count_cols[1].metric("Rejected", counts["rejected"])
     count_cols[2].metric("Partial", counts["partial"])
     rows = result.get("items", [])
-    st.dataframe(
-        [{"When (UTC)": item["created_at"], "Ring ID": item["ring_id"],
-          "Verdict": item["verdict"], "Analyst": item["analyst_label"],
-          "Simulated": "Simulated" if item["is_simulated"] else "Real",
+    zone = st.context.timezone
+    table = st.dataframe(                                          # newest first, as the API sorts
+        [{"When": fmt_time(item["created_at"], zone), "Ring ID": item["ring_id"],
+          "Verdict": _verdict_label(item), "Analyst": item["analyst_label"],
           "Note": item["note_excerpt"] or ""} for item in rows],
-        use_container_width=True, hide_index=True,
+        use_container_width=True, hide_index=True, key=f"verdict_table_{tenant_id}_{page}",
+        on_select="rerun", selection_mode="single-row",
+        column_config={"Ring ID": st.column_config.TextColumn(help="Click a row to open the ring")},
     )
-    ring_ids = list(dict.fromkeys(item["ring_id"] for item in rows))
-    if ring_ids:
-        selected_ring = st.selectbox("Open ring from verdict history", ring_ids,
-                                     key=f"verdict_ring_{tenant_id}_{page}")
-        if st.button("Open ring", key=f"open_verdict_ring_{tenant_id}_{page}"):
-            st.session_state["open_ring"] = {"tenant_id": tenant_id, "ring_id": selected_ring}
-            st.session_state["navigate_to_ring_detail"] = True
-            st.rerun()
+    picked = table.selection.rows if table is not None and hasattr(table, "selection") else []
+    if picked:                                         # FR-D60: the ring id opens the ring
+        ring_id = rows[picked[0]]["ring_id"]
+        st.session_state["open_ring"] = {"tenant_id": tenant_id, "ring_id": ring_id}
+        st.session_state["navigate_to_ring_detail"] = True
+        st.session_state.pop(f"verdict_table_{tenant_id}_{page}", None)
+        st.query_params["page"] = "rings"
+        st.query_params["ring"] = ring_id
+        st.rerun()
+    if rows:
+        st.caption("Click a row to open its ring.")
 
     export_key = f"verdict_export_{tenant_id}"
     if st.button("Prepare CSV export", key=f"prepare_verdict_csv_{tenant_id}"):

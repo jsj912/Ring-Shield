@@ -76,6 +76,8 @@ class FixtureAPI:
             tenant_id, rest = int(tenant_match.group(1)), tenant_match.group(2) or ""
             if method == "GET" and rest == "/rings":
                 return self._ring_page(tenant_id, _param_dict(params))
+            if method == "GET" and rest == "/verdicts":
+                return self._verdict_page(tenant_id, _param_dict(params))
             if method == "POST":
                 return self._post(tenant_id, rest, user, body or {})
             job_match = re.match(r"^/rings/([^/]+)/explanation/jobs/([^/]+)$", rest)
@@ -122,6 +124,37 @@ class FixtureAPI:
         next_cursor = str(offset + limit) if offset + limit < len(rows) else None
         return self._response(200, {"items": page, "next_cursor": next_cursor, "total": len(rows),
                                      "tenant_total": len(tenant_rings)})
+
+    def _verdict_page(self, tenant_id: int, params: dict) -> httpx.Response:
+        """GET /tenants/{t}/verdicts: filters, newest first, counts, analysts and an offset cursor."""
+        every = [v for (tenant, _), ring in self.rings.items() if tenant == tenant_id for v in ring["verdicts"]]
+        kinds = params.get("verdict") or []
+        analyst = _one(params, "analyst_id")
+        simulated = _one(params, "simulated")
+        since, until = _one(params, "since"), _one(params, "until")
+        rows = [v for v in every
+                if (not kinds or v["verdict"] in kinds)
+                and (analyst is None or str(v["user_id"]) == analyst)
+                and (simulated is None or v["is_simulated"] == (simulated == "true"))
+                and (not since or v["created_at"][:19] >= since[:19])
+                and (not until or v["created_at"][:19] <= until[:19])]
+        rows.sort(key=lambda v: (v["created_at"], v["verdict_id"]), reverse=True)
+        offset, limit = int(_one(params, "cursor") or 0), int(_one(params, "limit") or 50)
+        page = rows[offset:offset + limit]
+        return self._response(200, {
+            "items": [{"verdict_id": v["verdict_id"], "ring_id": v["ring_id"], "verdict": v["verdict"],
+                       "analyst_id": v["user_id"], "analyst_label": f"Analyst {v['user_id']}",
+                       "is_simulated": v["is_simulated"],
+                       "note_excerpt": v["note"][:160] if v["note"] else None,
+                       "created_at": v["created_at"]} for v in page],
+            "next_cursor": str(offset + limit) if offset + limit < len(rows) else None,
+            "total": len(rows),
+            "counts": {name: sum(1 for v in rows if v["verdict"] == kind)
+                       for name, kind in (("confirmed", "confirm"), ("rejected", "reject"),
+                                          ("partial", "partial"))},
+            "analysts": [{"analyst_id": uid, "analyst_label": f"Analyst {uid}"}
+                         for uid in sorted({v["user_id"] for v in every})],
+        })
 
     def _post(self, tenant_id: int, rest: str, user: dict, body: dict) -> httpx.Response:
         """POST verdicts and regenerate, as platform/api/routers/verdicts.py answers them."""

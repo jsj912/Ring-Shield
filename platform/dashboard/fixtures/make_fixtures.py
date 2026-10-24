@@ -179,12 +179,15 @@ def make_ring(*, tenant_id: int, index: int, pattern: str, n_members: int, rng: 
     }
     verdicts = []
     if status != "open":
-        verdicts.append({"verdict_id": index * 10 + 1, "ring_id": ring_id, "user_id": 1,
-                         "user_name": "analyst@bank-a.fixture" if tenant_id == 1001 else "analyst@bank-b.fixture",
+        by_supervisor = tenant_id == 1001 and index % 4 == 3      # two analysts to filter on
+        verdicts.append({"verdict_id": index * 10 + 1, "ring_id": ring_id,
+                         "user_id": (2 if by_supervisor else 1) if tenant_id == 1001 else 3,
+                         "user_name": ("supervisor@bank-a.fixture" if by_supervisor else "analyst@bank-a.fixture")
+                         if tenant_id == 1001 else "analyst@bank-b.fixture",
                          "verdict": {"confirmed": "confirm", "rejected": "reject", "partial": "partial"}[status],
                          "corrected_members": accounts[:2] if status == "partial" else [],
                          "corrected_edges": [], "note": "<b>fixture</b> note, shown as text",
-                         "is_simulated": index % 2 == 0, "created_at": _iso(end + timedelta(hours=3)),
+                         "is_simulated": index % 5 == 0, "created_at": _iso(end + timedelta(hours=3)),
                          "regeneration": None})
     return {"tenant_id": tenant_id, "summary": summary, "detail": detail, "evidence": evidence,
             "explanation": explanation, "subgraph": subgraph, "verdicts": verdicts}
