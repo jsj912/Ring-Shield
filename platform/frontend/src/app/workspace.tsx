@@ -65,6 +65,8 @@ export function WorkspaceProvider({ session, children }: { session: SessionRespo
 
   const token = session?.token ?? null;
   useEffect(() => {                                               // a new session starts clean
+    sessionValues.clear();
+    sessionListeners.forEach((listener) => listener());
     setSelectedTenant(null);
     setRingFiltersState(DEFAULT_RING_FILTERS);
     setRingPaging(FIRST_PAGE);
@@ -96,6 +98,31 @@ export function WorkspaceProvider({ session, children }: { session: SessionRespo
   }), [selectedTenant, ringFilters, ringPaging, verdictFilters, verdictPaging]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
+}
+
+/**
+ * Small keyed values that must outlive a page (a regeneration job, a retrain run being polled, the
+ * R10 job): the equivalent of Streamlit's session_state. In memory; cleared when the session changes.
+ */
+const sessionValues = new Map<string, unknown>();
+const sessionListeners = new Set<() => void>();
+
+export function useSessionValue<T>(key: string, initial: T): [T, (value: T | undefined) => void] {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const listener = () => force((n) => n + 1);
+    sessionListeners.add(listener);
+    return () => {
+      sessionListeners.delete(listener);
+    };
+  }, []);
+  const value = (sessionValues.has(key) ? sessionValues.get(key) : initial) as T;
+  const set = (next: T | undefined) => {
+    if (next === undefined) sessionValues.delete(key);
+    else sessionValues.set(key, next);
+    sessionListeners.forEach((listener) => listener());
+  };
+  return [value, set];
 }
 
 export function useWorkspace(): Workspace {

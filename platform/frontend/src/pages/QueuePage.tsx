@@ -22,10 +22,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MultiSelect } from "@/components/MultiSelect";
 import {
-  EmptyState, ErrorState, KpiCard, PageHeader, ReadOnlyBanner, StatusBadge, TableSkeleton, WeightBar,
+  EmptyState, ErrorState, KpiCard, Notice, PageHeader, ReadOnlyBanner, StatusBadge, TableSkeleton, WeightBar,
 } from "@/components/shared";
 import { RING_STATUSES, TOPOLOGY_TYPES, dayEndUtc, dayOf, dayStartUtc } from "@/lib/contract";
 import { fmtAmount, fmtAsReceived, fmtTime, fmtTimeUtc, fmtWeight } from "@/lib/formatters";
+import { canRecordVerdicts } from "@/app/pages";
+import { QuickVerdict } from "./QuickVerdict";
 import { ringParams, withNextCursor } from "./queue-params";
 
 type SortKey = RingFilters["sort"];
@@ -52,14 +54,14 @@ function FilterBar({ applied, onApply }: { applied: RingFilters; onApply: (filte
   return (
     <Card className="p-3">
       <form
-        className="grid grid-cols-2 items-end gap-3 md:grid-cols-4 xl:grid-cols-[1.4fr_1fr_1fr_1.2fr_1fr_1fr_auto]"
+        className="grid grid-cols-2 items-end gap-3 md:grid-cols-3 2xl:grid-cols-[1.4fr_1fr_1fr_1.2fr_1fr_1fr_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           apply();
         }}
         aria-label="Ring filters"
       >
-        <div className="col-span-2 space-y-1.5 md:col-span-4 xl:col-span-1">
+        <div className="col-span-2 space-y-1.5 md:col-span-3 2xl:col-span-1">
           <Label htmlFor="ring-search">Search ring ID or account ID</Label>
           <div className="relative">
             <Search className="text-muted-foreground absolute top-2.5 left-2.5 size-4" />
@@ -90,7 +92,7 @@ function FilterBar({ applied, onApply }: { applied: RingFilters; onApply: (filte
           <Label htmlFor="start-to">Start to</Label>
           <Input id="start-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
-        <div className="col-span-2 flex items-center gap-3 md:col-span-4 xl:col-span-1">
+        <div className="col-span-2 flex items-center gap-3 md:col-span-1 2xl:col-span-1">
           <label className="flex h-9 items-center gap-2 text-xs font-medium whitespace-nowrap">
             <Switch checked={draft.cross_bank_only} onCheckedChange={(cross_bank_only) => setDraft({ ...draft, cross_bank_only })}
               aria-label="Cross-bank only" />
@@ -122,21 +124,27 @@ function SortHeader({ label, column, filters, onSort, className }: {
   );
 }
 
-function RingRow({ row, onOpen }: { row: RingSummary; onOpen: () => void }) {
+function RingRow({ row, onOpen, tenantId, canVerdict }: {
+  row: RingSummary; onOpen: () => void; tenantId: number; canVerdict: boolean;
+}) {
   return (
     <TableRow className="cursor-pointer" onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter") onOpen(); }}
       tabIndex={0} data-testid="ring-row">
-      <TableCell className="font-mono text-xs font-medium text-primary">{row.ring_id}</TableCell>
+      <TableCell className="font-mono text-[11px] font-medium text-primary 2xl:text-xs">{row.ring_id}</TableCell>
       <TableCell className="leading-tight">
         <div className="font-medium">{row.topology_type}</div>
-        <div className="text-muted-foreground text-[11px]">p = {fmtAsReceived(row.topology_prob)}</div>
+        <div className="text-muted-foreground text-[10px] 2xl:text-[11px]">p = {fmtAsReceived(row.topology_prob)}</div>
       </TableCell>
-      <TableCell className="text-right tabular-nums">{row.n_members}</TableCell>
-      <TableCell className="text-right tabular-nums">{row.n_edges}</TableCell>
+      <TableCell className="text-right tabular-nums">{row.n_members} <span className="text-muted-foreground">/ {row.n_edges}</span></TableCell>
       <TableCell className="text-right tabular-nums">
         <Tooltip>
           <TooltipTrigger asChild>
-            <span>{fmtAmount(row.total_amount, row.total_currency, row.total_partial)}</span>
+            <span className="block leading-tight">
+              <span className="block">{fmtAmount(row.total_amount)}</span>
+              <span className="text-muted-foreground block text-[11px]">
+                {row.total_currency ?? ""}{row.total_partial ? " (partial)" : ""}
+              </span>
+            </span>
           </TooltipTrigger>
           <TooltipContent>From the ring's explanation, in its hub currency; '(partial)' means some transactions had no exchange rate. Never converted here.</TooltipContent>
         </Tooltip>
@@ -144,7 +152,7 @@ function RingRow({ row, onOpen }: { row: RingSummary; onOpen: () => void }) {
       <TableCell>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="block text-xs leading-tight">
+            <span className="block text-[11px] leading-tight 2xl:text-xs">
               <span className="block">{fmtTime(row.start_time)} →</span>
               <span className="block">{fmtTime(row.end_time)} <span className="text-muted-foreground">· {row.window_text}</span></span>
             </span>
@@ -154,7 +162,7 @@ function RingRow({ row, onOpen }: { row: RingSummary; onOpen: () => void }) {
       </TableCell>
       <TableCell>
         <span className="inline-flex items-center gap-2 tabular-nums">
-          <WeightBar value={row.confidence} />
+          <WeightBar value={row.confidence} className="hidden 2xl:inline-block" />
           {fmtWeight(row.confidence)}
         </span>
       </TableCell>
@@ -164,6 +172,9 @@ function RingRow({ row, onOpen }: { row: RingSummary; onOpen: () => void }) {
           : <span className="text-muted-foreground text-xs">No</span>}
       </TableCell>
       <TableCell><StatusBadge status={row.status} /></TableCell>
+      <TableCell>
+        {row.status === "open" ? <QuickVerdict tenantId={tenantId} ringId={row.ring_id} allowed={canVerdict} /> : null}
+      </TableCell>
     </TableRow>
   );
 }
@@ -198,7 +209,7 @@ export function QueuePage() {
   return (
     <>
       <PageHeader title="Ring queue" description={`Suspected laundering rings for ${tenantName}. Click a row to investigate.`} />
-      {session.role === "admin" ? <ReadOnlyBanner /> : null}
+      {session.role === "admin" ? <><ReadOnlyBanner /><Notice tone="warning">Administrators cannot record verdicts.</Notice></> : null}
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <KpiCard label="Matching filters" value={query.data ? query.data.total : "—"} hint="rings, as counted by the API" icon={<Filter />} />
         <KpiCard label="Rings for tenant" value={query.data ? query.data.tenant_total : "—"} hint="all statuses" icon={<Network />} />
@@ -218,23 +229,23 @@ export function QueuePage() {
         ) : (
           <>
             <div className={query.isFetching ? "opacity-60 transition-opacity" : "transition-opacity"}>
-              <Table>
+              <Table className="[&_td]:px-2 [&_th]:px-2">
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow>
                     <TableHead>Ring ID</TableHead>
                     <TableHead>Type</TableHead>
-                    <SortHeader label="Members" column="members" filters={ringFilters} onSort={sortBy} className="text-right" />
-                    <TableHead className="text-right">Edges</TableHead>
+                    <SortHeader label="Members / edges" column="members" filters={ringFilters} onSort={sortBy} className="w-20 text-right whitespace-normal" />
                     <SortHeader label="Total" column="total_amount" filters={ringFilters} onSort={sortBy} className="text-right" />
                     <SortHeader label="Window" column="start_time" filters={ringFilters} onSort={sortBy} />
                     <SortHeader label="Confidence" column="confidence" filters={ringFilters} onSort={sortBy} />
                     <TableHead>Cross-bank</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((row) => (
-                    <RingRow key={row.ring_id} row={row} onOpen={() => navigate(`/rings/${encodeURIComponent(row.ring_id)}`)} />
+                    <RingRow key={row.ring_id} row={row} tenantId={tenantId} canVerdict={canRecordVerdicts(session.role)} onOpen={() => navigate(`/rings/${encodeURIComponent(row.ring_id)}`)} />
                   ))}
                 </TableBody>
               </Table>

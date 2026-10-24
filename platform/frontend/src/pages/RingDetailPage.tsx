@@ -14,7 +14,9 @@ import { fmtWeight } from "@/lib/formatters";
 import { EvidencePanel } from "./ring/EvidencePanel";
 import { GraphPanel } from "./ring/GraphPanel";
 import { NarrativePanel } from "./ring/NarrativePanel";
+import { RegenerationStatus } from "./ring/RegenerationStatus";
 import { RingVerdicts } from "./ring/RingVerdicts";
+import { VerdictForm } from "./ring/VerdictForm";
 import { useEvidence, useExplanation, useRing, useRingVerdicts } from "./ring/queries";
 
 function BackToQueue() {
@@ -63,6 +65,7 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
         </div>
       </PageHeader>
       {session.role === "admin" ? <ReadOnlyBanner /> : null}
+      <RegenerationStatus tenantId={tenantId} ringId={ringId} explanation={explanation.data} />
       <div className="grid items-start gap-4 min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
         <NarrativePanel ring={detail} explanation={explanation.data} explanationState={explanationState} history={history.data} />
         <GraphPanel tenantId={tenantId} ringId={ringId} />
@@ -76,6 +79,7 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
       </div>
       <RingVerdicts history={history.data}
         state={{ isPending: history.isPending, error: history.error, retry: () => history.refetch() }} />
+      <VerdictForm tenantId={tenantId} ringId={ringId} ring={detail} />
     </>
   );
 }
