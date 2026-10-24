@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.request_context import RequestContextMiddleware
 from api.routers.auth import router as auth_router
@@ -35,6 +36,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.add_middleware(RequestContextMiddleware)
+# The React dashboard's dev server (Vite) calls the API from another origin.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.environ.get("RINGSHIELD_CORS_ORIGINS", "http://localhost:5173").split(","),
+    allow_methods=["GET", "POST", "PATCH"], allow_headers=["Authorization", "Content-Type"],
+    expose_headers=["X-Request-ID"],
+)
 app.include_router(auth_router)
 app.include_router(rings_router)
 app.include_router(admin_router)
