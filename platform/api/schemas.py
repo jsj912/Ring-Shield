@@ -94,6 +94,7 @@ class RingSummary(BaseModel):
     n_edges: int = Field(ge=0)
     total_amount: float | None
     total_currency: str | None
+    total_partial: bool | None = None      # from the explanation: some edges had no exchange rate
     n_currencies: int | None = Field(default=None, ge=1)
     start_time: datetime
     end_time: datetime

@@ -27,6 +27,10 @@ class _FakeSession:
 
     def scalar(self, statement):
         sql = str(statement.compile(compile_kwargs={"literal_binds": True}))
+        if "FROM explanations" in sql:
+            # the ring total comes from the tenant's own latest explanation
+            assert "explanations.tenant_id = 21" in sql
+            return None
         assert "rings.tenant_id = 21" in sql
         self.count_call += 1
         return (0, 3)[self.count_call - 1]

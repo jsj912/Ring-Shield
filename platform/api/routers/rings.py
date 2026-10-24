@@ -248,10 +248,30 @@ def _tenant_session(tenant_id: int, principal: Principal) -> Iterator[Session]:
         yield session
 
 
-def _summary(row: PlatformRing) -> RingSummary:
+def _explanation_totals(session, tenant_id: int, ring_ids: list[str]) -> dict[str, dict]:
+    """Ring totals as the L4 explanation states them: the total in the ring's hub currency and
+    the partial flag (some edges in a currency with no rate). The API passes them on unconverted."""
+    totals = {}
+    for ring_id in ring_ids:
+        explanation = session.scalar(latest_explanation_statement(tenant_id, ring_id))
+        if explanation is None:
+            continue
+        provenance = explanation.provenance or {}
+        values = (explanation.evidence_summary or {}).get("values") or {}
+        totals[ring_id] = {
+            "total_amount": _optional_float(provenance.get("flow_total_ccy0")),
+            "total_currency": values.get("currency_hub_name"),
+            "total_partial": (None if provenance.get("flow_partial") is None
+                              else bool(provenance.get("flow_partial"))),
+        }
+    return totals
+
+
+def _summary(row: PlatformRing, totals: dict | None = None) -> RingSummary:
+    """`totals` = this ring's entry from _explanation_totals; without one the total is unknown."""
     payload = row.payload or {}
     n_currencies = _optional_int(payload.get("n_currencies"))
-    single_currency = n_currencies == 1
+    totals = totals or {"total_amount": None, "total_currency": None, "total_partial": None}
     probabilities = row.topology_probs or []
     try:
         topology_probability = float(probabilities[TOPOLOGY_TYPES.index(row.topology_type)])
@@ -264,8 +284,9 @@ def _summary(row: PlatformRing) -> RingSummary:
         topology_prob=topology_probability,
         n_members=len(row.member_accounts),
         n_edges=int(payload.get("n_edges", len(row.member_edges))),
-        total_amount=_optional_float(payload.get("total_amount")) if single_currency else None,
-        total_currency=currency_label(payload.get("total_currency")) if single_currency else None,
+        total_amount=totals["total_amount"],
+        total_currency=totals["total_currency"],
+        total_partial=totals["total_partial"],
         n_currencies=n_currencies,
         start_time=to_utc(row.start_time),
         end_time=to_utc(row.end_time),
@@ -407,6 +428,7 @@ def list_rings(
                                              PlatformRing.ring_id > cursor_ring_id)))
         ordered = sort_column.desc() if order == "desc" else sort_column.asc()
         rows = list(session.scalars(query.order_by(ordered, PlatformRing.ring_id.asc()).limit(limit + 1)))
+        totals = _explanation_totals(session, tenant_id, [row.ring_id for row in rows[:limit]])
 
     next_cursor = None
     if len(rows) > limit:
@@ -417,7 +439,7 @@ def list_rings(
                       len(last.member_accounts) if sort == "members" else
                       float((last.payload or {}).get("total_amount") or 0.0))
         next_cursor = _encode_cursor(fingerprint, sort, sort_value, last.ring_id)
-    return RingPage(items=[_summary(row) for row in rows], next_cursor=next_cursor,
+    return RingPage(items=[_summary(row, totals.get(row.ring_id)) for row in rows], next_cursor=next_cursor,
                     total=int(total), tenant_total=int(tenant_total))
 
 
@@ -428,7 +450,8 @@ def get_ring(tenant_id: int, ring_id: str,
         row = session.get(PlatformRing, {"tenant_id": tenant_id, "ring_id": ring_id})
         if row is None or row.scope != "tenant":
             raise HTTPException(status_code=404, detail="Ring not found")
-    summary = _summary(row).model_dump()
+        totals = _explanation_totals(session, tenant_id, [ring_id]).get(ring_id)
+    summary = _summary(row, totals).model_dump()
     payload = row.payload or {}
     return RingDetail(
         **summary,
