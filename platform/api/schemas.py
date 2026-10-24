@@ -146,6 +146,7 @@ class RingEvidenceEdge(BaseModel):
     payment_format: str | None
     calibrated_score: float | None
     is_seed: bool | None
+    is_conversion: bool = False      # sent and received currencies differ (a currency exchange)
 
 
 class RingEvidenceGraph(BaseModel):
@@ -155,6 +156,43 @@ class RingEvidenceGraph(BaseModel):
     edges: list[RingEvidenceEdge]
     next_before_edge_id: int | None = None
     missing_edge_ids: list[int] = Field(default_factory=list)
+
+
+class SubgraphNode(BaseModel):
+    account_id: int
+    role: str | None                 # source, sink, mule, holder, peripheral, undetermined (L4)
+    bank_code: int | None
+    bank_label: str | None
+    inflow: float | None
+    outflow: float | None
+    hold_time_s: float | None
+    w_account: float | None
+
+
+class SubgraphEdge(BaseModel):
+    edge_id: int
+    from_id: int
+    to_id: int
+    timestamp: datetime
+    amount: float | None             # amount sent
+    currency: str | None             # currency sent
+    amount_received: float | None
+    currency_received: str | None
+    payment_format: str | None
+    is_seed: bool | None
+    is_conversion: bool              # sent and received currencies differ (a currency exchange)
+    w_total: float | None
+    w_score: float | None
+    w_loo: float | None
+    w_flow: float | None
+
+
+class RingSubgraph(BaseModel):
+    tenant_id: int
+    ring_id: str
+    n_accounts: int
+    nodes: list[SubgraphNode]
+    edges: list[SubgraphEdge]
 
 
 class RingExplanation(BaseModel):

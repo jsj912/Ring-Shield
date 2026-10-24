@@ -23,7 +23,8 @@ from api.request_context import current_request_id
 from api.label_maps import currency_label, payment_format_label
 from api.schemas import (RingDetail, RingEvidenceEdge, RingEvidenceGraph,
                          ExplanationJobResponse, RegenerateExplanationRequest,
-                         RingEvidenceNode, RingExplanation, RingPage, RingSummary)
+                         RingEvidenceNode, RingExplanation, RingPage, RingSubgraph, RingSummary,
+    SubgraphEdge, SubgraphNode)
 from api.timebasis import from_utc, to_utc
 from contract.schema import TOPOLOGY_TYPES
 from audit import add_audit_event
@@ -468,6 +469,79 @@ def get_ring(tenant_id: int, ring_id: str,
     )
 
 
+SUBGRAPH_EDGE_LIMIT = 5000
+
+
+def _finite(value) -> float | None:
+    """A float from an explanation record, or None for a missing or NaN value."""
+    if value is None:
+        return None
+    number = float(value)
+    return None if number != number else number
+
+
+@router.get("/tenants/{tenant_id}/rings/{ring_id}/subgraph", response_model=RingSubgraph)
+def get_ring_subgraph(tenant_id: int, ring_id: str,
+                      principal: Principal = Depends(get_principal)) -> RingSubgraph:
+    """The ring's accounts and transactions with roles and weights from its latest L4
+    explanation (dashboard Section 2 'Subgraph'). Currency exchanges are flagged, not dropped."""
+    with _tenant_session(tenant_id, principal) as session:
+        ring = session.get(PlatformRing, {"tenant_id": tenant_id, "ring_id": ring_id})
+        if ring is None or ring.scope != "tenant":
+            raise HTTPException(status_code=404, detail="Ring not found")
+        edge_ids = sorted(int(edge_id) for edge_id in ring.member_edges)[:SUBGRAPH_EDGE_LIMIT]
+        transactions = list(session.scalars(
+            select(Transaction).where(Transaction.tenant_id == tenant_id,
+                                      Transaction.edge_id.in_(edge_ids))
+            .order_by(Transaction.timestamp, Transaction.edge_id)
+        )) if edge_ids else []
+        active = load_platform_config()
+        seeds = {int(row.edge_id): row.is_seed for row in session.scalars(
+            select(EdgeScore).where(EdgeScore.tenant_id == tenant_id, EdgeScore.edge_id.in_(edge_ids),
+                                    EdgeScore.model_id == active["active_model_id"],
+                                    EdgeScore.seed == int(active["active_seed"])))} if edge_ids else {}
+        explanation = session.scalar(latest_explanation_statement(tenant_id, ring_id))
+        account_ids = sorted({int(a) for a in ring.member_accounts}
+                             | {int(a) for row in transactions for a in (row.from_id, row.to_id)})
+        banks = {int(row.account_id): int(row.bank_code) for row in session.scalars(
+            select(Account).where(Account.tenant_id == tenant_id, Account.account_id.in_(account_ids)))}
+    for row in transactions:
+        banks.setdefault(int(row.from_id), int(row.from_bank))
+        banks.setdefault(int(row.to_id), int(row.to_bank))
+    account_weights = {int(item["account_id"]): item for item in
+                       (explanation.account_weights if explanation is not None
+                        and isinstance(explanation.account_weights, list) else [])}
+    edge_weights = {int(item["edge_id"]): item for item in
+                    (explanation.edge_weights if explanation is not None
+                     and isinstance(explanation.edge_weights, list) else [])}
+    nodes = [SubgraphNode(
+        account_id=account_id, role=account_weights.get(account_id, {}).get("role"),
+        bank_code=banks.get(account_id),
+        bank_label=f"Bank {banks[account_id]}" if account_id in banks else None,
+        inflow=_finite(account_weights.get(account_id, {}).get("inflow")),
+        outflow=_finite(account_weights.get(account_id, {}).get("outflow")),
+        hold_time_s=_finite(account_weights.get(account_id, {}).get("hold_time_s")),
+        w_account=_finite(account_weights.get(account_id, {}).get("w_account")),
+    ) for account_id in account_ids]
+    edges = []
+    for row in transactions:
+        weights = edge_weights.get(int(row.edge_id), {})
+        edges.append(SubgraphEdge(
+            edge_id=int(row.edge_id), from_id=int(row.from_id), to_id=int(row.to_id),
+            timestamp=to_utc(row.timestamp),
+            amount=_optional_float(row.amount_sent), currency=currency_label(row.currency_sent),
+            amount_received=_optional_float(row.amount_received),
+            currency_received=currency_label(row.currency_received),
+            payment_format=payment_format_label(row.payment_format),
+            is_seed=seeds.get(int(row.edge_id)),
+            is_conversion=row.currency_sent != row.currency_received,
+            w_total=_finite(weights.get("w_total")), w_score=_finite(weights.get("w_score")),
+            w_loo=_finite(weights.get("w_loo")), w_flow=_finite(weights.get("w_flow")),
+        ))
+    return RingSubgraph(tenant_id=tenant_id, ring_id=ring_id, n_accounts=len(nodes),
+                        nodes=nodes, edges=edges)
+
+
 @router.get("/tenants/{tenant_id}/rings/{ring_id}/evidence",
             response_model=RingEvidenceGraph)
 def get_ring_evidence(
@@ -563,6 +637,7 @@ def get_ring_evidence(
             calibrated_score=_optional_float(scores_by_edge[row.edge_id].score_calibrated)
             if row.edge_id in scores_by_edge else None,
             is_seed=scores_by_edge[row.edge_id].is_seed if row.edge_id in scores_by_edge else None,
+            is_conversion=row.currency_sent != row.currency_received,
         )
         for row in transaction_rows
     ]
