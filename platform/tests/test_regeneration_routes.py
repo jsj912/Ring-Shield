@@ -19,7 +19,10 @@ from api.schemas import RegenerateExplanationRequest  # noqa: E402
 from db.models import Explanation, ExplanationJob, Ring, Transaction, Verdict  # noqa: E402
 
 
-NOW = datetime.now(timezone.utc)
+def _now():
+    # Taken per call: a module-level instant is fixed at collection, so in a full run a
+    # "1-second-old" job was over 30 s old by the time the test ran and got relaunched.
+    return datetime.now(timezone.utc)
 
 
 def _ring():
@@ -40,7 +43,7 @@ def _job(status="queued", *, age_seconds=1):
     return SimpleNamespace(
         job_id="21." + "a" * 32, tenant_id=21, ring_id="ring-1", verdict_id=41,
         status=status, result_revision=3 if status == "succeeded" else None,
-        error=None, created_at=NOW - timedelta(seconds=age_seconds), finished_at=None,
+        error=None, created_at=_now() - timedelta(seconds=age_seconds), finished_at=None,
     )
 
 
@@ -79,7 +82,7 @@ class FakeSession:
     def add(self, row):
         self.added.append(row)
         if isinstance(row, ExplanationJob):
-            row.created_at = NOW
+            row.created_at = _now()
 
     def flush(self):
         self.flushes += 1
@@ -205,7 +208,7 @@ def test_explanation_response_marks_active_job_as_regenerating(monkeypatch):
         tenant_id=21, ring_id="ring-1", explainer_version="0.5.0", revision=1,
         edge_weights=[], account_weights=[], feature_weights=[], narrative="N",
         evidence_summary={}, latency_ms=1, provenance={}, fx_rates_sha256=None,
-        created_at=NOW,
+        created_at=_now(),
     )
     session = FakeSession(job_results=["active-job"], explanation=explanation)
     _install(monkeypatch, session)
