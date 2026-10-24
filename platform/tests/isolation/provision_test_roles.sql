@@ -1,0 +1,15 @@
+DO $$ BEGIN CREATE ROLE ringshield_test_app LOGIN PASSWORD 'test-app-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE ringshield_test_auth LOGIN PASSWORD 'test-auth-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE ringshield_test_loader LOGIN PASSWORD 'test-loader-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE ringshield_test_simulator LOGIN PASSWORD 'test-simulator-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE ringshield_test_migrator LOGIN PASSWORD 'test-migrator-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+GRANT ringshield_api TO ringshield_test_app;
+GRANT ringshield_auth TO ringshield_test_auth;
+GRANT ringshield_loader TO ringshield_test_loader;
+GRANT ringshield_simulator TO ringshield_test_simulator;
+GRANT ringshield_owner TO ringshield_test_migrator;

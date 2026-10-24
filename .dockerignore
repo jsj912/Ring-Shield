@@ -1,0 +1,16 @@
+.git/
+.venv/
+.venv*/
+venv/
+env/
+.codex-test-deps/
+data/
+experiments/
+models/artifacts/
+contract/out/
+*.parquet
+**/__pycache__/
+**/*.py[cod]
+.env
+.env.*
+reports/

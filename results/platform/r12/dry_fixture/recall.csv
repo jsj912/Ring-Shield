@@ -1,0 +1,3 @@
+lane,recall_before_insertion,recall_after_insertion_without_retrain,recall_after_gated_retrain,control_note
+no_retrain_control,0.0,1.0,,fixture only; gated retrain was not executed
+gated_retrain,0.0,1.0,,fixture only; no supplied held-out model
