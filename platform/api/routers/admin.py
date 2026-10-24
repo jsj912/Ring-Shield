@@ -15,7 +15,7 @@ from audit import add_audit_event
 from api.identity import Principal
 from api.request_context import current_request_id, log_event
 from api.passwords import hash_password
-from api.schemas import ExperimentJobResponse, TenantResponse, UserCreateRequest, UserResponse
+from api.schemas import ExperimentJobResponse, R10Result, TenantResponse, UserCreateRequest, UserResponse
 from db.models import Ring, Tenant, User, Verdict
 from db.session import db_session
 
@@ -105,6 +105,16 @@ def start_tenant_vs_pooled(
     log_event("experiment.requested", user_id=principal.user_id,
               request_id=current_request_id(), status="queued", job_id=job_id)
     return ExperimentJobResponse(job_id=job_id, status="queued")
+
+
+@router.get("/experiments/tenant-vs-pooled/latest", response_model=R10Result)
+def get_latest_tenant_vs_pooled(principal: Principal = Depends(require_roles("admin"))) -> R10Result:
+    """The most recent registered R10 result, so the admin screen shows it without a new run."""
+    from jobs.experiment_worker import r10_registered_results
+    try:
+        return R10Result(results=r10_registered_results())
+    except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=404, detail="No registered R10 result is available") from exc
 
 
 @router.get("/experiments/tenant-vs-pooled/{job_id}", response_model=ExperimentJobResponse)

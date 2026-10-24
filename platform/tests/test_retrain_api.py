@@ -276,3 +276,23 @@ def test_r10_admin_start_and_status_use_file_state_and_structured_logs(monkeypat
     assert "ground_truth" not in status_response.text.lower()
     logs = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert any(row["event"] == "experiment.requested" and row["job_id"] == payload["job_id"] for row in logs)
+
+
+@pytest.mark.parametrize("role", ["analyst", "supervisor"])
+def test_latest_r10_result_is_refused_to_bank_users(monkeypatch, role, repo_platform_config):
+    from api import dependencies
+    from api.main import app
+
+    monkeypatch.setenv("RINGSHIELD_JWT_SECRET", "x" * 48)
+    token, _ = create_access_token(_principal(role=role))
+
+    @contextmanager
+    def fail_auth_query():
+        raise AssertionError("a bank user must be rejected before the auth query")
+        yield
+
+    monkeypatch.setattr(dependencies, "auth_db_session", fail_auth_query)
+    response = TestClient(app).get("/admin/experiments/tenant-vs-pooled/latest",
+                                   headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 403
+    assert "0.0882" not in response.text

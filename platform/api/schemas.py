@@ -363,6 +363,11 @@ class ExperimentJobResponse(BaseModel):
     results: dict | None = None
 
 
+class R10Result(BaseModel):
+    """The registered R10 result as the admin screen reads it (jobs/experiment_worker.py)."""
+    results: dict
+
+
 class RetrainRunCreated(BaseModel):
     run_id: str
 
