@@ -492,8 +492,8 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
         if submit_partial:
             corrected_members = [account for account, keep in keep_members.items() if keep]
             corrected_edges = [edge for edge, keep in keep_edges.items() if keep]
-            if not corrected_members[1:]:
-                st.error("Keep at least two accounts for a partial correction.")
+            if not corrected_members:
+                st.error("Keep at least one account for a partial correction.")
             elif all(keep_members.values()) and all(keep_edges.values()):
                 st.error("Remove at least one account or transaction; otherwise confirm the ring.")
             elif not partial_note.strip():

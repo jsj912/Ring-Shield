@@ -103,16 +103,16 @@ def test_partial_checklists_start_checked_and_send_kept_accounts_and_transaction
     )]
 
 
-def test_partial_verdict_blocks_fewer_than_two_kept_accounts(monkeypatch, tmp_path):
+def test_partial_verdict_blocks_when_every_account_is_unticked(monkeypatch, tmp_path):
     app, calls = _detail(monkeypatch, tmp_path)
     app.run(timeout=10)
     _open_partial(app)
-    _set_checkbox(app, "partial_keep_account_210_ring-1_2", False)
-    _set_checkbox(app, "partial_keep_account_210_ring-1_3", False)
-    app.text_area[0].set_value("Remove two accounts")
+    for account_id in (1, 2, 3):
+        _set_checkbox(app, f"partial_keep_account_210_ring-1_{account_id}", False)
+    app.text_area[0].set_value("Remove every account")
     next(button for button in app.button if button.label == "Submit partial verdict").click().run(timeout=10)
 
-    assert "Keep at least two accounts for a partial correction." in [item.value for item in app.error]
+    assert "Keep at least one account for a partial correction." in [item.value for item in app.error]
     assert not [call for call in calls if call[0] == "POST"]
 
 
