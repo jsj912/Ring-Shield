@@ -16,7 +16,7 @@ from api.identity import Principal
 from api.request_context import current_request_id, log_event
 from api.passwords import hash_password
 from api.schemas import ExperimentJobResponse, TenantResponse, UserCreateRequest, UserResponse
-from db.models import Tenant, User
+from db.models import Ring, Tenant, User, Verdict
 from db.session import db_session
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -26,11 +26,24 @@ EXPERIMENT_OUTPUT = PLATFORM_ROOT / "out" / "experiments"
 
 @router.get("/tenants", response_model=list[TenantResponse])
 def list_tenants(principal: Principal = Depends(require_roles("admin"))) -> list[TenantResponse]:
-    with db_session(role=principal.role) as session:
+    with db_session(tenant_id=-1, role=principal.role) as session:
         tenants = session.scalars(
             select(Tenant).where(Tenant.tenant_id != -1).order_by(Tenant.bank_code)
         ).all()
-        return [TenantResponse.model_validate(row) for row in tenants]
+        responses = []
+        for tenant in tenants:
+            ring_count = session.scalar(
+                select(func.count()).select_from(Ring).where(Ring.tenant_id == tenant.tenant_id)
+            )
+            verdict_count = session.scalar(
+                select(func.count()).select_from(Verdict).where(Verdict.tenant_id == tenant.tenant_id)
+            )
+            responses.append(TenantResponse(
+                tenant_id=tenant.tenant_id, bank_code=tenant.bank_code,
+                name=tenant.name, is_loaded=tenant.is_loaded, created_at=tenant.created_at,
+                ring_count=ring_count or 0, verdict_count=verdict_count or 0,
+            ))
+        return responses
 
 
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)

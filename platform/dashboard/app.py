@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(REPO_ROOT / ".env")
 sys.path.insert(0, str(REPO_ROOT))
 from contract.schema import TOPOLOGY_TYPES  # noqa: E402
+from regeneration_flow import deadline_expired, new_poll_deadline  # noqa: E402
 
 API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip("/")
 _API_CALL_COUNTER = itertools.count()
@@ -106,10 +107,10 @@ def _login() -> None:
             st.rerun()
 
 
-def _active_tenant() -> tuple[int | None, str | None]:
+def _active_tenant(tenant_records=None) -> tuple[int | None, str | None]:
     if st.session_state["role"] != "admin":
         return st.session_state["tenant_id"], st.session_state["tenant_name"]
-    tenants = _api("GET", "/admin/tenants")
+    tenants = tenant_records if tenant_records is not None else _api("GET", "/admin/tenants")
     if tenants is None:
         return None, None
     loaded = [item for item in tenants if item["is_loaded"]]
@@ -317,11 +318,16 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
     explanation = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/explanation",
                        quiet_not_found=True)
     st.subheader("L4 explanation")
+    _show_regeneration_state(tenant_id, ring_id, explanation)
     if explanation is None:
         st.info("No verified L4 explanation has been loaded for this ring yet.")
     else:
         st.write(explanation["narrative"])
-        st.caption(f"Explainer {explanation['explainer_version']} · {explanation['latency_ms']} ms")
+        regenerated_label = " · Regenerated" if explanation.get("regenerated") else ""
+        st.caption(
+            f"Explainer {explanation['explainer_version']} · {explanation['latency_ms']} ms"
+            f" · revision {explanation['revision']}{regenerated_label}"
+        )
         with st.expander("Evidence summary"):
             st.json(explanation["evidence_summary"])
         if explanation["edge_weights"]:
@@ -359,43 +365,182 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
             st.warning("Read-only: your role cannot record verdicts.")
         return
     st.subheader("Record a verdict")
-    note = st.text_input("Note (optional for confirm or reject)", key=f"note_{tenant_id}_{ring_id}")
     if ring["status"] != "open":
         st.info("This ring is no longer open for verdicts.")
         return
     submitted_key = f"verdict_submitted_{tenant_id}_{ring_id}"
     disabled = bool(st.session_state.get("verdict_in_flight")) or st.session_state.get(submitted_key, False)
-    left, right = st.columns(2)
-    if left.button("Confirm ring", type="primary", key=f"detail_confirm_{tenant_id}_{ring_id}", disabled=disabled):
-        result = _record_verdict(tenant_id, ring_id, "confirm", note)
-        if result:
-            st.success("Verdict recorded")
+    partial_key = f"partial_form_open_{tenant_id}_{ring_id}"
+    if st.session_state.get(partial_key):
+        st.subheader("Partially correct")
+        with st.form(f"partial_correction_{tenant_id}_{ring_id}"):
+            keep_members = {
+                account_id: st.checkbox(
+                    f"Keep account {account_id}", value=True,
+                    key=f"partial_keep_account_{tenant_id}_{ring_id}_{account_id}",
+                )
+                for account_id in ring["member_accounts"]
+            }
+            keep_edges = {
+                edge_id: st.checkbox(
+                    f"Keep transaction {edge_id}", value=True,
+                    key=f"partial_keep_transaction_{tenant_id}_{ring_id}_{edge_id}",
+                )
+                for edge_id in ring["member_edges"]
+            }
+            partial_note = st.text_area(
+                "Note (required for partial)", key=f"partial_note_{tenant_id}_{ring_id}"
+            )
+            submit_partial = st.form_submit_button(
+                "Submit partial verdict", disabled=disabled,
+            )
+        cancel_left, _ = st.columns(2)
+        if cancel_left.button("Cancel partial correction", key=f"cancel_partial_{tenant_id}_{ring_id}"):
+            st.session_state.pop(partial_key, None)
             st.rerun()
-    if right.button("Reject ring", key=f"detail_reject_{tenant_id}_{ring_id}", disabled=disabled):
-        result = _record_verdict(tenant_id, ring_id, "reject", note)
-        if result:
-            st.success("Verdict recorded")
+        if submit_partial:
+            corrected_members = [account for account, keep in keep_members.items() if keep]
+            corrected_edges = [edge for edge, keep in keep_edges.items() if keep]
+            if not corrected_members[1:]:
+                st.error("Keep at least two accounts for a partial correction.")
+            elif all(keep_members.values()) and all(keep_edges.values()):
+                st.error("Remove at least one account or transaction; otherwise confirm the ring.")
+            elif not partial_note.strip():
+                st.error("A note is required for a partial verdict.")
+            else:
+                result = _record_verdict(
+                    tenant_id, ring_id, "partial", partial_note,
+                    corrected_members=corrected_members, corrected_edges=corrected_edges,
+                )
+                if result:
+                    st.session_state.pop(partial_key, None)
+                    st.success("Verdict recorded")
+                    st.rerun()
+    else:
+        note = st.text_input(
+            "Note (optional for confirm or reject)", key=f"note_{tenant_id}_{ring_id}"
+        )
+        left, right, partial = st.columns(3)
+        if left.button("Confirm ring", type="primary", key=f"detail_confirm_{tenant_id}_{ring_id}", disabled=disabled):
+            result = _record_verdict(tenant_id, ring_id, "confirm", note)
+            if result:
+                st.success("Verdict recorded")
+                st.rerun()
+        if right.button("Reject ring", key=f"detail_reject_{tenant_id}_{ring_id}", disabled=disabled):
+            result = _record_verdict(tenant_id, ring_id, "reject", note)
+            if result:
+                st.success("Verdict recorded")
+                st.rerun()
+        if partial.button("Partially correct", key=f"detail_partial_{tenant_id}_{ring_id}",
+                         disabled=disabled):
+            st.session_state[partial_key] = True
             st.rerun()
-    st.button("Partially correct", disabled=True,
-              help="Partial correction requires the L4 regeneration interface.")
 
 
-def _record_verdict(tenant_id: int, ring_id: str, verdict: str, note: str | None = None):
+def _record_verdict(tenant_id: int, ring_id: str, verdict: str, note: str | None = None,
+                    *, corrected_members: list[int] | None = None,
+                    corrected_edges: list[int] | None = None):
     submitted_key = f"verdict_submitted_{tenant_id}_{ring_id}"
     if st.session_state.get("verdict_in_flight") or st.session_state.get(submitted_key):
         return None
     st.session_state["verdict_in_flight"] = True
     try:
-        result = _api(
-            "POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
-            body={"verdict": verdict, "note": note},
-        )
+        body = {"verdict": verdict, "note": note}
+        if verdict == "partial":
+            body["corrected_members"] = corrected_members or []
+            body["corrected_edges"] = corrected_edges or []
+        result = _api("POST", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts", body=body)
         if result:
             st.session_state[submitted_key] = True
             st.session_state.pop("pending_quick_verdict", None)
+            if verdict == "partial":
+                regeneration = result.get("regeneration")
+                if (isinstance(regeneration, dict)
+                        and regeneration.get("status") == "queued"
+                        and regeneration.get("job_id")):
+                    st.session_state["ring_regeneration"] = {
+                        "tenant_id": tenant_id, "ring_id": ring_id,
+                        "verdict_id": result["verdict_id"],
+                        "job_id": regeneration["job_id"], "status": "queued",
+                        "deadline": new_poll_deadline(), "error": None,
+                    }
+                else:
+                    st.session_state["ring_regeneration"] = {
+                        "tenant_id": tenant_id, "ring_id": ring_id,
+                        "verdict_id": result["verdict_id"],
+                        "job_id": None,
+                        "status": "unavailable", "error": None,
+                    }
         return result
     finally:
         st.session_state["verdict_in_flight"] = False
+
+
+def _retry_regeneration(tenant_id: int, ring_id: str, state: dict) -> None:
+    result = _api(
+        "POST", f"/tenants/{tenant_id}/rings/{ring_id}/explanation/regenerate",
+        body={"verdict_id": state["verdict_id"]},
+    )
+    if result is not None:
+        state.update({
+            "job_id": result["job_id"], "status": result["status"],
+            "error": result.get("error"), "deadline": new_poll_deadline(),
+        })
+        st.session_state["ring_regeneration"] = state
+        st.rerun()
+
+
+@st.fragment(run_every="2s")
+def _poll_regeneration(tenant_id: int, ring_id: str) -> None:
+    state = st.session_state.get("ring_regeneration")
+    if (not isinstance(state, dict) or state.get("tenant_id") != tenant_id
+            or state.get("ring_id") != ring_id
+            or state.get("status") not in {"queued", "running"}):
+        return
+    if deadline_expired(state.get("deadline")):
+        st.info("Still working, refresh later.")
+        return
+    status = _api(
+        "GET",
+        f"/tenants/{tenant_id}/rings/{ring_id}/explanation/jobs/{state['job_id']}",
+    )
+    if status is None:
+        return
+    state.update({
+        "status": status["status"], "result_revision": status.get("result_revision"),
+        "error": status.get("error"),
+    })
+    st.session_state["ring_regeneration"] = state
+    if state["status"] == "succeeded":
+        st.rerun()
+    if state["status"] == "failed":
+        st.error(state.get("error") or "Explanation regeneration failed")
+        retry_key = f"retry_regeneration_{tenant_id}_{ring_id}_{state['job_id']}"
+        if st.button("Retry", key=retry_key):
+            _retry_regeneration(tenant_id, ring_id, state)
+        return
+    st.info("Regenerating explanation...")
+
+
+def _show_regeneration_state(tenant_id: int, ring_id: str,
+                             explanation: dict | None) -> None:
+    state = st.session_state.get("ring_regeneration")
+    if (isinstance(state, dict) and state.get("tenant_id") == tenant_id
+            and state.get("ring_id") == ring_id):
+        status = state.get("status")
+        if status in {"queued", "running"}:
+            _poll_regeneration(tenant_id, ring_id)
+        elif status == "failed":
+            st.error(state.get("error") or "Explanation regeneration failed")
+            retry_key = f"retry_regeneration_{tenant_id}_{ring_id}_{state['job_id']}"
+            if st.button("Retry", key=retry_key):
+                _retry_regeneration(tenant_id, ring_id, state)
+        elif status == "unavailable":
+            st.info("The verdict was recorded, but the explanation could not be regenerated.")
+        elif status == "timed_out":
+            st.info("Still working, refresh later.")
+    elif explanation is not None and explanation.get("regenerating"):
+        st.info("Regenerating explanation...")
 
 
 def _model_versions(tenant_id: int) -> None:
@@ -628,6 +773,114 @@ def _drift_events(tenant_id: int) -> None:
     st.caption("Drift events are informational and do not trigger automatic retraining.")
 
 
+def _start_admin_r10() -> None:
+    started = _api("POST", "/admin/experiments/tenant-vs-pooled")
+    if started:
+        st.session_state["admin_r10_job"] = {
+            **started, "deadline": new_poll_deadline(),
+        }
+
+
+def _render_admin_r10_results(status: dict) -> None:
+    results = status.get("results") or {}
+    table_rows = results.get("table_rows") or []
+    if table_rows:
+        display_rows = []
+        columns = (
+            ("tenant_id", "Tenant"), ("seed", "Seed"),
+            ("tenant_ring_recall", "Tenant recall"),
+            ("tenant_ring_recall_ci_low", "Tenant recall CI low"),
+            ("tenant_ring_recall_ci_high", "Tenant recall CI high"),
+            ("tenant_member_coverage", "Tenant member coverage"),
+            ("pooled_ring_recall", "Pooled recall"),
+            ("pooled_ring_recall_ci_low", "Pooled recall CI low"),
+            ("pooled_ring_recall_ci_high", "Pooled recall CI high"),
+            ("pooled_member_coverage", "Pooled member coverage"),
+            ("tenant_truth_cross_bank_fraction", "Cross-bank fraction"),
+            ("tenant_truth_mean_banks_per_ring", "Mean banks per ring"),
+            ("cross_bank_truth_fraction", "Overall cross-bank fraction"),
+            ("mean_banks_per_truth_ring", "Overall mean banks per ring"),
+        )
+        for row in table_rows:
+            display_rows.append({label: row.get(key) for key, label in columns})
+        st.dataframe(display_rows, use_container_width=True, hide_index=True)
+    else:
+        st.info("The status response does not include R10 metric rows.")
+
+    recall_series = results.get("recall_series") or []
+    if recall_series:
+        figure = go.Figure()
+        for field, label in (("tenant_ring_recall", "Tenant recall"),
+                             ("pooled_ring_recall", "Pooled recall")):
+            figure.add_trace(go.Bar(
+                x=[f"{row['tenant_id']} · seed {row['seed']}" for row in recall_series],
+                y=[row.get(field) for row in recall_series],
+                name=label,
+            ))
+        st.plotly_chart(figure, use_container_width=True)
+    if status.get("message"):
+        st.caption(status["message"])
+    if results.get("limitations"):
+        st.caption(results["limitations"])
+    st.caption("R10 displays aggregate evaluation metrics only; no ground-truth labels or ring IDs are shown.")
+
+
+@st.fragment(run_every="2s")
+def _poll_admin_r10() -> None:
+    state = st.session_state.get("admin_r10_job")
+    if not isinstance(state, dict):
+        return
+    status = state.get("status")
+    st.subheader("Tenant vs pooled experiment")
+    if status in {"queued", "running"}:
+        if deadline_expired(state.get("deadline")):
+            st.info("Still working, refresh later.")
+            return
+        latest = _api(
+            "GET", f"/admin/experiments/tenant-vs-pooled/{state['job_id']}"
+        )
+        if latest is None:
+            return
+        state.update(latest)
+        state["deadline"] = state.get("deadline") or new_poll_deadline()
+        st.session_state["admin_r10_job"] = state
+        status = state.get("status")
+    st.caption(f"Status: {status}")
+    if status == "failed":
+        st.error(state.get("message") or "The R10 experiment failed.")
+        if st.button("Retry", key="admin_r10_retry"):
+            _start_admin_r10()
+            st.rerun()
+        return
+    if status == "succeeded":
+        _render_admin_r10_results(state)
+
+
+def _admin_page(tenant_records: list[dict]) -> None:
+    st.title("Admin")
+    st.header("Tenants")
+    st.dataframe([
+        {
+            "Tenant ID": tenant["tenant_id"],
+            "Bank code": tenant["bank_code"],
+            "Name": tenant["name"],
+            "Loaded": "Yes" if tenant["is_loaded"] else "No",
+            "Rings": tenant.get("ring_count", 0),
+            "Verdicts": tenant.get("verdict_count", 0),
+        }
+        for tenant in tenant_records
+    ], use_container_width=True, hide_index=True)
+
+    st.header("Users")
+    st.info("Tenant user listings are unavailable because the API has no user-list endpoint.")
+
+    st.header("R10 tenant vs pooled")
+    if st.button("Run", key="admin_r10_start"):
+        _start_admin_r10()
+        st.rerun()
+    _poll_admin_r10()
+
+
 def _clear_session_state() -> None:
     for key in list(st.session_state.keys()):
         if not key.startswith("$$"):
@@ -650,12 +903,27 @@ def main() -> None:
         _clear_session_state()
         _login()
         return
-    tenant_id, tenant_name = _active_tenant()
+    role = st.session_state["role"]
+    if role != "admin" and st.session_state.get("workspace_page") == "Admin":
+        st.warning("Not permitted: administrators only.")
+        return
+    tenant_records = _api("GET", "/admin/tenants") if role == "admin" else None
+    if role == "admin" and tenant_records is None:
+        return
+    tenant_id, tenant_name = _active_tenant(tenant_records)
+    if tenant_name is not None:
+        st.sidebar.caption(f"Viewing: {tenant_name}")
+    pages = ["Investigations", "Verdicts", "Model registry", "Score drift"]
+    if role == "admin":
+        pages.append("Admin")
+    page = st.sidebar.radio("Workspace", pages, key="workspace_page")
+    if role == "admin" and page == "Admin":
+        _admin_page(tenant_records)
+        return
     if tenant_id is None:
         return
-    st.sidebar.caption(f"Viewing: {tenant_name}")
-    page = st.sidebar.radio("Workspace", ["Investigations", "Verdicts", "Model registry", "Score drift"],
-                            key="workspace_page")
+    if role == "admin" and page in {"Investigations", "Verdicts"}:
+        st.info("Read-only (administrator)")
     if page == "Model registry":
         _model_versions(tenant_id)
     elif page == "Score drift":

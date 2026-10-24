@@ -1,6 +1,7 @@
 # Active detector configuration shared by ingestion, tenant ring jobs, and the API.
 active_model_id: gine_causal
 active_seed: 1
+worker_mode: spawn
 model_dir: models/artifacts/full_gine_causal_seed1
 scored_edges: contract/out/scored_edges_gine_causal_1.parquet
 gfp: data/processed/amlworld_gfp_features_test.parquet
@@ -16,6 +17,7 @@ l4:
   rings_schema_version: 2
   regenerate_url: null
   regenerate_timeout_seconds: 120
+  check_health_version: false
 # L6-A/L6-B configuration. Validation artifacts not present in this checkout
 # stay null; the L6 loader reports the exact missing key before starting work.
 l6:

@@ -45,6 +45,32 @@ foreach ($syntaxFile in $syntaxFiles) {
 }
 $passed = 1
 
+$l4Options = Resolve-DemoL4Options -Url 'http://127.0.0.1:8123/regenerate' `
+    -Token 'validation-token-not-for-output'
+if ($l4Options.Url -ne 'http://127.0.0.1:8123/regenerate') {
+    throw 'A localhost L4 URL was not accepted.'
+}
+$passed++
+$fakeL4Options = Resolve-DemoL4Options -Token 'fake-server-token' -UseFakeServer
+if (-not $fakeL4Options.UseFakeServer -or $fakeL4Options.Token -ne 'fake-server-token') {
+    throw 'StartFakeL4 options were not retained for process startup.'
+}
+$passed++
+try {
+    Resolve-DemoL4Options -Url 'https://l4.example.test/regenerate' -Token 'secret' | Out-Null
+    throw 'A non-local L4 URL was unexpectedly accepted.'
+} catch {
+    if ($_.Exception.Message -notmatch 'must be an absolute HTTP\(S\) URL on localhost') { throw }
+    $passed++
+}
+try {
+    Resolve-DemoL4Options -Token 'secret-without-url' | Out-Null
+    throw 'An XAI token without an L4 URL was unexpectedly accepted.'
+} catch {
+    if ($_.Exception.Message -notmatch 'requires -XaiUrl or -StartFakeL4') { throw }
+    $passed++
+}
+
 try {
     ConvertFrom-ParquetRowCountOutput -Output @() -ExitCode 0 -Path 'empty-output.parquet' | Out-Null
     throw 'An empty parquet row-count result was unexpectedly accepted.'
@@ -130,14 +156,31 @@ try {
     if ($valid.Inputs.Count -ne 7) { throw 'Valid input set returned an unexpected file count.' }
 
     $powerShellExe = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $processListPath = Join-Path $script:RuntimeDir 'processes.json'
+    $processListBefore = if (Test-Path -LiteralPath $processListPath) {
+        (Get-FileHash -LiteralPath $processListPath -Algorithm SHA256).Hash
+    } else { $null }
     $fileModeOutput = & $powerShellExe -NoProfile -File $demoScript -Tenants '12,20' `
         -ValidateOnly -TimeOriginUtc '2022-08-31T23:59:50Z' -RingsDir $rings `
-        -EdgeIdsDir $edges -ScoredEdges $scores -ExplanationsDir $explanations 2>&1
+        -EdgeIdsDir $edges -ScoredEdges $scores -ExplanationsDir $explanations `
+        -XaiUrl 'http://localhost:8123/regenerate' -XaiToken 'validation-token-not-for-output' 2>&1
     $fileModeText = $fileModeOutput | Out-String
     if ($LASTEXITCODE -ne 0) { throw "powershell.exe -File rejected -Tenants 12,20: $fileModeText" }
     if ($fileModeText -notmatch 'tenant 12 rings' -or $fileModeText -notmatch 'tenant 20 rings' -or
         $fileModeText -match 'tenant 1220') {
         throw "powershell.exe -File did not normalize tenants 12 and 20 independently: $fileModeText"
+    }
+    if ($fileModeText.Contains('validation-token-not-for-output')) {
+        throw 'ValidateOnly printed the supplied XAI token.'
+    }
+    $processListAfter = if (Test-Path -LiteralPath $processListPath) {
+        (Get-FileHash -LiteralPath $processListPath -Algorithm SHA256).Hash
+    } else { $null }
+    if ($processListBefore -ne $processListAfter) {
+        throw 'ValidateOnly unexpectedly changed the process list.'
+    }
+    if ($processListAfter -and (Get-Content -LiteralPath $processListPath -Raw).Contains('validation-token-not-for-output')) {
+        throw 'The process list contains the supplied XAI token.'
     }
     $passed++
 

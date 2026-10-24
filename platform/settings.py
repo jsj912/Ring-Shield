@@ -18,7 +18,23 @@ def load_platform_config(path: str | None = None) -> dict[str, Any]:
     config_path = Path(path or os.environ.get("RINGSHIELD_PLATFORM_CONFIG", DEFAULT_CONFIG))
     if not config_path.is_absolute():
         config_path = REPO_ROOT / config_path
-    return _load_platform_config(str(config_path.resolve()))
+    # Keep the cached file mapping immutable across process-local overrides.
+    config = dict(_load_platform_config(str(config_path.resolve())))
+    config["l4"] = dict(config["l4"])
+    worker_mode = os.environ.get("RINGSHIELD_WORKER_MODE", config.get("worker_mode", "spawn"))
+    if worker_mode not in {"spawn", "supervisor"}:
+        raise RuntimeError("worker_mode must be spawn or supervisor")
+    config["worker_mode"] = worker_mode
+    if "RINGSHIELD_L4_REGENERATE_URL" in os.environ:
+        override_url = os.environ["RINGSHIELD_L4_REGENERATE_URL"].strip()
+        config["l4"]["regenerate_url"] = override_url or None
+    regenerate_url = config["l4"].get("regenerate_url")
+    if regenerate_url is not None:
+        parsed_url = urlsplit(regenerate_url) if isinstance(regenerate_url, str) else None
+        if (parsed_url is None or not regenerate_url.strip()
+                or parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc):
+            raise RuntimeError("l4.regenerate_url must be null or an absolute HTTP(S) URL")
+    return config
 
 
 @lru_cache(maxsize=4)

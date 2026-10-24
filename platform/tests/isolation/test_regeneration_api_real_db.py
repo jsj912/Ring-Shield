@@ -17,8 +17,8 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 from api.identity import Principal, create_access_token  # noqa: E402
 from api.main import app  # noqa: E402
 from api.routers import verdicts as verdict_routes  # noqa: E402
-from db.session import get_engine, simulator_db_session  # noqa: E402
-from services.verdicts import record_verdict  # noqa: E402
+from db.session import get_engine  # noqa: E402
+from api.routers import rings as regeneration_routes  # noqa: E402
 
 
 TENANT = 210
@@ -210,30 +210,48 @@ def test_job_insert_failure_rolls_back_partial_verdict(monkeypatch, register_db_
             admin.dispose()
 
 
-def test_simulated_partial_verdict_never_creates_regeneration_job(register_db_test_ids):
+def test_simulated_partial_verdict_never_creates_regeneration_job(
+        monkeypatch, register_db_test_ids):
     admin = create_engine(os.environ["RINGSHIELD_TEST_ADMIN_URL"])
     suffix = uuid4().hex
     ring_id = f"simulated-partial-{suffix}"
     edge_base = 720_000_000 + int(suffix[:6], 16) * 2
     register_db_test_ids(ring_id)
     verdict_id = None
+    launched = []
+    monkeypatch.setattr(regeneration_routes, "load_platform_config", lambda: {
+        "l4": {"regenerate_url": "https://l4.example.test/regenerate"},
+    })
+    monkeypatch.setattr(regeneration_routes, "launch_regeneration_process", launched.append)
     try:
+        # Simulator verdict writes are INSERT-only; seed with admin and test the API's
+        # guard against regenerating a simulated verdict.
         with admin.begin() as connection:
             _seed_ring(connection, ring_id, edge_base)
             user_id = connection.execute(text(
                 "SELECT user_id FROM users WHERE tenant_id=:tenant ORDER BY user_id LIMIT 1"
             ), {"tenant": TENANT}).scalar_one()
-        with simulator_db_session(tenant_id=TENANT) as session:
-            from db.models import Ring
-
-            ring = session.get(Ring, {"tenant_id": TENANT, "ring_id": ring_id})
-            row = record_verdict(
-                session, ring=ring, tenant_id=TENANT, ring_id=ring_id,
-                user_id=user_id, verdict="partial", corrected_members=[11, 12],
-                note="simulated partial verdict", is_simulated=True, actor="simulator",
-            )
-            verdict_id = row.verdict_id
+            verdict_id = connection.execute(text("""
+                INSERT INTO verdicts
+                  (tenant_id, ring_id, user_id, verdict, corrected_members,
+                   corrected_edges, note, is_simulated)
+                VALUES (:tenant, :ring, :user, 'partial', ARRAY[11,12]::bigint[],
+                        ARRAY[]::bigint[], 'simulated partial verdict', true)
+                RETURNING verdict_id
+            """), {"tenant": TENANT, "ring": ring_id, "user": user_id}).scalar_one()
+            connection.execute(text("""
+                UPDATE rings SET status='partial'
+                WHERE tenant_id=:tenant AND ring_id=:ring
+            """), {"tenant": TENANT, "ring": ring_id})
         register_db_test_ids(str(verdict_id))
+        response = TestClient(app).post(
+            f"/tenants/{TENANT}/rings/{ring_id}/explanation/regenerate",
+            headers={"Authorization": f"Bearer {_token()}"},
+            json={"verdict_id": verdict_id},
+        )
+        assert response.status_code == 422, response.text
+        assert "non-simulated partial verdict" in response.json()["message"]
+        assert launched == []
         with admin.connect() as connection:
             stored = connection.execute(text("""
                 SELECT is_simulated FROM verdicts

@@ -48,6 +48,14 @@ def test_regenerated_row_parses_json_strings_and_matches_tenant_provenance():
     assert result["ring_id"] == "repeat-ring"
 
 
+def test_top_level_explainer_version_must_match_provenance():
+    row = _row()
+    row["explainer_version"] = "0.6.0"
+
+    with pytest.raises(ExplanationValidationError, match="does not match result"):
+        _validate(row)
+
+
 @pytest.mark.parametrize(
     ("location", "updates", "message"),
     [
