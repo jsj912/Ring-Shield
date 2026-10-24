@@ -128,16 +128,20 @@ def _active_tenant(tenant_records=None) -> tuple[int | None, str | None]:
 
 def _queue(tenant_id: int) -> None:
     st.header("Ring queue")
+    # The widgets start from the stored filters, so returning from a ring shows what is applied.
+    stored = st.session_state.get("ring_filter_values", {})
+    sort_options, order_options = ["confidence", "total_amount", "start_time", "members"], ["desc", "asc"]
     with st.sidebar.form("ring_filters"):
         statuses = st.multiselect("Status", ["open", "confirmed", "rejected", "partial"],
-                                  default=["open"])
-        topology = st.multiselect("Topology", TOPOLOGY_TYPES)
-        search = st.text_input("Search ring ID or account ID", value="")
+                                  default=stored.get("status", ["open"]))
+        topology = st.multiselect("Topology", TOPOLOGY_TYPES, default=stored.get("topology_type", []))
+        search = st.text_input("Search ring ID or account ID", value=stored.get("q") or "")
         minimum = st.slider("Minimum confidence", min_value=0.0, max_value=1.0,
-                            value=0.0, step=0.01)
-        cross_bank = st.checkbox("Cross-bank only")
-        sort = st.selectbox("Sort by", ["confidence", "total_amount", "start_time", "members"])
-        order = st.selectbox("Order", ["desc", "asc"])
+                            value=float(stored.get("min_conf", 0.0)), step=0.01)
+        cross_bank = st.checkbox("Cross-bank only", value=bool(stored.get("cross_bank_only", False)))
+        sort = st.selectbox("Sort by", sort_options,
+                            index=sort_options.index(stored.get("sort", "confidence")))
+        order = st.selectbox("Order", order_options, index=order_options.index(stored.get("order", "desc")))
         start_range = st.date_input("Start date range", value=())
         apply_filters = st.form_submit_button("Apply filters")
 
