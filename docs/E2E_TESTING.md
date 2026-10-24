@@ -34,6 +34,7 @@ It builds bank 12's rings, explains them, loads the demo database and starts the
 | `platform/config.yaml` | `l4.rings_schema_version: 2` | the research rings are v2 |
 | `platform/jobs/make_demo_fixture.py` | the synthetic demo rings carry the eight v2 currency-aware columns | `load_contract.py` requires v2 rings, so the DB test setup stopped at "missing contract columns" |
 | `platform/tests/test_load_explanations.py`, `test_settings_config_cache.py`, `isolation/test_explanation_handoff_real_db.py` | default fixture is v2; the version-mismatch tests are flipped so each still checks the same refusal | the repo config is now v2 |
+| `platform/db/migrations/versions/0010_simulator_verdict_returning.py` (new), `platform/db/roles.sql` | grant the simulator `SELECT (verdict_id, created_at)` on `verdicts` | the simulator's verdict insert uses `RETURNING verdict_id, created_at`, which needs `SELECT` on those columns; with `INSERT` only it failed with "permission denied for table verdicts" on any real DB (CI too). Row visibility is unchanged: `verdicts_tenant_read` still limits it to its own tenant |
 | `scripts/test-db.ps1` | sets `RINGSHIELD_SIMULATOR_DATABASE_URL` | CI sets it but the local script did not, so the four simulator DB tests could only pass in CI |
 | `platform/Dockerfile.test` | Debian packages over HTTPS; pip with a longer timeout and retries | on some networks plain-HTTP apt downloads time out, and slow pip downloads killed the image build |
 | `explainability/requirements-test.txt` (new) | serve requirements + `pytest`, `httpx`, `fastapi` | `test_serve.py` imports `httpx` and `test_api.py` imports `fastapi`; neither was listed |
@@ -59,7 +60,7 @@ It builds bank 12's rings, explains them, loads the demo database and starts the
 |---|---|
 | `scripts/e2e_demo.ps1 -Tenant 12` | PASS: 5 rings from 20,039 visible edges, 5/5 explained and reproduced, DB loaded, API `/health` ok, dashboard up; ring, explanation and verdict buttons checked by hand |
 | platform unit tests (`pytest platform/tests --ignore=platform/tests/isolation`) | 366 passed, 0 failed |
-| platform DB tests (`scripts/test-db.ps1`) | 410 passed, 2 failed (see open items) |
+| platform DB tests (`scripts/test-db.ps1`) | 412 passed, 0 failed (after the simulator grant below; CI on this branch: 411 passed, 1 failed before it) |
 | research suite (`pytest tests`) | not re-run here: the research code is identical to `v2`, where it passed 204, 0 failed |
 | explainability suite | 192 passed, 86 failed, 8 errors on the same tree before `requirements-test.txt` (see open items) |
 
@@ -70,14 +71,9 @@ the result above, the wheels were downloaded on Windows (`pip download ... --pla
 
 ## Open items (not fixed here)
 
-- **Simulator cannot record a verdict on a real DB** (`isolation/test_regeneration_api_real_db.py::
-  test_simulated_partial_verdict_never_creates_regeneration_job`): "permission denied for table verdicts".
-  `platform/db/roles.sql:38` grants the simulator `INSERT` on `verdicts` but not `SELECT`, and the ORM inserts
-  with `RETURNING`, which needs `SELECT` on the returned columns.
-- **`test_regeneration_routes.py::test_regenerate_route_returns_existing_active_job[queued]`** passes in the unit
-  run but fails inside `test-db.ps1`: a job is launched although a queued one exists. Something in the DB-run
-  environment (`RINGSHIELD_PLATFORM_CONFIG=platform/tests/isolation/config.test.yaml`, or state from an earlier
-  test) changes its behaviour.
+- **`test_regeneration_routes.py::test_regenerate_route_returns_existing_active_job[queued]`** failed once inside
+  a local `test-db.ps1` run (a job launched although a queued one existed), then passed in CI and in the next two
+  local runs. Looks order- or timing-dependent; worth a look, not reproducible on demand.
 - **Dashboard role label:** the ring graph labels the middle account of a chain "source" while the account
   table and the L4 explanation call it "mule" (seen on bank 12, ring with accounts 99403 → 315365 → 160003).
 - **"Partially correct" is disabled:** `l4.regenerate_url` is null, so the regeneration service is not wired
