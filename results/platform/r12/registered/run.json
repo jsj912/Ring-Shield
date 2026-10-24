@@ -1,0 +1,38 @@
+{
+  "experiment": "r12_injected_shift",
+  "created_utc": "2026-10-24T11:25:38.796106+00:00",
+  "git_commit": "1143c9de4bc9f014cd49887f000469f10d9b5076",
+  "config_path": "platform/config.yaml",
+  "config_sha256": "95ed9cea8a22cb92171f25f78c66a50d0ff4f880e7e2c9feb9cb4232e15dac90",
+  "input_sha256": {
+    "contract/out/scored_edges_gine_causal_1.parquet": "19dac050b750e4af39ea104399de3916f9d5254e30f5e44d456352ca69087c68",
+    "data/processed/amlworld_ring_ground_truth.parquet": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "registered": "docs/R12.md, 2026-10-24",
+  "statement": "drift was injected, not observed",
+  "experiment_tenant_id": 900001,
+  "removed_cycle_transactions": 31,
+  "n_cycle_truth_rings": 22,
+  "real": {
+    "detected": false,
+    "first_detection_step": null,
+    "delay_hours": null,
+    "monitors": []
+  },
+  "control": {
+    "detected": false,
+    "first_detection_step": null,
+    "delay_hours": null,
+    "monitors": []
+  },
+  "control_step": {
+    "mean": 0.0006692548218983262,
+    "p99": 0.0
+  },
+  "adwin": {
+    "delta": 0.002,
+    "clock": 32
+  },
+  "stopped": "the synthetic positive control did not fire: the monitor is broken; R12 stops here as registered",
+  "wall_time_seconds": 0.9
+}

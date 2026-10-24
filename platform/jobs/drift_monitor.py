@@ -23,13 +23,15 @@ SIMULATED_TIME_ORIGIN = 10
 SECONDS_PER_DAY = 86_400
 
 
-def daily_statistics(rows: Iterable[tuple[int, float | None]]) -> list[tuple[int, float, float]]:
-    """Return (day, mean, p99) for observed days only, in ascending day order."""
+def daily_statistics(rows: Iterable[tuple[int, float | None]],
+                     step_seconds: int = SECONDS_PER_DAY) -> list[tuple[int, float, float]]:
+    """Return (step, mean, p99) for observed steps only, in ascending order; a step is a day
+    unless `step_seconds` says otherwise (R12 replays hours)."""
     by_day: dict[int, list[float]] = defaultdict(list)
     for timestamp, score in rows:
         if score is None or not math.isfinite(float(score)):
             continue
-        day = (int(timestamp) - SIMULATED_TIME_ORIGIN) // SECONDS_PER_DAY
+        day = (int(timestamp) - SIMULATED_TIME_ORIGIN) // int(step_seconds)
         by_day[day].append(float(score))
     return [
         (day, float(np.mean(values)), float(np.percentile(values, 99)))
@@ -47,9 +49,11 @@ def detect_events(daily: list[tuple[int, float, float]], *, delta: float,
 class DriftStream:
     """Incremental two-series ADWIN state for chronological replay experiments."""
 
-    def __init__(self, *, delta: float, tenant_id: int):
+    def __init__(self, *, delta: float, tenant_id: int, step_seconds: int = SECONDS_PER_DAY):
+        """One update per step: a day in live operation, an hour in the R12 replay."""
         self.delta = float(delta)
         self.tenant_id = int(tenant_id)
+        self.step_seconds = int(step_seconds)
         self.detectors = {
             MONITORS["mean"]: ADWIN(delta=self.delta),
             MONITORS["p99"]: ADWIN(delta=self.delta),
@@ -68,10 +72,10 @@ class DriftStream:
             window_size = max(1, int(detector.width))
             start_day = self.days[max(0, len(self.days) - window_size)]
             window_start = datetime.fromtimestamp(
-                start_day * SECONDS_PER_DAY + SIMULATED_TIME_ORIGIN, tz=timezone.utc
+                start_day * self.step_seconds + SIMULATED_TIME_ORIGIN, tz=timezone.utc
             )
             window_end = datetime.fromtimestamp(
-                (int(day) + 1) * SECONDS_PER_DAY + SIMULATED_TIME_ORIGIN, tz=timezone.utc
+                (int(day) + 1) * self.step_seconds + SIMULATED_TIME_ORIGIN, tz=timezone.utc
             )
             events.append({
                 "tenant_id": self.tenant_id, "monitor": monitor,
