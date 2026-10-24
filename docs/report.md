@@ -106,15 +106,76 @@ flowchart LR
 
 ```mermaid
 classDiagram
-    class Tenant { tenant_id; bank_code; name; is_loaded }
-    class User { user_id; tenant_id; email; role; disabled }
-    class Transaction { tenant_id; edge_id; from_id; to_id; timestamp; amount }
-    class EdgeScore { tenant_id; edge_id; model_id; seed; score_raw; score_calibrated }
-    class Ring { tenant_id; ring_id; members; member_edges; confidence; topology_type; status }
-    class Explanation { tenant_id; ring_id; explainer_version; narrative; edge_weights; provenance }
-    class Verdict { verdict_id; tenant_id; ring_id; user_id; verdict; corrected_members; is_simulated }
-    class ModelVersion { model_version_id; tenant_id; component; holdout_ring_f1; promoted; gate_reason }
-    class DriftEvent { tenant_id; monitor; window_start; window_end; statistic }
+    class Tenant {
+        tenant_id
+        bank_code
+        name
+        is_loaded
+    }
+    class User {
+        user_id
+        tenant_id
+        email
+        role
+        disabled
+    }
+    class Transaction {
+        tenant_id
+        edge_id
+        from_id
+        to_id
+        timestamp
+        amount
+    }
+    class EdgeScore {
+        tenant_id
+        edge_id
+        model_id
+        seed
+        score_raw
+        score_calibrated
+    }
+    class Ring {
+        tenant_id
+        ring_id
+        members
+        member_edges
+        confidence
+        topology_type
+        status
+    }
+    class Explanation {
+        tenant_id
+        ring_id
+        explainer_version
+        narrative
+        edge_weights
+        provenance
+    }
+    class Verdict {
+        verdict_id
+        tenant_id
+        ring_id
+        user_id
+        verdict
+        corrected_members
+        is_simulated
+    }
+    class ModelVersion {
+        model_version_id
+        tenant_id
+        component
+        holdout_ring_f1
+        promoted
+        gate_reason
+    }
+    class DriftEvent {
+        tenant_id
+        monitor
+        window_start
+        window_end
+        statistic
+    }
     Tenant "1" --> "*" User
     Tenant "1" --> "*" Transaction
     Transaction "1" --> "*" EdgeScore
