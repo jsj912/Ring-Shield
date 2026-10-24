@@ -74,12 +74,19 @@ class FixtureAPI:
             tenant_id, rest = int(tenant_match.group(1)), tenant_match.group(2) or ""
             if method == "GET" and rest == "/rings":
                 return self._ring_page(tenant_id, _param_dict(params))
-            ring_match = re.match(r"^/rings/([^/]+)$", rest)
+            ring_match = re.match(r"^/rings/([^/]+)(/subgraph|/evidence|/explanation|/verdicts)?$", rest)
             if method == "GET" and ring_match:
                 ring = self.rings.get((tenant_id, ring_match.group(1)))
                 if ring is None:
                     return self._error(404, "NotFound", "Ring not found")
-                return self._response(200, ring["detail"])
+                part = ring_match.group(2)
+                if part == "/verdicts":
+                    return self._response(200, {"items": ring.get("verdicts", []), "next_before_id": None})
+                body = {None: ring["detail"], "/subgraph": ring.get("subgraph"),
+                        "/evidence": ring.get("evidence"), "/explanation": ring.get("explanation")}[part]
+                if body is None:
+                    return self._error(404, "NotFound", "Not found")
+                return self._response(200, body)
         return self._error(404, "NotFound", f"No fixture for {method} {path}")
 
     def _ring_page(self, tenant_id: int, params: dict) -> httpx.Response:

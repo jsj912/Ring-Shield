@@ -87,6 +87,8 @@ def _app(monkeypatch, tmp_path, *, job_statuses=(), regeneration=None,
             "cross_bank": False, "counterparty_banks": [], "conservation_closure": 0.1,
             "model_id": "model", "aggregator_id": "aggregator",
             "member_accounts": [1, 2, 3], "member_edges": [10, 11],
+        "topology_prob": 0.8, "total_partial": False, "seed_edges": [10, 11], "expanded_edges": [],
+        "source_accounts": [], "sink_accounts": [], "mule_accounts": [],
         })
 
     monkeypatch.setattr(httpx, "request", request)
@@ -128,7 +130,7 @@ def test_succeeded_regeneration_refreshes_explanation_and_revision(monkeypatch, 
     app.run(timeout=10)
     _submit_partial(app)
 
-    assert "Regenerated explanation." in [item.value for item in app.markdown]
+    assert "Regenerated explanation." in [item.value for item in app.text]     # shown verbatim (FR-D20)
     assert any("Regenerated" in item.value and "revision 2" in item.value
                for item in app.caption)
     assert any("partial" in item.value for item in app.caption)

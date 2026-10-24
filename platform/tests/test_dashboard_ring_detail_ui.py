@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
+import json
+
 import httpx
 from streamlit.testing.v1 import AppTest
 
@@ -33,6 +35,8 @@ def _ring_payload():
         "cross_bank": False, "counterparty_banks": [], "conservation_closure": 0.2,
         "model_id": "gine_causal", "aggregator_id": "aggregator-v1",
         "member_accounts": [1, 2], "member_edges": [10],
+        "topology_prob": 0.8, "total_partial": False, "seed_edges": [10], "expanded_edges": [],
+        "source_accounts": [], "sink_accounts": [], "mule_accounts": [],
     }
 
 
@@ -53,6 +57,20 @@ def _evidence_payload():
     }
 
 
+def _subgraph_payload():
+    return {
+        "tenant_id": 210, "ring_id": "ring-1", "n_accounts": 2,
+        "nodes": [{"account_id": 1, "role": "source", "bank_code": 1, "bank_label": "Bank 1",
+                   "inflow": 0.0, "outflow": 125.0, "hold_time_s": None, "w_account": 0.9},
+                  {"account_id": 2, "role": "sink", "bank_code": 1, "bank_label": "Bank 1",
+                   "inflow": 125.0, "outflow": 0.0, "hold_time_s": None, "w_account": 0.8}],
+        "edges": [{"edge_id": 10, "from_id": 1, "to_id": 2, "timestamp": "2026-01-01T00:00:00Z",
+                   "amount": 125.0, "currency": "USD", "amount_received": 125.0,
+                   "currency_received": "USD", "payment_format": "wire", "is_seed": True,
+                   "is_conversion": False, "w_total": 0.7, "w_score": 0.9, "w_loo": 0.5, "w_flow": 0.4}],
+    }
+
+
 def _detail_app(monkeypatch, role, history, tmp_path, calls=None):
     def request(method, url, **_kwargs):
         if calls is not None:
@@ -61,6 +79,8 @@ def _detail_app(monkeypatch, role, history, tmp_path, calls=None):
             return FakeResponse({"verdict_id": 1})
         if url.endswith("/evidence"):
             return FakeResponse(_evidence_payload())
+        if url.endswith("/subgraph"):
+            return FakeResponse(_subgraph_payload())
         if url.endswith("/explanation"):
             return FakeResponse({
                 "narrative": "Two accounts exchange funds.",
@@ -90,8 +110,15 @@ def _detail_app(monkeypatch, role, history, tmp_path, calls=None):
 def test_ring_graph_points_from_payer_to_payee_and_explanation_footer_is_visible(monkeypatch, tmp_path):
     app = _detail_app(monkeypatch, "analyst", [], tmp_path).run()
 
-    chart = app.get("graphviz_chart")[0]
-    assert 'acct_p1 -> acct_p2 [label="edge 10"]' in chart.proto.spec
+    figure = json.loads(next(chart for chart in app.get("plotly_chart")
+                             if "Account 1" in chart.proto.spec).proto.spec)
+    nodes = {}
+    for trace in figure["data"]:
+        for x, y, text in zip(trace.get("x") or [], trace.get("y") or [], trace.get("hovertext") or []):
+            if text.startswith("Account "):
+                nodes[int(text.split("<br>")[0].split()[1])] = (x, y)
+    arrow = figure["layout"]["annotations"][0]              # arrowhead at the payee (FR-D30)
+    assert (arrow["ax"], arrow["ay"]) == nodes[1] and (arrow["x"], arrow["y"]) == nodes[2]
     assert any("Explainer l4-v7" in item.value and "revision 1" in item.value
                for item in app.caption)
 

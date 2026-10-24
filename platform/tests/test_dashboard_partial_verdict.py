@@ -54,6 +54,8 @@ def _detail(monkeypatch, tmp_path, *, role="analyst", post_results=None):
             "cross_bank": False, "counterparty_banks": [], "conservation_closure": 0.1,
             "model_id": "model", "aggregator_id": "aggregator",
             "member_accounts": [1, 2, 3], "member_edges": [10, 11],
+        "topology_prob": 0.8, "total_partial": False, "seed_edges": [10, 11], "expanded_edges": [],
+        "source_accounts": [], "sink_accounts": [], "mule_accounts": [],
         })
 
     monkeypatch.setattr(httpx, "request", request)

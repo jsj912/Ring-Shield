@@ -21,8 +21,9 @@ sys.path.insert(0, str(REPO_ROOT))
 from contract.schema import TOPOLOGY_TYPES  # noqa: E402
 from regeneration_flow import deadline_expired, new_poll_deadline  # noqa: E402
 import client  # noqa: E402
-from formatters import (fmt_amount, fmt_as_received, fmt_bool, fmt_time,  # noqa: E402
-                        fmt_time_utc, fmt_weight)
+from formatters import (fmt_amount, fmt_as_received, fmt_bool, fmt_closure,  # noqa: E402
+                        fmt_seconds, fmt_time, fmt_time_utc, fmt_weight)
+import ring_graph  # noqa: E402
 
 API_BASE = client.API_BASE
 _API_CALL_COUNTER = itertools.count()
@@ -291,6 +292,127 @@ def _queue(tenant_id: int) -> None:
         st.rerun()
 
 
+DETECTOR_CAPTION = "Signals from the transaction-level detector on the ring's seed transactions"
+
+
+def _narrative_panel(ring: dict, explanation: dict | None, history: dict | None) -> None:
+    """FR-D20-21: the narrative exactly as received, then the ring summary and latest verdict."""
+    st.subheader("Narrative")
+    if explanation is None:
+        st.info("No verified explanation has been loaded for this ring yet.")
+    else:
+        st.text(explanation["narrative"])                          # byte for byte, never markdown
+    zone = st.context.timezone
+    rows = [
+        ("Type", f"{ring['topology_type']} (p = {fmt_as_received(ring['topology_prob'])})"),
+        ("Members", str(ring["n_members"])),
+        ("Edges", str(ring["n_edges"])),
+        ("Total amount", fmt_amount(ring["total_amount"], ring["total_currency"], ring.get("total_partial"))),
+        ("Window", f"{fmt_time(ring['start_time'], zone)} → {fmt_time(ring['end_time'], zone)}, {ring['window_text']}"),
+        ("Window (UTC)", f"{fmt_time_utc(ring['start_time'])} → {fmt_time_utc(ring['end_time'])}"),
+        ("Conservation closure", fmt_closure(ring["conservation_closure"])),
+        ("Cross-bank banks", ", ".join(ring["counterparty_banks"]) or "None"),
+    ]
+    st.table({"": [label for label, _ in rows], "Value": [value for _, value in rows]})
+    st.caption(f"Model {ring['model_id']} · aggregator {ring['aggregator_id']}")
+    latest = (history or {}).get("items") or []
+    if latest:
+        verdict = latest[0]
+        tag = " · Simulated" if verdict["is_simulated"] else ""
+        st.caption(f"Latest verdict: {verdict['verdict']} by {verdict['user_name']} at "
+                   f"{fmt_time(verdict['created_at'], zone)}{tag}")
+
+
+def _graph_panel(tenant_id: int, ring_id: str) -> None:
+    """FR-D30-34, D36. A failure here stays in this panel (NFR-D32)."""
+    st.subheader("Graph")
+    show_conversions = st.toggle("Show currency conversions", value=False,
+                                 key=f"graph_conversions_{tenant_id}_{ring_id}")
+    subgraph = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/subgraph")
+    if subgraph is None:
+        st.caption("The graph could not be loaded; the narrative and evidence are unaffected.")
+        return
+    load_key = f"graph_load_all_{tenant_id}_{ring_id}"
+    load_all = bool(st.session_state.get(load_key))
+    try:
+        if subgraph["n_accounts"] > ring_graph.NODE_CAP and not load_all:
+            st.info(f"Showing {ring_graph.NODE_CAP} of {subgraph['n_accounts']} accounts")
+            if st.button("Load all accounts", key=f"graph_load_all_button_{tenant_id}_{ring_id}"):
+                st.session_state[load_key] = True
+                st.rerun()
+        figure = ring_graph.build_figure(subgraph, show_conversions=show_conversions, load_all=load_all)
+        st.plotly_chart(figure, use_container_width=True, key=f"graph_{tenant_id}_{ring_id}")
+    except Exception:                                              # noqa: BLE001 - keep other panels alive
+        st.error("The graph could not be drawn for this ring; the narrative and evidence are unaffected.")
+
+
+def _evidence_panel(tenant_id: int, ring_id: str, ring: dict, explanation: dict | None) -> None:
+    """FR-D40-42: transactions, accounts and detector signals. Independent of the graph route."""
+    st.subheader("Evidence")
+    transactions_tab, accounts_tab, signals_tab = st.tabs(["Transactions", "Accounts", "Detector signals"])
+    evidence = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/evidence", params={"limit": "500"})
+    edges = {edge["edge_id"]: edge for edge in (evidence or {}).get("edges", [])}
+    banks = {node["account_id"]: node["bank_label"] for node in (evidence or {}).get("nodes", [])}
+    weights = {item["edge_id"]: item for item in (explanation or {}).get("edge_weights", [])}
+    seeds = set(ring["seed_edges"])
+    zone = st.context.timezone
+    with transactions_tab:
+        show_conversions = st.toggle("Show currency conversions", value=False,
+                                     key=f"evidence_conversions_{tenant_id}_{ring_id}")
+        rows = []
+        for edge_id, edge in edges.items():
+            if edge.get("is_conversion") and not show_conversions:
+                continue
+            weight = weights.get(edge_id, {})
+            rows.append({
+                "From": edge["source_account"], "To": edge["target_account"],
+                "Amount": fmt_amount(edge["amount_sent"], edge["currency_sent"]),
+                "Time": fmt_time(edge["timestamp"], zone),
+                "Payment format": edge["payment_format"] or "—",
+                "Kind": "conversion" if edge.get("is_conversion") else ("seed" if edge_id in seeds else "expanded"),
+                "w_total": weight.get("w_total"), "w_score": fmt_weight(weight.get("w_score")),
+                "w_loo": fmt_weight(weight.get("w_loo")), "w_flow": fmt_weight(weight.get("w_flow")),
+            })
+        rows.sort(key=lambda row: (row["w_total"] is not None, row["w_total"] or 0), reverse=True)
+        if rows:
+            st.dataframe(rows, hide_index=True, use_container_width=True, column_config={
+                "w_total": st.column_config.ProgressColumn("w_total", min_value=0.0, max_value=1.0, format="%.2f")})
+        else:
+            st.caption("No transactions are loaded for this ring.")
+    with accounts_tab:
+        accounts = sorted((explanation or {}).get("account_weights", []),
+                          key=lambda item: (item.get("w_account") is not None, item.get("w_account") or 0),
+                          reverse=True)
+        if accounts:
+            st.dataframe([{
+                "Account": item["account_id"], "Bank": banks.get(item["account_id"]) or "—",
+                "Role": item.get("role") or "—", "Inflow": fmt_amount(item.get("inflow")),
+                "Outflow": fmt_amount(item.get("outflow")),
+                "Hold time": fmt_seconds(item.get("hold_time_s")),
+                "w_account": fmt_weight(item.get("w_account")),
+            } for item in accounts], hide_index=True, use_container_width=True)
+        else:
+            st.caption("No account weights: the explanation has not been loaded.")
+    with signals_tab:
+        features = sorted((explanation or {}).get("feature_weights", []),
+                          key=lambda item: abs(item.get("mean_shap") or 0), reverse=True)[:10]
+        if features:
+            labels = [item.get("display_name") or item["feature_name"] for item in features][::-1]
+            values = [item["mean_shap"] for item in features][::-1]
+            chart = go.Figure(go.Bar(
+                x=values, y=labels, orientation="h",
+                marker_color=["#c0392b" if value >= 0 else "#2471a3" for value in values],
+                hovertemplate="%{y}: %{x:.2f}<extra></extra>"))
+            chart.update_layout(height=360, margin={"l": 10, "r": 10, "t": 10, "b": 10},
+                                xaxis_title="mean SHAP (red raises suspicion, blue lowers it)")
+            st.plotly_chart(chart, use_container_width=True, key=f"signals_{tenant_id}_{ring_id}")
+        st.caption(DETECTOR_CAPTION)
+    if explanation is not None:
+        regenerated = " · Regenerated" if explanation.get("regenerated") else ""
+        st.caption(f"Explainer {explanation['explainer_version']} · {explanation['latency_ms']} ms"
+                   f" · revision {explanation['revision']}{regenerated}")
+
+
 def _ring_detail(tenant_id: int, ring_id: str) -> None:
     if st.button("← Back to queue"):
         st.session_state.pop("open_ring", None)
@@ -299,82 +421,18 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
     ring = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}")
     if ring is None:
         return
+    explanation = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/explanation", quiet_not_found=True)
+    history = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts", params={"limit": "25"})
     st.header(f"Ring {ring['ring_id']}")
-    st.caption(f"{ring['topology_type']} · {ring['n_members']} members · {ring['n_edges']} edges · {ring['window_text']} · {ring['status']}")
-    st.write({key: ring[key] for key in (
-        "total_amount", "total_currency", "n_currencies", "start_time", "end_time",
-        "confidence", "cross_bank", "counterparty_banks", "conservation_closure",
-        "model_id", "aggregator_id",
-    )})
-    st.subheader("Accounts")
-    st.write(ring["member_accounts"])
-    st.subheader("Transactions")
-    st.write(ring["member_edges"])
-    evidence = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/evidence",
-                    params={"limit": "250"})
-    if evidence is not None:
-        if evidence["missing_edge_ids"]:
-            st.warning(f"Evidence is incomplete: {len(evidence['missing_edge_ids'])} ring edges are not loaded.")
-        if not evidence["edges"]:
-            st.caption("No transaction evidence is loaded for this ring.")
-        else:
-            account_nodes = {item["account_id"]: item for item in evidence["nodes"]}
-            dot_ids = {account_id: f"acct_{'n' if account_id < 0 else 'p'}{abs(account_id)}"
-                       for account_id in account_nodes}
-            dot = ["digraph ring {", "rankdir=LR;", "node [style=filled, fillcolor=\"#e8eef7\"];"]
-            for account_id, node in account_nodes.items():
-                flags = [label for label, field in (("source", "is_source"),
-                                                    ("sink", "is_sink"),
-                                                    ("mule", "is_mule")) if node[field]]
-                role_suffix = f" ({', '.join(flags)})" if flags else ""
-                label = f"Account {account_id}{role_suffix}\\n{node['bank_label'] or 'Bank unknown'}"
-                color = "#f2b6b6" if node["is_mule"] else "#e8eef7"
-                dot.append(f'{dot_ids[account_id]} [label="{label}", fillcolor="{color}"];')
-            for edge in evidence["edges"]:
-                dot.append(f'{dot_ids[edge["source_account"]]} -> {dot_ids[edge["target_account"]]} '
-                           f'[label="edge {edge["edge_id"]}"];')
-            dot.append("}")
-            st.graphviz_chart("\n".join(dot), use_container_width=True)
-            if evidence.get("next_before_edge_id") is not None:
-                st.caption("Graph shows the first 250 transactions. More evidence is available through the API cursor.")
-            st.dataframe(
-                [{"Edge": edge["edge_id"], "From account": edge["source_account"],
-                  "To account": edge["target_account"], "Time (UTC)": edge["timestamp"],
-                  "Amount sent": edge["amount_sent"], "Sent currency": edge["currency_sent"],
-                  "Amount received": edge["amount_received"],
-                  "Received currency": edge["currency_received"],
-                  "Payment format": edge["payment_format"],
-                  "Calibrated score": edge["calibrated_score"], "Seed": edge["is_seed"]}
-                 for edge in evidence["edges"]],
-                use_container_width=True, hide_index=True,
-            )
-    explanation = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/explanation",
-                       quiet_not_found=True)
-    st.subheader("L4 explanation")
+    st.markdown(f"**Status:** `{ring['status']}`")                 # status badge with its text
     _show_regeneration_state(tenant_id, ring_id, explanation)
-    if explanation is None:
-        st.info("No verified L4 explanation has been loaded for this ring yet.")
-    else:
-        st.write(explanation["narrative"])
-        regenerated_label = " · Regenerated" if explanation.get("regenerated") else ""
-        st.caption(
-            f"Explainer {explanation['explainer_version']} · {explanation['latency_ms']} ms"
-            f" · revision {explanation['revision']}{regenerated_label}"
-        )
-        with st.expander("Evidence summary"):
-            st.json(explanation["evidence_summary"])
-        if explanation["edge_weights"]:
-            st.markdown("**Edge contribution weights**")
-            st.dataframe(explanation["edge_weights"], use_container_width=True, hide_index=True)
-        if explanation["account_weights"]:
-            st.markdown("**Account contribution weights**")
-            st.dataframe(explanation["account_weights"], use_container_width=True, hide_index=True)
-        if explanation["feature_weights"]:
-            st.markdown("**Feature contributions**")
-            st.dataframe(explanation["feature_weights"], use_container_width=True, hide_index=True)
-        with st.expander("Explanation provenance"):
-            st.json(explanation["provenance"])
-
+    narrative_col, graph_col, evidence_col = st.columns([1.0, 1.4, 1.3], gap="medium")
+    with narrative_col:
+        _narrative_panel(ring, explanation, history)
+    with graph_col:
+        _graph_panel(tenant_id, ring_id)
+    with evidence_col:
+        _evidence_panel(tenant_id, ring_id, ring, explanation)
     st.subheader("Verdict history")
     history = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
                    params={"limit": "25"})

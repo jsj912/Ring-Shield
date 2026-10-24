@@ -158,12 +158,36 @@ def make_ring(*, tenant_id: int, index: int, pattern: str, n_members: int, rng: 
         "provenance": {"flow_total_ccy0": total, "flow_partial": partial, "rings_schema_version": 2,
                        "explainer_version": "0.5.0-review", "feature_scope": "tenant_view"},
         "created_at": _iso(end + timedelta(hours=1)), "regenerating": False,
-        "topology_type": pattern, "topology_prob": topology_prob,
     }
     evidence = {"tenant_id": tenant_id, "ring_id": ring_id, "nodes": nodes, "edges": edges,
                 "next_before_edge_id": None, "missing_edge_ids": []}
+    weights_by_account = {item["account_id"]: item for item in account_weights}
+    weights_by_edge = {item["edge_id"]: item for item in edge_weights}
+    subgraph = {
+        "tenant_id": tenant_id, "ring_id": ring_id, "n_accounts": n_members,
+        "nodes": [{"account_id": node["account_id"], "role": weights_by_account[node["account_id"]]["role"],
+                   "bank_code": node["bank_code"], "bank_label": f"Bank {node['bank_code']}",
+                   **{key: weights_by_account[node["account_id"]][key]
+                      for key in ("inflow", "outflow", "hold_time_s", "w_account")}} for node in nodes],
+        "edges": [{"edge_id": e["edge_id"], "from_id": e["source_account"], "to_id": e["target_account"],
+                   "timestamp": e["timestamp"], "amount": e["amount_sent"], "currency": e["currency_sent"],
+                   "amount_received": e["amount_received"], "currency_received": e["currency_received"],
+                   "payment_format": e["payment_format"], "is_seed": e["is_seed"],
+                   "is_conversion": e["is_conversion"],
+                   **{key: weights_by_edge.get(e["edge_id"], {}).get(key)
+                      for key in ("w_total", "w_score", "w_loo", "w_flow")}} for e in edges],
+    }
+    verdicts = []
+    if status != "open":
+        verdicts.append({"verdict_id": index * 10 + 1, "ring_id": ring_id, "user_id": 1,
+                         "user_name": "analyst@bank-a.fixture" if tenant_id == 1001 else "analyst@bank-b.fixture",
+                         "verdict": {"confirmed": "confirm", "rejected": "reject", "partial": "partial"}[status],
+                         "corrected_members": accounts[:2] if status == "partial" else [],
+                         "corrected_edges": [], "note": "<b>fixture</b> note, shown as text",
+                         "is_simulated": index % 2 == 0, "created_at": _iso(end + timedelta(hours=3)),
+                         "regeneration": None})
     return {"tenant_id": tenant_id, "summary": summary, "detail": detail, "evidence": evidence,
-            "explanation": explanation}
+            "explanation": explanation, "subgraph": subgraph, "verdicts": verdicts}
 
 
 def main() -> None:

@@ -56,8 +56,12 @@ def _parse(value) -> datetime | None:
 
 
 def fmt_time(value, tz_name: str | None = None) -> str:
-    """The instant in the viewer's zone (falls back to UTC when the zone is unknown)."""
-    moment = _parse(value)
+    """The instant in the viewer's zone (falls back to UTC when the zone is unknown); a value
+    that is not an ISO-8601 instant is shown as received rather than breaking the screen."""
+    try:
+        moment = _parse(value)
+    except ValueError:
+        return str(value)
     if moment is None:
         return MISSING
     try:
@@ -70,8 +74,18 @@ def fmt_time(value, tz_name: str | None = None) -> str:
 
 def fmt_time_utc(value) -> str:
     """The same instant in UTC, for hover text."""
-    moment = _parse(value)
+    try:
+        moment = _parse(value)
+    except ValueError:
+        return str(value)
     return MISSING if moment is None else moment.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def fmt_seconds(value) -> str:
+    """A duration in seconds with separators; missing or NaN (no hold time) shows as a dash."""
+    if value is None or value != value:
+        return MISSING
+    return f"{float(value):,.0f} s"
 
 
 def fmt_bool(value) -> str:

@@ -93,6 +93,8 @@ def test_ring_detail_can_render_two_api_failures_with_distinct_retry_controls(mo
             "counterparty_banks": [], "conservation_closure": 0.1,
             "model_id": "model", "aggregator_id": "aggregator",
             "member_accounts": [1, 2], "member_edges": [7],
+        "topology_prob": 0.8, "total_partial": False, "seed_edges": [7], "expanded_edges": [],
+        "source_accounts": [], "sink_accounts": [], "mule_accounts": [],
         })
 
     monkeypatch.setattr(httpx, "request", request)

@@ -8,7 +8,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "dashboard"))
 
 from formatters import (MISSING, fmt_amount, fmt_as_received, fmt_bool, fmt_closure, fmt_percent,
-                        fmt_time, fmt_time_utc, fmt_weight)
+                        fmt_seconds, fmt_time, fmt_time_utc, fmt_weight)
 
 
 def test_amount_has_separators_two_decimals_currency_and_partial_flag():
@@ -43,6 +43,12 @@ def test_times_are_local_with_utc_kept_for_hover():
     assert fmt_time(instant, "Not/AZone") == "2022-09-09 06:00 UTC"
     assert fmt_time_utc("2022-09-09T11:30:00+05:30") == "2022-09-09 06:00:00 UTC"
     assert fmt_time(None) == MISSING
+    assert fmt_time("not-a-time") == "not-a-time" and fmt_time_utc("t0") == "t0"
+
+
+def test_seconds_have_separators_and_missing_or_nan_is_a_dash():
+    assert fmt_seconds(93840) == "93,840 s"
+    assert fmt_seconds(None) == MISSING and fmt_seconds(float("nan")) == MISSING
 
 
 def test_booleans_read_as_text():
