@@ -1,0 +1,119 @@
+{
+  "experiment_id": "XAI-W5",
+  "explainer_version": "0.4.0-narrative",
+  "machine": {
+    "logical_cpus": 16,
+    "machine": "AMD64",
+    "packages": {
+      "networkx": "3.6.1",
+      "numpy": "2.2.5",
+      "pandas": "2.3.3",
+      "pyarrow": "22.0.0",
+      "scipy": "1.16.3",
+      "shap": "0.50.0",
+      "xgboost": "3.2.0"
+    },
+    "physical_cpus": 8,
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "python": "3.11.9",
+    "ram_gb": 15.4
+  },
+  "per_seed": {
+    "1": {
+      "max_ms": 1949.0,
+      "n_rings": 108,
+      "p50_ms": 383.5,
+      "p95_ms": 933.4499999999994,
+      "setup_s": 13.33
+    },
+    "2": {
+      "max_ms": 1664.0,
+      "n_rings": 112,
+      "p50_ms": 404.0,
+      "p95_ms": 913.799999999999,
+      "setup_s": 8.79
+    },
+    "3": {
+      "max_ms": 2007.0,
+      "n_rings": 113,
+      "p50_ms": 396.0,
+      "p95_ms": 964.8,
+      "setup_s": 9.11
+    },
+    "4": {
+      "max_ms": 1441.0,
+      "n_rings": 120,
+      "p50_ms": 384.5,
+      "p95_ms": 710.8,
+      "setup_s": 8.64
+    },
+    "5": {
+      "max_ms": 1747.0,
+      "n_rings": 107,
+      "p50_ms": 371.0,
+      "p95_ms": 876.899999999999,
+      "setup_s": 8.72
+    }
+  },
+  "pooled": {
+    "max_ms": 2007.0,
+    "mean_ms": 461.93392857142857,
+    "n_rings": 560,
+    "p50_ms": 393.0,
+    "p95_ms": 917.6499999999994
+  },
+  "rings_over_5000_ms": [],
+  "size_dependence": {
+    "largest_ring": {
+      "latency_ms": 1949,
+      "n_included_edges": 40,
+      "n_member_edges": 61,
+      "n_members": 18,
+      "seed": 1
+    },
+    "spearman_rho": 0.9779880705104477,
+    "what": "Spearman correlation of latency with the number of seed + expanded edges (each is one leave-one-out rerun)"
+  },
+  "stages": {
+    "assemble": {
+      "mean_ms": 4.264730357142857,
+      "p95_ms": 4.911299999999999,
+      "share_of_time": 0.009232338421929543
+    },
+    "edge_weights": {
+      "mean_ms": 8.881869642857142,
+      "p95_ms": 10.250399999999999,
+      "share_of_time": 0.019227575836061897
+    },
+    "leave_one_out": {
+      "mean_ms": 203.26906607142857,
+      "p95_ms": 554.9156499999997,
+      "share_of_time": 0.44003926427326107
+    },
+    "narrative": {
+      "mean_ms": 44.08977142857143,
+      "p95_ms": 50.840799999999994,
+      "share_of_time": 0.09544605559700484
+    },
+    "read": {
+      "mean_ms": 3.193055357142857,
+      "p95_ms": 3.4992,
+      "share_of_time": 0.006912363781152993
+    },
+    "roles_accounts_topology": {
+      "mean_ms": 62.695212500000004,
+      "p95_ms": 78.96279999999999,
+      "share_of_time": 0.13572333319158972
+    },
+    "shap": {
+      "mean_ms": 135.52722857142857,
+      "p95_ms": 219.29439999999974,
+      "share_of_time": 0.29339093794335147
+    }
+  },
+  "stages_sum_vs_latency_max_gap_ms": 0.5,
+  "target_p95_ms": 2000,
+  "verdict": "met",
+  "what": "XR-27 latency: wall-clock per ring from reading the ring row to the finished explanation row, including every leave-one-out rerun and the SHAP call; single process; nothing else running"
+}

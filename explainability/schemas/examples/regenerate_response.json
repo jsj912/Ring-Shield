@@ -1,0 +1,638 @@
+{
+  "_example": {
+    "ring_id": "cc-gine_causal-1-24",
+    "source": {
+      "explanations": "results/xai/explanations_week3_stub_cc_seed1.parquet",
+      "rings": "contract/out/rings_stub_cc.parquet",
+      "scores": "contract/out/scored_edges_gine_causal_1.parquet"
+    },
+    "tenant_id": 28237
+  },
+  "body": {
+    "account_weights": [
+      {
+        "account_id": 71717,
+        "hold_time_s": 190980.0,
+        "inflow": 37454171.37,
+        "outflow": 103824.20612118849,
+        "role": "sink",
+        "w_account": 0.8225806451612903
+      },
+      {
+        "account_id": 314125,
+        "hold_time_s": null,
+        "inflow": 0.0,
+        "outflow": 12834538.11,
+        "role": "source",
+        "w_account": 0.5299218427808882
+      },
+      {
+        "account_id": 266050,
+        "hold_time_s": null,
+        "inflow": 6629.49,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.5252289756687648
+      },
+      {
+        "account_id": 131619,
+        "hold_time_s": null,
+        "inflow": 2091.9498439601584,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.5252269438950805
+      },
+      {
+        "account_id": 195001,
+        "hold_time_s": null,
+        "inflow": 14076.249203843905,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.5247471945802815
+      },
+      {
+        "account_id": 136976,
+        "hold_time_s": null,
+        "inflow": 0.0,
+        "outflow": 18060.25,
+        "role": "source",
+        "w_account": 0.5235421057318135
+      },
+      {
+        "account_id": 200392,
+        "hold_time_s": null,
+        "inflow": 6543.205892957663,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.1902036154133444
+      },
+      {
+        "account_id": 76146,
+        "hold_time_s": null,
+        "inflow": 11225.44,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.14853904530995105
+      },
+      {
+        "account_id": 141622,
+        "hold_time_s": null,
+        "inflow": 2435.0363209709717,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.12522709751886152
+      },
+      {
+        "account_id": 273443,
+        "hold_time_s": null,
+        "inflow": 2154.54,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.1252269719210654
+      },
+      {
+        "account_id": 216756,
+        "hold_time_s": null,
+        "inflow": 0.0,
+        "outflow": 9359.22,
+        "role": "source",
+        "w_account": 0.12353820967289779
+      },
+      {
+        "account_id": 17717,
+        "hold_time_s": null,
+        "inflow": 12509.09,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.10535435897733726
+      },
+      {
+        "account_id": 81796,
+        "hold_time_s": null,
+        "inflow": 0.0,
+        "outflow": 24573024.75,
+        "role": "source",
+        "w_account": 0.09703707855280425
+      },
+      {
+        "account_id": 149346,
+        "hold_time_s": null,
+        "inflow": 13843.484859455786,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.09560969367412167
+      },
+      {
+        "account_id": 316570,
+        "hold_time_s": null,
+        "inflow": 9535.31,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.08773027680735623
+      },
+      {
+        "account_id": 35077,
+        "hold_time_s": null,
+        "inflow": 0.0,
+        "outflow": 6031.9,
+        "role": "source",
+        "w_account": 0.07909227535486925
+      },
+      {
+        "account_id": 20395,
+        "hold_time_s": null,
+        "inflow": 3749.14,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.0706822313894169
+      },
+      {
+        "account_id": 137756,
+        "hold_time_s": null,
+        "inflow": 0.0,
+        "outflow": 8381.7,
+        "role": "source",
+        "w_account": 0.06899231742345747
+      },
+      {
+        "account_id": 49001,
+        "hold_time_s": null,
+        "inflow": 5448.55,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.06689511354610236
+      },
+      {
+        "account_id": 6305,
+        "hold_time_s": null,
+        "inflow": 0.0,
+        "outflow": 4775.44,
+        "role": "source",
+        "w_account": 0.057731848462973426
+      },
+      {
+        "account_id": 6372,
+        "hold_time_s": null,
+        "inflow": 13582.72,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.0447469735927829
+      }
+    ],
+    "edge_weights": [
+      {
+        "edge_id": 5077569,
+        "w_flow": 0.6542688014379331,
+        "w_loo": 1.0,
+        "w_score": 0.9329268292682927,
+        "w_total": 0.821463618136149
+      },
+      {
+        "edge_id": 5078124,
+        "w_flow": 0.34172585392602817,
+        "w_loo": 0.9357004144369696,
+        "w_score": 0.9583333333333334,
+        "w_total": 0.7116903415704112
+      },
+      {
+        "edge_id": 5078337,
+        "w_flow": 0.00025388229200555123,
+        "w_loo": 0.912675729802444,
+        "w_score": 1.0,
+        "w_total": 0.6001015529168022
+      },
+      {
+        "edge_id": 5078329,
+        "w_flow": 0.00017651341341056367,
+        "w_loo": 0.9128024618559702,
+        "w_score": 1.0,
+        "w_total": 0.6000706053653642
+      },
+      {
+        "edge_id": 5078344,
+        "w_flow": 0.00014507030837034626,
+        "w_loo": 0.9128539609570434,
+        "w_score": 1.0,
+        "w_total": 0.6000580281233481
+      },
+      {
+        "edge_id": 5078340,
+        "w_flow": 9.982268602171218e-05,
+        "w_loo": 0.9129280642662604,
+        "w_score": 1.0,
+        "w_total": 0.6000399290744086
+      },
+      {
+        "edge_id": 5078332,
+        "w_flow": 6.483403290347932e-05,
+        "w_loo": 0.9130009258795866,
+        "w_score": 1.0,
+        "w_total": 0.6000259336131614
+      },
+      {
+        "edge_id": 5078343,
+        "w_flow": 5.7365681180542674e-05,
+        "w_loo": 0.9129975913736509,
+        "w_score": 1.0,
+        "w_total": 0.6000229462724722
+      },
+      {
+        "edge_id": 5078342,
+        "w_flow": 5.5699187666186034e-05,
+        "w_loo": 0.9130136913171008,
+        "w_score": 1.0,
+        "w_total": 0.6000222796750665
+      },
+      {
+        "edge_id": 5078303,
+        "w_flow": 0.0003747870190600208,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.9807692307692307,
+        "w_total": 0.5886114532691624
+      },
+      {
+        "edge_id": 5078301,
+        "w_flow": 0.0003616465626465884,
+        "w_loo": 0.9107143767761602,
+        "w_score": 0.9807692307692307,
+        "w_total": 0.588606197086597
+      },
+      {
+        "edge_id": 5078263,
+        "w_flow": 0.00036858955455698676,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.9583333333333334,
+        "w_total": 0.5751474358218227
+      },
+      {
+        "edge_id": 5077824,
+        "w_flow": 0.00048086298863836175,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.9329268292682927,
+        "w_total": 0.559948442756431
+      },
+      {
+        "edge_id": 5078226,
+        "w_flow": 0.0002988828298157895,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.9329268292682927,
+        "w_total": 0.559875650692902
+      },
+      {
+        "edge_id": 4991280,
+        "w_flow": 0.0002491938096385115,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.9329268292682927,
+        "w_total": 0.5598557750848311
+      },
+      {
+        "edge_id": 5077909,
+        "w_flow": 0.0002231668615811053,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.9329268292682927,
+        "w_total": 0.559845364305608
+      },
+      {
+        "edge_id": 5078290,
+        "w_flow": 0.00017421605686320857,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.9329268292682927,
+        "w_total": 0.559825783983721
+      },
+      {
+        "edge_id": 5078138,
+        "w_flow": 0.00016060228740840985,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.9329268292682927,
+        "w_total": 0.559820338475939
+      },
+      {
+        "edge_id": 5078218,
+        "w_flow": 0.00033306063883646375,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.8727272727272727,
+        "w_total": 0.5237695878918982
+      },
+      {
+        "edge_id": 5009312,
+        "w_flow": 0.00012714842543503981,
+        "w_loo": 0.9091677400810282,
+        "w_score": 0.8727272727272727,
+        "w_total": 0.5236872230065376
+      }
+    ],
+    "evidence_summary": {
+      "clauses": [
+        "head_untyped",
+        "money",
+        "closure",
+        "evidence",
+        "features_both",
+        "banks"
+      ],
+      "slots": {
+        "bank_list": "National Bank of the East, First Bank of Plattsburg, Arbor Thrift +17 more",
+        "ccy0": "US Dollar",
+        "closure_pct": "100",
+        "features_down": "how many payments the sender makes",
+        "features_up": "the payment method (ACH), two-hop scatter-gather paths",
+        "n_banks": "20",
+        "n_edges": "20",
+        "n_members": "21",
+        "top_edges": "81796\u219271717 (24,600,000, weight 0.82); 314125\u219271717 (12,800,000, weight 0.71); 71717\u2192316570 (9,540, weight 0.60)",
+        "total": "37,600,000",
+        "window": "8.13 days"
+      },
+      "template": "FALLBACK",
+      "values": {
+        "bank_names": [
+          "National Bank of the East",
+          "First Bank of Plattsburg",
+          "Arbor Thrift",
+          "Willows Bancorp",
+          "Sappo Bancorp",
+          "Golden Thrift",
+          "Future Bank",
+          "Savings Bank of Fairfield",
+          "Netherlands Bank #4",
+          "Italy Bank #97",
+          "First Bank of Boston",
+          "UK Bank #33",
+          "National Bank of Springfield",
+          "France Bank #54",
+          "Australia Bank #26",
+          "Oasis Bancorp",
+          "France Bank #1368",
+          "Savings Bank of Augusta",
+          "Russia Bank #38",
+          "Germany Bank #719"
+        ],
+        "banks": [
+          12,
+          1124,
+          1688,
+          1729,
+          2843,
+          4503,
+          9371,
+          11813,
+          11852,
+          13858,
+          16163,
+          21884,
+          24550,
+          26624,
+          28237,
+          40360,
+          129000,
+          214621,
+          217125,
+          218267
+        ],
+        "closure": 0.9972356297366625,
+        "closure_partial": false,
+        "closure_raw": null,
+        "currency_hub": 0,
+        "currency_hub_name": "US Dollar",
+        "currency_unconvertible": [
+          1
+        ],
+        "currency_unconvertible_names": [
+          "Bitcoin"
+        ],
+        "duration_s": 702240.0,
+        "flow_partial": false,
+        "hold_median_s": null,
+        "mules": [],
+        "n_edges": 20,
+        "n_members": 21,
+        "p_type": null,
+        "self_payments_skipped": 0,
+        "shape": {
+          "depth": 2,
+          "gs_hub": 71717,
+          "gs_hub_role": "sink",
+          "gs_n_in": 7,
+          "gs_n_out": 13,
+          "has_cycle": false,
+          "in_hub": 71717,
+          "in_hub_role": "sink",
+          "n_in": 7,
+          "n_out": 13,
+          "n_pairs": 0,
+          "out_hub": 71717,
+          "out_hub_role": "sink"
+        },
+        "sinks": [
+          71717,
+          266050,
+          131619,
+          195001,
+          200392,
+          76146,
+          141622,
+          273443,
+          17717,
+          149346,
+          316570,
+          20395,
+          49001,
+          6372
+        ],
+        "sources": [
+          314125,
+          136976,
+          216756,
+          81796,
+          35077,
+          137756,
+          6305
+        ],
+        "top_edges": [
+          {
+            "amount_ccy0": 24573024.75,
+            "currency": 0,
+            "currency_name": "US Dollar",
+            "edge_id": 5077569,
+            "from_id": 81796,
+            "to_id": 71717,
+            "w_total": 0.821463618136149
+          },
+          {
+            "amount_ccy0": 12834538.11,
+            "currency": 0,
+            "currency_name": "US Dollar",
+            "edge_id": 5078124,
+            "from_id": 314125,
+            "to_id": 71717,
+            "w_total": 0.7116903415704112
+          },
+          {
+            "amount_ccy0": 9535.31,
+            "currency": 0,
+            "currency_name": "US Dollar",
+            "edge_id": 5078337,
+            "from_id": 71717,
+            "to_id": 316570,
+            "w_total": 0.6001015529168022
+          }
+        ],
+        "top_features": [
+          {
+            "detail": "ACH",
+            "feature": "Payment Format",
+            "mean_shap": 2.616584050655365
+          },
+          {
+            "detail": null,
+            "feature": "scatter_gather",
+            "mean_shap": 1.7025206506252288
+          },
+          {
+            "detail": null,
+            "feature": "deg_out_src",
+            "mean_shap": -1.070171744376421
+          }
+        ],
+        "topology_type": "UNKNOWN",
+        "total_ccy0": 37557995.57612118,
+        "type_source": "rings",
+        "undetermined": []
+      }
+    },
+    "explainer_version": "0.5.0-review",
+    "feature_weights": [
+      {
+        "display_name": "the payment method",
+        "feature_name": "Payment Format",
+        "mean_shap": 2.616584050655365,
+        "top_edge_id": 5078337
+      },
+      {
+        "display_name": "two-hop scatter-gather paths",
+        "feature_name": "scatter_gather",
+        "mean_shap": 1.7025206506252288,
+        "top_edge_id": 5078337
+      },
+      {
+        "display_name": "how many payments the sender makes",
+        "feature_name": "deg_out_src",
+        "mean_shap": -1.070171744376421,
+        "top_edge_id": 5078218
+      },
+      {
+        "display_name": "the sender paying many accounts",
+        "feature_name": "fan_out",
+        "mean_shap": -0.8827710054814816,
+        "top_edge_id": 5078344
+      },
+      {
+        "display_name": "the hour of the day",
+        "feature_name": "hour_of_day",
+        "mean_shap": -0.8472053602337837,
+        "top_edge_id": 5078218
+      },
+      {
+        "display_name": "the amount received",
+        "feature_name": "Amount Received",
+        "mean_shap": -0.7001197485253214,
+        "top_edge_id": 5078343
+      },
+      {
+        "display_name": "how many payments the sender receives",
+        "feature_name": "deg_in_src",
+        "mean_shap": 0.42959966938942673,
+        "top_edge_id": 5009312
+      },
+      {
+        "display_name": "the amount sent",
+        "feature_name": "Amount Sent",
+        "mean_shap": -0.37642621509730817,
+        "top_edge_id": 5078332
+      },
+      {
+        "display_name": "the currency it was sent in",
+        "feature_name": "Sent Currency",
+        "mean_shap": -0.28442661045119166,
+        "top_edge_id": 5078290
+      },
+      {
+        "display_name": "the receiver being paid by many accounts",
+        "feature_name": "fan_in",
+        "mean_shap": -0.24277681270614265,
+        "top_edge_id": 5078332
+      }
+    ],
+    "latency_ms": 455,
+    "narrative": "Suspected ring: 21 accounts, 20 transactions over 8.13 days. Total moved: 37,600,000 (US Dollar). Across the ring, 100% of the sources' money reached the sinks. Strongest evidence: 81796\u219271717 (24,600,000, weight 0.82); 314125\u219271717 (12,800,000, weight 0.71); 71717\u2192316570 (9,540, weight 0.60). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH), two-hop scatter-gather paths; that lowered it: how many payments the sender makes. The accounts span 20 banks (National Bank of the East, First Bank of Plattsburg, Arbor Thrift +17 more).",
+    "provenance": {
+      "account_weight_shares": {
+        "degree_share": 0.5,
+        "score_share": 0.5
+      },
+      "aggregator_id": "cc",
+      "currency_policy": "converted",
+      "evidence_edges": "member edges minus currency conversions",
+      "explainer_version": "0.5.0-review",
+      "feature_model": "experiments/R2_b0/gfpxgb_scores/model_seed1.json",
+      "features_degraded": false,
+      "flow_amount_column": "amount_received",
+      "flow_partial": false,
+      "flow_total_ccy0": 37557995.57612118,
+      "fx_rates": {
+        "path": "contract/fx_rates.json",
+        "sha256": "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6"
+      },
+      "lambda_split": 0.5,
+      "loo": {
+        "c0": 0.9284377922836585,
+        "reproduces_shipped_ring": false,
+        "shipped_confidence": 0.9577371815176693
+      },
+      "loo_edges": "included",
+      "loo_nan_policy": "full_loss",
+      "mixing": {
+        "alpha": 0.6,
+        "beta": 0.0,
+        "gamma": 0.4
+      },
+      "mixing_source": "tuned on validation (XR-05)",
+      "model_id": "gine_causal",
+      "n_conversions_dropped": 9,
+      "n_shap_edges": 20,
+      "n_unconvertible_edges": 0,
+      "n_undetermined_accounts": 0,
+      "name_maps": {
+        "bank": "contract/bank_names.json",
+        "currency": "contract/currency_map.json",
+        "payment_format": "contract/payment_format_map.json"
+      },
+      "regenerated": {
+        "confidence": "the shipped ring confidence no longer applies",
+        "note": "analyst: this account is not part of the ring",
+        "removed_accounts": [
+          466778
+        ],
+        "removed_transactions": [],
+        "topology": "the typing head's type of the ORIGINAL ring (not re-typed)",
+        "transactions_removed_with_accounts": [
+          5078251
+        ]
+      },
+      "rerun": {
+        "aggregator_id": "cc",
+        "min_size": 3,
+        "source": "rings_stub_cc.parquet.log.json"
+      },
+      "rings_schema_version": 2,
+      "roles_source": "ringshield.roles.account_roles(edges='included', currency='converted')",
+      "seed": 1,
+      "topology_source": "rings",
+      "w_flow_mode": "share of the ring's total converted to currency 0"
+    },
+    "ring_id": "cc-gine_causal-1-24",
+    "tenant_id": 28237,
+    "topology_prob": null,
+    "topology_type": "UNKNOWN"
+  }
+}

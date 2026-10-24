@@ -1,0 +1,80 @@
+{
+  "additionalProperties": false,
+  "description": "A member account, highest w_account first (dashboard Accounts tab).",
+  "properties": {
+    "account_id": {
+      "title": "Account Id",
+      "type": "integer"
+    },
+    "bank_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Bank Id"
+    },
+    "bank_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "display only; not unique",
+      "title": "Bank Name"
+    },
+    "hold_time_s": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Hold Time S"
+    },
+    "inflow": {
+      "title": "Inflow",
+      "type": "number"
+    },
+    "outflow": {
+      "title": "Outflow",
+      "type": "number"
+    },
+    "role": {
+      "enum": [
+        "source",
+        "sink",
+        "mule",
+        "holder",
+        "peripheral",
+        "undetermined"
+      ],
+      "title": "Role",
+      "type": "string"
+    },
+    "w_account": {
+      "title": "W Account",
+      "type": "number"
+    }
+  },
+  "required": [
+    "account_id",
+    "bank_id",
+    "bank_name",
+    "role",
+    "inflow",
+    "outflow",
+    "hold_time_s",
+    "w_account"
+  ],
+  "title": "EvidenceAccount",
+  "type": "object"
+}

@@ -1,0 +1,193 @@
+# L4 explainability layer -- constants owned by this layer (XR-37: no magic numbers in code).
+#
+# Anything the research side already defines is NOT copied here; it is read from the research
+# config named under `research_configs`, so the two can never drift apart:
+#   match threshold (Jaccard 0.5) and scope (test_visible) -> configs/threshold_rule.yaml
+#   evaluation windows (primary = test days 8-9)           -> configs/eval_window.yaml
+#   role constants (tau_role 0.25, hold 72 h)              -> configs/roles.yaml
+#
+# Paths are relative to the repository root.
+
+explainer_version: "0.5.0-review"     # recorded in every explanation's provenance (XR-32); 0.3 = currency migration, 0.4 = Week 3, 0.5 = review fixes (Week 8)
+experiment_id: "XAI-W1"          # fidelity runs; own prefix, never R9 / R11 (those IDs are taken in this repo)
+explanations_experiment_id: "XAI-W2"
+
+research_configs:
+  threshold_rule: configs/threshold_rule.yaml
+  eval_window: configs/eval_window.yaml
+  roles: configs/roles.yaml
+
+# Test split (the reporting split). Rings files are schema v2 since the 2026-10 merge; the v1 originals
+# are kept verbatim under contract/out/v1/ and are used ONLY to reproduce Weeks 1-2 (policy `raw`).
+inputs:
+  scored_edges: contract/out/scored_edges_gine_causal_{seed}.parquet
+  rings: contract/out/rings_full_gine_causal_{seed}.parquet
+  rings_v1: contract/out/v1/rings_full_gine_causal_{seed}.parquet
+  truth: data/processed/amlworld_ring_ground_truth.parquet
+  split_parquet: data/processed/amlworld_test.parquet
+  seeds: [1, 2, 3, 4, 5]
+
+# XR-36: the same code on every detector's files. `inputs` / `research_inputs` above are the shipped detector
+# (gine_causal); a profile here replaces the listed keys and tags every output name with the detector
+# (contract_io.detector_cfg; CLI --detector). Mixing weights stay the XR-05 ones (Joan: not re-tuned per detector).
+# partition_config null = the partition settings recorded in the rings file's own .log.json (params).
+detectors:
+  gine_causal:
+    label: "Multi-GINe, causal (shipped)"
+  gfpxgb:
+    label: "GFP+XGBoost, own policy and affinity (trained without embeddings)"
+    scored_edges: contract/out/scored_edges_gfpxgb_{seed}.parquet
+    rings: contract/out/rings_full_gfpxgb_{seed}.parquet
+    embeddings: null                                       # none exists; its 19-feature affinity has no cos_emb
+    affinity_dir: experiments/R6_gfpxgb_partition/affinity_gfpxgb
+    partition_config: null
+  mega:
+    label: "MEGA-GNN, through the gine-trained policy and affinity with MEGA's own embeddings"
+    scored_edges: contract/out/scored_edges_mega_{seed}.parquet
+    rings: contract/out/rings_full_mega_{seed}.parquet
+    embeddings: experiments/R6_mega/embeddings_test_seed{seed}.parquet
+    affinity_dir: experiments/R4_partition/affinity
+    partition_config: null
+detectors_summary_name: xr36_detectors.json
+
+# Validation split: used ONLY to choose the mixing weights (XR-05). Never read by a test-split run.
+val_inputs:
+  scored_edges: contract/out/scored_edges_gine_causal_{seed}_val.parquet
+  rings: experiments_valrings/average/seed{seed}/rings_val.parquet
+  split_parquet: data/processed/amlworld_val.parquet
+  window: val                    # name from configs/eval_window.yaml (days 6-7)
+
+# Research-side artefacts needed for NON-degraded leave-one-out reruns. The rerun must see the same
+# GFP features, embeddings and affinity model the rings were built with -- per split.
+research_inputs:
+  gfp: data/processed/amlworld_gfp_features_test.parquet
+  embeddings: experiments/R1_gine_causal/embeddings_test_seed{seed}.parquet
+  gfp_val: data/processed/amlworld_gfp_features_val.parquet
+  embeddings_val: experiments/R1_gine_causal/embeddings_val_seed{seed}.parquet
+  affinity_dir: experiments/R4_partition/affinity                          # one model, shared by all seeds
+  partition_config: experiments/R4_partition/runs/average/seed{seed}/config.yaml   # val-chosen cut / min_size / method
+  # for a `cc` rings file (the stub) min_size is read from "<rings file>.log.json" -> params.min_size
+
+output_dir: results/xai
+output_name: fidelity_week1_seed{seed}.json             # policy raw (Week 1 reproduction)
+output_name_converted: fidelity_converted_seed{seed}.json   # policy converted
+explanations_name: explanations_week2_seed{seed}.parquet             # policy raw (Week 2 reproduction)
+disagreement_name: roles_disagreement_seed{seed}.csv
+explanations_name_converted: explanations_converted_seed{seed}.parquet   # policy converted
+disagreement_name_converted: roles_disagreement_converted_seed{seed}.csv
+migration_report_name: migration_report_raw_vs_converted.json
+xr05_choice_name: xr05_mixing_choice.json        # validation-only choice of (alpha, beta, gamma)
+explanations_name_week3: explanations_week3_seed{seed}.parquet        # policy converted + SHAP + narrative
+disagreement_name_week3: roles_disagreement_week3_seed{seed}.csv
+narrative_samples_name: narrative_samples_week3.md   # one narrative per pattern type: a PILOT review (7 rings)
+typology_name: typology_eval.json                   # Week 5: XR-25
+latency_name: latency.json                          # Week 5: XR-27
+fidelity_week4_name: fidelity.json                  # Week 4: the spec's fidelity.json (XR-22/23/24), pooled over seeds
+
+evaluation:
+  window: primary                # name from configs/eval_window.yaml
+  k: [3, 5, 10]                  # fidelity@k
+  random_shuffles: 20            # random-ranking control, averaged per ring
+  random_seed: 20260921          # fixed so the random control is reproducible
+  bootstrap_resamples: 1000      # Week 4: percentile bootstrap over TRUTH rings (Joan, Q2)
+  ci: 0.95
+  permutation_resamples: 10000   # Week 4: paired sign-flip test, as evaluation/ring_stats.paired_permutation
+  stats_seed: 20260921           # fixes every bootstrap / permutation draw
+  verdict_k: 5                   # spec 6.2: ours must beat both controls with non-overlapping CIs at k = 5
+
+# Used from Week 2 onwards; recorded now so every constant has one home.
+edge_weights:
+  mixing_default: {alpha: 0.4, beta: 0.4, gamma: 0.2}   # w_score, w_loo, w_flow (untuned; always used by policy raw)
+  # XR-05, chosen on the VALIDATION split only (results/xai/xr05_mixing_choice.json, recorded 2026-10-15 before
+  # any test run with it): validation fidelity@5 0.9126 vs 0.9017 for the default; every top-8 triple has beta 0.
+  mixing_tuned: {alpha: 0.6, beta: 0.0, gamma: 0.4}   # used by policy converted
+  xr05_objective_k: 5            # XR-05 tunes on fidelity@5 (spec 4.1)
+  grid_step: 0.1
+  lambda_split: 0.5
+  loo_edges: included            # leave-one-out over seed + expanded edges (verified: reproduces 108/108 shipped rings)
+                                 # other member edges: w_loo = 0 and split = 0 (the grouping never used them)
+  loo_nan_policy: full_loss      # ring disappears without the edge (confidence NaN) -> drop = c0
+  mixing_sum_tolerance: 1.0e-9   # alpha + beta + gamma must equal 1
+
+account_weights:
+  score_share: 0.5               # weight of the "sum of w_total on its edges / max" term
+  degree_share: 0.5              # weight of the "deg_in_ring / deg_background" term
+
+# Two policies, chosen per run (CLI --policy), default below:
+#   converted  everything new. Currency conversions (an account changing its own money: currency_sent !=
+#              currency_received, a self-loop; never laundering) are dropped from the evidence edges and
+#              from w_flow; amounts are converted to currency 0 with contract/fx_rates.json (XR-02 met);
+#              roles = account_roles(currency="converted"), which adds `undetermined` (currency 1 only).
+#   raw        reproduces Weeks 1-2 EXACTLY: member edges incl. conversions, raw cross-currency w_flow,
+#              raw roles. Kept only so the earlier results stay re-derivable.
+amounts:
+  currency_policy: converted
+  fx_rates: contract/fx_rates.json
+  flow_amount_column: amount_received
+
+# Week 3, SHAP (spec 4.4, XR-13/14). The 17-feature GFP+XGBoost refit, NOT the retired 28-feature E5b model
+# (Reality Check 5.1). The model of the SAME seed as the detector is used. Its feature list is read from the model
+# file, never re-derived; the feature rows come from research's own loader (baselines/refit_data.py).
+feature_weights:
+  model: experiments/R2_b0/gfpxgb_scores/model_seed{seed}.json
+  shipped_scores: experiments/R2_b0/gfpxgb_scores/scores_test_seed{seed}.parquet   # used only to verify the rows
+  data_dir: data/processed       # baselines.refit_data.load_split_for_refit(data_dir, split): research's loader
+  split: test
+  top_n: 10                      # features stored per ring
+  edges: seed_minus_conversions  # SHAP over the ring's seed edges, conversions left out (they are never evidence)
+  additivity_tolerance: 1.0e-3   # |base + sum(SHAP) - model margin| per edge (float32 model)
+
+# Week 3, narrative (spec 5, XR-15..19, 31). A filled template; no language model.
+narrative:
+  phrasing: explainability/phrasing.yaml
+  max_words: 90
+  sig_figs: 3                    # amounts and durations
+  days_from_hours: 48            # below: "h", from here on: "days"
+  list_max: 3                    # accounts named per role, then "+N more"
+  top_edges: 3
+  top_features: 3
+  topology_source: rings         # rings = the shipped topology_type (the Step 8 typing head);
+                                 # rule_scorer = ringshield.typing.rules (XR-19 swap test only)
+  names:                         # Joan's code -> name maps (v2 b35b233), display only; banks never a join key
+    currency: contract/currency_map.json          # 0 = US Dollar, 1 = Bitcoin (the unconvertible one), ...
+    payment_format: contract/payment_format_map.json
+    bank: contract/bank_names.json
+
+# Week 6: the internal review of thirty explanations (spec 7, XR-29). Shipped detector, primary window.
+review:
+  n_items: 30
+  per_type: 4                    # four per true pattern type where available ...
+  n_most_frequent: 2             # ... the remainder from the two most frequent types, in turn
+  rng_seed: 20261026             # fixes the sample, the seed drawn per truth ring and each reviewer's order
+  top_edges: 5                   # spec 7: the top-5 evidence edges
+  reviewers: [R1, R2, R3]        # anonymised ids; who is who is kept outside the repo
+  out_dir: results/xai/review
+  # Week 7: the rules for reading the review, fixed BEFORE the sheets are scored (results/xai/review/analysis_plan.md
+  # repeats this block; a test keeps the two identical).
+  rules:
+    flag_majority: 2               # an item is flagged on a question when at least this many of the 3 reviewers flag it
+    low_yes_rate: 0.5              # q1-q3: a yes-rate below this is a problem
+    min_group_items: 5             # ... judged within a narrative feature only if it has at least this many items
+    q4_pattern_min_items: 3        # q4: a feature triggers a fix if at least this many of its items are flagged ...
+    q4_pattern_min_share: 0.2      # ... or at least this share of its items, with at least q4_share_min_items flagged
+    q4_share_min_items: 2
+    kappa_bands: [[0.0, "poor"], [0.2, "slight"], [0.4, "fair"], [0.6, "moderate"], [0.8, "substantial"],
+                  [1.0, "almost perfect"]]   # Landis & Koch (1977): kappa <= upper bound -> label; below 0 = poor
+
+# Tenant-scoped explanations for the platform (Kashish; Week 9 integration done early). A tenant (bank) sees an edge
+# only if from_bank or to_bank is that bank. Inputs are the platform's tenant rings and edge-id files (verified against
+# her SHA-256 lists) under results/xai/tenant/inputs/; the visible scored-edges file is a filtered copy of the shipped
+# one, written by explainability/tenant.py. history = the research GFP's edge history (train + val + test).
+tenants:
+  seed: 1
+  banks: [20, 12]
+  rings: results/xai/tenant/inputs/tenant_{bank}_rings.parquet
+  edge_ids: results/xai/tenant/inputs/tenant_{bank}_edge_ids.parquet
+  scored_edges: results/xai/tenant/inputs/scored_edges_visible_{bank}_{seed}.parquet
+  out: results/xai/tenant/explanations_{bank}_{seed}.parquet
+  history: [data/processed/amlworld_train.parquet, data/processed/amlworld_val.parquet, data/processed/amlworld_test.parquet]
+  gfp_check_sample: 2000
+  gfp_check_seed: 20261017
+
+contract_checks:
+  topology_probs_sum_tolerance: 1.0e-6

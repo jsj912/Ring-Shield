@@ -1,0 +1,107 @@
+{
+  "experiment_id": "XAI-W2",
+  "explainer_version": "0.5.0-review",
+  "fx_rates_sha256": "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6",
+  "inputs": {
+    "rings": "contract/out/rings_full_mega_1.parquet",
+    "scored_edges": "contract/out/scored_edges_mega_1.parquet"
+  },
+  "latency_ms": {
+    "max": 1984.0,
+    "p50": 405.0,
+    "p95": 935.6999999999991,
+    "rings_over_5000_ms": []
+  },
+  "mixing": {
+    "source": "tuned on validation (XR-05)",
+    "values": {
+      "alpha": 0.6,
+      "beta": 0.0,
+      "gamma": 0.4
+    }
+  },
+  "n_conversions_dropped": 629,
+  "n_explained": 123,
+  "n_reproduces_shipped_ring": 121,
+  "n_rings": 123,
+  "n_rings_flow_partial": 0,
+  "n_rings_mixed_currency": 76,
+  "n_rings_with_conversions": 104,
+  "n_undetermined_accounts": 0,
+  "narrative": {
+    "feature_model": "experiments/R2_b0/gfpxgb_scores/model_seed1.json",
+    "n_narratives": 123,
+    "n_rings_without_shap_edges": 0,
+    "rings_with_clause": {
+      "banks": 2,
+      "banks_short": 106,
+      "closure": 121,
+      "evidence": 123,
+      "fan_in": 26,
+      "fan_out": 22,
+      "features_both": 108,
+      "features_up": 15,
+      "gather_scatter": 1,
+      "head": 81,
+      "head_untyped": 42,
+      "money": 123,
+      "no_closure": 2,
+      "scatter_gather": 9,
+      "self_many": 1,
+      "stack": 23,
+      "type_guess": 40,
+      "type_guess_random": 2
+    },
+    "templates": {
+      "FALLBACK": 42,
+      "FAN-IN": 26,
+      "FAN-OUT": 22,
+      "GATHER-SCATTER": 1,
+      "SCATTER-GATHER": 9,
+      "STACK": 23
+    },
+    "topology_source": "rings",
+    "words": {
+      "max": 90,
+      "p50": 86.0
+    }
+  },
+  "not_reproduced": [
+    "full-mega-1-65",
+    "full-mega-1-79"
+  ],
+  "outputs": {
+    "explanations": "results/xai/explanations_mega_seed1.parquet",
+    "role_disagreements": "results/xai/roles_disagreement_mega_seed1.csv"
+  },
+  "policy": "converted",
+  "provenance": {
+    "aggregator_id": "full",
+    "model_id": "mega",
+    "rings_schema_version": 2,
+    "seed": 1
+  },
+  "rerun": {
+    "affinity_dir": "experiments/R4_partition/affinity",
+    "aggregator_id": "full",
+    "cut": 0.5,
+    "embeddings": "experiments/R6_mega/embeddings_test_seed1.parquet",
+    "gfp": "data/processed/amlworld_gfp_features_test.parquet",
+    "method": "average",
+    "min_size": 3,
+    "partition_config": "rings_full_mega_1.parquet.log.json"
+  },
+  "role_counts": {
+    "holder": 6,
+    "mule": 148,
+    "peripheral": 17,
+    "sink": 371,
+    "source": 413
+  },
+  "role_disagreements": {
+    "by_cause": {
+      "undefined_hold_time": 4
+    },
+    "n_rows": 4
+  }
+}

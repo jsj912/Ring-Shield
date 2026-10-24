@@ -1,0 +1,247 @@
+{
+  "$defs": {
+    "AccountWeight": {
+      "additionalProperties": false,
+      "properties": {
+        "account_id": {
+          "title": "Account Id",
+          "type": "integer"
+        },
+        "hold_time_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "median wait from a payment in to the next payment out; null if none",
+          "title": "Hold Time S"
+        },
+        "inflow": {
+          "description": "money in, US Dollar",
+          "title": "Inflow",
+          "type": "number"
+        },
+        "outflow": {
+          "description": "money out, US Dollar",
+          "title": "Outflow",
+          "type": "number"
+        },
+        "role": {
+          "enum": [
+            "source",
+            "sink",
+            "mule",
+            "holder",
+            "peripheral",
+            "undetermined"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "w_account": {
+          "title": "W Account",
+          "type": "number"
+        }
+      },
+      "required": [
+        "account_id",
+        "role",
+        "inflow",
+        "outflow",
+        "hold_time_s",
+        "w_account"
+      ],
+      "title": "AccountWeight",
+      "type": "object"
+    },
+    "EdgeWeight": {
+      "additionalProperties": false,
+      "description": "One evidence transaction's weights (currency conversions are never evidence).",
+      "properties": {
+        "edge_id": {
+          "title": "Edge Id",
+          "type": "integer"
+        },
+        "w_flow": {
+          "description": "share of the ring's money, converted to US Dollar",
+          "title": "W Flow",
+          "type": "number"
+        },
+        "w_loo": {
+          "description": "how much the ring depends on this transaction (leave-one-out + bridge), 0-1",
+          "title": "W Loo",
+          "type": "number"
+        },
+        "w_score": {
+          "description": "the detector's calibrated score",
+          "title": "W Score",
+          "type": "number"
+        },
+        "w_total": {
+          "description": "alpha*w_score + beta*w_loo + gamma*w_flow, the ranking weight",
+          "title": "W Total",
+          "type": "number"
+        }
+      },
+      "required": [
+        "edge_id",
+        "w_total",
+        "w_score",
+        "w_loo",
+        "w_flow"
+      ],
+      "title": "EdgeWeight",
+      "type": "object"
+    },
+    "FeatureWeight": {
+      "additionalProperties": false,
+      "description": "A feature of the reference transaction-level model (GFP+XGBoost), averaged SHAP over the ring's seed edges.\nIt explains that reference model, not the GNN that produced the seeds.",
+      "properties": {
+        "display_name": {
+          "description": "plain-English phrase (explainability/phrasing.yaml)",
+          "title": "Display Name",
+          "type": "string"
+        },
+        "feature_name": {
+          "title": "Feature Name",
+          "type": "string"
+        },
+        "mean_shap": {
+          "description": "> 0 raised suspicion, < 0 lowered it (log-odds)",
+          "title": "Mean Shap",
+          "type": "number"
+        },
+        "top_edge_id": {
+          "title": "Top Edge Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "feature_name",
+        "display_name",
+        "mean_shap",
+        "top_edge_id"
+      ],
+      "title": "FeatureWeight",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "account_weights": {
+      "items": {
+        "$ref": "#/$defs/AccountWeight"
+      },
+      "title": "Account Weights",
+      "type": "array"
+    },
+    "edge_weights": {
+      "description": "highest w_total first",
+      "items": {
+        "$ref": "#/$defs/EdgeWeight"
+      },
+      "title": "Edge Weights",
+      "type": "array"
+    },
+    "evidence_summary": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "every value the narrative used; it regenerates the sentence",
+      "title": "Evidence Summary"
+    },
+    "explainer_version": {
+      "title": "Explainer Version",
+      "type": "string"
+    },
+    "feature_weights": {
+      "description": "top 10 by |mean_shap|",
+      "items": {
+        "$ref": "#/$defs/FeatureWeight"
+      },
+      "title": "Feature Weights",
+      "type": "array"
+    },
+    "latency_ms": {
+      "title": "Latency Ms",
+      "type": "integer"
+    },
+    "narrative": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "filled template, at most 90 words; never free text",
+      "title": "Narrative"
+    },
+    "provenance": {
+      "additionalProperties": true,
+      "title": "Provenance",
+      "type": "object"
+    },
+    "ring_id": {
+      "title": "Ring Id",
+      "type": "string"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "integer"
+    },
+    "topology_prob": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Topology Prob"
+    },
+    "topology_type": {
+      "description": "the ring's most likely shape (typing head); a guess, not a fact",
+      "enum": [
+        "FAN-OUT",
+        "FAN-IN",
+        "GATHER-SCATTER",
+        "SCATTER-GATHER",
+        "CYCLE",
+        "RANDOM",
+        "BIPARTITE",
+        "STACK",
+        "UNKNOWN"
+      ],
+      "title": "Topology Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ring_id",
+    "tenant_id",
+    "edge_weights",
+    "account_weights",
+    "feature_weights",
+    "topology_type",
+    "topology_prob",
+    "narrative",
+    "evidence_summary",
+    "explainer_version",
+    "latency_ms",
+    "provenance"
+  ],
+  "title": "Explanation",
+  "type": "object"
+}
