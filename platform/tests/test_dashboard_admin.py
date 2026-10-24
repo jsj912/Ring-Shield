@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 from datetime import datetime, timedelta, timezone
+import json
 
 import httpx
 from streamlit.testing.v1 import AppTest
@@ -42,8 +43,14 @@ def _response(payload, status=200, request_id="admin-request"):
     return httpx.Response(status, json=payload, headers={"X-Request-ID": request_id})
 
 
+R10 = {k: v for k, v in json.loads((PLATFORM_ROOT / "dashboard" / "fixtures" / "r10_result.json")
+                                   .read_text(encoding="utf-8")).items() if not k.startswith("_")}
+
+
 def test_admin_sees_registry_users_and_r10_sections(monkeypatch):
-    def handler(_method, _url, _kwargs):
+    def handler(_method, url, _kwargs):
+        if url.endswith("/latest"):                       # no R10 result computed yet
+            return _response({"error_code": "NOT_FOUND", "message": "none"}, 404)
         return _response(TENANTS)
 
     app, _calls = _signed_app(monkeypatch, handler)
@@ -77,20 +84,15 @@ def test_r10_start_polls_running_then_renders_results_and_no_ground_truth(monkey
         {"job_id": "job-one", "status": "running"},
         {
             "job_id": "job-one", "status": "succeeded", "message": "Available inputs: 2 seeds",
-            "results": {
-                "table_rows": [{"tenant_id": 210, "seed": 1,
-                                "tenant_ring_recall": 0.8, "pooled_ring_recall": 0.7,
-                                "tenant_truth_cross_bank_fraction": 0.4}],
-                "recall_series": [{"tenant_id": 210, "seed": 1,
-                                   "tenant_ring_recall": 0.8, "pooled_ring_recall": 0.7}],
-                "ground_truth_label": "must not render",
-            },
+            "results": {**R10, "ground_truth_label": "must not render"},
         },
     ]
 
     def handler(method, url, _kwargs):
         if url.endswith("/admin/tenants"):
             return _response(TENANTS)
+        if url.endswith("/latest"):
+            return _response({"error_code": "NOT_FOUND", "message": "none"}, 404)
         if method == "POST":
             return _response({"job_id": "job-one", "status": "queued"}, 202)
         return _response(status_payloads.pop(0))
@@ -103,7 +105,7 @@ def test_r10_start_polls_running_then_renders_results_and_no_ground_truth(monkey
 
     assert "Status: succeeded" in [item.value for item in app.caption]
     assert "Available inputs: 2 seeds" in [item.value for item in app.caption]
-    assert any("Tenant recall" in frame.value.columns for frame in app.dataframe)
+    assert any("Budget-matched" in frame.value.columns for frame in app.dataframe)
     assert app.get("plotly_chart")
     visible = str({
         "dataframes": [frame.value for frame in app.dataframe],

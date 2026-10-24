@@ -29,6 +29,7 @@ class FixtureAPI:
         self.request_count = 0
         self.models = {k: v for k, v in self._load("models.json", {}).items() if not k.startswith("_")}
         self.retrain_polls: dict[str, int] = {}
+        self.r10_jobs: dict[str, int] = {}
         self.jobs: dict[str, dict] = {}          # regeneration jobs started by partial verdicts
         self.verdict_posts = 0
 
@@ -74,6 +75,8 @@ class FixtureAPI:
             return self._error(403, "Forbidden", "Not permitted")
         if method == "GET" and path == "/admin/tenants":
             return self._response(200, self.tenants)
+        if path.startswith("/admin/experiments/tenant-vs-pooled"):
+            return self._r10(method, path)
         if tenant_match:
             tenant_id, rest = int(tenant_match.group(1)), tenant_match.group(2) or ""
             if method == "GET" and rest == "/rings":
@@ -128,6 +131,24 @@ class FixtureAPI:
         next_cursor = str(offset + limit) if offset + limit < len(rows) else None
         return self._response(200, {"items": page, "next_cursor": next_cursor, "total": len(rows),
                                      "tenant_total": len(tenant_rings)})
+
+    def _r10(self, method: str, path: str) -> httpx.Response:
+        """The admin R10 routes: the latest registered result, and a run that finishes on its
+        second poll with the same result (admin.py, jobs/experiment_worker.py)."""
+        result = {k: v for k, v in self._load("r10_result.json", {}).items() if not k.startswith("_")}
+        if method == "GET" and path.endswith("/latest"):
+            return self._response(200, {"results": result}) if result else self._error(404, "NotFound", "No R10 result")
+        if method == "POST":
+            job_id = f"{len(self.r10_jobs) + 1:032d}"
+            self.r10_jobs[job_id] = 0
+            return self._response(202, {"job_id": job_id, "status": "queued", "message": None, "results": None})
+        job_id = path.rsplit("/", 1)[-1]
+        if job_id not in self.r10_jobs:
+            return self._error(404, "NotFound", "Experiment job not found")
+        self.r10_jobs[job_id] += 1
+        if self.r10_jobs[job_id] < 2:
+            return self._response(200, {"job_id": job_id, "status": "running", "message": None, "results": None})
+        return self._response(200, {"job_id": job_id, "status": "succeeded", "message": None, "results": result})
 
     def _models(self, tenant_id: int, method: str, rest: str, user: dict) -> httpx.Response:
         """GET /models, and the supervisor-only retrain routes (operations.py)."""

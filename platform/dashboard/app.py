@@ -22,8 +22,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from contract.schema import TOPOLOGY_TYPES  # noqa: E402
 from regeneration_flow import deadline_expired, new_poll_deadline  # noqa: E402
 import client  # noqa: E402
-from formatters import (fmt_amount, fmt_as_received, fmt_bool, fmt_closure,  # noqa: E402
-                        fmt_seconds, fmt_time, fmt_time_utc, fmt_weight)
+from formatters import (fmt_amount, fmt_as_received, fmt_bool, fmt_closure, fmt_interval, fmt_recall,  # noqa: E402
+                        fmt_percent, fmt_seconds, fmt_time, fmt_time_utc, fmt_weight)
 import ring_graph  # noqa: E402
 
 API_BASE = client.API_BASE
@@ -971,51 +971,95 @@ def _start_admin_r10() -> None:
         }
 
 
-def _render_admin_r10_results(status: dict) -> None:
-    results = status.get("results") or {}
-    table_rows = results.get("table_rows") or []
-    if table_rows:
-        display_rows = []
-        columns = (
-            ("tenant_id", "Tenant"), ("seed", "Seed"),
-            ("tenant_ring_recall", "Tenant recall"),
-            ("tenant_ring_recall_ci_low", "Tenant recall CI low"),
-            ("tenant_ring_recall_ci_high", "Tenant recall CI high"),
-            ("tenant_member_coverage", "Tenant member coverage"),
-            ("pooled_ring_recall", "Pooled recall"),
-            ("pooled_ring_recall_ci_low", "Pooled recall CI low"),
-            ("pooled_ring_recall_ci_high", "Pooled recall CI high"),
-            ("pooled_member_coverage", "Pooled member coverage"),
-            ("tenant_truth_cross_bank_fraction", "Cross-bank fraction"),
-            ("tenant_truth_mean_banks_per_ring", "Mean banks per ring"),
-            ("cross_bank_truth_fraction", "Overall cross-bank fraction"),
-            ("mean_banks_per_truth_ring", "Overall mean banks per ring"),
-        )
-        for row in table_rows:
-            display_rows.append({label: row.get(key) for key, label in columns})
-        st.dataframe(display_rows, use_container_width=True, hide_index=True)
-    else:
-        st.info("The status response does not include R10 metric rows.")
-
-    recall_series = results.get("recall_series") or []
-    if recall_series:
-        figure = go.Figure()
-        for field, label in (("tenant_ring_recall", "Tenant recall"),
-                             ("pooled_ring_recall", "Pooled recall")):
-            figure.add_trace(go.Bar(
-                x=[f"{row['tenant_id']} · seed {row['seed']}" for row in recall_series],
-                y=[row.get(field) for row in recall_series],
-                name=label,
-            ))
-        st.plotly_chart(figure, use_container_width=True)
-    if status.get("message"):
-        st.caption(status["message"])
-    if results.get("limitations"):
-        st.caption(results["limitations"])
-    st.caption("R10 displays aggregate evaluation metrics only; no ground-truth labels or ring IDs are shown.")
+R10_DEGENERATE = {70: "degenerate: no ring edges visible"}
 
 
-@st.fragment(run_every="2s")
+def _r10_interval(part: dict) -> str:
+    return fmt_interval(part["value"], part["low"], part["high"])
+
+
+def _r10_per_tenant(results: dict) -> dict:
+    """(row, tenant) -> per-tenant record, a lookup into what the API sent."""
+    return {(item["row"], item["tenant_id"]): item for item in results["per_tenant"]}
+
+
+def _r10_primary_table(results: dict) -> list[dict]:
+    """Change 6: one row per tenant with pooled, (a), (b) and budget-matched; the CI is on the
+    pooled-across-tenants row and the per-tenant rows are descriptive."""
+    rows, lookup = results["rows"], _r10_per_tenant(results)
+    table = []
+    for tenant in rows["primary"]["tenants"]:
+        b = lookup.get(("primary", tenant), {})
+        table.append({
+            "Tenant": str(tenant), "Kind": "per tenant (descriptive)", "Rings": str(b.get("n_rings", "—")),
+            "Pooled": fmt_recall(b.get("pooled_recall")),
+            "(a) pooled scores, own edges": fmt_recall(lookup.get(("pooled_scores", tenant), {}).get("tenant_recall")),
+            "(b) own scores, own edges": fmt_recall(b.get("tenant_recall")),
+            "Budget-matched": fmt_recall(lookup.get(("budget_matched", tenant), {}).get("tenant_recall")),
+            "Pooled − (b)": "—",
+        })
+    table.append({
+        "Tenant": "All five", "Kind": "pooled across tenants (95% CI)",
+        "Rings": f"{rows['primary']['n_rings']} rings, {rows['primary']['n_pairs']} pairs",
+        "Pooled": _r10_interval(rows["primary"]["pooled"]),
+        "(a) pooled scores, own edges": _r10_interval(rows["pooled_scores"]["tenant"]),
+        "(b) own scores, own edges": _r10_interval(rows["primary"]["tenant"]),
+        "Budget-matched": _r10_interval(rows["budget_matched"]["tenant"]),
+        "Pooled − (b)": _r10_interval(rows["primary"]["difference"]),
+    })
+    return table
+
+
+def _r10_robustness_table(results: dict) -> list[dict]:
+    row, lookup = results["rows"]["robustness"], _r10_per_tenant(results)
+    table = []
+    for tenant in row["tenants"]:
+        item = lookup.get(("robustness", tenant))
+        table.append({
+            "Tenant": str(tenant), "Kind": "per tenant (descriptive)",
+            "Rings": str(item["n_rings"]) if item else "—",
+            "Pooled": fmt_recall(item["pooled_recall"]) if item else "—",
+            "(b) own scores, own edges": fmt_recall(item["tenant_recall"]) if item else "—",
+            "Note": R10_DEGENERATE.get(tenant, ""),
+        })
+    table.append({
+        "Tenant": "All five", "Kind": "pooled across tenants (95% CI)",
+        "Rings": f"{row['n_rings']} rings, {row['n_pairs']} pairs",
+        "Pooled": _r10_interval(row["pooled"]), "(b) own scores, own edges": _r10_interval(row["tenant"]),
+        "Note": "degenerate set: bank 70 has no visible ring laundering edge",
+    })
+    return table
+
+
+def _render_admin_r10_results(results: dict) -> None:
+    """FR-D91-92 with change 6, from the registered R10 result."""
+    st.markdown(f"**Cross-bank rings:** {results['cross_bank_rings']} of {results['n_in_scope_rings']} "
+                f"({fmt_percent(results['cross_bank_fraction'])}) · **mean banks per ring** "
+                f"{fmt_as_received(results['mean_banks_per_ring'])}")
+    st.caption(f"Days {', '.join(str(d) for d in results['window_days'])}, {results['scope']}, "
+               f"Jaccard {results['jaccard']}, seeds {', '.join(str(s) for s in results['seeds'])}, "
+               f"bootstrap over rings ({results['n_boot']:,} resamples). Computed {results['created_utc']}.")
+    st.subheader("Primary set (banks 1, 20, 11, 118, 12)")
+    st.dataframe(_r10_primary_table(results), use_container_width=True, hide_index=True,
+                 key="admin_r10_primary")
+    st.caption("(a): the pooled model's scores, restricted to the bank's own edges. (b): the bank's "
+               "own model on its own edges. Budget-matched: (b) with the pooled seed count. "
+               "Ring recall only; member coverage was not part of R10 as registered.")
+    st.subheader("Robustness set (banks 70, 12, 11, 1, 10)")
+    st.dataframe(_r10_robustness_table(results), use_container_width=True, hide_index=True,
+                 key="admin_r10_robustness")
+    lookup = _r10_per_tenant(results)
+    tenants = results["rows"]["primary"]["tenants"]
+    figure = go.Figure()
+    for field, label in (("tenant_recall", "(b) own scores, own edges"), ("pooled_recall", "Pooled")):
+        figure.add_trace(go.Bar(x=[str(t) for t in tenants],
+                                y=[lookup[("primary", t)][field] for t in tenants], name=label))
+    figure.update_layout(barmode="group", height=320, xaxis_title="Bank (primary set)",
+                         yaxis_title="Ring recall", margin={"l": 10, "r": 10, "t": 10, "b": 10})
+    st.plotly_chart(figure, use_container_width=True, key="admin_r10_chart")
+    st.caption("Per-bank bars are descriptive; the claim is the pooled-across-tenants row.")
+
+
 def _poll_admin_r10() -> None:
     state = st.session_state.get("admin_r10_job")
     if not isinstance(state, dict):
@@ -1042,8 +1086,10 @@ def _poll_admin_r10() -> None:
             _start_admin_r10()
             st.rerun()
         return
-    if status == "succeeded":
-        _render_admin_r10_results(state)
+    if status == "succeeded" and state.get("results"):
+        _render_admin_r10_results(state["results"])
+        if state.get("message"):
+            st.caption(state["message"])
 
 
 def _admin_page(tenant_records: list[dict]) -> None:
@@ -1068,7 +1114,15 @@ def _admin_page(tenant_records: list[dict]) -> None:
     if st.button("Run", key="admin_r10_start"):
         _start_admin_r10()
         st.rerun()
+    job = st.session_state.get("admin_r10_job")
     _poll_admin_r10()
+    if not (isinstance(job, dict) and job.get("status") == "succeeded"):
+        latest = _api("GET", "/admin/experiments/tenant-vs-pooled/latest", quiet_not_found=True)
+        if latest is None:
+            st.info("No R10 result has been computed yet. Press Run to compute it.")
+        else:
+            st.subheader("Latest registered result")
+            _render_admin_r10_results(latest["results"])
 
 
 # Page slugs (Section 3: /rings, /verdicts, /models, /drift, /admin) and their sidebar labels.

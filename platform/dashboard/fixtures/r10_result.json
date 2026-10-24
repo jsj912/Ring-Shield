@@ -1,0 +1,263 @@
+{
+ "_source": "results/tables/r10_registered.json through jobs.experiment_worker.r10_registered_results",
+ "created_utc": "2026-10-24T09:14:20+00:00",
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "window_days": [
+  8,
+  9
+ ],
+ "scope": "test_visible",
+ "jaccard": 0.5,
+ "n_boot": 10000,
+ "n_in_scope_rings": 174,
+ "cross_bank_rings": 172,
+ "cross_bank_fraction": 0.9885,
+ "mean_banks_per_ring": 4.626,
+ "rows": {
+  "primary": {
+   "tenants": [
+    1,
+    20,
+    11,
+    118,
+    12
+   ],
+   "n_pairs": 68,
+   "n_rings": 49,
+   "tenant": {
+    "value": 0.0882,
+    "low": 0.0314,
+    "high": 0.1606
+   },
+   "pooled": {
+    "value": 0.3588,
+    "low": 0.2395,
+    "high": 0.5
+   },
+   "difference": {
+    "value": 0.2706,
+    "low": 0.1536,
+    "high": 0.4067
+   }
+  },
+  "pooled_scores": {
+   "tenants": [
+    1,
+    20,
+    11,
+    118,
+    12
+   ],
+   "n_pairs": 68,
+   "n_rings": 49,
+   "tenant": {
+    "value": 0.1206,
+    "low": 0.0539,
+    "high": 0.2054
+   },
+   "pooled": {
+    "value": 0.3588,
+    "low": 0.2395,
+    "high": 0.5
+   },
+   "difference": {
+    "value": 0.2382,
+    "low": 0.1352,
+    "high": 0.3633
+   }
+  },
+  "budget_matched": {
+   "tenants": [
+    1,
+    20,
+    11,
+    118,
+    12
+   ],
+   "n_pairs": 68,
+   "n_rings": 49,
+   "tenant": {
+    "value": 0.0765,
+    "low": 0.0203,
+    "high": 0.1507
+   },
+   "pooled": {
+    "value": 0.3588,
+    "low": 0.2395,
+    "high": 0.5
+   },
+   "difference": {
+    "value": 0.2824,
+    "low": 0.1671,
+    "high": 0.417
+   }
+  },
+  "robustness": {
+   "tenants": [
+    70,
+    12,
+    11,
+    1,
+    10
+   ],
+   "n_pairs": 55,
+   "n_rings": 40,
+   "tenant": {
+    "value": 0.0655,
+    "low": 0.0115,
+    "high": 0.1373
+   },
+   "pooled": {
+    "value": 0.4255,
+    "low": 0.2842,
+    "high": 0.5887
+   },
+   "difference": {
+    "value": 0.36,
+    "low": 0.2148,
+    "high": 0.5297
+   }
+  }
+ },
+ "per_tenant": [
+  {
+   "row": "primary",
+   "tenant_id": 1,
+   "n_rings": 17,
+   "tenant_recall": 0.0353,
+   "pooled_recall": 0.3647
+  },
+  {
+   "row": "primary",
+   "tenant_id": 11,
+   "n_rings": 14,
+   "tenant_recall": 0.1,
+   "pooled_recall": 0.3571
+  },
+  {
+   "row": "primary",
+   "tenant_id": 12,
+   "n_rings": 11,
+   "tenant_recall": 0.1273,
+   "pooled_recall": 0.4
+  },
+  {
+   "row": "primary",
+   "tenant_id": 20,
+   "n_rings": 14,
+   "tenant_recall": 0.1571,
+   "pooled_recall": 0.3571
+  },
+  {
+   "row": "primary",
+   "tenant_id": 118,
+   "n_rings": 12,
+   "tenant_recall": 0.0333,
+   "pooled_recall": 0.3167
+  },
+  {
+   "row": "pooled_scores",
+   "tenant_id": 1,
+   "n_rings": 17,
+   "tenant_recall": 0.0706,
+   "pooled_recall": 0.3647
+  },
+  {
+   "row": "pooled_scores",
+   "tenant_id": 11,
+   "n_rings": 14,
+   "tenant_recall": 0.1143,
+   "pooled_recall": 0.3571
+  },
+  {
+   "row": "pooled_scores",
+   "tenant_id": 12,
+   "n_rings": 11,
+   "tenant_recall": 0.2182,
+   "pooled_recall": 0.4
+  },
+  {
+   "row": "pooled_scores",
+   "tenant_id": 20,
+   "n_rings": 14,
+   "tenant_recall": 0.1429,
+   "pooled_recall": 0.3571
+  },
+  {
+   "row": "pooled_scores",
+   "tenant_id": 118,
+   "n_rings": 12,
+   "tenant_recall": 0.0833,
+   "pooled_recall": 0.3167
+  },
+  {
+   "row": "budget_matched",
+   "tenant_id": 1,
+   "n_rings": 17,
+   "tenant_recall": 0.0353,
+   "pooled_recall": 0.3647
+  },
+  {
+   "row": "budget_matched",
+   "tenant_id": 11,
+   "n_rings": 14,
+   "tenant_recall": 0.1,
+   "pooled_recall": 0.3571
+  },
+  {
+   "row": "budget_matched",
+   "tenant_id": 12,
+   "n_rings": 11,
+   "tenant_recall": 0.1455,
+   "pooled_recall": 0.4
+  },
+  {
+   "row": "budget_matched",
+   "tenant_id": 20,
+   "n_rings": 14,
+   "tenant_recall": 0.0857,
+   "pooled_recall": 0.3571
+  },
+  {
+   "row": "budget_matched",
+   "tenant_id": 118,
+   "n_rings": 12,
+   "tenant_recall": 0.0333,
+   "pooled_recall": 0.3167
+  },
+  {
+   "row": "robustness",
+   "tenant_id": 1,
+   "n_rings": 17,
+   "tenant_recall": 0.0353,
+   "pooled_recall": 0.3647
+  },
+  {
+   "row": "robustness",
+   "tenant_id": 10,
+   "n_rings": 13,
+   "tenant_recall": 0.0154,
+   "pooled_recall": 0.6
+  },
+  {
+   "row": "robustness",
+   "tenant_id": 11,
+   "n_rings": 14,
+   "tenant_recall": 0.1,
+   "pooled_recall": 0.3571
+  },
+  {
+   "row": "robustness",
+   "tenant_id": 12,
+   "n_rings": 11,
+   "tenant_recall": 0.1273,
+   "pooled_recall": 0.4
+  }
+ ]
+}

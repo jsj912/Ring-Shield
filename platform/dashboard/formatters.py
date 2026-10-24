@@ -33,6 +33,16 @@ def fmt_weight(value) -> str:
     return MISSING if value is None else f"{float(value):.2f}"
 
 
+def fmt_recall(value) -> str:
+    """A recall in [0, 1] with three decimals, as the R10 tables report it."""
+    return MISSING if value is None else f"{float(value):.3f}"
+
+
+def fmt_interval(value, low, high) -> str:
+    """A value with its 95 % interval, e.g. "0.088 [0.031, 0.161]"."""
+    return f"{fmt_recall(value)} [{fmt_recall(low)}, {fmt_recall(high)}]"
+
+
 def fmt_as_received(value) -> str:
     """A number shown exactly as the API sent it (change 3: topology_prob)."""
     return MISSING if value is None else str(value)

@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "dashboard"))
 
-from formatters import (MISSING, fmt_amount, fmt_as_received, fmt_bool, fmt_closure, fmt_percent,
+from formatters import (MISSING, fmt_amount, fmt_as_received, fmt_bool, fmt_closure, fmt_interval, fmt_percent, fmt_recall,
                         fmt_seconds, fmt_time, fmt_time_utc, fmt_weight)
 
 
@@ -53,3 +53,8 @@ def test_seconds_have_separators_and_missing_or_nan_is_a_dash():
 
 def test_booleans_read_as_text():
     assert fmt_bool(True) == "Yes" and fmt_bool(False) == "No" and fmt_bool(None) == MISSING
+
+
+def test_recall_three_decimals_and_interval():
+    assert fmt_recall(0.0882) == "0.088" and fmt_recall(None) == MISSING
+    assert fmt_interval(0.0882, 0.0314, 0.1606) == "0.088 [0.031, 0.161]"
