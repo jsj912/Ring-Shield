@@ -1,4 +1,9 @@
-"""Run ten simulated feedback/retraining cycles for one accuracy condition."""
+"""R11: twelve simulated feedback cycles and one gated retrain for one accuracy condition.
+
+A demonstration that the feedback loop works end to end, not an effectiveness experiment: one
+bank produces a handful of rings in 48 h and its verdicts are ~0.06 % of the expansion training
+rows. Amendments to spec v1.1 are recorded in docs/R11.md.
+"""
 
 from __future__ import annotations
 
@@ -17,14 +22,20 @@ sys.path.insert(0, str(PLATFORM_ROOT))
 sys.path.insert(1, str(REPO_ROOT))
 
 from adapters import research_cli
-from adapters.ground_truth import load_window_truth
+from adapters.ground_truth import load_window_truth, truth_window_info
 from db.models import ModelVersion, RetrainRun, User
 from db.session import db_session
 from experiments.common import ExperimentInputError, write_csv_and_markdown, write_run_manifest
 from jobs.retrain import _evaluate, _validate_inputs, run_retrain_job
-from jobs.simulate_verdicts import simulate_cycle
+from jobs.simulate_verdicts import DAY_ZERO_TIMESTAMP, simulate_cycle
 from api.identity import Principal
 from settings import load_l6_config, load_platform_config
+
+TRUTH_WINDOW = "primary"     # test days 8-9; days 0-7 are train and validation and are never replayed
+CYCLES = 12
+CYCLE_HOURS = 4
+REVIEW_FRACTION = 1.0        # every open ring of the tenant is reviewed in its cycle
+RETRAIN_AFTER_CYCLE = 6      # end of day 8; the result serves cycles 7-12
 
 
 def retrained_false_disclaimer(cycles: list[dict]) -> str:
@@ -73,11 +84,24 @@ def _run_status(tenant_id: int, run_id: str) -> str:
     return row.status
 
 
-def run_experiment(*, tenant_id: int, accuracy: float, cycles: int = 10) -> dict:
+def cycle_intervals(cycles: int = CYCLES, hours: int = CYCLE_HOURS) -> list[tuple[int, int]]:
+    """[start, end) of each cycle in loader seconds: the primary window cut into equal slices."""
+    window = truth_window_info(TRUTH_WINDOW)
+    start, end = int(window["start"]), int(window["end"]) + 1
+    step = hours * 3_600
+    if cycles * step != end - start:
+        raise ValueError(f"{cycles} cycles of {hours} h do not tile the {TRUTH_WINDOW} window")
+    return [(start + index * step, start + (index + 1) * step) for index in range(cycles)]
+
+
+def run_experiment(*, tenant_id: int, accuracy: float, cycles: int = CYCLES) -> dict:
+    """R11 as amended (docs/R11.md): 12 four-hour cycles over test days 8-9, every open ring of the
+    tenant reviewed in its cycle, one gated retrain after cycle 6, and a no-retrain control."""
     if accuracy not in (0.90, 0.70):
         raise ValueError("R11 supports accuracy 0.90 or 0.70")
-    if cycles != 10:
-        raise ValueError("R11 uses exactly 10 cycles")
+    if cycles != CYCLES:
+        raise ValueError(f"R11 uses exactly {CYCLES} cycles")
+    intervals = cycle_intervals(cycles)
     config = load_platform_config()
     l6 = load_l6_config(config)
     paths = _validate_inputs(l6, config)
@@ -86,7 +110,7 @@ def run_experiment(*, tenant_id: int, accuracy: float, cycles: int = 10) -> dict
         raise ExperimentInputError("platform config l6.retrain.truth_parquet is missing or unavailable")
     # Fail before any simulated verdict is written if the selected test window
     # or ground truth cannot be loaded.
-    load_window_truth(truth_path, window_name="whole", scope="test_visible")
+    load_window_truth(truth_path, window_name=TRUTH_WINDOW, scope="test_visible")
     actor = _tenant_actor(tenant_id)
     simulator = l6["simulator"]
     retrain = l6["retrain"]
@@ -103,46 +127,58 @@ def run_experiment(*, tenant_id: int, accuracy: float, cycles: int = 10) -> dict
     cycle_rows = []
     saw_retrained_false = False
 
-    for offset in range(cycles):
-        cycle_day = 8 + offset
+    window_start = intervals[0][0]
+    for offset, (start, end) in enumerate(intervals):
+        cycle = offset + 1
         simulation = simulate_cycle(
-            tenant_id=tenant_id, cycle_day=cycle_day, actor=actor,
+            tenant_id=tenant_id, cycle_day=(start - DAY_ZERO_TIMESTAMP) // 86_400, actor=actor,
             truth_path=truth_path, seed=int(simulator["seed"]), accuracy=accuracy,
-            review_fraction=float(simulator["review_fraction"]),
+            review_fraction=REVIEW_FRACTION,
             match_jaccard=float(simulator["match_jaccard"]),
             full_confirm_jaccard=float(simulator["full_confirm_jaccard"]),
-            cycle_days=1, truth_window="whole",
+            truth_window=TRUTH_WINDOW, interval=(start, end),
         )
-        before = _version_snapshot(tenant_id)
-        run_id = f"r11-{uuid4().hex}"
-        with db_session(tenant_id=tenant_id, role="supervisor") as session:
-            session.add(RetrainRun(
-                run_id=run_id, tenant_id=tenant_id, triggered_by="supervisor",
-                started_at=datetime.now(timezone.utc), status="running",
-                log_path=f"platform/out/retrain/{run_id}.log",
-            ))
-        run_retrain_job(tenant_id, run_id)
-        run_status = _run_status(tenant_id, run_id)
-        after = _version_snapshot(tenant_id)
-        created = [row for version_id, row in after.items() if version_id not in before]
-        promoted = sum(bool(row.promoted) for row in created)
-        refused = sum(not bool(row.promoted) for row in created)
-        false_retrain = sum(
-            str(row.gate_reason or "").startswith("train CLI reported retrained=false")
-            for row in created
-        )
-        saw_retrained_false = saw_retrained_false or bool(false_retrain)
-        current_scores = [float(row.holdout_ring_f1) for row in after.values()
+        run_id, run_status, promoted, refused, false_retrain, candidates = None, "not run", 0, 0, 0, ""
+        if cycle == RETRAIN_AFTER_CYCLE:
+            before = _version_snapshot(tenant_id)
+            run_id = f"r11-{uuid4().hex}"
+            with db_session(tenant_id=tenant_id, role="supervisor") as session:
+                session.add(RetrainRun(
+                    run_id=run_id, tenant_id=tenant_id, triggered_by="supervisor",
+                    started_at=datetime.now(timezone.utc), status="running",
+                    log_path=f"platform/out/retrain/{run_id}.log",
+                ))
+            # Exactly one retrain, on whatever day 8 produced: no minimum label count.
+            run_retrain_job(tenant_id, run_id, min_new_labels=1)
+            run_status = _run_status(tenant_id, run_id)
+            after = _version_snapshot(tenant_id)
+            # The first retrain also records each component's base model as the starting baseline;
+            # those rows are not retrain outcomes.
+            created = [row for version_id, row in after.items() if version_id not in before
+                       and row.gate_reason != "initial holdout baseline"]
+            candidates = "; ".join(
+                f"{row.component} {'n/a' if row.holdout_ring_f1 is None else f'{float(row.holdout_ring_f1):.4f}'} "
+                f"{'promoted' if row.promoted else 'refused'}" for row in created)
+            promoted = sum(bool(row.promoted) for row in created)
+            refused = sum(not bool(row.promoted) for row in created)
+            false_retrain = sum(
+                str(row.gate_reason or "").startswith("train CLI reported retrained=false")
+                for row in created
+            )
+            saw_retrained_false = saw_retrained_false or bool(false_retrain)
+        current_scores = [float(row.holdout_ring_f1) for row in _version_snapshot(tenant_id).values()
                           if row.component in retrain["components"]
                           and row.promoted and row.holdout_ring_f1 is not None]
         cycle_rows.append({
-            "accuracy": accuracy, "cycle": offset + 1, "cycle_day": cycle_day,
+            "accuracy": accuracy, "cycle": cycle,
+            "hours": f"{(start - window_start) // 3_600}-{(end - window_start) // 3_600}",
             "open_rings": simulation["open_rings"],
             "simulated_verdicts": simulation["simulated"],
             "retrain_status": run_status,
-            "holdout_ring_f1": sum(current_scores) / len(current_scores) if current_scores else None,
+            # Before the first retrain records anything, the base model (the control) is serving.
+            "holdout_ring_f1": sum(current_scores) / len(current_scores) if current_scores else baseline_control,
             "no_retrain_control_holdout_ring_f1": baseline_control,
-            "promotions": promoted, "refusals": refused,
+            "candidates": candidates, "promotions": promoted, "refusals": refused,
             "retrained_false_count": false_retrain,
             "run_id": run_id,
         })
@@ -160,6 +196,9 @@ def run_experiment(*, tenant_id: int, accuracy: float, cycles: int = 10) -> dict
     run_json = write_run_manifest(
         output_dir, experiment="r11_gated_retrain", config=config, inputs=input_paths,
         details={"tenant_id": tenant_id, "accuracy": accuracy, "cycles": cycles,
+                 "cycle_hours": CYCLE_HOURS, "truth_window": TRUTH_WINDOW,
+                 "review_fraction": REVIEW_FRACTION, "retrain_after_cycle": RETRAIN_AFTER_CYCLE,
+                 "components": list(retrain["components"]), "typing": "not refit; R5 head fixed",
                  "retrained_false": saw_retrained_false,
                  "no_retrain_control": "static initial promoted holdout F1; no train job is run for this lane"},
     )
@@ -171,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tenant-id", type=int, required=True)
     parser.add_argument("--accuracy", type=float, required=True, choices=(0.90, 0.70))
-    parser.add_argument("--cycles", type=int, default=10)
+    parser.add_argument("--cycles", type=int, default=CYCLES)
     args = parser.parse_args(argv)
     try:
         print(json.dumps(run_experiment(tenant_id=args.tenant_id, accuracy=args.accuracy,

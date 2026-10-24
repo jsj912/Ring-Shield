@@ -33,7 +33,7 @@ from jobs.training_evaluation import (TrainingEvaluationError, make_evaluation_m
                                      training_ring_ids_from_version,
                                      validate_labels_disjoint_from_holdout)  # noqa: E402
 from jobs.promotion_artifacts import write_manifest  # noqa: E402
-from settings import load_l6_config, load_platform_config  # noqa: E402
+from settings import configured_path, load_l6_config, load_platform_config  # noqa: E402
 
 
 class RetrainError(RuntimeError):
@@ -329,6 +329,39 @@ def _new_verdicts(session, tenant_id: int, since: datetime):
     return build_label_rows(latest, endpoints)
 
 
+def label_context(config: dict[str, Any], l6: dict[str, Any], tenant_id: int) -> dict[str, Path]:
+    """The scores and rings the tenant's verdicts were made on, plus that split's GFP and the
+    base seed's embeddings: the real `ringshield train` rebuilds features in this context.
+    Templates (l6.retrain.label_scores_template / label_rings_template) take {tenant_id},
+    {model_id} and {seed}; unset templates are left to the research CLI to report."""
+    retrain = l6["retrain"]
+    fields = {"tenant_id": int(tenant_id), "model_id": config.get("active_model_id"),
+              "seed": config.get("active_seed")}
+    context: dict[str, Path] = {}
+    for key, template_key in (("scores", "label_scores_template"), ("rings", "label_rings_template")):
+        template = retrain.get(template_key)
+        if template:
+            path = Path(str(template).format(**fields))
+            context[key] = path if path.is_absolute() else REPO_ROOT / path
+            if not context[key].is_file():
+                raise RetrainError(f"l6.retrain.{template_key} resolves to a missing file: {context[key]}")
+    if context:
+        for key in ("gfp", "embeddings"):
+            if config.get(key):
+                context[key] = configured_path(config, key)
+    return context
+
+
+def base_trained_at(base_dir: Path) -> datetime:
+    """When the shipped base model was trained: its model.json's write time. Verdicts are "new"
+    when made after this, so stamping the baseline row with the time the job first runs would
+    discard every verdict recorded before a tenant's first retrain."""
+    model_json = base_dir / "model.json"
+    if not model_json.is_file():
+        raise RetrainError(f"base model is missing model.json: {base_dir}")
+    return datetime.fromtimestamp(model_json.stat().st_mtime, tz=timezone.utc)
+
+
 def _ensure_baseline(*, tenant_id: int, component: str, base_dir: Path,
                      l6: dict[str, Any], paths: dict[str, Path], run_dir: Path,
                      cli, log_path: Path) -> ModelVersion:
@@ -340,7 +373,7 @@ def _ensure_baseline(*, tenant_id: int, component: str, base_dir: Path,
                       run_dir=run_dir, label=f"{component}-baseline")
     version_id = _insert_model_version(
         tenant_id=tenant_id, component=component, version_tag="base",
-        trained_at=datetime.now(timezone.utc), label_count=0, f1=score,
+        trained_at=base_trained_at(base_dir), label_count=0, f1=score,
         promoted=True, gate_reason="initial holdout baseline", artifact_path=base_dir,
     )
     _write_log(log_path, f"{component}: recorded initial base holdout baseline ({score:.4f})")
@@ -391,7 +424,10 @@ def _run_ring_refresh_process(*, tenant_id: int, model_version_id: int, run_id: 
     return rings_path.resolve()
 
 
-def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
+def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli,
+                    min_new_labels: int | None = None) -> None:
+    """One gated retrain. `min_new_labels` overrides l6.retrain.min_new_labels (R11 retrains once,
+    on however many verdicts day 8 produced)."""
     log_path = _run_log_path(run_id)
     relative_log_path = log_path.relative_to(REPO_ROOT)
     _write_log(log_path, f"tenant {tenant_id}: retrain run started")
@@ -432,7 +468,8 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
                     )
                 except TrainingEvaluationError as exc:
                     raise RetrainError(str(exc)) from exc
-                if len(labels) < int(l6["retrain"]["min_new_labels"]):
+                minimum = int(l6["retrain"]["min_new_labels"] if min_new_labels is None else min_new_labels)
+                if len(labels) < minimum:
                     _write_log(log_path, f"{component}: skipped; only {len(labels)} new ring labels")
                     continue
                 label_path = run_dir / f"{component}-labels.parquet"
@@ -443,7 +480,8 @@ def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli) -> None:
                 pq.write_table(label_table, label_path, compression="zstd")
                 output_model = run_dir / f"{component}-candidate"
                 train_result = cli.train(component=component, labels=label_path,
-                                          base_dir=base_dir, out_dir=output_model)
+                                          base_dir=base_dir, out_dir=output_model,
+                                          context=label_context(config, l6, tenant_id))
                 trained_at = datetime.now(timezone.utc)
                 model_version = train_result.version.get("version", "unknown")
                 version_tag = f"v{model_version}-{run_id[:8]}"

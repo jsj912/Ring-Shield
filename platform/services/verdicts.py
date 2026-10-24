@@ -62,6 +62,10 @@ def map_partial_correction_to_exclusions(
     return sorted(set(members) - set(kept_members)), excluded_edges
 
 
+# Verdicts are verbs; ring statuses are the states ck_rings_status allows.
+RING_STATUS_FOR_VERDICT = {"confirm": "confirmed", "reject": "rejected", "partial": "partial"}
+
+
 def record_verdict(session, *, ring: Ring, tenant_id: int, ring_id: str, user_id: int,
                    verdict: str, corrected_members: Sequence[int] = (),
                    corrected_edges: Sequence[int] = (), note: str | None = None,
@@ -81,7 +85,7 @@ def record_verdict(session, *, ring: Ring, tenant_id: int, ring_id: str, user_id
         note=note,
         is_simulated=is_simulated,
     )
-    ring.status = verdict
+    ring.status = RING_STATUS_FOR_VERDICT[verdict]
     session.add(row)
     session.flush()
     add_audit_event(session,

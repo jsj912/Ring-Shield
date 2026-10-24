@@ -207,11 +207,11 @@ def test_shared_verdict_service_marks_simulated_row_and_updates_ring():
     verdict = record_verdict(session, ring=ring, tenant_id=21, ring_id="same-key",
                              user_id=77, verdict="confirm", is_simulated=True)
 
-    assert ring.status == "confirm"
+    assert ring.status == "confirmed"
     assert verdict.is_simulated is True
     assert len(session.rows) == 1
     audit_params = session.statements[0].compile(dialect=postgresql.dialect()).params
     assert audit_params["action"] == "verdict.recorded"
     assert audit_params["details"] == {
-        "verdict": "confirm", "is_simulated": True, "status": "confirm"
+        "verdict": "confirm", "is_simulated": True, "status": "confirmed"
     }

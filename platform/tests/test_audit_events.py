@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import ast
+import re
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -14,7 +15,7 @@ PLATFORM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLATFORM_ROOT))
 
 from audit import _audit_insert_statement, add_audit_event  # noqa: E402
-from services.verdicts import record_verdict  # noqa: E402
+from services.verdicts import RING_STATUS_FOR_VERDICT, record_verdict  # noqa: E402
 
 
 class CaptureSession:
@@ -89,11 +90,11 @@ def test_verdict_audit_covers_resulting_ring_status_and_simulation_flag():
 
     audit_params = session.statements[0].compile(dialect=postgresql.dialect()).params
     assert verdict.is_simulated is True
-    assert ring.status == "confirm"
+    assert ring.status == "confirmed"
     assert audit_params["action"] == "verdict.recorded"
     assert audit_params["actor"] == "simulator"
     assert audit_params["details"] == {
-        "verdict": "confirm", "is_simulated": True, "status": "confirm"
+        "verdict": "confirm", "is_simulated": True, "status": "confirmed"
     }
 
 
@@ -184,3 +185,12 @@ def test_admin_user_creation_sets_tenant_context_for_user_and_audit(monkeypatch)
     assert audit_params["details"] == {"role": "analyst"}
     assert "analyst@example.test" not in str(audit_params["details"])
     assert "password" not in str(audit_params["details"]).lower()
+
+
+def test_every_verdict_maps_to_a_ring_status_the_database_allows():
+    from db.models import Ring
+
+    constraint = next(c for c in Ring.__table__.constraints if c.name == "ck_rings_status")
+    allowed = set(re.findall(r"'(\w+)'", str(constraint.sqltext)))
+    assert set(RING_STATUS_FOR_VERDICT) == {"confirm", "reject", "partial"}
+    assert set(RING_STATUS_FOR_VERDICT.values()) <= allowed

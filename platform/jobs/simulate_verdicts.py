@@ -93,7 +93,13 @@ def _cycle_bounds(cycle_day: int, cycle_days: int) -> tuple[int, int]:
 
 def validate_review_interval(cycle_day: int, cycle_days: int, truth_window: str) -> tuple[int, int]:
     """Validate exact queried timestamps against configured test days and truth window."""
-    start, end = _cycle_bounds(cycle_day, cycle_days)
+    return validate_interval(*_cycle_bounds(cycle_day, cycle_days), truth_window)
+
+
+def validate_interval(start: int, end: int, truth_window: str) -> tuple[int, int]:
+    """Validate a [start, end) review interval in loader seconds (R11 uses 4-hour cycles)."""
+    if end <= start:
+        raise ValueError("review interval end must be after its start")
     test_start = DAY_ZERO_TIMESTAMP + FIRST_TEST_DAY * SECONDS_PER_DAY
     test_end = DAY_ZERO_TIMESTAMP + (LAST_TEST_DAY + 1) * SECONDS_PER_DAY
     if start < test_start or end > test_end:
@@ -110,10 +116,16 @@ def simulate_cycle(*, tenant_id: int, cycle_day: int, actor: Principal,
                    truth_path: Path, seed: int, accuracy: float, review_fraction: float,
                    match_jaccard: float, full_confirm_jaccard: float,
                    cycle_days: int = 1, truth_window: str = "whole",
-                   ring_ids: set[str] | None = None) -> dict[str, int]:
+                   ring_ids: set[str] | None = None,
+                   interval: tuple[int, int] | None = None) -> dict[str, int]:
+    """Review the open tenant rings starting in one cycle. `interval` ([start, end) in loader
+    seconds) replaces the whole-day cycle given by cycle_day / cycle_days."""
     if actor.role == "admin" or actor.tenant_id != tenant_id:
         raise PermissionError("simulation requires a non-admin actor for the requested tenant")
-    start, end = validate_review_interval(cycle_day, cycle_days, truth_window)
+    if interval is not None:
+        start, end = validate_interval(int(interval[0]), int(interval[1]), truth_window)
+    else:
+        start, end = validate_review_interval(cycle_day, cycle_days, truth_window)
     if seed < 0:
         raise ValueError("seed must be non-negative")
     review_limit(0, review_fraction)
@@ -123,7 +135,8 @@ def simulate_cycle(*, tenant_id: int, cycle_day: int, actor: Principal,
         raise ValueError("Jaccard thresholds must be in [0, 1]")
     truth_rings = load_window_truth(truth_path, window_name=truth_window,
                                     scope="test_visible")
-    rng = deterministic_rng(tenant_id, cycle_day, seed)
+    # Sub-day cycles share a cycle_day, so they are keyed by their start instead.
+    rng = deterministic_rng(tenant_id, cycle_day if interval is None else start, seed)
     with simulator_db_session(tenant_id=tenant_id) as session:
         analyst = session.execute(select(User.user_id).where(
             User.tenant_id == tenant_id,

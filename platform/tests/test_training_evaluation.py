@@ -45,6 +45,18 @@ def test_version_json_exposes_training_ring_ids_from_contract_field():
     assert training_ring_ids_from_version({"retrained": False}) == set()
 
 
+def test_version_json_accepts_the_research_trainers_ring_records():
+    """`ringshield train` writes training_labels.rings as records, not strings (R11 run, 2026-10-24)."""
+    version = {"retrained": True, "training_labels": {"n_rings": 2, "rings": [
+        {"ring_id": "full-gine_causal-1-0", "verdict": "reject", "n_member_edges": 4, "group_id": 1000000000},
+        {"ring_id": "full-gine_causal-1-5", "verdict": "confirm", "n_member_edges": 5, "group_id": 1000000003},
+    ]}}
+    assert training_ring_ids_from_version(version) == {"full-gine_causal-1-0", "full-gine_causal-1-5"}
+    with pytest.raises(TrainingEvaluationError, match="without a ring_id"):
+        training_ring_ids_from_version({"retrained": True, "training_labels": {"rings": [
+            {"ring_id": "a"}, {"verdict": "confirm"}]}})
+
+
 def test_retrained_version_without_ring_provenance_is_rejected():
     with pytest.raises(TrainingEvaluationError, match="training_labels.rings"):
         training_ring_ids_from_version({"retrained": True, "labels": "labels.parquet"})

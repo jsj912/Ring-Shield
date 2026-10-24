@@ -39,6 +39,10 @@ l6:
     eval_window: val
     eval_scope: test_visible
     base_model_dir: models/artifacts/full_gine_causal_seed1
+    # The scores and rings the tenant's verdicts were made on: real retraining rebuilds features
+    # in that context ({tenant_id}, {model_id}, {seed}). These are R11's bank-visible inputs (docs/R11.md).
+    label_scores_template: data/tenant_visible/scored_edges_visible_{tenant_id}_{model_id}_{seed}.parquet
+    label_rings_template: data/platform_tenant_runs/r11_visible_seed1/T{tenant_id}/tenant_{tenant_id}_rings.parquet
   drift:
     delta: 0.002
 

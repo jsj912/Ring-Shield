@@ -86,12 +86,18 @@ def run_rings(*, scores: Path, model_dir: Path, aggregator: str = "full",
     return RingRunResult(rings_path=out, run_log=log, ring_count=log["n_rings"])
 
 
-def train(*, component: str, labels: Path, base_dir: Path, out_dir: Path) -> TrainResult:
+def train(*, component: str, labels: Path, base_dir: Path, out_dir: Path,
+          context: dict[str, Path] | None = None) -> TrainResult:
+    """`context` = the labels' operating context the real trainer needs when labels exist:
+    scores, rings, gfp, embeddings (see python -m ringshield train --help)."""
     if component not in {"expansion", "affinity", "typing"}:
         raise ValueError("component must be expansion, affinity, or typing")
-    _run([sys.executable, "-m", "ringshield", "train", "--component", component,
-          "--labels", str(labels), "--base-model-dir", str(base_dir), "--out-model-dir", str(out_dir)],
-         operation="train")
+    command = [sys.executable, "-m", "ringshield", "train", "--component", component,
+               "--labels", str(labels), "--base-model-dir", str(base_dir), "--out-model-dir", str(out_dir)]
+    for key in ("scores", "rings", "gfp", "embeddings"):
+        if context and context.get(key) is not None:
+            command += [f"--{key}", str(context[key])]
+    _run(command, operation="train")
     version = _read_json(Path(out_dir) / "version.json", description="train version")
     retrained = version.get("retrained")
     if not isinstance(retrained, bool):

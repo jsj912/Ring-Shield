@@ -534,7 +534,8 @@ finally:
         if ($null -ne $expected -and $edgeByTenant[[string]$tenantId] -ne $expected) {
             throw "Tenant $tenantId edge-ID file has $($edgeByTenant[[string]$tenantId]) rows; expected $expected."
         }
-        if ($ringByTenant[[string]$tenantId] -ne 5) {
+        # The 5-ring count is documented for the 12/20 demo files only; other banks load their own.
+        if ($null -ne $expected -and $ringByTenant[[string]$tenantId] -ne 5) {
             throw "Tenant $tenantId ring parquet has $($ringByTenant[[string]$tenantId]) rows; expected 5."
         }
     }
@@ -685,7 +686,7 @@ try {
         -InputExplanationCounts $explanationCounts
     foreach ($tenantId in $Tenants) {
         $expected = $expectedEdges[[string]$tenantId]
-        Write-Host ("Tenant {0}: visible edge IDs {1}{2}; rings {3}/5; explanation rows loaded {4}." -f `
+        Write-Host ("Tenant {0}: visible edge IDs {1}{2}; rings {3}; explanation rows loaded {4}." -f `
             $tenantId, $edgeCounts[$tenantId], $(if ($null -ne $expected) { " (expected $expected)" } else { '' }),
             $ringCounts[$tenantId], $explanationCounts[$tenantId])
     }

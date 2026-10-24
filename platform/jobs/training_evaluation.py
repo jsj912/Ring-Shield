@@ -31,7 +31,14 @@ def training_ring_ids_from_version(version: dict[str, Any]) -> set[str]:
         raise TrainingEvaluationError(
             "retrained version.json must declare training_labels.rings"
         )
-    return _ring_ids(training["rings"], field="training_labels.rings")
+    rings = training["rings"]
+    # `ringshield train` records each training ring as {"ring_id": ..., "verdict": ..., ...};
+    # plain ring-ID strings are accepted too.
+    if isinstance(rings, list) and any(isinstance(value, dict) for value in rings):
+        if not all(isinstance(value, dict) and value.get("ring_id") is not None for value in rings):
+            raise TrainingEvaluationError("training_labels.rings contains an entry without a ring_id")
+        rings = [value["ring_id"] for value in rings]
+    return _ring_ids(rings, field="training_labels.rings")
 
 
 def training_ring_ids_from_path(version_path: Path) -> set[str]:
