@@ -20,6 +20,9 @@ function Invoke-Checked {
 
 try {
     Invoke-Checked $python @('-m', 'pip', 'install', '-r', 'requirements-dev.txt')
+    # Build the runner image first: building it inside the first `compose run` recreated
+    # postgres-test after the host migrations had run, so the migrated roles disappeared.
+    Invoke-Checked 'docker' @('compose', '-f', $composeFile, 'build', 'test-runner')
     Invoke-Checked 'docker' @('compose', '-f', $composeFile, 'up', '-d', 'postgres-test')
     $deadline = [DateTime]::UtcNow.AddSeconds($PostgresTimeoutSeconds)
     $ready = $false
