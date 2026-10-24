@@ -8,6 +8,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
   server: { port: 5173, strictPort: true },
+  // Plotly's basic bundle is one lazily loaded ~1.1 MB chunk; everything else stays under 600 kB.
+  build: { chunkSizeWarningLimit: 1200 },
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],

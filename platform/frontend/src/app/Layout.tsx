@@ -27,7 +27,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const signOut = useSignOut();
   const navigate = useNavigate();
   return (
-    <div className="bg-sidebar text-sidebar-foreground flex h-full w-60 flex-col">
+    <div className="bg-sidebar text-sidebar-foreground flex h-full w-52 flex-col 2xl:w-60">
       <div className="border-sidebar-border flex h-14 items-center gap-2 border-b px-4">
         <div className="bg-primary/20 text-primary rounded-md p-1.5">
           <Shield className="size-4" />
@@ -152,7 +152,7 @@ export function Layout() {
           </div>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1920px] space-y-4 p-4 lg:p-6">
+          <div className="mx-auto max-w-[1920px] space-y-4 p-3 2xl:p-6">
             <Outlet />
           </div>
         </main>
