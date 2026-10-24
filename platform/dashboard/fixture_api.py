@@ -27,6 +27,8 @@ class FixtureAPI:
             ring = json.loads(path.read_text(encoding="utf-8"))
             self.rings[(ring["tenant_id"], ring["summary"]["ring_id"])] = ring
         self.request_count = 0
+        self.jobs: dict[str, dict] = {}          # regeneration jobs started by partial verdicts
+        self.verdict_posts = 0
 
     def _load(self, name: str, default=None):
         path = self.root / name
@@ -74,6 +76,11 @@ class FixtureAPI:
             tenant_id, rest = int(tenant_match.group(1)), tenant_match.group(2) or ""
             if method == "GET" and rest == "/rings":
                 return self._ring_page(tenant_id, _param_dict(params))
+            if method == "POST":
+                return self._post(tenant_id, rest, user, body or {})
+            job_match = re.match(r"^/rings/([^/]+)/explanation/jobs/([^/]+)$", rest)
+            if method == "GET" and job_match:
+                return self._job(tenant_id, job_match.group(1), job_match.group(2))
             ring_match = re.match(r"^/rings/([^/]+)(/subgraph|/evidence|/explanation|/verdicts)?$", rest)
             if method == "GET" and ring_match:
                 ring = self.rings.get((tenant_id, ring_match.group(1)))
@@ -115,6 +122,83 @@ class FixtureAPI:
         next_cursor = str(offset + limit) if offset + limit < len(rows) else None
         return self._response(200, {"items": page, "next_cursor": next_cursor, "total": len(rows),
                                      "tenant_total": len(tenant_rings)})
+
+    def _post(self, tenant_id: int, rest: str, user: dict, body: dict) -> httpx.Response:
+        """POST verdicts and regenerate, as platform/api/routers/verdicts.py answers them."""
+        match = re.match(r"^/rings/([^/]+)/(verdicts|explanation/regenerate)$", rest)
+        ring = self.rings.get((tenant_id, match.group(1))) if match else None
+        if ring is None:
+            return self._error(404, "NotFound", "Ring not found")
+        if user["role"] not in {"analyst", "supervisor"}:
+            return self._error(403, "Forbidden", "Not permitted")
+        if match.group(2) == "explanation/regenerate":
+            verdict = next((v for v in ring["verdicts"] if v["verdict_id"] == body.get("verdict_id")), None)
+            if verdict is None or verdict["verdict"] != "partial":
+                return self._error(422, "Invalid", "A partial verdict is required")
+            job = self._start_job(tenant_id, ring, verdict)
+            return self._response(202, {k: job[k] for k in ("job_id", "status", "result_revision",
+                                                             "error", "created_at", "finished_at")})
+        self.verdict_posts += 1
+        kind = body.get("verdict")
+        if kind not in {"confirm", "reject", "partial"}:
+            return self._error(422, "Invalid", "verdict must be confirm, reject or partial")
+        if kind == "partial" and not (body.get("note") or "").strip():
+            return self._error(422, "Invalid", "A note is required for a partial verdict")
+        if kind == "partial" and not body.get("corrected_members"):
+            return self._error(422, "Invalid", "At least one corrected member must remain")
+        if ring["summary"]["status"] != "open":
+            return self._error(409, "Conflict", "This ring already has a verdict")
+        verdict = {
+            "verdict_id": 900000 + self.verdict_posts, "ring_id": ring["summary"]["ring_id"],
+            "user_id": user["user_id"], "user_name": user["email"], "verdict": kind,
+            "corrected_members": body.get("corrected_members") or [],
+            "corrected_edges": body.get("corrected_edges") or [],
+            "note": body.get("note"), "is_simulated": False, "created_at": "2022-09-10T12:00:00Z",
+        }
+        ring["verdicts"].insert(0, verdict)
+        status = {"confirm": "confirmed", "reject": "rejected", "partial": "partial"}[kind]
+        ring["summary"]["status"] = ring["detail"]["status"] = status
+        regeneration = None
+        if kind == "partial":
+            regeneration = {"status": "queued", "job_id": self._start_job(tenant_id, ring, verdict)["job_id"]}
+        return self._response(201, {**verdict, "regeneration": regeneration})
+
+    def _start_job(self, tenant_id: int, ring: dict, verdict: dict) -> dict:
+        job = {"job_id": f"fixture-job-{len(self.jobs) + 1}", "status": "queued", "result_revision": None,
+               "error": None, "created_at": "2022-09-10T12:00:00Z", "finished_at": None,
+               "tenant_id": tenant_id, "ring_id": ring["summary"]["ring_id"], "verdict": verdict}
+        self.jobs[job["job_id"]] = job
+        return job
+
+    def _job(self, tenant_id: int, ring_id: str, job_id: str) -> httpx.Response:
+        """The first poll finds the job finished: the explanation and subgraph are regenerated
+        over the corrected members, as the L4 worker writes a new revision."""
+        job = self.jobs.get(job_id)
+        if job is None or (job["tenant_id"], job["ring_id"]) != (tenant_id, ring_id):
+            return self._error(404, "NotFound", "Job not found")
+        if job["status"] == "queued":
+            self._regenerate(self.rings[(tenant_id, ring_id)], job["verdict"])
+            job.update(status="succeeded", finished_at="2022-09-10T12:00:05Z",
+                       result_revision=self.rings[(tenant_id, ring_id)]["explanation"]["revision"])
+        return self._response(200, {k: job[k] for k in ("job_id", "status", "result_revision",
+                                                         "error", "created_at", "finished_at")})
+
+    @staticmethod
+    def _regenerate(ring: dict, verdict: dict) -> None:
+        members = set(verdict["corrected_members"])
+        edges = set(verdict["corrected_edges"])
+        explanation = ring["explanation"]
+        explanation.update(
+            revision=explanation["revision"] + 1, regenerated=True,
+            narrative=f"Regenerated after the analyst's correction. {explanation['narrative']}",
+            account_weights=[a for a in explanation["account_weights"] if a["account_id"] in members],
+            edge_weights=[e for e in explanation["edge_weights"] if e["edge_id"] in edges])
+        subgraph = ring.get("subgraph")
+        if subgraph:
+            subgraph["nodes"] = [n for n in subgraph["nodes"] if n["account_id"] in members]
+            subgraph["edges"] = [e for e in subgraph["edges"] if e["edge_id"] in edges
+                                 and e["from_id"] in members and e["to_id"] in members]
+            subgraph["n_accounts"] = len(subgraph["nodes"])
 
     def _login(self, body: dict) -> httpx.Response:
         user = next((u for u in self.users if u["email"] == body.get("email")

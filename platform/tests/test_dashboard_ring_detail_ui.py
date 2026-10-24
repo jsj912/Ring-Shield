@@ -129,18 +129,16 @@ def test_simulated_verdict_is_tagged_in_history(monkeypatch, tmp_path):
         "verdict": "confirm", "note": None, "is_simulated": True,
     }], tmp_path).run()
 
-    history_table = app.dataframe[-1].value
-    assert "Simulated" in history_table.columns
-    assert bool(history_table.iloc[0]["Simulated"])
+    history_table = next(f.value for f in app.dataframe if "Investigator" in f.value.columns)
+    assert history_table.iloc[0]["Verdict"] == "confirm · Simulated"   # FR-D54 tag
 
 
-def test_admin_sees_read_only_verdict_warning_without_form(monkeypatch, tmp_path):
+def test_admin_sees_the_verdict_form_disabled(monkeypatch, tmp_path):
     app = _detail_app(monkeypatch, "admin", [], tmp_path).run()
 
     assert "Administrators cannot record verdicts." in [item.value for item in app.warning]
-    assert "Record a verdict" not in [item.value for item in app.subheader]
-    assert all(button.label not in {"Confirm ring", "Reject ring", "Partially correct"}
-               for button in app.button)
+    buttons = [b for b in app.button if b.label in {"Confirm ring", "Reject ring", "Partially correct"}]
+    assert len(buttons) == 3 and all(button.disabled for button in buttons)    # FR-D55
     assert all(not box.label.startswith(("Keep account ", "Keep transaction "))
                for box in app.checkbox)
 

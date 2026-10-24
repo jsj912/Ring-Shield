@@ -433,37 +433,53 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
         _graph_panel(tenant_id, ring_id)
     with evidence_col:
         _evidence_panel(tenant_id, ring_id, ring, explanation)
-    st.subheader("Verdict history")
-    history = _api("GET", f"/tenants/{tenant_id}/rings/{ring_id}/verdicts",
-                   params={"limit": "25"})
-    if history is not None:
-        if not history["items"]:
-            st.caption("No verdicts have been recorded for this ring.")
-        else:
-            st.dataframe(
-                [{"When (UTC)": item["created_at"], "Investigator": item["user_name"],
-                  "Verdict": item["verdict"], "Note": item["note"] or "",
-                  "Simulated": item["is_simulated"]} for item in history["items"]],
-                use_container_width=True, hide_index=True,
-            )
-            if history.get("next_before_id"):
-                st.caption("More history is available through the API using next_before_id.")
+    _ring_verdicts(tenant_id, ring_id, history)
+    _verdict_form(tenant_id, ring_id, ring)
 
-    if st.session_state["role"] not in {"analyst", "supervisor"}:
-        if st.session_state["role"] == "admin":
-            st.warning("Administrators cannot record verdicts.")
-        else:
-            st.warning("Read-only: your role cannot record verdicts.")
+
+def _verdict_label(item: dict) -> str:
+    """FR-D54: a simulated verdict carries a 'Simulated' tag wherever it is shown."""
+    return f"{item['verdict']} · Simulated" if item["is_simulated"] else item["verdict"]
+
+
+def _ring_verdicts(tenant_id: int, ring_id: str, history: dict | None) -> None:
+    st.subheader("Verdicts on this ring")
+    if history is None:
         return
+    if not history["items"]:
+        st.caption("No verdicts have been recorded for this ring.")
+        return
+    zone = st.context.timezone
+    st.dataframe(                                                  # notes are cells of text (NFR-D13)
+        [{"When": fmt_time(item["created_at"], zone), "Investigator": item["user_name"],
+          "Verdict": _verdict_label(item), "Note": item["note"] or ""} for item in history["items"]],
+        use_container_width=True, hide_index=True, key=f"ring_verdicts_{tenant_id}_{ring_id}")
+    if history.get("next_before_id"):
+        st.caption("Older verdicts are listed on the Verdict history page.")
+
+
+def _verdict_form(tenant_id: int, ring_id: str, ring: dict) -> None:
+    """FR-D50-55: confirm, reject or partially correct; one request per click (FR-D53)."""
     st.subheader("Record a verdict")
+    role = st.session_state["role"]
+    if role not in {"analyst", "supervisor"}:
+        st.warning("Administrators cannot record verdicts." if role == "admin"
+                   else "Read-only: your role cannot record verdicts.")
+        st.text_input("Note", disabled=True, key=f"note_disabled_{tenant_id}_{ring_id}")
+        left, right, partial = st.columns(3)
+        left.button("Confirm ring", disabled=True, key=f"detail_confirm_{tenant_id}_{ring_id}")
+        right.button("Reject ring", disabled=True, key=f"detail_reject_{tenant_id}_{ring_id}")
+        partial.button("Partially correct", disabled=True, key=f"detail_partial_{tenant_id}_{ring_id}")
+        return
     if ring["status"] != "open":
         st.info("This ring is no longer open for verdicts.")
         return
     submitted_key = f"verdict_submitted_{tenant_id}_{ring_id}"
     disabled = bool(st.session_state.get("verdict_in_flight")) or st.session_state.get(submitted_key, False)
+    failed_key = f"verdict_failed_{tenant_id}_{ring_id}"
     partial_key = f"partial_form_open_{tenant_id}_{ring_id}"
     if st.session_state.get(partial_key):
-        st.subheader("Partially correct")
+        st.markdown("**Partially correct:** untick the accounts and transactions that are not part of the ring.")
         with st.form(f"partial_correction_{tenant_id}_{ring_id}"):
             keep_members = {
                 account_id: st.checkbox(
@@ -505,27 +521,30 @@ def _ring_detail(tenant_id: int, ring_id: str) -> None:
                 )
                 if result:
                     st.session_state.pop(partial_key, None)
+                    st.session_state.pop(failed_key, None)
                     st.success("Verdict recorded")
                     st.rerun()
+                st.session_state[failed_key] = True
     else:
         note = st.text_input(
             "Note (optional for confirm or reject)", key=f"note_{tenant_id}_{ring_id}"
         )
         left, right, partial = st.columns(3)
-        if left.button("Confirm ring", type="primary", key=f"detail_confirm_{tenant_id}_{ring_id}", disabled=disabled):
-            result = _record_verdict(tenant_id, ring_id, "confirm", note)
-            if result:
-                st.success("Verdict recorded")
-                st.rerun()
-        if right.button("Reject ring", key=f"detail_reject_{tenant_id}_{ring_id}", disabled=disabled):
-            result = _record_verdict(tenant_id, ring_id, "reject", note)
-            if result:
-                st.success("Verdict recorded")
-                st.rerun()
+        for column, label, kind, primary in ((left, "Confirm ring", "confirm", True),
+                                             (right, "Reject ring", "reject", False)):
+            if column.button(label, type="primary" if primary else "secondary", disabled=disabled,
+                             key=f"detail_{kind}_{tenant_id}_{ring_id}"):
+                if _record_verdict(tenant_id, ring_id, kind, note or None):
+                    st.session_state.pop(failed_key, None)
+                    st.success("Verdict recorded")
+                    st.rerun()
+                st.session_state[failed_key] = True
         if partial.button("Partially correct", key=f"detail_partial_{tenant_id}_{ring_id}",
-                         disabled=disabled):
+                          disabled=disabled):
             st.session_state[partial_key] = True
             st.rerun()
+    if st.session_state.get(failed_key):
+        st.caption("The verdict was not recorded. Your entries are kept: submit again to retry.")
 
 
 def _record_verdict(tenant_id: int, ring_id: str, verdict: str, note: str | None = None,
