@@ -20,8 +20,9 @@ load_dotenv(REPO_ROOT / ".env")
 sys.path.insert(0, str(REPO_ROOT))
 from contract.schema import TOPOLOGY_TYPES  # noqa: E402
 from regeneration_flow import deadline_expired, new_poll_deadline  # noqa: E402
+import client  # noqa: E402
 
-API_BASE = os.environ.get("RINGSHIELD_API_URL", "http://127.0.0.1:8000").rstrip("/")
+API_BASE = client.API_BASE
 _API_CALL_COUNTER = itertools.count()
 
 
@@ -36,13 +37,10 @@ def _api(method: str, path: str, *, body: dict | None = None, params=None,
          quiet_not_found: bool = False):
     call_number = next(_API_CALL_COUNTER)
     retry_key = f"retry_{call_number}_{method}_{path}"
-    headers = {}
-    if st.session_state.get("token"):
-        headers["Authorization"] = f"Bearer {st.session_state['token']}"
     try:
         with st.spinner("Loading..."):
-            response = httpx.request(method, f"{API_BASE}{path}", headers=headers,
-                                     json=body, params=params, timeout=20.0)
+            response = client.send(method, path, token=st.session_state.get("token"),
+                                   body=body, params=params)
     except httpx.HTTPError as exc:
         st.error(f"RingShield API is unavailable: {exc}")
         if st.button("Retry", key=retry_key):
@@ -881,6 +879,26 @@ def _admin_page(tenant_records: list[dict]) -> None:
     _poll_admin_r10()
 
 
+# Page slugs (Section 3: /rings, /verdicts, /models, /drift, /admin) and their sidebar labels.
+PAGE_LABELS = {"rings": "Ring queue", "verdicts": "Verdict history", "models": "Models",
+               "drift": "Drift", "admin": "Admin"}
+PAGE_ROLES = {"rings": {"analyst", "supervisor", "admin"},
+              "verdicts": {"analyst", "supervisor", "admin"},
+              "models": {"analyst", "supervisor", "admin"},     # analyst: read-only
+              "drift": {"supervisor", "admin"},
+              "admin": {"admin"}}
+
+
+def pages_for(role: str) -> list[str]:
+    return [slug for slug in PAGE_LABELS if role in PAGE_ROLES[slug]]
+
+
+def _requested_page() -> str | None:
+    """The page named in the URL (?page=drift), if any; unknown names are ignored."""
+    value = st.query_params.get("page")
+    return value if value in PAGE_LABELS else None
+
+
 def _clear_session_state() -> None:
     for key in list(st.session_state.keys()):
         if not key.startswith("$$"):
@@ -892,20 +910,20 @@ def main() -> None:
     st.set_page_config(page_title="RingShield Investigator", layout="wide")
     _API_CALL_COUNTER = itertools.count()
     if st.session_state.pop("navigate_to_ring_detail", False):
-        st.session_state["workspace_page"] = "Investigations"
+        st.session_state["workspace_page"] = PAGE_LABELS["rings"]
     if not st.session_state.get("token"):
         _login()
         return
     st.sidebar.title(st.session_state.get("tenant_name", "RingShield"))
     st.sidebar.caption(f"Role: {st.session_state['role']}")
     st.sidebar.caption(f"Time origin: {os.environ.get('RINGSHIELD_TIME_ORIGIN_UTC', 'not configured')}")
-    if st.sidebar.button("Sign out"):
-        _clear_session_state()
-        _login()
-        return
+    if client.fixture_dir() is not None:
+        st.sidebar.caption("Fixture mode: no API")
     role = st.session_state["role"]
-    if role != "admin" and st.session_state.get("workspace_page") == "Admin":
-        st.warning("Not permitted: administrators only.")
+    requested = _requested_page()
+    if requested is not None and requested not in pages_for(role):
+        # reached by URL; never shown in navigation for this role (FR-D05)
+        st.warning("Not permitted")
         return
     tenant_records = _api("GET", "/admin/tenants") if role == "admin" else None
     if role == "admin" and tenant_records is None:
@@ -913,24 +931,38 @@ def main() -> None:
     tenant_id, tenant_name = _active_tenant(tenant_records)
     if tenant_name is not None:
         st.sidebar.caption(f"Viewing: {tenant_name}")
-    pages = ["Investigations", "Verdicts", "Model registry", "Score drift"]
-    if role == "admin":
-        pages.append("Admin")
-    page = st.sidebar.radio("Workspace", pages, key="workspace_page")
-    if role == "admin" and page == "Admin":
+    labels = [PAGE_LABELS[slug] for slug in pages_for(role)]
+    # A page typed into the URL is applied once; after that the sidebar drives the URL.
+    if requested is not None and requested != st.session_state.get("_url_page"):
+        st.session_state["workspace_page"] = PAGE_LABELS[requested]
+    if st.session_state.get("workspace_page") not in labels:
+        st.session_state.pop("workspace_page", None)
+    label = st.sidebar.radio("Workspace", labels, key="workspace_page")
+    page = next(slug for slug, text in PAGE_LABELS.items() if text == label)
+    st.session_state["_url_page"] = page
+    st.query_params["page"] = page
+    # Sign out sits at the bottom of the sidebar (Section 3) and clears token, data and URL (FR-D04).
+    if st.sidebar.button("Sign out"):
+        _clear_session_state()
+        st.query_params.clear()
+        st.rerun()
+    if page == "admin":
         _admin_page(tenant_records)
         return
     if tenant_id is None:
         return
-    if role == "admin" and page in {"Investigations", "Verdicts"}:
+    if role == "admin" and page in {"rings", "verdicts"}:
         st.info("Read-only (administrator)")
-    if page == "Model registry":
+    if page == "models":
         _model_versions(tenant_id)
-    elif page == "Score drift":
+    elif page == "drift":
         _drift_events(tenant_id)
-    elif page == "Verdicts":
+    elif page == "verdicts":
         _verdicts(tenant_id)
     else:
+        ring_param = st.query_params.get("ring")
+        if ring_param and not isinstance(st.session_state.get("open_ring"), dict):
+            st.session_state["open_ring"] = {"tenant_id": tenant_id, "ring_id": ring_param}
         open_ring = st.session_state.get("open_ring")
         if isinstance(open_ring, dict) and open_ring.get("tenant_id") == tenant_id:
             _ring_detail(tenant_id, open_ring["ring_id"])

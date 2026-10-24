@@ -64,7 +64,7 @@ def _app(monkeypatch, calls):
 def test_verdict_page_filters_counts_and_cursor_pagination(monkeypatch):
     calls = []
     app = _app(monkeypatch, calls).run(timeout=10)
-    next(radio for radio in app.radio if radio.label == "Workspace").set_value("Verdicts").run(timeout=10)
+    next(radio for radio in app.radio if radio.label == "Workspace").set_value("Verdict history").run(timeout=10)
     assert "1 verdicts match these filters" in [caption.value for caption in app.caption]
     assert app.dataframe[0].value.iloc[0]["Analyst"] == "Analyst 17"
     assert app.metric[0].value == "1"
@@ -97,7 +97,7 @@ def test_verdict_csv_export_includes_filtered_rows(monkeypatch):
 
     monkeypatch.setattr(st, "download_button", capture_download)
     app = _app(monkeypatch, calls).run(timeout=10)
-    next(radio for radio in app.radio if radio.label == "Workspace").set_value("Verdicts").run(timeout=10)
+    next(radio for radio in app.radio if radio.label == "Workspace").set_value("Verdict history").run(timeout=10)
     next(button for button in app.button if button.label == "Prepare CSV export").click().run(timeout=10)
 
     assert any(button.label == "Download CSV" for button in app.get("download_button"))
@@ -139,7 +139,7 @@ def test_verdict_csv_export_escapes_formula_text_without_changing_header_or_othe
     app.session_state["tenant_name"] = "North Bank"
     app.session_state["role"] = "analyst"
     app.run(timeout=10)
-    next(radio for radio in app.radio if radio.label == "Workspace").set_value("Verdicts").run(timeout=10)
+    next(radio for radio in app.radio if radio.label == "Workspace").set_value("Verdict history").run(timeout=10)
     next(button for button in app.button if button.label == "Prepare CSV export").click().run(timeout=10)
 
     header, *exported = list(csv.reader(io.StringIO(exports[-1][1])))
@@ -201,7 +201,7 @@ def test_verdict_csv_export_requests_only_session_tenant_and_all_filtered_pages(
     app.session_state["tenant_name"] = "North Bank"
     app.session_state["role"] = "analyst"
     app.run(timeout=10)
-    next(radio for radio in app.radio if radio.label == "Workspace").set_value("Verdicts").run(timeout=10)
+    next(radio for radio in app.radio if radio.label == "Workspace").set_value("Verdict history").run(timeout=10)
     next(field for field in app.multiselect if field.label == "Verdict type").set_value(["reject"])
     next(button for button in app.button if button.label == "Apply verdict filters").click().run(timeout=10)
     next(button for button in app.button if button.label == "Prepare CSV export").click().run(timeout=10)

@@ -1,0 +1,10 @@
+[
+  {"user_id": 1, "email": "analyst@bank-a.fixture", "password": "fixture-only-a1", "tenant_id": 1001,
+   "tenant_name": "Fixture Bank A", "role": "analyst"},
+  {"user_id": 2, "email": "supervisor@bank-a.fixture", "password": "fixture-only-a2", "tenant_id": 1001,
+   "tenant_name": "Fixture Bank A", "role": "supervisor"},
+  {"user_id": 3, "email": "analyst@bank-b.fixture", "password": "fixture-only-b1", "tenant_id": 1002,
+   "tenant_name": "Fixture Bank B", "role": "analyst"},
+  {"user_id": 4, "email": "admin@platform.fixture", "password": "fixture-only-admin", "tenant_id": null,
+   "tenant_name": "Platform administration", "role": "admin"}
+]

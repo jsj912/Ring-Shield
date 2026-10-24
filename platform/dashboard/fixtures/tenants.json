@@ -1,0 +1,6 @@
+[
+  {"tenant_id": 1001, "bank_code": 1001, "name": "Fixture Bank A", "is_loaded": true,
+   "created_at": "2026-10-24T00:00:00Z", "ring_count": 11, "verdict_count": 3},
+  {"tenant_id": 1002, "bank_code": 1002, "name": "Fixture Bank B", "is_loaded": true,
+   "created_at": "2026-10-24T00:00:00Z", "ring_count": 1, "verdict_count": 0}
+]

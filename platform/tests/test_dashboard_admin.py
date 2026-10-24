@@ -64,9 +64,10 @@ def test_analyst_and_supervisor_cannot_navigate_to_admin(monkeypatch):
         app, calls = _signed_app(
             monkeypatch, lambda *_args: _response({}), role=role, page="Admin",
         )
+        app.query_params["page"] = "admin"     # reached by URL (FR-D05)
         app.run()
 
-        assert "Not permitted: administrators only." in [item.value for item in app.warning]
+        assert "Not permitted" in [item.value for item in app.warning]
         assert len(app.radio) == 0
         assert not calls
 
