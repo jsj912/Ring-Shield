@@ -88,8 +88,8 @@ export function DriftPage() {
               testId="drift-chart"
               height={360}
               data={[
-                { type: "scatter", mode: "lines", name: "Daily mean", x: series.data.items.map((p) => p.day), y: series.data.items.map((p) => p.mean) },
-                { type: "scatter", mode: "lines", name: "Daily 99th percentile", x: series.data.items.map((p) => p.day), y: series.data.items.map((p) => p.p99) },
+                { type: "scatter", mode: "lines+markers", name: "Daily mean", x: series.data.items.map((p) => p.day), y: series.data.items.map((p) => p.mean) },
+                { type: "scatter", mode: "lines+markers", name: "Daily 99th percentile", x: series.data.items.map((p) => p.day), y: series.data.items.map((p) => p.p99) },
                 ...markers("adwin_score_mean", "Mean drift detected", "diamond"),
                 ...markers("adwin_score_p99", "P99 drift detected", "diamond-open"),
               ]}
