@@ -12,19 +12,32 @@ export const MISSING = "—";
 
 type Num = number | null | undefined;
 
-const numberFormats = new Map<string, Intl.NumberFormat>();
+/**
+ * Python's f"{value:,.{digits}f}" (and "%" with shift 2), done on text so no arithmetic touches the
+ * value. Python rounds the float's exact binary value, half to even; Intl and toFixed do not quite
+ * (Intl rounds the shortest decimal text, so 0.2395 -> 0.240 where Python prints 0.239). toFixed
+ * with 25 spare digits gives the binary value's own expansion, which is then rounded here.
+ */
+export function pyFixed(value: number, digits: number, grouping: boolean, shift = 0): string {
+  if (!Number.isFinite(value)) return String(value);
+  const expansion = Math.abs(value).toFixed(Math.min(100, digits + shift + 25));
+  const [whole, fraction = ""] = expansion.split(".");
+  const integer = (whole + fraction.slice(0, shift)).replace(/^0+(?=\d)/, "");    // move the point (percent)
+  const decimals = fraction.slice(shift);
+  let kept = integer + decimals.slice(0, digits);
+  const rest = decimals.slice(digits);
+  const up = rest[0] > "5" || (rest[0] === "5" && (/[1-9]/.test(rest.slice(1)) || Number(kept.at(-1)) % 2 === 1));
+  if (up) kept = (BigInt(kept) + 1n).toString().padStart(kept.length, "0");
+  let head = kept.slice(0, kept.length - digits) || "0";
+  if (grouping) head = head.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const sign = value < 0 || Object.is(value, -0) ? "-" : "";
+  return digits ? `${sign}${head}.${kept.slice(kept.length - digits)}` : `${sign}${head}`;
+}
 
 function format(value: number, digits: number, grouping: boolean, style: "decimal" | "percent" = "decimal"): string {
-  const key = `${digits}|${grouping}|${style}`;
-  let formatter = numberFormats.get(key);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat("en-US", {
-      style, minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: grouping,
-      roundingMode: "halfEven",
-    } as Intl.NumberFormatOptions);
-    numberFormats.set(key, formatter);
-  }
-  return formatter.format(value);
+  // Python's "%" multiplies the float by 100 (rounding to a double) before formatting; doing the same
+  // here is formatting, as it is there, and keeps the last digit identical.
+  return style === "percent" ? `${pyFixed(value * 100, digits, grouping)}%` : pyFixed(value, digits, grouping);
 }
 
 export function fmtAmount(value: Num, currency?: string | null, partial?: boolean | null): string {
