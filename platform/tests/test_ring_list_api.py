@@ -128,3 +128,24 @@ def test_ring_search_rejects_cross_tenant_before_opening_session(monkeypatch):
         )
     assert exc_info.value.status_code == 403
     assert not opened
+
+
+def test_ring_sort_by_total_uses_the_explanation_total_it_displays(monkeypatch):
+    """The Total column shows the explanation's flow_total_ccy0; sorting must use the same value."""
+    fake = _FakeSession([])
+
+    @contextmanager
+    def fake_session(*, tenant_id, role):
+        yield fake
+
+    monkeypatch.setattr(rings, "db_session", fake_session)
+    rings.list_rings(
+        21, status_filter=["open"], min_conf=None, topology_type=[], q=None, sort="total_amount",
+        order="desc", cursor=None, limit=50,
+        principal=Principal(user_id=1, tenant_id=21, role="analyst", email="analyst@example.test"),
+    )
+    order_by = fake.row_query.split("ORDER BY")[-1]
+    sql = fake.row_query
+    assert "flow_total_ccy0" in sql
+    assert "explanations_1.tenant_id = rings.tenant_id" in sql
+    assert "payload ->> 'total_amount'" not in sql and "total_amount" not in order_by

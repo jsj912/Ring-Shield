@@ -14,7 +14,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import BigInteger, Float, and_, cast, func, or_, select
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from api.dependencies import get_principal, require_tenant_access
 from api.identity import Principal
@@ -268,6 +268,27 @@ def _explanation_totals(session, tenant_id: int, ring_ids: list[str]) -> dict[st
     return totals
 
 
+def _explanation_total_column():
+    """The displayed total (_explanation_totals) as a sort key: flow_total_ccy0 of the ring's latest
+    explanation, chosen as latest_explanation_statement chooses it."""
+    latest, version_row = aliased(Explanation), aliased(Explanation)
+    first_stored_at = (
+        select(func.min(version_row.created_at))
+        .where(version_row.tenant_id == latest.tenant_id, version_row.ring_id == latest.ring_id,
+               version_row.explainer_version == latest.explainer_version)
+        .correlate(latest)
+        .scalar_subquery()
+    )
+    return (
+        select(cast(latest.provenance["flow_total_ccy0"].as_string(), Float))
+        .where(latest.tenant_id == PlatformRing.tenant_id, latest.ring_id == PlatformRing.ring_id)
+        .order_by(first_stored_at.desc(), latest.revision.desc(), latest.created_at.desc())
+        .limit(1)
+        .correlate(PlatformRing)
+        .scalar_subquery()
+    )
+
+
 def _summary(row: PlatformRing, totals: dict | None = None) -> RingSummary:
     """`totals` = this ring's entry from _explanation_totals; without one the total is unknown."""
     payload = row.payload or {}
@@ -376,8 +397,7 @@ def list_rings(
     sort_column = {"confidence": PlatformRing.confidence,
                    "start_time": PlatformRing.start_time,
                    "members": func.cardinality(PlatformRing.member_accounts),
-                   "total_amount": func.coalesce(
-                       cast(PlatformRing.payload["total_amount"].as_string(), Float), 0.0)}[sort]
+                   "total_amount": func.coalesce(_explanation_total_column(), 0.0)}[sort]
     search = q.strip() if q and q.strip() else None
     filters = {"status": sorted(statuses), "min_conf": min_conf,
                "topology_type": sorted(topology_type or []), "start_min": start_min,
@@ -438,7 +458,7 @@ def list_rings(
         sort_value = (float(last.confidence) if sort == "confidence" else
                       int(last.start_time) if sort == "start_time" else
                       len(last.member_accounts) if sort == "members" else
-                      float((last.payload or {}).get("total_amount") or 0.0))
+                      float((totals.get(last.ring_id) or {}).get("total_amount") or 0.0))
         next_cursor = _encode_cursor(fingerprint, sort, sort_value, last.ring_id)
     return RingPage(items=[_summary(row, totals.get(row.ring_id)) for row in rows], next_cursor=next_cursor,
                     total=int(total), tenant_total=int(tenant_total))
