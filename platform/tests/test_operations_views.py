@@ -140,7 +140,7 @@ def test_drift_action_update_checks_tenant_and_uses_explicit_predicates(monkeypa
         detected_at=datetime(2026, 1, 3, tzinfo=timezone.utc),
         window_start=datetime(2026, 1, 2, tzinfo=timezone.utc),
         window_end=datetime(2026, 1, 3, tzinfo=timezone.utc),
-        statistic=0.4, threshold=0.002, acted_on=False,
+        statistic=0.4, threshold=0.002, acted_on=False, acted_on_note=None,
     )
 
     class UpdateSession(_FakeSession):
@@ -164,17 +164,18 @@ def test_drift_action_update_checks_tenant_and_uses_explicit_predicates(monkeypa
     session = UpdateSession([])
     _install_session(monkeypatch, session)
     result = operations.set_drift_acted_on(
-        21, 9, DriftActedOnUpdate(acted_on=True), principal=_principal(),
+        21, 9, DriftActedOnUpdate(acted_on=True, note="seen; seasonal"), principal=_principal(),
     )
     assert result.acted_on is True
+    assert result.acted_on_note == "seen; seasonal"
     audit_params = session.audit_statement.compile().params
     assert audit_params["action"] == "drift.acted_on"
-    assert audit_params["details"] == {"acted_on": True}
+    assert audit_params["details"] == {"acted_on": True}           # the note is not audit text
 
     session.queries.clear()
     with pytest.raises(HTTPException) as exc_info:
         operations.set_drift_acted_on(
-            21, 9, DriftActedOnUpdate(acted_on=False), principal=_principal(tenant_id=22),
+            21, 9, DriftActedOnUpdate(acted_on=False, note="reopened"), principal=_principal(tenant_id=22),
         )
     assert exc_info.value.status_code == 403
     assert session.queries == []
@@ -262,5 +263,12 @@ def test_admin_may_read_but_not_change_drift(monkeypatch):
     _install_session(monkeypatch, _FakeSession([]))
     admin = Principal(user_id=1, tenant_id=None, role="admin", email="admin@example.test")
     with pytest.raises(HTTPException) as exc_info:
-        operations.set_drift_acted_on(21, 9, DriftActedOnUpdate(acted_on=True), principal=admin)
+        operations.set_drift_acted_on(21, 9, DriftActedOnUpdate(acted_on=True, note="seen; seasonal"), principal=admin)
     assert exc_info.value.status_code == 403
+
+
+def test_drift_acted_on_note_is_optional_but_never_empty():
+    from pydantic import ValidationError
+    assert DriftActedOnUpdate(acted_on=True).note is None          # the frozen Streamlit dashboard
+    with pytest.raises(ValidationError):
+        DriftActedOnUpdate(acted_on=True, note="")

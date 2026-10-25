@@ -328,6 +328,7 @@ class DriftEventSummary(BaseModel):
     statistic: float
     threshold: float
     acted_on: bool
+    acted_on_note: str | None = None
 
 
 class DriftEventPage(BaseModel):
@@ -350,6 +351,9 @@ class DriftSeriesResponse(BaseModel):
 
 class DriftActedOnUpdate(BaseModel):
     acted_on: bool
+    # FR-D81: the React screen always sends a note; optional here so the frozen Streamlit
+    # dashboard, which sends acted_on alone, keeps working
+    note: str | None = Field(default=None, min_length=1, max_length=1000)
 
 
 class DriftCheckStarted(BaseModel):

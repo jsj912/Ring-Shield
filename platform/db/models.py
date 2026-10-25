@@ -298,6 +298,7 @@ class DriftEvent(Base):
     statistic: Mapped[float] = mapped_column(Float, nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     acted_on: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    acted_on_note: Mapped[str | None] = mapped_column(Text)
 
 
 class AuditLog(Base):

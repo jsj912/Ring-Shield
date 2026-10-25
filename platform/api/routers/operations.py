@@ -204,8 +204,9 @@ def set_drift_acted_on(
         session.execute(update(DriftEvent).where(
             DriftEvent.tenant_id == tenant_id,
             DriftEvent.event_id == event_id,
-        ).values(acted_on=payload.acted_on))
+        ).values(acted_on=payload.acted_on, acted_on_note=payload.note))
         event.acted_on = payload.acted_on
+        event.acted_on_note = payload.note
         add_audit_event(session, tenant_id=tenant_id, user_id=principal.user_id,
                         actor=f"user:{principal.user_id}", action="drift.acted_on",
                         entity_type="drift_event", entity_id=event_id,
