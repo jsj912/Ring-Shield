@@ -204,16 +204,14 @@ export function QueuePage() {
 
   if (tenantId === null) return <PageHeader title="Ring queue" />;
   const rows = query.data?.items ?? [];
-  const crossBank = rows.filter((row) => row.cross_bank).length;       // counting, on this page
 
   return (
     <>
       <PageHeader title="Ring queue" description={`Suspected laundering rings for ${tenantName}. Click a row to investigate.`} />
       {session.role === "admin" ? <><ReadOnlyBanner /><Notice tone="warning">Administrators cannot record verdicts.</Notice></> : null}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <KpiCard label="Matching filters" value={query.data ? query.data.total : "—"} hint="rings, as counted by the API" icon={<Filter />} />
         <KpiCard label="Rings for tenant" value={query.data ? query.data.tenant_total : "—"} hint="all statuses" icon={<Network />} />
-        <KpiCard label="Cross-bank on this page" value={query.data ? crossBank : "—"} hint={`of ${rows.length} shown`} icon={<Globe2 />} tone="warning" />
         <KpiCard label="Page" value={ringPaging.page + 1} hint="50 rings per page" icon={<Layers />} tone="success" />
       </div>
       <FilterBar applied={ringFilters} onApply={setRingFilters} />
