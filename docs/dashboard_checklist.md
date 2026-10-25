@@ -31,12 +31,12 @@ One line per requirement: status, then how it was tested.
 | FR-D40 | Transactions tab: table of member edges sorted by w_total descending, columns: from, to... | PASS | e2e/ring.spec.ts FR-D40-42: all ten columns, rows sorted by w_total desc, bar in w_total cell; conversion rows only with the toggle (override 2) |
 | FR-D41 | Accounts tab: table of member accounts sorted by w_account descending, columns: account... | PASS | e2e/ring.spec.ts FR-D40-42: all seven columns, rows sorted by w_account desc |
 | FR-D42 | Detector signals tab: horizontal bar chart of the top 10 feature_weights by /mean_shap/... | PASS | e2e/ring.spec.ts FR-D40-42: ten bars labelled with display_name, caption verbatim; sign colours by comparison; fix 4713e27 takes the API's /mean_shap/ ranking as received |
-| FR-D50 | Three actions: Confirm ring, Reject ring, Partially correct; note field (optional for c... | TODO | |
-| FR-D51 | Partially correct opens a member and transaction checklist pre-ticked from the ring; th... | TODO | |
-| FR-D52 | On submit, POST the verdict; on success update the status badge, append to the verdict ... | TODO | |
-| FR-D53 | Verdict submission is idempotent from the UI&apos;s side: the button disables while the... | TODO | |
-| FR-D54 | Simulated verdicts (is_simulated = true) are displayed with a &apos;Simulated&apos; tag... | TODO | |
-| FR-D55 | Admin sees the form disabled with the text &apos;Administrators cannot record verdicts&... | TODO | |
+| FR-D50 | Three actions: Confirm ring, Reject ring, Partially correct; note field (optional for c... | PASS | e2e/verdict.spec.ts FR-D50/51: three actions; partial without a note is blocked with 'A note is required for a partial verdict.' |
+| FR-D51 | Partially correct opens a member and transaction checklist pre-ticked from the ring; th... | PASS | e2e/verdict.spec.ts FR-D50/51: checklist pre-ticked from the ring; untick all -> 'Keep at least one account', nothing sent; no removal -> blocked |
+| FR-D52 | On submit, POST the verdict; on success update the status badge, append to the verdict ... | PASS | e2e/verdict.spec.ts FR-D52: partial removing one account -> status partial, verdict listed, regeneration polled, narrative changes, graph 6 -> 5 nodes, accounts tab one row fewer |
+| FR-D53 | Verdict submission is idempotent from the UI&apos;s side: the button disables while the... | PASS | e2e/verdict.spec.ts FR-D53: double click on Confirm sends exactly one POST /verdicts |
+| FR-D54 | Simulated verdicts (is_simulated = true) are displayed with a &apos;Simulated&apos; tag... | PASS | e2e/verdict.spec.ts FR-D54: fixture ring -10 lists a verdict tagged 'Simulated' |
+| FR-D55 | Admin sees the form disabled with the text &apos;Administrators cannot record verdicts&... | PASS | e2e/verdict.spec.ts FR-D55: admin sees 'Administrators cannot record verdicts.' and all three buttons disabled |
 | FR-D60 | Table of the tenant&apos;s verdicts: time, ring id (link), verdict, analyst, simulated ... | TODO | |
 | FR-D70 | Table of model versions for the tenant: component, version tag, trained at, training la... | TODO | |
 | FR-D71 | Supervisor only: &apos;Retrain now&apos; button with a confirmation dialog stating whic... | TODO | |
@@ -56,10 +56,10 @@ One line per requirement: status, then how it was tested.
 | NFR-D10 | The token is held in memory only; nothing sensitive in localStorage, sessionStorage, co... | PASS | e2e/login.spec.ts NFR-D10: sessionStorage and cookies empty, localStorage holds only the theme key, URL has no token; session.ts is a module variable |
 | NFR-D11 | All API calls carry the token in the Authorization header; the dashboard never embeds t... | PASS | e2e/login.spec.ts NFR-D11: every request after login has Authorization: Bearer and only tenant 1001 in /tenants/{id} |
 | NFR-D12 | The dashboard never connects to the database or file store directly | PASS | package.json has no database driver; grep src for pg/sql drivers finds none |
-| NFR-D13 | User-supplied text (notes) is rendered as text, never as HTML/Markdown | TODO | |
+| NFR-D13 | User-supplied text (notes) is rendered as text, never as HTML/Markdown | PASS | e2e/verdict.spec.ts NFR-D13: note with <script>, **md** and <b> shows literally, script not run, no b/strong/script elements |
 | NFR-D14 | Session ends on token expiry; no silent refresh | PASS | useExpiryTimer ends the session at expires_at; no refresh call exists (grep); FR-D03 test |
 | NFR-D30 | Any API failure degrades to the screen&apos;s error state; the application never shows ... | TODO | |
-| NFR-D31 | A failed verdict submission preserves the form contents and offers retry | TODO | |
+| NFR-D31 | A failed verdict submission preserves the form contents and offers retry | PASS | e2e/verdict.spec.ts NFR-D31: POST answered 500 -> message with request id, note and unticked box kept, second submit records |
 | NFR-D32 | The graph panel failing (for example an oversized ring) does not prevent the narrative ... | PASS | e2e/ring.spec.ts NFR-D32: subgraph answered 500 -> graph panel shows the message and request id, narrative and transactions render |
 | NFR-D50 | All API calls go through one client module with the base URL and token handling in one ... | PASS | Code review: fetch() appears only in src/api/client.ts (grep), base URL and token handled there |
 | NFR-D51 | Field names from Section 2 are used unchanged; no renaming layer | TODO | |
