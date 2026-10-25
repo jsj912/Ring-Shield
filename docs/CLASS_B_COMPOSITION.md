@@ -2,7 +2,8 @@
 
 Measurement only. No miner is built, nothing is tuned, nothing is chosen on test.
 
-Class (b) is the largest block of the ceiling after `min_size`: truth rings with ≥ 3 visible
+Class (b) is the largest block of unmatched rings after those with < 3 visible members (not a
+`min_size` ceiling: FINDINGS B7/B9, corrected): truth rings with ≥ 3 visible
 members that **no included edge of any prediction touches** — 33.2 per seed for the shipped
 pipeline, 24.0 for MEGA (`FINDINGS.md` B8). B16 established that history does not reconnect them.
 This describes them, so that any later decision about a structural seeder rests on what the targets
