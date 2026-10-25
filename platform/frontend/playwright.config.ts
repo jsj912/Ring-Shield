@@ -18,6 +18,7 @@ export default defineConfig({
   testDir: "e2e",
   timeout: 60_000,
   retries: 0,
+  workers: 1,                       // every test shares one fixture server and resets it first
   use: {
     baseURL: `http://localhost:${webPort}`,
     channel: process.env.PLAYWRIGHT_CHANNEL ?? "msedge",
