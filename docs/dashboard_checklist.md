@@ -66,3 +66,24 @@ One line per requirement: status, then how it was tested.
 | NFR-D53 | Formatting functions (amount, percentage, weight, time) have unit tests | PASS | npm test: formatters.test.ts green (331 cases) |
 | NFR-D55 | A fixtures folder contains one JSON per object type in Section 2 and one full ring per ... | PASS | platform/frontend/fixtures: objects/ has one JSON per Section 2 type; rings/ one ring per pattern (8), a 120-account ring, a cross-bank ring; every spec runs on the fixture server (README fixture mode) |
 | NFR-D56 | README: how to run against the API, how to run in fixture mode, how to add a screen | PASS | platform/frontend/README.md: run against the API, fixture mode, add a screen, tests; Python found without PYTHON |
+
+## Section 6 walk-through on the real demo (2026-10-26)
+
+Performed with `.\scripts\demo.ps1` (seed-1 rings and explanations, real data), React production build at
+http://localhost:5173, L4 regeneration service running. Tenant A = bank 12, Tenant B = bank 20. Drift is shown as
+R12 left it (amendment A, hourly, `clock=1`); the admin table is R10's registered result. Machine: the development
+workstation, not a clean machine (Definition of done item 2 is therefore still open).
+
+| # | Section 6 line | Status | What happened |
+|---|---|---|---|
+| 1 | Analyst at A; sidebar shows A. Analyst at B in a second browser | PASS | Two tabs (the token is per tab, in memory): "Bank 12" and "Bank 20" in the sidebar, 5 rings each |
+| 2 | A's and B's queues differ; A's ring id in B's URL shows 'Not permitted' | **FAIL** | The queues differ (different types, totals, members). But ring ids are per-bank run labels: both banks have `full-gine_causal-1-0` … `-4`, so A's id in B's URL opens **B's own ring of that label**, not 'Not permitted'. No data crosses (B sees its 4-member ring, not A's 5-member one). The fixture test passes because fixture ids are unique. Needs tenant-unique ring ids in the tenant ring build, or a demo id that only A has |
+| 3 | Highest-confidence ring at A; narrative; hover nodes and edges; time slider; each evidence tab | PASS | `full-gine_causal-1-0` (confidence 1.00). Node hover: account, bank, role, inflow, outflow, hold time. Edge hover: amount, time, format, w_total and its parts. Slider greys later edges. Transactions, Accounts, Detector signals all render. Found and fixed on the way: currencies and formats showed as "Currency 0" / "Format 3" (ede89b9). Cosmetic: the edge tooltip runs past the canvas edge and stays after the pointer leaves; the page scrolls sideways at 769 px |
+| 4 | Partial verdict removing one account with a note; graph and narrative refresh | **FAIL** | Recorded; status → partial; the **narrative regenerates** ("5 accounts, 5 transactions" → "4 accounts, 4 transactions"). But the **graph and Accounts tab still show the removed account** (drawn as "role not stated", its edge kept) and the summary still says "5 members · 4 edges". Also: unticking an account does not untick its transactions; the API refuses with "Corrected edges must connect corrected members" until the transaction is unticked too (the form keeps its contents). Before 4fb640d the demo had no L4 service and nothing regenerated |
+| 5 | Verdict history: the verdict appears; simulated verdicts carry the tag | **FAIL** | The partial verdict is listed with its note. The demo database holds **no simulated verdicts**, so the tag cannot be shown (the fixture test FR-D54 shows it) |
+| 6 | Supervisor: Models; retrain; watch the run; a refused run with its gate reason | **FAIL** | Before bd7c61e a dashboard retrain could never run (the supervisor lacked the app-role database URL; the run stayed "running"). After the fix: started from the dialog, polled running → succeeded in 4 min. With one verdict there is no candidate, so **no refused run exists to show**; the dialog says "R11 did not run for this bank" (R11 used bank 1) |
+| 7 | Drift: point at the marked event; read the permanent note | **FAIL** | The chart (hourly, days 8–9) and the permanent note are shown. **There is no drift event** for bank 12: R12 found none on the real stream under amendment A, so there is nothing to point at |
+| 8 | Admin: tenant-vs-pooled table; the row where tenant recall is below pooled because rings cross banks | PASS | R10 table, primary set: every bank's (b) is below pooled (bank 1: 0.035 vs 0.365); "Cross-bank rings: 172 of 174 (98.9 %)" stands above it. Post-hoc extras labelled as such |
+
+Three PASS, five FAIL. Lines 5–7 fail on demo data rather than code (no simulated verdicts, no refusal, no drift
+event); lines 2 and 4 are product defects.
