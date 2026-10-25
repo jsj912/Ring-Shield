@@ -1,0 +1,13 @@
+{
+ "verdict_id": 11,
+ "ring_id": "full-gine_causal-1-1",
+ "user_id": 1,
+ "user_name": "analyst@bank-a.fixture",
+ "verdict": "confirm",
+ "corrected_members": [],
+ "corrected_edges": [],
+ "note": "<b>fixture</b> note, shown as text",
+ "is_simulated": false,
+ "created_at": "2022-09-10T12:22:01Z",
+ "regeneration": null
+}

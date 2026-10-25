@@ -44,8 +44,17 @@ first. Fixture logins (from `fixtures/users.json`):
 | Analyst, Bank B | `analyst@bank-b.fixture` | `fixture-only-b1` |
 | Admin | `admin@platform.fixture` | `fixture-only-admin` |
 
-The fixtures have no drift routes, so in fixture mode the Drift page shows its error state.
-`POST /__reset` on the fixture server reloads the fixtures (the smoke test uses it).
+Other fixtures: `models.json` (versions and retrain runs), `r10_result.json` (R10 as
+`results/tables/r10_registered.json` gives it), `r11.json` (R11 for the retrain dialog) and
+`drift.json` (hourly days 8-9, drift events and the administrator's R12 panel, written with invented
+values by `make_drift_fixtures.py` in the shapes of R12 amendment A's `tenant_hourly.json` and
+`panel.json`). `fixtures/objects/` holds one example JSON per object type of the requirements'
+Section 2, taken from the served fixtures by `make_object_fixtures.py`; rerun it after changing them.
+`POST /__reset` on the fixture server reloads the fixtures (the Playwright tests use it).
+
+The hourly drift route reads `results/platform/r12/amended/tenant_hourly.json` (and the R12 panel
+`panel.json`), which R12 amendment A writes; without them the API answers 404 and the Drift page
+says no hourly series is available.
 
 ### Against the real API
 
@@ -78,7 +87,9 @@ python platform/frontend/scripts/make_formatter_cases.py
 npm run test:e2e
 ```
 
-Playwright smoke test (login, queue, ring detail, verdict) against its own fixture server and dev
+Playwright: the smoke test and one acceptance spec per screen (`e2e/login`, `queue`, `ring`, `verdict`,
+`history-models`, `drift`, `admin`, `cross-cutting`), each test named after the requirement it checks
+and recorded in `docs/dashboard_checklist.md`. They run against their own fixture server and dev
 server on ports 8011 and 5174. It uses the installed Microsoft Edge (`PLAYWRIGHT_CHANNEL=chrome` for
 Chrome), so no browser download is needed. The fixture server needs a Python with FastAPI: the config
 uses `PYTHON` if set, else `../venv-platform/Scripts/python.exe` next to the repo

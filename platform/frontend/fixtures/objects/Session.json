@@ -1,0 +1,8 @@
+{
+ "user_id": 1,
+ "tenant_id": 1001,
+ "tenant_name": "Fixture Bank A",
+ "role": "analyst",
+ "token": "fixture-token-1",
+ "expires_at": "2026-10-25T20:00:00Z"
+}

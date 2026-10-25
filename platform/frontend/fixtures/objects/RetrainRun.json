@@ -1,0 +1,14 @@
+{
+ "run_id": "r11a0090-cycle6",
+ "status": "succeeded",
+ "started_at": "2026-10-24T09:20:05Z",
+ "finished_at": "2026-10-24T09:48:51Z",
+ "model_version_id": null,
+ "log_lines": [
+  "labels: 7 verdicts (day 8: 6, day 9: 1), all simulated at accuracy 0.90",
+  "expansion: holdout ring_f1 0.6612 < current 0.6883 - 0.005",
+  "affinity: holdout ring_f1 0.6556 < current 0.6883 - 0.005",
+  "typing: fixed, not retrained",
+  "run finished: no candidate promoted"
+ ]
+}
