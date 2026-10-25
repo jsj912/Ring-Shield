@@ -279,11 +279,47 @@ export interface DriftEventSummary {
   statistic: number;
   threshold: number;
   acted_on: boolean;
+  acted_on_note?: string | null;
 }
 
 export interface DriftEventPage {
   items: DriftEventSummary[];
   next_before_id: number | null;
+}
+
+/** GET /tenants/{id}/drift/hourly: the bank's own real hourly series for days 8-9 (R12 amendment A). */
+export interface HourlyDriftResponse {
+  tenant_id: number;
+  active_model_id: string;
+  active_seed: number;
+  step_seconds: number;
+  statement: string;
+  adwin_config: Record<string, unknown>;
+  items: { day: string; mean: number; p99: number }[];
+  adwin: { hour: string; adwin_mean_width: number; adwin_mean_drift: boolean; adwin_p99_width: number; adwin_p99_drift: boolean }[];
+  events: Record<string, unknown>[];
+}
+
+/** One stream of R12's administrator panel (results/platform/r12/amended/panel.json). */
+export interface R12Stream {
+  rows: { step: number; hour: string; mean?: number; p99?: number; adwin_mean_drift?: boolean; adwin_p99_drift?: boolean }[];
+  events: Record<string, unknown>[];
+  detected: boolean;
+  first_detection_step: number | null;
+  delay_hours: number | null;
+}
+
+/** GET /admin/experiments/r12; the panel's parts as written, administrator only. */
+export interface R12Panel {
+  results: {
+    statement: string;
+    synthetic_control: string;
+    control_onset?: string;
+    real_onset?: string;
+    original_registered_run?: { note?: string; real: R12Stream; control: R12Stream };
+    amendment_a_hourly?: { real: R12Stream; control: R12Stream };
+    [key: string]: unknown;
+  };
 }
 
 export interface DriftSeriesResponse {

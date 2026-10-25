@@ -1,7 +1,7 @@
 /** One typed function per API route the dashboard calls (platform/api/routers/*). */
 import { request } from "./client";
 import type {
-  DriftEventPage, DriftEventSummary, DriftSeriesResponse, ExperimentJobResponse, ExplanationJobResponse,
+  DriftEventPage, DriftEventSummary, DriftSeriesResponse, HourlyDriftResponse, R12Panel, ExperimentJobResponse, ExplanationJobResponse,
   LoginRequest, ModelVersionPage, Params, R10Result, R11Result, RetrainRunPage, RetrainRunStatusResponse, RingDetail,
   RingEvidenceGraph, RingExplanation, RingPage, RingSubgraph, SessionResponse, TenantResponse,
   TenantVerdictPage, VerdictHistoryPage, VerdictRequest, VerdictResponse,
@@ -55,6 +55,9 @@ export const api = {
   driftSeries: (tenantId: number) => request<DriftSeriesResponse>("GET", `/tenants/${tenantId}/drift/series`),
   driftEvents: (tenantId: number, params: Params) =>
     request<DriftEventPage>("GET", `/tenants/${tenantId}/drift`, { params }),
-  setDriftActedOn: (tenantId: number, eventId: number, actedOn: boolean) =>
-    request<DriftEventSummary>("PATCH", `/tenants/${tenantId}/drift/${eventId}`, { body: { acted_on: actedOn } }),
+  driftHourly: (tenantId: number) =>
+    request<HourlyDriftResponse | null>("GET", `/tenants/${tenantId}/drift/hourly`, { quietNotFound: true }),
+  setDriftActedOn: (tenantId: number, eventId: number, actedOn: boolean, note: string) =>
+    request<DriftEventSummary>("PATCH", `/tenants/${tenantId}/drift/${eventId}`, { body: { acted_on: actedOn, note } }),
+  r12Panel: () => request<R12Panel | null>("GET", "/admin/experiments/r12", { quietNotFound: true }),
 };

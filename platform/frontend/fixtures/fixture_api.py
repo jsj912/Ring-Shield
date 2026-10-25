@@ -32,6 +32,7 @@ class FixtureAPI:
         self.r10_jobs: dict[str, int] = {}
         self.jobs: dict[str, dict] = {}          # regeneration jobs started by partial verdicts
         self.verdict_posts = 0
+        self.drift = self._load("drift.json", {"tenant_hourly": {"tenants": []}, "events": {}, "panel": {}})
 
     def _load(self, name: str, default=None):
         path = self.root / name
@@ -75,12 +76,16 @@ class FixtureAPI:
             return self._error(403, "Forbidden", "Not permitted")
         if method == "GET" and path == "/admin/tenants":
             return self._response(200, self.tenants)
+        if method == "GET" and path == "/admin/experiments/r12":
+            return self._response(200, {"results": self.drift["panel"]})
         if path.startswith("/admin/experiments/tenant-vs-pooled"):
             return self._r10(method, path)
         if tenant_match:
             tenant_id, rest = int(tenant_match.group(1)), tenant_match.group(2) or ""
             if method == "GET" and rest == "/rings":
                 return self._ring_page(tenant_id, _param_dict(params))
+            if rest == "/drift" or rest.startswith("/drift/"):
+                return self._drift(tenant_id, method, rest, user, body or {})
             if method == "GET" and rest == "/experiments/r11":
                 return self._r11(tenant_id, user)
             if rest == "/models" or rest.startswith("/retrain"):
@@ -151,6 +156,33 @@ class FixtureAPI:
         if self.r10_jobs[job_id] < 2:
             return self._response(200, {"job_id": job_id, "status": "running", "message": None, "results": None})
         return self._response(200, {"job_id": job_id, "status": "succeeded", "message": None, "results": result})
+
+    def _drift(self, tenant_id: int, method: str, rest: str, user: dict, body: dict) -> httpx.Response:
+        """The drift routes (operations.py): events and the hourly series for the supervisor and
+        the administrator, the acted-on flag with its note for the supervisor only."""
+        if user["role"] not in {"supervisor", "admin"}:
+            return self._error(403, "Forbidden", "Only a tenant supervisor or an administrator can read drift")
+        events = self.drift["events"].setdefault(str(tenant_id), [])
+        if method == "GET" and rest == "/drift":
+            return self._response(200, {"items": sorted(events, key=lambda e: -e["event_id"]), "next_before_id": None})
+        if method == "GET" and rest == "/drift/hourly":
+            entry = next((t for t in self.drift["tenant_hourly"]["tenants"] if t["tenant_id"] == tenant_id), None)
+            if entry is None:
+                return self._error(404, "NotFound", "No hourly drift series is available for this tenant")
+            return self._response(200, {**{k: entry[k] for k in ("tenant_id", "active_model_id", "active_seed",
+                                                                 "step_seconds", "items", "adwin", "events")},
+                                         "statement": self.drift["tenant_hourly"]["statement"],
+                                         "adwin_config": self.drift["tenant_hourly"]["adwin"]})
+        event_match = re.match(r"^/drift/(\d+)$", rest)
+        if method == "PATCH" and event_match:
+            if user["role"] != "supervisor":
+                return self._error(403, "Forbidden", "Only a tenant supervisor can change drift events")
+            event = next((e for e in events if e["event_id"] == int(event_match.group(1))), None)
+            if event is None:
+                return self._error(404, "NotFound", "Drift event not found")
+            event.update(acted_on=bool(body.get("acted_on")), acted_on_note=body.get("note"))
+            return self._response(200, event)
+        return self._error(404, "NotFound", f"No fixture for {method} {rest}")
 
     def _r11(self, tenant_id: int, user: dict) -> httpx.Response:
         """GET /tenants/{t}/experiments/r11 (operations.py): supervisor only, own tenant's lanes."""
