@@ -42,9 +42,9 @@ One line per requirement: status, then how it was tested.
 | FR-D71 | Supervisor only: &apos;Retrain now&apos; button with a confirmation dialog stating whic... | PASS | e2e/history-models.spec.ts FR-D71: no Retrain button for an analyst; supervisor dialog text verbatim (override 5) with R11's two lanes from the new API route 07da6ec (pytest test_retrain_api.py: own tenant only, other tenant 403, analyst/admin 403) |
 | FR-D72 | After triggering, show the run in a runs list with status polling every 5 s until finis... | PASS | e2e/history-models.spec.ts FR-D72/73: run shown running with log tail open, polled (refetchInterval 5000) until finished, no polls after it finishes |
 | FR-D73 | A refused run shows the gate reason prominently and links to the model version row | PASS | e2e/history-models.spec.ts FR-D72/73: refused candidates shown as alerts with the gate reason; 'Show model version N' highlights that row |
-| FR-D80 | Line chart of the daily mean score and daily p99 score over the tenant&apos;s time rang... | TODO | |
-| FR-D81 | Table of drift events: detected at, monitor, window, statistic vs threshold, acted on (... | TODO | |
-| FR-D82 | A permanent note on the screen: &apos;This monitor detects shifts in the score distribu... | TODO | |
+| FR-D80 | Line chart of the daily mean score and daily p99 score over the tenant&apos;s time rang... | PASS | e2e/drift.spec.ts FR-D80: supervisor and admin see 48 hourly points (days 8-9) for mean and p99 with the event marker hovering monitor, statistic, threshold; API fix f69dd28 lets the admin read drift (pytest test_operations_views.py) |
+| FR-D81 | Table of drift events: detected at, monitor, window, statistic vs threshold, acted on (... | PASS | e2e/drift.spec.ts FR-D81: toggle without a note is blocked; with a note the flag and note show and persist across navigation; API db54abb stores acted_on_note (migration 0012, pytest) |
+| FR-D82 | A permanent note on the screen: &apos;This monitor detects shifts in the score distribu... | PASS | e2e/drift.spec.ts FR-D80/82: note text present verbatim |
 | FR-D90 | Tenant registry table: tenant id, bank code, name, loaded (yes/no), number of rings, nu... | TODO | |
 | FR-D91 | Tenant-vs-pooled experiment: a &apos;Run&apos; button that starts the job and polls; re... | TODO | |
 | FR-D93 | Every admin view of a tenant&apos;s rings and verdicts is read-only and labelled &apos;... | TODO | |
