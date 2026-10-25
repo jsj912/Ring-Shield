@@ -14,12 +14,12 @@ One line per requirement: status, then how it was tested.
 | FR-D03 | Expired or rejected token (401 from any call) returns the user to login with a message ... | PASS | e2e/login.spec.ts FR-D03: every API call answered 401 -> /login with 'Session expired' |
 | FR-D04 | Sign out clears the token and all cached data | PASS | e2e/login.spec.ts FR-D04: sign out -> /login; Back shows login, no sidebar; useSignOut clears the query cache |
 | FR-D05 | Screens the role may not access are not shown in navigation and return &apos;Not permit... | PASS | e2e/login.spec.ts FR-D05 and smoke.spec.ts: analyst has no Drift/Admin links; /drift and /admin say 'Not permitted' with no drift/admin request |
-| FR-D10 | Table of rings for the tenant with columns: ring id, type (with probability as a percen... | TODO | |
-| FR-D11 | Default sort by confidence descending; sortable by confidence, total amount, start time... | TODO | |
-| FR-D12 | Filters: status (open / confirmed / rejected / partial, multi-select; default open), to... | TODO | |
-| FR-D13 | Pagination using the API cursor, 50 rows per page, with total count shown | TODO | |
-| FR-D14 | Clicking a row opens ring detail; the queue remembers filters and page when the user re... | TODO | |
-| FR-D15 | Empty result shows a reason: &apos;No rings match these filters&apos; or, when the tena... | TODO | |
+| FR-D10 | Table of rings for the tenant with columns: ring id, type (with probability as a percen... | PASS | e2e/queue.spec.ts FR-D10 (fixtures): all eight columns with values; type shows topology_prob as received (override 3), total with total_currency and (partial) (override 2) |
+| FR-D11 | Default sort by confidence descending; sortable by confidence, total amount, start time... | PASS | e2e/queue.spec.ts FR-D11: aria-sort descending on Confidence by default; Confidence, Total, Window, Members headers re-order. API fix 2fa48a7: sort by total uses the displayed explanation total (pytest test_ring_list_api.py) |
+| FR-D12 | Filters: status (open / confirmed / rejected / partial, multi-select; default open), to... | PASS | e2e/queue.spec.ts FR-D12: status (104 -> 200), topology, cross-bank, start date, min confidence each narrow; topology + cross-bank combine to none |
+| FR-D13 | Pagination using the API cursor, 50 rows per page, with total count shown | PASS | e2e/queue.spec.ts FR-D13: 200 rings, 4 pages of 50 by cursor, distinct first rows, total shown, Next disabled at the end |
+| FR-D14 | Clicking a row opens ring detail; the queue remembers filters and page when the user re... | PASS | e2e/queue.spec.ts FR-D14: page 2 with all statuses -> ring -> Back to queue restores page, filters and rows |
+| FR-D15 | Empty result shows a reason: &apos;No rings match these filters&apos; or, when the tena... | PASS | e2e/queue.spec.ts FR-D15: search with no match -> 'No rings match these filters'; Bank C (no rings) -> 'No rings have been generated for this tenant yet' |
 | FR-D20 | Show the narrative text exactly as received, followed by the ring summary: type and pro... | TODO | |
 | FR-D21 | Status badge and, if a verdict exists, the latest verdict with author and time | TODO | |
 | FR-D30 | Directed graph of the ring subgraph: accounts as nodes, transactions as edges with arro... | TODO | |
