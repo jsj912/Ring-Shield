@@ -651,8 +651,11 @@ try {
     }
 
     $docker = Get-Command docker -ErrorAction Stop
-    $pythonCommand = Get-Command python -ErrorAction Stop
-    $python = $pythonCommand.Source
+    # PYTHON wins; else the platform venv next to the repo; else python on PATH
+    $venvPython = Join-Path (Split-Path -Parent (Get-Location)) 'venv-platform/Scripts/python.exe'
+    if ($env:PYTHON) { $python = $env:PYTHON }
+    elseif (Test-Path -LiteralPath $venvPython -PathType Leaf) { $python = $venvPython }
+    else { $python = (Get-Command python -ErrorAction Stop).Source }
     $explanationCheckArguments = @('platform/jobs/check_explanations.py')
     foreach ($tenantId in $Tenants) {
         $explanationFile = Join-Path $validated.ExplanationsDir "explanations_${tenantId}_1.parquet"

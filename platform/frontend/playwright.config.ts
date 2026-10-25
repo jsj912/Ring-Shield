@@ -3,9 +3,14 @@
  * collide with a dev session. Runs on the installed Microsoft Edge, so no browser download is needed;
  * set PLAYWRIGHT_CHANNEL=chrome to use Chrome instead. PYTHON is the interpreter with FastAPI.
  */
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "@playwright/test";
 
-const python = process.env.PYTHON ?? "python";
+// PYTHON wins; else the platform venv next to the repo (E:/JSJ/venv-platform); else python on PATH
+const venvPython = resolve(dirname(fileURLToPath(import.meta.url)), "../../../venv-platform/Scripts/python.exe");
+const python = process.env.PYTHON ?? (existsSync(venvPython) ? venvPython : "python");
 const apiPort = 8011;
 const webPort = 5174;
 

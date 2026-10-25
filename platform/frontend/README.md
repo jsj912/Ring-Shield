@@ -77,8 +77,9 @@ npm run test:e2e
 
 Playwright smoke test (login, queue, ring detail, verdict) against its own fixture server and dev
 server on ports 8011 and 5174. It uses the installed Microsoft Edge (`PLAYWRIGHT_CHANNEL=chrome` for
-Chrome), so no browser download is needed. Set `PYTHON` to the interpreter that has FastAPI, e.g.
-`PYTHON=E:/JSJ/venv-platform/Scripts/python.exe`.
+Chrome), so no browser download is needed. The fixture server needs a Python with FastAPI: the config
+uses `PYTHON` if set, else `../venv-platform/Scripts/python.exe` next to the repo
+(`E:/JSJ/venv-platform`), else `python` on PATH. `scripts/run-demo.ps1` picks its Python the same way.
 
 ## Layout
 

@@ -1,0 +1,68 @@
+# Dashboard requirements checklist (React, `platform/frontend`)
+
+Source: `docs/dashboard_requirements_v1.0.docx`, with the overrides of 2026-10-25 (six roles incl. `undetermined`;
+totals from the explanation record with a partial flag; closed-loop closure; hourly drift days 8–9; retrain
+wording and R11; R10 registered first; nothing hidden is shown; API field names). Out of scope: all S/C items,
+timed performance tests, HTTPS, browser matrix.
+
+One line per requirement: status, then how it was tested.
+
+| ID | Requirement | Status | How tested |
+|---|---|---|---|
+| FR-D01 | Login form with email and password; on success store the token in memory (not localStor... | TODO | |
+| FR-D02 | Invalid credentials show one generic error message; no indication whether email or pass... | TODO | |
+| FR-D03 | Expired or rejected token (401 from any call) returns the user to login with a message ... | TODO | |
+| FR-D04 | Sign out clears the token and all cached data | TODO | |
+| FR-D05 | Screens the role may not access are not shown in navigation and return &apos;Not permit... | TODO | |
+| FR-D10 | Table of rings for the tenant with columns: ring id, type (with probability as a percen... | TODO | |
+| FR-D11 | Default sort by confidence descending; sortable by confidence, total amount, start time... | TODO | |
+| FR-D12 | Filters: status (open / confirmed / rejected / partial, multi-select; default open), to... | TODO | |
+| FR-D13 | Pagination using the API cursor, 50 rows per page, with total count shown | TODO | |
+| FR-D14 | Clicking a row opens ring detail; the queue remembers filters and page when the user re... | TODO | |
+| FR-D15 | Empty result shows a reason: &apos;No rings match these filters&apos; or, when the tena... | TODO | |
+| FR-D20 | Show the narrative text exactly as received, followed by the ring summary: type and pro... | TODO | |
+| FR-D21 | Status badge and, if a verdict exists, the latest verdict with author and time | TODO | |
+| FR-D30 | Directed graph of the ring subgraph: accounts as nodes, transactions as edges with arro... | TODO | |
+| FR-D31 | Node colour by role: source, sink, mule, holder, peripheral, each with a legend entry; ... | TODO | |
+| FR-D32 | Edge width by w_total; seed edges drawn solid, expanded edges dashed; legend entry for ... | TODO | |
+| FR-D33 | Hover on a node shows account id, bank, role, inflow, outflow, hold time; hover on an e... | TODO | |
+| FR-D34 | Time slider spanning [start_time, end_time]; edges with timestamp after the slider posi... | TODO | |
+| FR-D36 | For rings above 60 nodes, render the 60 highest w_account nodes and their incident edge... | TODO | |
+| FR-D40 | Transactions tab: table of member edges sorted by w_total descending, columns: from, to... | TODO | |
+| FR-D41 | Accounts tab: table of member accounts sorted by w_account descending, columns: account... | TODO | |
+| FR-D42 | Detector signals tab: horizontal bar chart of the top 10 feature_weights by /mean_shap/... | TODO | |
+| FR-D50 | Three actions: Confirm ring, Reject ring, Partially correct; note field (optional for c... | TODO | |
+| FR-D51 | Partially correct opens a member and transaction checklist pre-ticked from the ring; th... | TODO | |
+| FR-D52 | On submit, POST the verdict; on success update the status badge, append to the verdict ... | TODO | |
+| FR-D53 | Verdict submission is idempotent from the UI&apos;s side: the button disables while the... | TODO | |
+| FR-D54 | Simulated verdicts (is_simulated = true) are displayed with a &apos;Simulated&apos; tag... | TODO | |
+| FR-D55 | Admin sees the form disabled with the text &apos;Administrators cannot record verdicts&... | TODO | |
+| FR-D60 | Table of the tenant&apos;s verdicts: time, ring id (link), verdict, analyst, simulated ... | TODO | |
+| FR-D70 | Table of model versions for the tenant: component, version tag, trained at, training la... | TODO | |
+| FR-D71 | Supervisor only: &apos;Retrain now&apos; button with a confirmation dialog stating whic... | TODO | |
+| FR-D72 | After triggering, show the run in a runs list with status polling every 5 s until finis... | TODO | |
+| FR-D73 | A refused run shows the gate reason prominently and links to the model version row | TODO | |
+| FR-D80 | Line chart of the daily mean score and daily p99 score over the tenant&apos;s time rang... | TODO | |
+| FR-D81 | Table of drift events: detected at, monitor, window, statistic vs threshold, acted on (... | TODO | |
+| FR-D82 | A permanent note on the screen: &apos;This monitor detects shifts in the score distribu... | TODO | |
+| FR-D90 | Tenant registry table: tenant id, bank code, name, loaded (yes/no), number of rings, nu... | TODO | |
+| FR-D91 | Tenant-vs-pooled experiment: a &apos;Run&apos; button that starts the job and polls; re... | TODO | |
+| FR-D93 | Every admin view of a tenant&apos;s rings and verdicts is read-only and labelled &apos;... | TODO | |
+| FR-D100 | Every screen has a loading state (skeleton or spinner) and an error state that shows th... | TODO | |
+| FR-D101 | Every number is displayed exactly as supplied by the API with formatting only: amounts ... | TODO | |
+| FR-D102 | The dashboard performs no arithmetic on API data (no sums, no ratios, no re-ranking bey... | TODO | |
+| FR-D103 | Cross-bank rings display the counter-party bank name; no other information about the co... | TODO | |
+| FR-D104 | No screen ever displays ground-truth labels, pattern-group ids, or anything not returne... | TODO | |
+| NFR-D10 | The token is held in memory only; nothing sensitive in localStorage, sessionStorage, co... | TODO | |
+| NFR-D11 | All API calls carry the token in the Authorization header; the dashboard never embeds t... | TODO | |
+| NFR-D12 | The dashboard never connects to the database or file store directly | TODO | |
+| NFR-D13 | User-supplied text (notes) is rendered as text, never as HTML/Markdown | TODO | |
+| NFR-D14 | Session ends on token expiry; no silent refresh | TODO | |
+| NFR-D30 | Any API failure degrades to the screen&apos;s error state; the application never shows ... | TODO | |
+| NFR-D31 | A failed verdict submission preserves the form contents and offers retry | TODO | |
+| NFR-D32 | The graph panel failing (for example an oversized ring) does not prevent the narrative ... | TODO | |
+| NFR-D50 | All API calls go through one client module with the base URL and token handling in one ... | TODO | |
+| NFR-D51 | Field names from Section 2 are used unchanged; no renaming layer | TODO | |
+| NFR-D53 | Formatting functions (amount, percentage, weight, time) have unit tests | TODO | |
+| NFR-D55 | A fixtures folder contains one JSON per object type in Section 2 and one full ring per ... | TODO | |
+| NFR-D56 | README: how to run against the API, how to run in fixture mode, how to add a screen | TODO | |
