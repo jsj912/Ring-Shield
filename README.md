@@ -40,7 +40,7 @@ Traps live in **`docs/PITFALLS.md`**.
 | ID | What | Result |
 |---|---|---|
 | **R1** | detector, 5 seeds, causal | primary-window edge F1 0.495 ± 0.027 (whole test split 0.596 ± 0.069, inflated by the tail: C1/C2) |
-| **R2** | B0 ring baseline, 3 detectors | gine 0.521 ± 0.045, gfpxgb 0.344, density 0.014 |
+| **R2** | B0 ring baseline, 3 detectors | gine 0.521 ± 0.045, gfpxgb 0.343, density 0.014 |
 | **R3** | expansion: policy vs rule baselines vs ablations | proposed 0.582; **quiet-member recall 0.005 → 0.21** |
 | **R4** | partition: 5 methods + CSGM | full 0.589; the stage is **not** significant on this detector |
 | **R5** | roles and topology typing | head **0.599** [0.549, 0.648] vs rule 0.551 [0.499, 0.601] on the primary window (401 matched rings); 0.594 on `whole`: typing is not window-bounded (~~0.219~~ corrected 2026-10-22, found by Ruhani (L4 Week 5 check): the old lookup typed the wrong ring; B10, C3 withdrawn) |
@@ -87,76 +87,142 @@ Seeds come from `configs/seeds.yaml` (`[1, 2, 3, 4, 5]`), paths from `configs/pa
 (`$RINGSHIELD_PATHS` selects a per-dataset file). Pre-R1 runs used the seeds in their own
 `config.yaml`.
 
-## Reproduction (steps completed so far)
+## Setup
 
-Environment (Windows, PowerShell):
+Windows 11, PowerShell. Install these yourself first:
+
+| Tool | Version | Used for |
+|---|---|---|
+| Python | 3.12 (research), 3.11+ (platform) | everything |
+| Node.js + npm | 18+ | the React dashboard |
+| Docker Desktop | with Compose v2 | the demo and test Postgres |
+| NVIDIA GPU + CUDA 12.1 | optional | retraining detectors (R1, R6); not needed for the demo or the tables |
+
+Two virtual environments, one for the research code and one for the platform (the platform pins
+different versions):
 
 ```bash
 py -3.12 -m venv .venv312
-.\.venv312\Scripts\Activate.ps1
-pip install -r requirements.txt
+.\.venv312\Scripts\python.exe -m pip install -r requirements.txt
+py -3.12 -m venv ..\venv-platform
+..\venv-platform\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
-Data — place the Kaggle *IBM Transactions for AML* HI-Small files in `data/raw/`, then:
+Then install the front end's packages:
 
 ```bash
-python scripts/format_kaggle_files.py "data/raw/HI-Small_Trans.csv"
-python preprocessing/amlworld_loader.py --raw-dir data/raw --out-dir data/processed --patterns data/raw/HI-Small_Patterns.txt
-python graph/motif_features.py --data-dir data/processed --out-dir data/processed --window 86400 --max-cycle-hops 5 --workers 0
+npm ci --prefix platform/frontend
 ```
 
-Baselines:
+## Data
+
+Nothing in `data/`, `contract/out/*.parquet` or `experiments/**/*.parquet` is committed.
+
+1. **Raw data.** Download *IBM Transactions for Anti Money Laundering (AML)* from Kaggle
+   (https://www.kaggle.com/datasets/ealtman2019/ibm-transactions-for-anti-money-laundering-aml). Put
+   `HI-Small_Trans.csv`, `HI-Small_accounts.csv` and `HI-Small_Patterns.txt` in `data/raw/`.
+2. **Preprocess** (about 45 minutes). This writes `data/processed/`:
+
+   ```bash
+   .\.venv312\Scripts\python.exe scripts/format_kaggle_files.py data/raw/HI-Small_Trans.csv
+   .\.venv312\Scripts\python.exe -m preprocessing.amlworld_loader --dataset HI-Small
+   .\.venv312\Scripts\python.exe graph/motif_features.py
+   .\.venv312\Scripts\python.exe preprocessing/account_bank.py
+   ```
+
+3. **Check the data.** This must print `data manifest OK`. If it doesn't, every downstream score is
+   keyed to the wrong `edge_id` (`docs/PITFALLS.md` §1):
+
+   ```bash
+   .\.venv312\Scripts\python.exe scripts/data_manifest.py --check
+   ```
+
+4. **Demo inputs.** `scripts/demo.ps1` reads five sets of files:
+   - `contract/out/scored_edges_gine_causal_1.parquet` (with its `.log.json`)
+   - each bank's rings, edge ids and explanations, in `data/platform_tenant_runs/gine_causal_seed1/`
+
+   These are produced by R1 seed 1 → `contract/make_scored_edges.py` → the tenant ring build
+   (`docs/TENANT_SIZES.md`) → L4 (`explainability/`, branch `explainability-l4`). They come from
+   the handoff, not from a download. The script lists any file that is missing.
+
+## Running the demo
+
+One command, from the repository root:
 
 ```bash
-python baselines/logistic_regression_aml.py --data-dir data/processed --out-dir experiments/E5a_logistic_regression
-python baselines/random_forest_aml.py --data-dir data/processed --out-dir experiments/E5a_random_forest
-python baselines/xgboost_aml.py --data-dir data/processed --out-dir experiments/E5a_xgboost --no-gpu
-python baselines/gfp_xgboost_aml.py --data-dir data/processed --out-dir experiments/E5b_gfp_xgboost --n-trials 50
+.\scripts\demo.ps1
 ```
 
-Multi-GINe edge classifier and scored test edges:
+The script does the following, in order:
+1. Checks for Python, Node/npm and Docker (the demo Postgres runs in Docker), plus every input file. It prints everything that is missing and stops.
+2. Starts an empty demo Postgres on `127.0.0.1:55433` and runs the migrations.
+3. Loads the seed-1 rings and explanations for banks 12 and 20.
+4. Creates the logins: analysts at banks 12 and 20, a supervisor at bank 12, and an administrator.
+5. Starts the API (`127.0.0.1:8000`) and the worker supervisor.
+6. Builds the React app and serves the production build.
+
+At the end it prints the URL, **http://localhost:5173**, and the logins. Open the page at
+`localhost`, not `127.0.0.1`: the API accepts only that origin. Every run starts from an empty
+database. Stop everything with:
 
 ```bash
-python models/tgn.py --raw-dir data/raw --data-dir data/processed --out-dir experiments/E6_tgn --epochs 100 --emlps --ports --tds --reverse-mp --ego --gfp --num-neighs 100 100 --seeds 1 42 123
-python models/score.py --run-dir experiments/E6_tgn --seed 1 --split test --non-causal   # legacy E6 checkpoint
+.\scripts\run-demo.ps1 -Down
 ```
 
-Contract files (Step 1.2-1.3) and checks:
+Other banks, a different detector seed, or the frozen Streamlit dashboard: call
+`scripts/run-demo.ps1` directly (`-Tenants`, `-PlatformConfig`, and without `-SkipStreamlit`).
+To run the dashboard on fixtures, without the API, see `platform/frontend/README.md`. The
+screen-by-screen walk-through is in `docs/dashboard_checklist.md`.
+
+## Reproducing each table
+
+Commands assume `$PY=.venv312/Scripts/python.exe` and `PYTHONIOENCODING=utf-8`, run from the
+repository root. `docs/REPRODUCE.md` has every training command with measured runtimes. The
+right-hand column is the slow part: the training that produces the run artefacts. The middle column
+rebuilds the table from artefacts already in `experiments/`.
+
+| Table | Rebuild the table | Runs it needs (`docs/REPRODUCE.md`) |
+|---|---|---|
+| `results/tables/r1_edge_metrics.csv` | `$PY evaluation/edge_metrics.py --table` | §2: R1 training, about 15 h |
+| `results/tables/r2_ring_b0.csv` | `$PY evaluation/aggregate_results.py` | §3: `ringshield.run_rings`, 5 seeds |
+| `results/tables/r3_expansion.csv` | `$PY evaluation/aggregate_expansion.py` | §4: cross-scoring (about 8 h), policy, `run_expand` |
+| `results/tables/r4_partition.csv`, `r4_unmatched.csv` | `$PY evaluation/aggregate_partition.py`; `$PY evaluation/unmatched_rings.py` | §5: affinity, `run_partition` |
+| `results/tables/r5_typing.csv` | `$PY evaluation/typing_eval.py` | §6: typing head |
+| `r2_ci`, `r3_ci`, `r4_ci`, `r5_typing_ci`, `r9_*`, `*_pvalues` | `$PY -u evaluation/step9_tables.py`; `$PY evaluation/r9_robustness.py` | §7 (about 45 min) |
+| `results/tables/r6_detector_swap.csv` | `$PY -u evaluation/r6_detector_swap.py` | §8: MEGA-GNN (about 18 h), GFP-XGBoost |
+| `results/tables/r7_heldout.csv` | `$PY -u evaluation/r7_heldout.py` | §9: held-out policies |
+| `results/tables/r_under_covered*.csv` | `$PY -u evaluation/under_covered.py` | §10 |
+| `results/tables/r10_registered.{json,md}` | `$PY evaluation/r10_registered.py` | tenant ring builds (`docs/TENANT_SIZES.md`) |
+| `results/platform/r11/five_seeds/` | `.\scripts\run-r11-seeds.ps1` (about 2 h; a fresh demo database per run) | `docs/R11.md` |
+| `results/platform/r12/registered/`, `diagnosis/`, `amended/` | from `platform/`: `python -m experiments.r12_injected_shift --pattern CYCLE`, `python -m experiments.r12_diagnose`, `python -m experiments.r12_amended` | `docs/R12.md` |
+| `results/figures/f1..f5` | `$PY evaluation/make_figures.py` | — |
+
+Two checks tie the numbers to their sources:
+- `$PY evaluation/audit_tables.py` re-derives the ring tables from the per-seed `metrics.json`.
+- `results/FROZEN.json` holds every headline number in this README and its source. `tests/test_frozen.py` fails if any of them changes.
+
+## Tests
 
 ```bash
-python contract/make_scored_edges.py --preds experiments/E6_tgn/predictions_with_ids.csv --model-id gine --seed 1
-python contract/make_rings_stub.py --e7-csv experiments/legacy_E7_test_tuned/rings_gine.csv --scored-edges contract/out/scored_edges_gine_1.parquet --aggregator-id cc
-python scripts/data_manifest.py --check
-python -m pytest contract/tests -q
+.\.venv312\Scripts\python.exe -m pytest tests contract/tests -q
+.\scripts\test-db.ps1      # with ..\venv-platform activated
 ```
 
-Step 3b (causal training, scoring, leak row, edge metrics):
+The second command runs the platform suite, including the row-level-security tests, against a
+throwaway Postgres.
+
+For the front end:
 
 ```bash
-python contract/make_labels.py
-python models/tgn.py --arch gine --causal --seeds 1 2 3 4 5 --out-dir experiments/R1_gine_causal --epochs 100 --emlps --ports --tds --reverse-mp --ego --gfp --num-neighs 100 100
-python models/score.py --run-dir experiments/R1_gine_causal --seeds 1 2 3 4 5 --splits val test train --embeddings-for val test
-python models/score.py --run-dir experiments/E6_tgn --seeds 1 42 123 --splits val test --non-causal --out-dir experiments/R1_gine_noncausal
-python evaluation/edge_metrics.py --run-dir experiments/R1_gine_causal experiments/R1_gine_noncausal
+npm --prefix platform/frontend run typecheck
+npm --prefix platform/frontend test
+npm --prefix platform/frontend run test:e2e
 ```
 
-Step 3a (data regeneration, loader tests; no training):
+The front-end tests are typecheck, unit tests and Playwright, all on fixtures.
 
-```bash
-python scripts/format_kaggle_files.py data/raw/HI-Small_Trans.csv
-python preprocessing/amlworld_loader.py --raw-dir data/raw --out-dir data/processed --patterns data/raw/HI-Small_Patterns.txt
-python scripts/remap_edge_ids.py --old <previous formatted_transactions.csv> --apply-gfp data/processed --apply-preds experiments/E6_tgn/predictions_with_ids.csv
-python scripts/data_manifest.py
-python -m pytest tests contract/tests preprocessing/tests -q
-```
-
-L0 additions (Step 2):
-
-```bash
-python preprocessing/account_bank.py
-python preprocessing/ring_scope.py --gt data/processed/amlworld_ring_ground_truth.parquet --splits data/processed --out docs/ring_scope.json
-python -m pytest preprocessing/tests contract/tests -q
-```
+Research tests that need `data/processed/` skip when it is absent. A changed skip count matters
+(`docs/PITFALLS.md` §8b).
 
 ## Hardware
 
