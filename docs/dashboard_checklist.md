@@ -9,11 +9,11 @@ One line per requirement: status, then how it was tested.
 
 | ID | Requirement | Status | How tested |
 |---|---|---|---|
-| FR-D01 | Login form with email and password; on success store the token in memory (not localStor... | TODO | |
-| FR-D02 | Invalid credentials show one generic error message; no indication whether email or pass... | TODO | |
-| FR-D03 | Expired or rejected token (401 from any call) returns the user to login with a message ... | TODO | |
-| FR-D04 | Sign out clears the token and all cached data | TODO | |
-| FR-D05 | Screens the role may not access are not shown in navigation and return &apos;Not permit... | TODO | |
+| FR-D01 | Login form with email and password; on success store the token in memory (not localStor... | PASS | e2e/login.spec.ts FR-D01 (fixtures): sidebar tenant and role |
+| FR-D02 | Invalid credentials show one generic error message; no indication whether email or pass... | PASS | e2e/login.spec.ts FR-D02: wrong password and unknown email give the identical message; client.ts maps every login 401 to one string |
+| FR-D03 | Expired or rejected token (401 from any call) returns the user to login with a message ... | PASS | e2e/login.spec.ts FR-D03: every API call answered 401 -> /login with 'Session expired' |
+| FR-D04 | Sign out clears the token and all cached data | PASS | e2e/login.spec.ts FR-D04: sign out -> /login; Back shows login, no sidebar; useSignOut clears the query cache |
+| FR-D05 | Screens the role may not access are not shown in navigation and return &apos;Not permit... | PASS | e2e/login.spec.ts FR-D05 and smoke.spec.ts: analyst has no Drift/Admin links; /drift and /admin say 'Not permitted' with no drift/admin request |
 | FR-D10 | Table of rings for the tenant with columns: ring id, type (with probability as a percen... | TODO | |
 | FR-D11 | Default sort by confidence descending; sortable by confidence, total amount, start time... | TODO | |
 | FR-D12 | Filters: status (open / confirmed / rejected / partial, multi-select; default open), to... | TODO | |
@@ -53,15 +53,15 @@ One line per requirement: status, then how it was tested.
 | FR-D102 | The dashboard performs no arithmetic on API data (no sums, no ratios, no re-ranking bey... | TODO | |
 | FR-D103 | Cross-bank rings display the counter-party bank name; no other information about the co... | TODO | |
 | FR-D104 | No screen ever displays ground-truth labels, pattern-group ids, or anything not returne... | TODO | |
-| NFR-D10 | The token is held in memory only; nothing sensitive in localStorage, sessionStorage, co... | TODO | |
-| NFR-D11 | All API calls carry the token in the Authorization header; the dashboard never embeds t... | TODO | |
-| NFR-D12 | The dashboard never connects to the database or file store directly | TODO | |
+| NFR-D10 | The token is held in memory only; nothing sensitive in localStorage, sessionStorage, co... | PASS | e2e/login.spec.ts NFR-D10: sessionStorage and cookies empty, localStorage holds only the theme key, URL has no token; session.ts is a module variable |
+| NFR-D11 | All API calls carry the token in the Authorization header; the dashboard never embeds t... | PASS | e2e/login.spec.ts NFR-D11: every request after login has Authorization: Bearer and only tenant 1001 in /tenants/{id} |
+| NFR-D12 | The dashboard never connects to the database or file store directly | PASS | package.json has no database driver; grep src for pg/sql drivers finds none |
 | NFR-D13 | User-supplied text (notes) is rendered as text, never as HTML/Markdown | TODO | |
-| NFR-D14 | Session ends on token expiry; no silent refresh | TODO | |
+| NFR-D14 | Session ends on token expiry; no silent refresh | PASS | useExpiryTimer ends the session at expires_at; no refresh call exists (grep); FR-D03 test |
 | NFR-D30 | Any API failure degrades to the screen&apos;s error state; the application never shows ... | TODO | |
 | NFR-D31 | A failed verdict submission preserves the form contents and offers retry | TODO | |
 | NFR-D32 | The graph panel failing (for example an oversized ring) does not prevent the narrative ... | TODO | |
-| NFR-D50 | All API calls go through one client module with the base URL and token handling in one ... | TODO | |
+| NFR-D50 | All API calls go through one client module with the base URL and token handling in one ... | PASS | Code review: fetch() appears only in src/api/client.ts (grep), base URL and token handled there |
 | NFR-D51 | Field names from Section 2 are used unchanged; no renaming layer | TODO | |
 | NFR-D53 | Formatting functions (amount, percentage, weight, time) have unit tests | TODO | |
 | NFR-D55 | A fixtures folder contains one JSON per object type in Section 2 and one full ring per ... | TODO | |
