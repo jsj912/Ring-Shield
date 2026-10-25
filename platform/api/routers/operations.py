@@ -26,7 +26,8 @@ from api.worker_mode import log_worker_event, supervisor_mode_enabled
 from api.schemas import (DriftEventPage, DriftEventSummary, ModelVersionPage,
                          ModelVersionSummary, RetrainRunCreated, RetrainRunStatusResponse,
                          DriftActedOnUpdate, DriftSeriesResponse, DailyDriftStatistic,
-                         RetrainCandidate, RetrainRunPage, RetrainRunSummary, DriftCheckStarted)
+                         RetrainCandidate, RetrainRunPage, RetrainRunSummary, DriftCheckStarted,
+                         R11Result)
 from db.models import DriftEvent, EdgeScore, ModelVersion, RetrainRun, Transaction
 from db.session import db_session
 from settings import load_platform_config
@@ -317,6 +318,16 @@ def start_retrain(
                             details={"status": "failed"})
         raise HTTPException(status_code=503, detail="Retrain worker could not be started") from exc
     return RetrainRunCreated(run_id=run_id)
+
+
+@router.get("/tenants/{tenant_id}/experiments/r11", response_model=R11Result)
+def get_r11_results(tenant_id: int, principal: Principal = Depends(get_principal)) -> R11Result:
+    """R11 (gated retraining with simulated verdicts) for the retrain dialog: the supervisor's own
+    tenant's lanes only, so another bank's R11 run is never returned."""
+    _require_supervisor_tenant(tenant_id, principal)
+    from jobs.experiment_worker import R11_STATEMENT, r11_results
+    return R11Result(statement=R11_STATEMENT,
+                     items=[lane for lane in r11_results() if lane["tenant_id"] == tenant_id])
 
 
 @router.get("/tenants/{tenant_id}/retrain/{run_id}", response_model=RetrainRunStatusResponse)

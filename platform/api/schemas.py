@@ -368,6 +368,25 @@ class R10Result(BaseModel):
     results: dict
 
 
+class R11Lane(BaseModel):
+    """One R11 accuracy lane (jobs/experiment_worker.py::r11_results); cycle_rows as written."""
+    tenant_id: int
+    accuracy: float
+    created_utc: str
+    cycles: int
+    cycle_hours: int
+    retrain_after_cycle: int
+    components: list[str]
+    typing: str
+    simulated: bool
+    cycle_rows: list[dict[str, str]]
+
+
+class R11Result(BaseModel):
+    statement: str
+    items: list[R11Lane]
+
+
 class RetrainRunCreated(BaseModel):
     run_id: str
 

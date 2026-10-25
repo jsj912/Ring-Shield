@@ -80,6 +80,40 @@ def r10_registered_results(path: Path = None, post_hoc_path: Path = None) -> dic
     return result
 
 
+R11_DIR = REPO_ROOT / "results" / "platform" / "r11"
+R11_STATEMENT = ("Every verdict in R11 is simulated from ground truth. R11 demonstrates the retrain loop and "
+                 "the holdout gate; it claims no improvement (docs/R11.md).")
+
+
+def _markdown_rows(text: str) -> list[dict]:
+    """The rows of the one pipe table in an R11 cycles.md, as strings exactly as written."""
+    lines = [line.strip() for line in text.splitlines() if line.strip().startswith("|")]
+    if len(lines) < 2:
+        return []
+    cells = lambda line: [cell.strip() for cell in line.strip("|").split("|")]
+    header = cells(lines[0])
+    return [dict(zip(header, cells(line))) for line in lines[2:]]
+
+
+def r11_results(root: Path = None) -> list[dict]:
+    """R11 as the retrain dialog reads it: one lane per verdict accuracy, with its tenant, the
+    registered settings and the per-cycle table (docs/R11.md). Values are passed on as written."""
+    lanes = []
+    for lane in sorted((root or R11_DIR).glob("accuracy_*")):
+        run_path, cycles_path = lane / "run.json", lane / "cycles.md"
+        if not (run_path.is_file() and cycles_path.is_file()):
+            continue
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        lanes.append({
+            "tenant_id": int(run["tenant_id"]), "accuracy": run["accuracy"], "created_utc": run["created_utc"],
+            "cycles": run["cycles"], "cycle_hours": run["cycle_hours"],
+            "retrain_after_cycle": run["retrain_after_cycle"], "components": list(run["components"]),
+            "typing": run["typing"], "simulated": True,
+            "cycle_rows": _markdown_rows(cycles_path.read_text(encoding="utf-8")),
+        })
+    return lanes
+
+
 def _post_hoc_interval(part: dict) -> dict:
     if not all(_finite(part[key]) for key in ("value", "low", "high")) or not isinstance(part["n"], int):
         raise ValueError("R10 post-hoc result contains an invalid metric")

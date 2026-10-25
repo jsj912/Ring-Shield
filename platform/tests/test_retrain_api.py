@@ -296,3 +296,56 @@ def test_latest_r10_result_is_refused_to_bank_users(monkeypatch, role, repo_plat
                                    headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 403
     assert "0.0882" not in response.text
+
+
+def _r11_lane(root, name, tenant_id, accuracy):
+    lane = root / name
+    lane.mkdir()
+    (lane / "run.json").write_text(json.dumps({
+        "tenant_id": tenant_id, "accuracy": accuracy, "created_utc": "2026-10-24T11:03:07+00:00", "cycles": 12,
+        "cycle_hours": 4, "retrain_after_cycle": 6, "components": ["expansion", "affinity"],
+        "typing": "not refit; R5 head fixed"}), encoding="utf-8")
+    (lane / "cycles.md").write_text(
+        "| accuracy | cycle | retrain_status | candidates |\n| --- | --- | --- | --- |\n"
+        f"| {accuracy} | 6 | succeeded | affinity 0.6556 refused |\n", encoding="utf-8")
+
+
+@pytest.fixture
+def r11_root(tmp_path, monkeypatch):
+    from jobs import experiment_worker
+    _r11_lane(tmp_path, "accuracy_0.90", 21, 0.9)
+    _r11_lane(tmp_path, "accuracy_0.70", 21, 0.7)
+    _r11_lane(tmp_path, "accuracy_0.80", 22, 0.8)            # another bank's run
+    monkeypatch.setattr(experiment_worker, "R11_DIR", tmp_path)
+    return tmp_path
+
+
+def test_r11_results_return_only_the_supervisors_own_tenant(r11_root):
+    result = operations.get_r11_results(21, _principal())
+    assert [lane.accuracy for lane in result.items] == [0.7, 0.9]
+    assert {lane.tenant_id for lane in result.items} == {21}
+    assert result.items[0].cycle_rows == [{"accuracy": "0.7", "cycle": "6", "retrain_status": "succeeded",
+                                           "candidates": "affinity 0.6556 refused"}]
+    assert "simulated" in result.statement
+
+
+def test_r11_results_of_another_tenant_are_refused(r11_root):
+    with pytest.raises(HTTPException) as exc_info:
+        operations.get_r11_results(22, _principal(tenant_id=21))
+    assert exc_info.value.status_code == 403
+
+
+def test_r11_results_hold_nothing_for_a_bank_without_an_r11_run(r11_root):
+    assert operations.get_r11_results(23, _principal(tenant_id=23)).items == []
+
+
+@pytest.mark.parametrize("role", ["analyst", "admin"])
+def test_r11_results_are_for_supervisors_only(r11_root, role):
+    with pytest.raises(HTTPException) as exc_info:
+        operations.get_r11_results(21, _principal(role=role))
+    assert exc_info.value.status_code == 403
+
+
+def test_r11_route_is_registered_on_the_app():
+    from api.main import app
+    assert "/tenants/{tenant_id}/experiments/r11" in [route.path for route in app.routes]
