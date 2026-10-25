@@ -25,7 +25,11 @@ param(
     [switch]$DefinitionsOnly,
     [int]$PostgresTimeoutSeconds = 120,
     # Another platform config (for example one detector seed's, platform/out/r11/config_seed3.yaml).
-    [string]$PlatformConfig = 'platform/config.yaml'
+    [string]$PlatformConfig = 'platform/config.yaml',
+    # Banks that get a supervisor login; every loaded bank when omitted (analysts are always created).
+    [string[]]$SupervisorTenants,
+    # Do not start the frozen Streamlit dashboard (scripts/demo.ps1 serves the React build instead).
+    [switch]$SkipStreamlit
 )
 
 $script:RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -402,7 +406,7 @@ function Get-DemoCredentials {
         $added.Add("admin_password=$($values.admin_password)")
     }
     foreach ($tenantId in $Tenants) {
-        foreach ($role in @('analyst', 'supervisor')) {
+        foreach ($role in (Get-DemoRoles $tenantId)) {
             $emailKey = "tenant_${tenantId}_${role}_email"
             $passwordKey = "tenant_${tenantId}_${role}_password"
             if (-not $values.Contains($emailKey)) {
@@ -424,6 +428,12 @@ function Get-DemoCredentials {
         }
     }
     return $values
+}
+
+function Get-DemoRoles {
+    param([string]$TenantId)
+    if ($null -eq $SupervisorTenants -or @($SupervisorTenants) -contains [string]$TenantId) { return @('analyst', 'supervisor') }
+    return @('analyst')
 }
 
 function Reset-DemoCredentials {
@@ -502,7 +512,7 @@ function Write-DemoUsers {
     $users.Add([pscustomobject]@{ TenantId = 'None'; Email = $Credentials.admin_email;
         Password = $Credentials.admin_password; Role = 'admin' })
     foreach ($tenantId in $SelectedTenants) {
-        foreach ($role in @('analyst', 'supervisor')) {
+        foreach ($role in (Get-DemoRoles $tenantId)) {
             $users.Add([pscustomobject]@{ TenantId = [string]$tenantId;
                 Email = $Credentials["tenant_${tenantId}_${role}_email"];
                 Password = $Credentials["tenant_${tenantId}_${role}_password"]; Role = $role })
@@ -878,6 +888,12 @@ try {
     Remove-Item Env:RINGSHIELD_JWT_SECRET -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_WORKER_MODE -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_L4_REGENERATE_URL -ErrorAction SilentlyContinue
+    if ($SkipStreamlit) {
+        Write-Host 'Demo services are ready (API and worker supervisor; Streamlit not started).'
+        Write-Host "Time origin: $TimeOriginUtc"
+        Write-Host 'API:       http://127.0.0.1:8000'
+        return
+    }
     $dashboardStdout = Join-Path $script:RuntimeDir 'dashboard.out.log'
     $dashboardStderr = Join-Path $script:RuntimeDir 'dashboard.err.log'
     $dashboardProcess = Start-Process -FilePath $python -ArgumentList @('-m', 'streamlit', 'run',
