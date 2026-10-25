@@ -26,7 +26,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `${python} ../dashboard/fixture_server.py --port ${apiPort}`,
+      command: `${python} fixtures/fixture_server.py --port ${apiPort}`,
       url: `http://127.0.0.1:${apiPort}/docs`,
       env: { RINGSHIELD_CORS_ORIGINS: `http://localhost:${webPort}` },
       reuseExistingServer: false,

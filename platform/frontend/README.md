@@ -20,11 +20,14 @@ npm install
 
 ### Fixture mode (no Postgres)
 
-`platform/dashboard/fixture_server.py` serves the same fixtures the Streamlit fixture mode uses,
-through `FixtureAPI`, over HTTP:
+`platform/frontend/fixtures/` holds the front end's own fixtures (one ring per pattern type, a
+120-account ring, a cross-bank ring and 200 rings to page through; regenerate with
+`fixtures/make_fixtures.py`). `fixtures/fixture_server.py` serves them through `FixtureAPI` over HTTP.
+They started as a copy of the Streamlit dashboard's fixtures; `platform/dashboard/` is frozen and is
+not used:
 
 ```bash
-python platform/dashboard/fixture_server.py --port 8001
+python platform/frontend/fixtures/fixture_server.py --port 8001
 ```
 
 ```bash
@@ -32,7 +35,7 @@ VITE_API_URL=http://127.0.0.1:8001 npm run dev
 ```
 
 Open http://localhost:5173. On PowerShell set the variable with `$env:VITE_API_URL = "http://127.0.0.1:8001"`
-first. Fixture logins (from `platform/dashboard/fixtures/users.json`):
+first. Fixture logins (from `fixtures/users.json`):
 
 | Role | Email | Password |
 |---|---|---|
