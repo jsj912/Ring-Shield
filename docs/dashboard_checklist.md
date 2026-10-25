@@ -37,11 +37,11 @@ One line per requirement: status, then how it was tested.
 | FR-D53 | Verdict submission is idempotent from the UI&apos;s side: the button disables while the... | PASS | e2e/verdict.spec.ts FR-D53: double click on Confirm sends exactly one POST /verdicts |
 | FR-D54 | Simulated verdicts (is_simulated = true) are displayed with a &apos;Simulated&apos; tag... | PASS | e2e/verdict.spec.ts FR-D54: fixture ring -10 lists a verdict tagged 'Simulated' |
 | FR-D55 | Admin sees the form disabled with the text &apos;Administrators cannot record verdicts&... | PASS | e2e/verdict.spec.ts FR-D55: admin sees 'Administrators cannot record verdicts.' and all three buttons disabled |
-| FR-D60 | Table of the tenant&apos;s verdicts: time, ring id (link), verdict, analyst, simulated ... | TODO | |
-| FR-D70 | Table of model versions for the tenant: component, version tag, trained at, training la... | TODO | |
-| FR-D71 | Supervisor only: &apos;Retrain now&apos; button with a confirmation dialog stating whic... | TODO | |
-| FR-D72 | After triggering, show the run in a runs list with status polling every 5 s until finis... | TODO | |
-| FR-D73 | A refused run shows the gate reason prominently and links to the model version row | TODO | |
+| FR-D60 | Table of the tenant&apos;s verdicts: time, ring id (link), verdict, analyst, simulated ... | PASS | e2e/history-models.spec.ts FR-D60: columns (simulated tag in the verdict cell), newest first; verdict type, simulated/real, date and analyst filters each narrow; row opens the ring. API boundary: tests/isolation/test_verdict_routes_tenant_boundary_real_db.py |
+| FR-D70 | Table of model versions for the tenant: component, version tag, trained at, training la... | PASS | e2e/history-models.spec.ts FR-D70: all columns, newest first by trained_at, refused version shows its gate reason, promoted rows highlighted; client-side counts removed (fix b527dc0) |
+| FR-D71 | Supervisor only: &apos;Retrain now&apos; button with a confirmation dialog stating whic... | PASS | e2e/history-models.spec.ts FR-D71: no Retrain button for an analyst; supervisor dialog text verbatim (override 5) with R11's two lanes from the new API route 07da6ec (pytest test_retrain_api.py: own tenant only, other tenant 403, analyst/admin 403) |
+| FR-D72 | After triggering, show the run in a runs list with status polling every 5 s until finis... | PASS | e2e/history-models.spec.ts FR-D72/73: run shown running with log tail open, polled (refetchInterval 5000) until finished, no polls after it finishes |
+| FR-D73 | A refused run shows the gate reason prominently and links to the model version row | PASS | e2e/history-models.spec.ts FR-D72/73: refused candidates shown as alerts with the gate reason; 'Show model version N' highlights that row |
 | FR-D80 | Line chart of the daily mean score and daily p99 score over the tenant&apos;s time rang... | TODO | |
 | FR-D81 | Table of drift events: detected at, monitor, window, statistic vs threshold, acted on (... | TODO | |
 | FR-D82 | A permanent note on the screen: &apos;This monitor detects shifts in the score distribu... | TODO | |
