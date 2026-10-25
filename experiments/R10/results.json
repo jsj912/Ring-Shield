@@ -1,0 +1,700 @@
+{
+  "label": "post-hoc, descriptive",
+  "created_utc": "2026-10-25T13:37:00+00:00",
+  "wall_seconds": 5.7,
+  "registered_result": {
+    "path": "results/tables/r10_registered.json",
+    "sha256": "0016393869d69205bde94c335770d5ac44c7633d04ec88a3c62a97184500ba7d",
+    "commit": "3156d75",
+    "reproduced": true
+  },
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "window": {
+    "name": "primary",
+    "split": "test",
+    "days": [
+      8,
+      9
+    ],
+    "bounds": [
+      691210,
+      864009
+    ]
+  },
+  "jaccard": 0.5,
+  "n_boot": 10000,
+  "rows": {
+    "primary": {
+      "member_coverage_tenant": {
+        "value": 0.8744,
+        "low": 0.7812,
+        "high": 0.9437,
+        "n": 30
+      },
+      "member_coverage_pooled": {
+        "value": 0.933,
+        "low": 0.8856,
+        "high": 0.9694,
+        "n": 122
+      }
+    },
+    "pooled_scores": {
+      "member_coverage_tenant": {
+        "value": 0.8907,
+        "low": 0.8,
+        "high": 0.9677,
+        "n": 41
+      },
+      "member_coverage_pooled": {
+        "value": 0.933,
+        "low": 0.8862,
+        "high": 0.968,
+        "n": 122
+      }
+    },
+    "budget_matched": {
+      "member_coverage_tenant": {
+        "value": 0.8282,
+        "low": 0.7545,
+        "high": 0.93,
+        "n": 26
+      },
+      "member_coverage_pooled": {
+        "value": 0.933,
+        "low": 0.8847,
+        "high": 0.9688,
+        "n": 122
+      }
+    },
+    "robustness": {
+      "member_coverage_tenant": {
+        "value": 0.7921,
+        "low": 0.5238,
+        "high": 0.9042,
+        "n": 18
+      },
+      "member_coverage_pooled": {
+        "value": 0.9218,
+        "low": 0.8703,
+        "high": 0.9646,
+        "n": 117
+      }
+    },
+    "a_vs_b": {
+      "tenants": [
+        1,
+        20,
+        11,
+        118,
+        12
+      ],
+      "n_pairs": 68,
+      "n_rings": 49,
+      "a": {
+        "value": 0.1206,
+        "low": 0.0528,
+        "high": 0.2,
+        "n": 68
+      },
+      "b": {
+        "value": 0.0882,
+        "low": 0.0303,
+        "high": 0.1594,
+        "n": 68
+      },
+      "difference": {
+        "value": 0.0324,
+        "low": -0.0119,
+        "high": 0.0882,
+        "n": 68
+      }
+    }
+  },
+  "per_tenant": [
+    {
+      "row": "primary",
+      "tenant_id": 1,
+      "member_coverage_tenant": 0.5556,
+      "member_coverage_pooled": 0.9288,
+      "n_matched_tenant": 3,
+      "n_matched_pooled": 31
+    },
+    {
+      "row": "primary",
+      "tenant_id": 11,
+      "member_coverage_tenant": 0.8333,
+      "member_coverage_pooled": 0.9595,
+      "n_matched_tenant": 7,
+      "n_matched_pooled": 25
+    },
+    {
+      "row": "primary",
+      "tenant_id": 12,
+      "member_coverage_tenant": 0.8762,
+      "member_coverage_pooled": 0.8939,
+      "n_matched_tenant": 7,
+      "n_matched_pooled": 22
+    },
+    {
+      "row": "primary",
+      "tenant_id": 20,
+      "member_coverage_tenant": 1.0,
+      "member_coverage_pooled": 0.9709,
+      "n_matched_tenant": 11,
+      "n_matched_pooled": 25
+    },
+    {
+      "row": "primary",
+      "tenant_id": 118,
+      "member_coverage_tenant": 0.8,
+      "member_coverage_pooled": 0.9004,
+      "n_matched_tenant": 2,
+      "n_matched_pooled": 19
+    },
+    {
+      "row": "pooled_scores",
+      "tenant_id": 1,
+      "member_coverage_tenant": 0.5833,
+      "member_coverage_pooled": 0.9288,
+      "n_matched_tenant": 6,
+      "n_matched_pooled": 31
+    },
+    {
+      "row": "pooled_scores",
+      "tenant_id": 11,
+      "member_coverage_tenant": 0.9356,
+      "member_coverage_pooled": 0.9595,
+      "n_matched_tenant": 8,
+      "n_matched_pooled": 25
+    },
+    {
+      "row": "pooled_scores",
+      "tenant_id": 12,
+      "member_coverage_tenant": 0.9444,
+      "member_coverage_pooled": 0.8939,
+      "n_matched_tenant": 12,
+      "n_matched_pooled": 22
+    },
+    {
+      "row": "pooled_scores",
+      "tenant_id": 20,
+      "member_coverage_tenant": 1.0,
+      "member_coverage_pooled": 0.9709,
+      "n_matched_tenant": 10,
+      "n_matched_pooled": 25
+    },
+    {
+      "row": "pooled_scores",
+      "tenant_id": 118,
+      "member_coverage_tenant": 0.84,
+      "member_coverage_pooled": 0.9004,
+      "n_matched_tenant": 5,
+      "n_matched_pooled": 19
+    },
+    {
+      "row": "budget_matched",
+      "tenant_id": 1,
+      "member_coverage_tenant": 0.5,
+      "member_coverage_pooled": 0.9288,
+      "n_matched_tenant": 3,
+      "n_matched_pooled": 31
+    },
+    {
+      "row": "budget_matched",
+      "tenant_id": 11,
+      "member_coverage_tenant": 0.8571,
+      "member_coverage_pooled": 0.9595,
+      "n_matched_tenant": 7,
+      "n_matched_pooled": 25
+    },
+    {
+      "row": "budget_matched",
+      "tenant_id": 12,
+      "member_coverage_tenant": 0.8292,
+      "member_coverage_pooled": 0.8939,
+      "n_matched_tenant": 8,
+      "n_matched_pooled": 22
+    },
+    {
+      "row": "budget_matched",
+      "tenant_id": 20,
+      "member_coverage_tenant": 1.0,
+      "member_coverage_pooled": 0.9709,
+      "n_matched_tenant": 6,
+      "n_matched_pooled": 25
+    },
+    {
+      "row": "budget_matched",
+      "tenant_id": 118,
+      "member_coverage_tenant": 0.7,
+      "member_coverage_pooled": 0.9004,
+      "n_matched_tenant": 2,
+      "n_matched_pooled": 19
+    },
+    {
+      "row": "robustness",
+      "tenant_id": 1,
+      "member_coverage_tenant": 0.5556,
+      "member_coverage_pooled": 0.9288,
+      "n_matched_tenant": 3,
+      "n_matched_pooled": 31
+    },
+    {
+      "row": "robustness",
+      "tenant_id": 10,
+      "member_coverage_tenant": 0.625,
+      "member_coverage_pooled": 0.9079,
+      "n_matched_tenant": 1,
+      "n_matched_pooled": 39
+    },
+    {
+      "row": "robustness",
+      "tenant_id": 11,
+      "member_coverage_tenant": 0.8333,
+      "member_coverage_pooled": 0.9595,
+      "n_matched_tenant": 7,
+      "n_matched_pooled": 25
+    },
+    {
+      "row": "robustness",
+      "tenant_id": 12,
+      "member_coverage_tenant": 0.8762,
+      "member_coverage_pooled": 0.8939,
+      "n_matched_tenant": 7,
+      "n_matched_pooled": 22
+    }
+  ],
+  "visible_laundering": [
+    {
+      "tenant_id": 1,
+      "sets": [
+        "primary",
+        "robustness"
+      ],
+      "in_scope_rings_with_visible_laundering_edge": 17,
+      "tenant_ring_pairs": 17
+    },
+    {
+      "tenant_id": 10,
+      "sets": [
+        "robustness"
+      ],
+      "in_scope_rings_with_visible_laundering_edge": 13,
+      "tenant_ring_pairs": 13
+    },
+    {
+      "tenant_id": 11,
+      "sets": [
+        "primary",
+        "robustness"
+      ],
+      "in_scope_rings_with_visible_laundering_edge": 14,
+      "tenant_ring_pairs": 14
+    },
+    {
+      "tenant_id": 12,
+      "sets": [
+        "primary",
+        "robustness"
+      ],
+      "in_scope_rings_with_visible_laundering_edge": 11,
+      "tenant_ring_pairs": 11
+    },
+    {
+      "tenant_id": 20,
+      "sets": [
+        "primary"
+      ],
+      "in_scope_rings_with_visible_laundering_edge": 14,
+      "tenant_ring_pairs": 14
+    },
+    {
+      "tenant_id": 70,
+      "sets": [
+        "robustness"
+      ],
+      "in_scope_rings_with_visible_laundering_edge": 0,
+      "tenant_ring_pairs": 0
+    },
+    {
+      "tenant_id": 118,
+      "sets": [
+        "primary"
+      ],
+      "in_scope_rings_with_visible_laundering_edge": 12,
+      "tenant_ring_pairs": 12
+    }
+  ],
+  "ring_sets": {
+    "n": 90,
+    "manifest_sha256": "a6215153b1346131d6d602183fe4b2ca12b8a997dec597a2ea167113a74df55d",
+    "files": [
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T1/seed1/rings.parquet",
+        "sha256": "bb964b1b89a23ebb2a91ad98259a1e0fb1f67e717bd3cd3a28531bf6a3ac570a"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T1/seed2/rings.parquet",
+        "sha256": "9ea8f32859464377ff7c101c2bb121ec4d517417d019634602d5fcbd519b1c59"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T1/seed3/rings.parquet",
+        "sha256": "ea304b06e675aeaa67818bd99c376f5cf893b01a57a87b6e20a9877ce77005d2"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T1/seed4/rings.parquet",
+        "sha256": "728bcbbb87d4023dc014279afec125aef2f09f75d0f92116957ad01cf3bc91da"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T1/seed5/rings.parquet",
+        "sha256": "3e6e426e2dc2b80249ee7d37c41827fc824b0069f96dec18e2ca1c589384c669"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T11/seed1/rings.parquet",
+        "sha256": "bea3b1509c5a79d95034cc3f82792bc7b788201d4efaf4779f03dad49b123fda"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T11/seed2/rings.parquet",
+        "sha256": "43290b5eefe0e532479b71728df17887b7cd5f88dc32d29ec040f571ec53f3d4"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T11/seed3/rings.parquet",
+        "sha256": "7d5d75c2620c248c6100c57eadb938d373da2ab6adb2c8031400632436233620"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T11/seed4/rings.parquet",
+        "sha256": "0db92ce303e57eaf7caf7be993c91e1ef0fc3ebb26cd4d90731728414765c3b7"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T11/seed5/rings.parquet",
+        "sha256": "6e430eb54bd5d9ace18cf42d65f1a6ac35ca80dbf23e8fb7d6f772f18b7e99ac"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T118/seed1/rings.parquet",
+        "sha256": "6993ba888fc77b4939af58632ecb1718c190fc2743996d25241ffa06a5c94ee0"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T118/seed2/rings.parquet",
+        "sha256": "a642086fbab42b18dec57ceff9c3701c6a6f45225e9a72317ffc9b95bcec7fc7"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T118/seed3/rings.parquet",
+        "sha256": "c105a20bfbc17ec2b7cdafeac002fbd907cb68318fd14468e40c691a5e7fa62b"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T118/seed4/rings.parquet",
+        "sha256": "ac32e65a603dafea85a2f89a8e7b630efac50c228d19d42cf7139befb1c8dc21"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T118/seed5/rings.parquet",
+        "sha256": "89b3a61bdee90d1e35677022c35b99d0988db2f56b37163bb7826d074ab4997b"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T12/seed1/rings.parquet",
+        "sha256": "0bf154378340637b38751255d9a950dff0904caedf3ec2b88ca78ae3046b5943"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T12/seed2/rings.parquet",
+        "sha256": "19feee0a5697297ac0eee9220e0f5fe8f6672eb0b10efb81505192f4b3ab7e45"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T12/seed3/rings.parquet",
+        "sha256": "70a47410a0e35f66e73b1298e2e1cf19f91e23d490f3b1df40564dba44736a02"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T12/seed4/rings.parquet",
+        "sha256": "da10ede76c696464f781224b2f23ae9213264d73e9e0612b247bfd67b91b99d8"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T12/seed5/rings.parquet",
+        "sha256": "379c8435339cae32a1b025c7f478fbb93fbdf1a0e9f38d166ea2a6b75bcdc8a8"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T20/seed1/rings.parquet",
+        "sha256": "56e171cce74937e633c7e4a53fff423a4866f9df34aece3d5df4c52a2f3b0eb8"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T20/seed2/rings.parquet",
+        "sha256": "34853f79a79b9a24e29ec53139924688d6f7397602c66ce8dfa97e3f0977338b"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T20/seed3/rings.parquet",
+        "sha256": "41f75761171dfe2aa4c09e68d0f131f98ed375a64d5d25bcfc00fd1abacf6485"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T20/seed4/rings.parquet",
+        "sha256": "b7e31d74864231fd7b60aacbaa26df6a0b7215714927c3b3c417ce7cc5336d69"
+      },
+      {
+        "path": "experiments/R10_registered/runs/budget_matched/T20/seed5/rings.parquet",
+        "sha256": "9763c273ccb1ee7bb22c227e44527069f5819d0fbb29f5795854a6a7a840c0a3"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled/seed1/rings.parquet",
+        "sha256": "9d1e0b9e692a4680608edfe1e1811691c0f94a3c423943029632886f8fab5328"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled/seed2/rings.parquet",
+        "sha256": "24523fef076afa616601141d6ef8dab7f9143bb9e611dd32d5a081f683655fec"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled/seed3/rings.parquet",
+        "sha256": "a39737ff9e2763d0a69505e71dcbf47b2849ccbfcffff570286bf587198ae2f8"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled/seed4/rings.parquet",
+        "sha256": "b254038a6572a373f5953b45696ad01b53c73c0f956fa15ee7d1f97407d2615d"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled/seed5/rings.parquet",
+        "sha256": "e0653d2c09a722aa9c0ce19f756cf09674be108634f07d11fd45bf74c60c44ee"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T1/seed1/rings.parquet",
+        "sha256": "c8e459d488180e38f1072960c380c66d0480f36872f55ffc110a8e90a8c9e460"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T1/seed2/rings.parquet",
+        "sha256": "b05002d0d703043fc0b31299cac46532b90aee9dca3de1dd291749dd65863e07"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T1/seed3/rings.parquet",
+        "sha256": "80f2be0a767c9880155167d7e0f52cbc1d7a04b7730ba900087caf40de0687fb"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T1/seed4/rings.parquet",
+        "sha256": "e461332f55f5f60d248a27ff4333a7a0a4c524b229bf61938728fe3a197d6726"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T1/seed5/rings.parquet",
+        "sha256": "2fe55a407d0ee6744d964c0ba06922d5670179943c1b27e5133c33b3b6ab487b"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T11/seed1/rings.parquet",
+        "sha256": "d914476fe76455faeadc567254501c3afdf40681b9ed0557f703b0a187502a4d"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T11/seed2/rings.parquet",
+        "sha256": "36a410a62b5362018f99a10cb0c65b68cef660b5cc8d9ed0db08a369d64fdeb8"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T11/seed3/rings.parquet",
+        "sha256": "2000e6fa917537bc5de757bbb331e67a028635bd802fef8453a961885ef2e576"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T11/seed4/rings.parquet",
+        "sha256": "461fd195b18017de8bfc64086d7ae8004ea19ab24b51c9c08426b141879d600e"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T11/seed5/rings.parquet",
+        "sha256": "bf96fba3462e72e29c4fd12fc52117fc1dee76c23600d7d22298606a9267a88f"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T118/seed1/rings.parquet",
+        "sha256": "b3f9e763b1ae1e2ed288950fbd77468fac0560eee4506a0adee6a81f282b7546"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T118/seed2/rings.parquet",
+        "sha256": "d591db0d12a890458380c40e35142cbbe7c23ffcf215ac28c3ab0a41cd7198be"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T118/seed3/rings.parquet",
+        "sha256": "3e1bf78a3ea2230b5d0f14fc14698bd97da87726a600ca9e85fd1593e58317d3"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T118/seed4/rings.parquet",
+        "sha256": "2df4f16e451b0f95d34c20a3aff803a1a9714fc776f2a8bcb27ec45d9bec24fd"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T118/seed5/rings.parquet",
+        "sha256": "2eecb6d190b10396f9e66b1b92ae14415a30e8b81649fc49eee9da74bdc88d9a"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T12/seed1/rings.parquet",
+        "sha256": "1e651963dea0142b03e2be11d211814654441c1771d29161659e3ab471a2d516"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T12/seed2/rings.parquet",
+        "sha256": "398f3044313b49db99c34ded86c0a20ad01ec432c2e5647d0d8684876aee0e42"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T12/seed3/rings.parquet",
+        "sha256": "b3ee27913431dc9c1965635c4422cd0736114bbd2dba49e261944186c6a9acb3"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T12/seed4/rings.parquet",
+        "sha256": "4f355f50777fb446c498de31f0657437f25de40251b7d991ff5d42a420424557"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T12/seed5/rings.parquet",
+        "sha256": "97e908eeeebf683d6c350903b0dc0317f9d518dddfd0aca26e05b42197f88e6f"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T20/seed1/rings.parquet",
+        "sha256": "96fb2d5d8c5207fb8685b5f801f9387b93f3858cd1af096823dcb007fffc037f"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T20/seed2/rings.parquet",
+        "sha256": "97201a5433c323ba2006dd75216b1abf8c3223647efd2456a5465024024ad36a"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T20/seed3/rings.parquet",
+        "sha256": "0f96be4d20b1227aadb03356677571e0b78828acd0d1f883ea84c3b00aa316e0"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T20/seed4/rings.parquet",
+        "sha256": "92b93a143365a6dae96ec993f51bb3d69fccaae64901a172d5c0c5f94365c35b"
+      },
+      {
+        "path": "experiments/R10_registered/runs/pooled_scores/T20/seed5/rings.parquet",
+        "sha256": "e670c433c763619fb495322c4282c1b2ecc9688fdcd5bb23cb15ef18d124139d"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T1/seed1/rings.parquet",
+        "sha256": "cfbb9c9789b0aafd87b4711628efacd6eb7a15e3daf521f4f2bdf3c786bfa5ae"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T1/seed2/rings.parquet",
+        "sha256": "deda9b5de4c1aeef4a86222f46114012bee266955368eb9dd3f4e9bea7f386a9"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T1/seed3/rings.parquet",
+        "sha256": "84129efbd25a3043b7ec39c09032df02ce9b88fa8a62b0666287e313d45aba00"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T1/seed4/rings.parquet",
+        "sha256": "7f3704b6076ff90c3de2311966f9aceec9e1de1f8727fb780ed364675e84b143"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T1/seed5/rings.parquet",
+        "sha256": "2e6b678c4eaf2ea35453b2868182e9bae8d75a8d62b2f22ad1e39abce3e1aa57"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T10/seed1/rings.parquet",
+        "sha256": "23711d51cc2a7422f84205bfa049086fca0a1ea0759ef4f18be194ef75158af7"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T10/seed2/rings.parquet",
+        "sha256": "0bc7b1b4a0c3d53d37a0d5f9a6d47d5ec3bb82aab5bbf8086e7541e8573b1e2c"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T10/seed3/rings.parquet",
+        "sha256": "26cf5793c19a759ecc1c49c8778bd19a56d0365f338d0736786cf29e27fe931e"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T10/seed4/rings.parquet",
+        "sha256": "7521f7cf4b6f07dc0e89ee28e0d84dd718fd1dae2f1c273c7d8af232f54f89f5"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T10/seed5/rings.parquet",
+        "sha256": "5eb989a0324b2523cbfebf98e3206523110a50646c2badf804613cc0242a20ce"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T11/seed1/rings.parquet",
+        "sha256": "f70a61ab2bc378bf61cb27258cc219c674252f148ecedac00b16f5e8176163e2"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T11/seed2/rings.parquet",
+        "sha256": "e8b4c24696bcde25c1b775dfe934a395d9c982e91ac0d5550c40239cb88961b1"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T11/seed3/rings.parquet",
+        "sha256": "699214448c96e2eadd9acf7c42f55fec71331534c77fb0eff3db6193f6a57e08"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T11/seed4/rings.parquet",
+        "sha256": "5e5dbf3fe98b23d3b52cbdaf5e468fbf7536fa124dcd6411de42434f42687824"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T11/seed5/rings.parquet",
+        "sha256": "5df36284ff25e859bf46710c73e159e1c640f4509ac43c09ebd7ba6b2d552713"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T118/seed1/rings.parquet",
+        "sha256": "f8cb3a1c2005322dce42c4fa1169b6cc8b26faa0d6350b94ff85fe77c9491be6"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T118/seed2/rings.parquet",
+        "sha256": "df58222847351347d1106210b7532ea7d15089345953df0bffd08ade8aa2dc53"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T118/seed3/rings.parquet",
+        "sha256": "6c19a2561352cd5ec7f2c95573689de1b8099104e0c26e0bd1b1b4c84efaa99a"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T118/seed4/rings.parquet",
+        "sha256": "52acd4783d0ed15619ad55e2a40c326d835d120541517bfa4642863e9e82b7e6"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T118/seed5/rings.parquet",
+        "sha256": "711bc9d881dc373d70c3621e22fd39451eba823e0ae314ac54764cad224969e3"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T12/seed1/rings.parquet",
+        "sha256": "186d210966a955efbdd72493bffb56db92ac85985c38464515c50348bb874016"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T12/seed2/rings.parquet",
+        "sha256": "83d0d7f2b63435a44a634fbb17683f280f31d161c027645bc8de18ade0a72b5a"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T12/seed3/rings.parquet",
+        "sha256": "615be7aaf7ccd62eeb69ae8953991f256d63c7b316729d3e1793f26879d17530"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T12/seed4/rings.parquet",
+        "sha256": "d50f6e6448e4590e38c679f1594d1aef49e941b5e7bbe55660639403a3c103fd"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T12/seed5/rings.parquet",
+        "sha256": "379c8435339cae32a1b025c7f478fbb93fbdf1a0e9f38d166ea2a6b75bcdc8a8"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T20/seed1/rings.parquet",
+        "sha256": "cd89d97014750434e119e1c4854fa0db585845ea9da9c34acb879804397d8dfb"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T20/seed2/rings.parquet",
+        "sha256": "b57ce57daf8408e654ba7158913bc655b4c55675585e35048423c8cda028075c"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T20/seed3/rings.parquet",
+        "sha256": "b078b6c36dfc0c0f70d9fff0588295f7ae9fca6605b3eb33eef4e3e73d89b038"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T20/seed4/rings.parquet",
+        "sha256": "947c92d39bee22ceed3c8c1c4a61a9ce592924a91d3038545a5b61c544b0d3fb"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T20/seed5/rings.parquet",
+        "sha256": "aac67fcea16a0de5c36dda330aa6fbd0154ed11cb5d1d854e9ffcc91c0e13513"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T70/seed1/rings.parquet",
+        "sha256": "21651fae8371cacab6283c84ed3d143a2ec1240668cb3bd8fa12b9ff5b9a3826"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T70/seed2/rings.parquet",
+        "sha256": "8c70f73cecb325e83d32a048966e53e9153363acbdcc8f5af2f77d2ab11a9797"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T70/seed3/rings.parquet",
+        "sha256": "e2d877b9f383a13fc0c56053d2b7f8efc99720541a12ed2c784cca1035556a9b"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T70/seed4/rings.parquet",
+        "sha256": "26cf5793c19a759ecc1c49c8778bd19a56d0365f338d0736786cf29e27fe931e"
+      },
+      {
+        "path": "experiments/R10_registered/runs/primary/T70/seed5/rings.parquet",
+        "sha256": "bd8fdc6888494f245ea6696a72f3773daabc2af1c77c3257facf3e854489590c"
+      }
+    ]
+  }
+}
