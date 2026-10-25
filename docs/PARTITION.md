@@ -177,10 +177,12 @@ accounts of another truth ring) and *under-covered* (it does not). Mean per dete
 | | B2 | 157 | 78.6 | 42.6 | 15.0 | 11.8 | 9.0 |
 | | **full** | 157 | **86.2** | 39.6 | 15.0 | 7.2 | 9.0 |
 
-Reading it: **(a) is 30 % of the primary window's ground truth and is a hard ceiling** — 1,359 of
+Reading it: ~~**(a) is 30 % of the primary window's ground truth and is a hard ceiling** — 1,359 of
 the 1,387 (a)-rings have exactly 2 visible members, 28 have 1; no aggregator with `min_size` 3
 can match them (`full` matches 3.4 per seed more than B2 only because expansion sometimes lifts a
-ring from 2 to ≥ 3 visible members). **(b) is the next 19 %** and is a detector matter: these
+ring from 2 to ≥ 3 visible members).~~ **Corrected 2026-10-25 (FINDINGS B7/B9, retracted 2026-09-30):** (a) is not a ceiling. It counts
+rings with < 3 visible members that are left *unmatched*; 11.4 such rings per seed are matched by
+`full`, because matching uses window-restricted predictions, which `min_size` does not constrain. **(b) is the next 19 %** and is a detector matter: these
 rings have ≥ 3 members (mean 5.8, median 4, max 14 on primary) and *no* seed or expanded edge
 lands on any of their accounts. Expansion converts 7 rings per seed from (b) to matched; the
 partition converts none — by construction it only re-cuts what is already included. **(c) is
@@ -210,7 +212,10 @@ below were fixed in advance and the result is reported as found.*
 **Hypothesis: partitioning prevents the chaining collapse B0 shows above 0.3 % seeds, allowing a
 looser operating point.** B0's val grid (`docs/R2_BASELINES.md`, the motivating figure) collapses
 from ring-F1 0.57 at 0.1 % to 0.05 at 0.5 % because a few false-positive edges on a hub chain
-many rings into one component. If the affinity clustering cuts those chains, a larger seed
+many rings into one component. *[Audit note 2026-10-25, the pre-registered text above is left
+as written: that figure is the legacy seed-1 pipeline check in `docs/R2_BASELINES.md`, which
+shows 0.070 at 0.5 %, not 0.05. The measured trailing-feature B0 curve is 0.549 → 0.188
+(5 seeds, `results/tables/r4_sweep_val_curve.csv`; FINDINGS B3).]* If the affinity clustering cuts those chains, a larger seed
 fraction should recover more members without the collapse, and val should pick a looser k.
 
 Grid, on **val** only, for `full` (expansion + partition) and for `cc+partition` (partition of the
@@ -262,9 +267,9 @@ partitioning the plain seed components without expansion is worth **+0.015 ring-
 ## Limitations and what would move the number
 
 * The partition can only act on components that merge attempts; on the primary window at 0.1 %
-  seeds there are four per seed. The rings in classes (a) and (b) of the ceiling table are beyond
-  every aggregator: (a) has fewer than 3 visible members, (b) has no seed or expanded edge on any
-  of its accounts. **Class (b) — 33 rings per seed, mean size 5.8 — is a detector question, not an
+  seeds there are four per seed. The rings in class (b) of the ceiling table are beyond every
+  aggregator: (b) has no seed or expanded edge on any of its accounts. (~~Class (a) too~~:
+  corrected 2026-10-25, FINDINGS B7/B9 — sub-`min_size` rings can be matched.) **Class (b) — 33 rings per seed, mean size 5.8 — is a detector question, not an
   aggregation one, and no new model work is started for it here. It is carried into Step 10 as one
   extra column: the class-(b) count per detector, which answers whether a different detector fires
   on those rings** (decision recorded 2026-09-22). The under-covered predictions are an expansion
