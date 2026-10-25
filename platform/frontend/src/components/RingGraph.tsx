@@ -173,7 +173,9 @@ export function RingGraph({ subgraph, showConversions, loadAll, ringId }: {
     link.click();
   };
 
-  const roles = [...new Set(nodes.map((node) => (node.role && ROLE_STYLE[node.role] ? node.role : null)))];
+  // Every role always has its legend entry (FR-D31); "role not stated" only when a node has none.
+  const roles: (string | null)[] = [...Object.keys(ROLE_STYLE),
+    ...(nodes.some((node) => !node.role || !ROLE_STYLE[node.role]) ? [null] : [])];
 
   return (
     <div className="space-y-2">
@@ -209,7 +211,7 @@ export function RingGraph({ subgraph, showConversions, loadAll, ringId }: {
         {roles.map((role) => {
           const style = role ? ROLE_STYLE[role] : UNKNOWN_ROLE;
           return (
-            <span key={role ?? "none"} className="inline-flex items-center gap-1">
+            <span key={role ?? "none"} className="inline-flex items-center gap-1" data-testid="legend-role">
               <span style={{ color: style.colour }} aria-hidden>{style.symbol}</span>
               {role ?? "role not stated"}
             </span>
