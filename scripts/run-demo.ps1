@@ -350,8 +350,12 @@ function Stop-DemoProcesses {
             catch { $sameInstance = $false }
         }
         if ($sameInstance) {
-            try { Stop-Process -Id $process.Id -Force -ErrorAction Stop }
-            catch { Write-Warning "Could not stop demo process $($entry.Name) (PID $($entry.Id))." }
+            # A venv's python.exe is a launcher; the interpreter holding the port is its child, so stop the tree.
+            & taskkill.exe /PID $process.Id /T /F *> $null
+            if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) {
+                try { Stop-Process -Id $process.Id -Force -ErrorAction Stop }
+                catch { Write-Warning "Could not stop demo process $($entry.Name) (PID $($entry.Id))." }
+            }
         }
         if ($entry.StopFile) { Remove-Item -LiteralPath $entry.StopFile -Force -ErrorAction SilentlyContinue }
     }
