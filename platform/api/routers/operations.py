@@ -123,7 +123,7 @@ def list_drift_events(
     principal: Principal = Depends(get_principal),
 ) -> DriftEventPage:
     """Return newest tenant drift events; this endpoint never triggers retraining."""
-    _require_supervisor_tenant(tenant_id, principal)
+    _require_drift_reader(tenant_id, principal)
     with _tenant_session(tenant_id, principal) as session:
         query = select(DriftEvent).where(DriftEvent.tenant_id == tenant_id)
         if monitor is not None:
@@ -145,10 +145,10 @@ def list_drift_events(
 
 @router.get("/tenants/{tenant_id}/drift/series", response_model=DriftSeriesResponse)
 def get_drift_series(tenant_id: int, principal: Principal = Depends(get_principal)) -> DriftSeriesResponse:
-    """Return tenant daily score statistics for supervisor drift review."""
-    _require_supervisor_tenant(tenant_id, principal)
+    """Return tenant daily score statistics for supervisor and administrator drift review."""
+    _require_drift_reader(tenant_id, principal)
     config = load_platform_config()
-    with db_session(tenant_id=tenant_id, role="supervisor") as session:
+    with db_session(tenant_id=tenant_id, role=principal.role) as session:
         rows = session.execute(
             select(Transaction.timestamp, EdgeScore.score_calibrated)
             .join(EdgeScore, (EdgeScore.tenant_id == Transaction.tenant_id)
@@ -212,6 +212,14 @@ def set_drift_acted_on(
                         request_id=current_request_id(),
                         details={"acted_on": payload.acted_on})
         return DriftEventSummary.model_validate(event)
+
+
+def _require_drift_reader(tenant_id: int, principal: Principal) -> None:
+    """Drift is read by the tenant's supervisor and by the administrator (FR-D80); changing an
+    event's acted-on flag stays with the supervisor."""
+    if principal.role not in {"supervisor", "admin"}:
+        raise HTTPException(status_code=403, detail="Only a tenant supervisor or an administrator can read drift")
+    require_tenant_access(tenant_id, principal)
 
 
 def _require_supervisor_tenant(tenant_id: int, principal: Principal) -> None:

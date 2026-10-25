@@ -240,3 +240,27 @@ def test_manual_drift_check_launches_separate_tenant_worker_only_for_supervisor(
         operations.start_drift_check(21, principal=_principal(tenant_id=22))
     assert exc_info.value.status_code == 403
     assert launched == [21]
+
+
+def test_admin_reads_a_tenants_drift_events_with_the_admin_role(monkeypatch):
+    session = _FakeSession([])
+    seen = []
+
+    @contextmanager
+    def fake_db_session(*, tenant_id=None, role=None):
+        seen.append((tenant_id, role))
+        yield session
+
+    monkeypatch.setattr(operations, "db_session", fake_db_session)
+    admin = Principal(user_id=1, tenant_id=None, role="admin", email="admin@example.test")
+    result = operations.list_drift_events(21, monitor=None, before_id=None, limit=50, principal=admin)
+    assert result.items == []
+    assert seen == [(21, "admin")]
+
+
+def test_admin_may_read_but_not_change_drift(monkeypatch):
+    _install_session(monkeypatch, _FakeSession([]))
+    admin = Principal(user_id=1, tenant_id=None, role="admin", email="admin@example.test")
+    with pytest.raises(HTTPException) as exc_info:
+        operations.set_drift_acted_on(21, 9, DriftActedOnUpdate(acted_on=True), principal=admin)
+    assert exc_info.value.status_code == 403
