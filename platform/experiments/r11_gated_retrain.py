@@ -300,6 +300,7 @@ def run_experiment(*, tenant_id: int, accuracy: float, cycles: int = CYCLES, out
             "no_retrain_control_holdout_ring_f1": baseline_control,
             "retrain": "y" if cycle == RETRAIN_AFTER_CYCLE else "n",
             "gate_decision": ("—" if cycle != RETRAIN_AFTER_CYCLE else
+                              f"retrain run {run_status}: {candidates or 'no candidate'}" if run_status != "succeeded" else
                               "promoted" if promoted and not refused else "refused" if refused and not promoted
                               else f"{promoted} promoted, {refused} refused" if promoted or refused else "no candidate"),
             "holdout_before": holdout_before, "holdout_after": holdout_serving,
