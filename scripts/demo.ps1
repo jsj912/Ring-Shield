@@ -89,6 +89,14 @@ $runDemo = Join-Path $PSScriptRoot 'run-demo.ps1'
 $env:PYTHON = $python
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runDemo -Down -DropVolume
 if ($LASTEXITCODE -ne 0) { throw 'Could not stop the previous demo.' }
+# A server left on these ports would answer the health checks in place of the new one.
+foreach ($port in @(8000, $WebPort)) {
+    $holder = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($holder) {
+        $name = (Get-Process -Id $holder.OwningProcess -ErrorAction SilentlyContinue).ProcessName
+        throw "Port $port is in use by process $($holder.OwningProcess) ($name). Stop it, then rerun."
+    }
+}
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '$runDemo' -Tenants $($tenants -join ',') -SupervisorTenants $($supervisorTenants -join ',') -TimeOriginUtc '$TimeOriginUtc' -RingsDir '$InputsDir' -EdgeIdsDir '$InputsDir' -ExplanationsDir '$InputsDir' -ScoredEdges '$ScoredEdges' -SkipStreamlit; exit `$LASTEXITCODE"
 if ($LASTEXITCODE -ne 0) { throw 'run-demo.ps1 failed; see the messages above.' }
 
@@ -109,10 +117,12 @@ $web = Start-Process -FilePath $node.Source -ArgumentList @("`"$vite`"", 'previe
     -RedirectStandardOutput $webOut -RedirectStandardError $webErr
 # Register with run-demo.ps1's process list so `run-demo.ps1 -Down` stops the web server too.
 $pidFile = Join-Path $runtime 'processes.json'
-$processes = @(Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json)
-$processes += [pscustomobject]@{ Id = $web.Id; Name = $web.ProcessName;
-    StartTicks = $web.StartTime.ToUniversalTime().Ticks; Kind = 'web' }
-$processes | ConvertTo-Json | Set-Content -LiteralPath $pidFile -Encoding UTF8
+# Unroll the array: Windows PowerShell 5.1 would otherwise save it nested as {"value": [...], "Count": n}.
+$processes = [System.Collections.Generic.List[object]]::new()
+(Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json) | ForEach-Object { $processes.Add($_) }
+$processes.Add([pscustomobject]@{ Id = $web.Id; Name = $web.ProcessName;
+    StartTicks = $web.StartTime.ToUniversalTime().Ticks; Kind = 'web' })
+ConvertTo-Json -InputObject @($processes) | Set-Content -LiteralPath $pidFile -Encoding UTF8
 
 $url = "http://localhost:$WebPort"
 $ready = $false
