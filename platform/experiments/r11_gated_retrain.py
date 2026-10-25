@@ -135,7 +135,7 @@ def serving_rings(promoted: list[ModelVersion], *, tenant_id: int, base_rings: P
     """The serving model's rings for the tenant: the base rings if nothing was promoted, the
     promoted candidate's rings if one was, and none if two were (no combined artifact exists)."""
     if not promoted:
-        return base_rings, "gate refused every candidate: the serving model is the old model"
+        return base_rings, "nothing promoted: the serving model is the old model"
     if len(promoted) > 1:
         return None, "two components promoted separately; no combined artifact to build rings from"
     out_dir = run_dir / "serving_rings"
@@ -189,6 +189,11 @@ def day9_report(*, tenant_id: int, config: dict, retrain: dict, truth_path: Path
                      if row.retrain_run_id == retrain_run_id and row.promoted]
     serving_path, serving_note = serving_rings(promoted_rows, tenant_id=tenant_id, base_rings=base_rings,
                                                build_config=build_config, run_dir=output_dir)
+    candidates = [row for row in _version_snapshot(tenant_id).values()
+                  if row.retrain_run_id == retrain_run_id and row.gate_reason != "initial holdout baseline"]
+    if not promoted_rows:
+        serving_note = ("no candidate was trained (no new verdicts before the retrain)" if not candidates
+                        else "the gate refused every candidate") + "; the serving model is the old model"
     return {"window": {"loader_seconds": list(DAY9), "scope": "test_visible", "jaccard": 0.5,
                        "truth": f"in-scope rings with a scored member whose home bank is {tenant_id}"},
             "old_model": day9_metrics(base_rings, tenant_id=tenant_id, config=config, truth_path=truth_path),
