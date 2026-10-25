@@ -1,0 +1,65 @@
+{
+  "wall_seconds": 147.8,
+  "original_clock32": {
+    "real": false,
+    "control": false
+  },
+  "a_hourly_clock1": {
+    "real": {
+      "detected": false,
+      "first_detection_step": null,
+      "delay_hours": null
+    },
+    "control": {
+      "detected": false,
+      "first_detection_step": null,
+      "delay_hours": null
+    }
+  },
+  "b_per_transaction": {
+    "real": {
+      "n_transactions": 862761,
+      "n_detections": 2,
+      "n_detections_before_onset": 1,
+      "detected_after_onset": true,
+      "first_detection_after_onset": {
+        "transaction": 760162,
+        "edge_id": 4974637,
+        "detected_at": "2022-09-10T11:09:00+00:00",
+        "hour_step": 36,
+        "width_after": 153591
+      },
+      "delay_hours": 11.15
+    },
+    "control": {
+      "n_transactions": 862761,
+      "n_detections": 2,
+      "n_detections_before_onset": 2,
+      "detected_after_onset": false,
+      "first_detection_after_onset": null,
+      "delay_hours": null
+    }
+  },
+  "tenants": {
+    "1": {
+      "hours": 48,
+      "events": 0
+    },
+    "20": {
+      "hours": 48,
+      "events": 0
+    },
+    "11": {
+      "hours": 48,
+      "events": 0
+    },
+    "118": {
+      "hours": 48,
+      "events": 0
+    },
+    "12": {
+      "hours": 48,
+      "events": 0
+    }
+  }
+}
