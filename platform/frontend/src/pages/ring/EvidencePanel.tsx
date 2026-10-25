@@ -77,13 +77,9 @@ export function EvidencePanel({ ring, ringId, evidence, evidenceState, explanati
   const transactions = transactionRows(evidence, explanation, ring, showConversions);
   const banks = new Map((evidence?.nodes ?? []).map((node) => [node.account_id, node.bank_label]));
   const accounts = byWeightDescending<AccountWeight>(explanation?.account_weights ?? [], (item) => item.w_account);
-  const features = [...(explanation?.feature_weights ?? [])]
-    .sort((a, b) => {
-      const va = Math.abs(a.mean_shap ?? 0), vb = Math.abs(b.mean_shap ?? 0);
-      return va === vb ? 0 : va > vb ? -1 : 1;
-    })
-    .slice(0, 10)
-    .reverse();
+  // The API sends feature_weights already ranked by |mean_shap| (explainability/feature_weights.py):
+  // take its first ten as they come, reversed only so the chart draws the strongest at the top.
+  const features = (explanation?.feature_weights ?? []).slice(0, 10).reverse();
 
   return (
     <Card className="h-fit">
