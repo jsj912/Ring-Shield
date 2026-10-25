@@ -1,0 +1,91 @@
+{
+  "created_utc": "2026-10-25T18:14:00+00:00",
+  "git_commit": "9707462df5087a6d233b4cb9904e00787a4c6751",
+  "command": "eval",
+  "rings": "E:\\JSJ\\RS-exp\\results\\platform\\r11\\five_seeds\\seed5\\accuracy_0.90\\no-retrain-control\\affinity-rings.parquet",
+  "truth": "E:\\JSJ\\Ring-Shield\\data\\processed\\amlworld_ring_ground_truth.parquet",
+  "scope": "test_visible",
+  "window": "val",
+  "t_min": 518410,
+  "t_max": 691209,
+  "match_threshold": 0.5,
+  "holdout": {
+    "manifest": "E:\\JSJ\\RS-exp\\platform\\holdout\\production\\holdout_manifest.json",
+    "n_truth_listed": 114,
+    "n_pred_listed": null
+  },
+  "n_rings_in_file": 120,
+  "predicted_restricted_to_window": false,
+  "ring_precision": 0.6333,
+  "ring_recall": 0.6667,
+  "ring_f1": 0.6496,
+  "member_coverage": 0.9623,
+  "mean_jaccard": 0.9449,
+  "n_predicted": 120,
+  "n_truth": 114,
+  "n_matched": 76,
+  "per_pattern": {
+    "GATHER-SCATTER": {
+      "n_truth": 19.0,
+      "n_matched": 18.0,
+      "recall": 0.9473684210526315
+    },
+    "STACK": {
+      "n_truth": 20.0,
+      "n_matched": 2.0,
+      "recall": 0.1
+    },
+    "FAN-IN": {
+      "n_truth": 13.0,
+      "n_matched": 9.0,
+      "recall": 0.6923076923076923
+    },
+    "RANDOM": {
+      "n_truth": 10.0,
+      "n_matched": 10.0,
+      "recall": 1.0
+    },
+    "SCATTER-GATHER": {
+      "n_truth": 16.0,
+      "n_matched": 15.0,
+      "recall": 0.9375
+    },
+    "CYCLE": {
+      "n_truth": 17.0,
+      "n_matched": 13.0,
+      "recall": 0.7647058823529411
+    },
+    "FAN-OUT": {
+      "n_truth": 11.0,
+      "n_matched": 9.0,
+      "recall": 0.8181818181818182
+    },
+    "BIPARTITE": {
+      "n_truth": 8.0,
+      "n_matched": 0.0,
+      "recall": 0.0
+    }
+  },
+  "ring_recall_ge3": 0.6667,
+  "n_truth_ge3": 114,
+  "n_matched_ge3": 76,
+  "jaccard_sweep": {
+    "0.3": {
+      "ring_precision": 0.6667,
+      "ring_recall": 0.7018,
+      "ring_f1": 0.6838,
+      "n_matched": 80
+    },
+    "0.7": {
+      "ring_precision": 0.6,
+      "ring_recall": 0.6316,
+      "ring_f1": 0.6154,
+      "n_matched": 72
+    }
+  },
+  "pred_size": {
+    "n_rings": 120,
+    "mean_members": 5.016666666666667,
+    "max_members": 16
+  }
+}
