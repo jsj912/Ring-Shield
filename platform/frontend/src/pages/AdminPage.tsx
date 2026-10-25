@@ -222,8 +222,8 @@ export function AdminPage() {
                       <TableCell className="font-mono">{tenant.bank_code}</TableCell>
                       <TableCell>{tenant.name}</TableCell>
                       <TableCell>{tenant.is_loaded ? <Badge variant="success">Yes</Badge> : <Badge variant="secondary">No</Badge>}</TableCell>
-                      <TableCell className="text-right tabular-nums">{tenant.ring_count ?? 0}</TableCell>
-                      <TableCell className="text-right tabular-nums">{tenant.verdict_count ?? 0}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtAsReceived(tenant.ring_count)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtAsReceived(tenant.verdict_count)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
