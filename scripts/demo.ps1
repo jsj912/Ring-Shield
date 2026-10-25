@@ -8,6 +8,9 @@
     Every run starts from an empty demo database (the previous demo volume is dropped), then
     calls scripts/run-demo.ps1 for Postgres, migrations, loading, users, the API and the worker
     supervisor, builds platform/frontend and serves the build with `vite preview`.
+    The L4 regeneration service (python -m explainability.serve, Python from XAI_PYTHON or
+    ..\venv-xai) runs on 127.0.0.1:8765 so that a partial verdict regenerates the narrative; it
+    is given the same ring files the demo loads.
 
     Logins: an analyst at banks 12 and 20, a supervisor at bank 12, and an administrator.
     Stop everything with: .\scripts\run-demo.ps1 -Down
@@ -19,7 +22,8 @@ param(
     [string]$InputsDir = 'data/platform_tenant_runs/gine_causal_seed1',
     [string]$ScoredEdges = 'contract/out/scored_edges_gine_causal_1.parquet',
     [string]$TimeOriginUtc = '2022-08-31T23:59:50Z',
-    [int]$WebPort = 5173
+    [int]$WebPort = 5173,
+    [int]$L4Port = 8765
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,6 +78,21 @@ foreach ($tenant in $tenants) {
         $required += Join-Path $inputs $name
     }
 }
+
+# The L4 service: its own environment (explainability/requirements-serve.txt) and the research inputs it
+# reads (explainability/README.md section 24).
+$venvXai = Join-Path (Split-Path -Parent $repoRoot) 'venv-xai/Scripts/python.exe'
+$xaiPython = if ($env:XAI_PYTHON) { $env:XAI_PYTHON } elseif (Test-Path -LiteralPath $venvXai) { $venvXai } else { $null }
+if (-not $xaiPython) {
+    $missing.Add('L4 Python: a venv with explainability/requirements-serve.txt at ..\venv-xai, or set XAI_PYTHON')
+}
+foreach ($name in @('data/processed/amlworld_train.parquet', 'data/processed/amlworld_val.parquet',
+        'data/processed/amlworld_test.parquet', 'data/processed/amlworld_gfp_features_test.parquet',
+        'experiments/R1_gine_causal/embeddings_test_seed1.parquet',
+        'experiments/R2_b0/gfpxgb_scores/model_seed1.json', 'experiments/R2_b0/gfpxgb_scores/scores_test_seed1.parquet',
+        'experiments/R4_partition/affinity/affinity.json', 'experiments/R4_partition/runs/average/seed1/config.yaml')) {
+    $required += Join-Path $repoRoot $name
+}
 foreach ($file in $required) {
     if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { $missing.Add("Data file: $file (see README, 'Data')") }
 }
@@ -90,15 +109,45 @@ $env:PYTHON = $python
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runDemo -Down -DropVolume
 if ($LASTEXITCODE -ne 0) { throw 'Could not stop the previous demo.' }
 # A server left on these ports would answer the health checks in place of the new one.
-foreach ($port in @(8000, $WebPort)) {
+foreach ($port in @(8000, $WebPort, $L4Port)) {
     $holder = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($holder) {
         $name = (Get-Process -Id $holder.OwningProcess -ErrorAction SilentlyContinue).ProcessName
         throw "Port $port is in use by process $($holder.OwningProcess) ($name). Stop it, then rerun."
     }
 }
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '$runDemo' -Tenants $($tenants -join ',') -SupervisorTenants $($supervisorTenants -join ',') -TimeOriginUtc '$TimeOriginUtc' -RingsDir '$InputsDir' -EdgeIdsDir '$InputsDir' -ExplanationsDir '$InputsDir' -ScoredEdges '$ScoredEdges' -SkipStreamlit; exit `$LASTEXITCODE"
-if ($LASTEXITCODE -ne 0) { throw 'run-demo.ps1 failed; see the messages above.' }
+
+# L4 explains the rings the demo loads: give it exactly those files.
+$runtime = Join-Path $repoRoot 'platform/out/demo'
+New-Item -ItemType Directory -Path $runtime -Force | Out-Null
+$l4Inputs = Join-Path $repoRoot 'results/xai/tenant/inputs'
+New-Item -ItemType Directory -Path $l4Inputs -Force | Out-Null
+foreach ($tenant in $tenants) {
+    foreach ($name in @("tenant_${tenant}_rings.parquet", "tenant_${tenant}_edge_ids.parquet")) {
+        Copy-Item -LiteralPath (Join-Path $inputs $name) -Destination (Join-Path $l4Inputs $name) -Force
+    }
+}
+$bytes = New-Object byte[] 24
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$xaiToken = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+$l4Err = Join-Path $runtime 'l4.err.log'
+$env:RINGSHIELD_XAI_TOKEN = $xaiToken
+$l4 = Start-Process -FilePath $xaiPython -ArgumentList @('-m', 'explainability.serve', '--tenants', ($tenants -join ','),
+    '--data-root', "`"$repoRoot`"", '--port', [string]$L4Port) -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru `
+    -RedirectStandardOutput (Join-Path $runtime 'l4.out.log') -RedirectStandardError $l4Err
+Remove-Item Env:RINGSHIELD_XAI_TOKEN
+Write-Host 'Starting the L4 regeneration service...'
+$l4Ready = $false
+for ($attempt = 0; $attempt -lt 60 -and -not $l4Ready; $attempt++) {
+    $l4.Refresh()
+    if ($l4.HasExited) { throw "The L4 service exited; inspect $l4Err." }
+    try { $l4Ready = (Invoke-RestMethod -Uri "http://127.0.0.1:$L4Port/health" -TimeoutSec 2).status -eq 'ok' }
+    catch { Start-Sleep -Seconds 2 }
+}
+if (-not $l4Ready) { Stop-Process -Id $l4.Id -Force; throw "The L4 service did not become ready; inspect $l4Err." }
+
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '$runDemo' -Tenants $($tenants -join ',') -SupervisorTenants $($supervisorTenants -join ',') -TimeOriginUtc '$TimeOriginUtc' -RingsDir '$InputsDir' -EdgeIdsDir '$InputsDir' -ExplanationsDir '$InputsDir' -ScoredEdges '$ScoredEdges' -XaiUrl 'http://127.0.0.1:$L4Port' -XaiToken '$xaiToken' -SkipStreamlit; exit `$LASTEXITCODE"
+if ($LASTEXITCODE -ne 0) { Stop-Process -Id $l4.Id -Force; throw 'run-demo.ps1 failed; see the messages above.' }
 
 Write-Host 'Building the React app (production build)...'
 $env:VITE_API_URL = 'http://127.0.0.1:8000'
@@ -108,7 +157,6 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'npm run build failed.' }
 } finally { Pop-Location }
 
-$runtime = Join-Path $repoRoot 'platform/out/demo'
 $webOut = Join-Path $runtime 'web.out.log'
 $webErr = Join-Path $runtime 'web.err.log'
 $vite = Join-Path $frontend 'node_modules/vite/bin/vite.js'
@@ -120,8 +168,10 @@ $pidFile = Join-Path $runtime 'processes.json'
 # Unroll the array: Windows PowerShell 5.1 would otherwise save it nested as {"value": [...], "Count": n}.
 $processes = [System.Collections.Generic.List[object]]::new()
 (Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json) | ForEach-Object { $processes.Add($_) }
-$processes.Add([pscustomobject]@{ Id = $web.Id; Name = $web.ProcessName;
-    StartTicks = $web.StartTime.ToUniversalTime().Ticks; Kind = 'web' })
+foreach ($entry in @(@($web, 'web'), @($l4, 'l4'))) {
+    $processes.Add([pscustomobject]@{ Id = $entry[0].Id; Name = $entry[0].ProcessName;
+        StartTicks = $entry[0].StartTime.ToUniversalTime().Ticks; Kind = $entry[1] })
+}
 ConvertTo-Json -InputObject @($processes) | Set-Content -LiteralPath $pidFile -Encoding UTF8
 
 $url = "http://localhost:$WebPort"
