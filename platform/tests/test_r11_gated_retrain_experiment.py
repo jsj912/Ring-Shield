@@ -94,6 +94,10 @@ def test_r11_runs_twelve_primary_window_cycles_and_one_retrain_after_cycle_six(
         retrained["done"] = True
 
     monkeypatch.setattr(r11, "run_retrain_job", retrain)
+    day9 = {"old_model": {"ring_f1": 0.5}, "serving_model": {"ring_f1": 0.5}, "label": "descriptive only"}
+    monkeypatch.setattr(r11, "day9_report", lambda **_kwargs: day9)
+    monkeypatch.setattr(r11, "_serving", lambda *_args: [])
+    monkeypatch.setattr(r11, "models_screen_json", lambda _t, _c, cycles, run_id: {"cycles": cycles, "run_id": run_id})
     result = r11.run_experiment(tenant_id=210, accuracy=accuracy)
     assert result["retrained_false"] is True
     assert result["disclaimer"] == "Retraining was not real in this run; no improvement is claimed."
@@ -106,3 +110,13 @@ def test_r11_runs_twelve_primary_window_cycles_and_one_retrain_after_cycle_six(
     assert order.index("retrain") == 6
     assert [call[3] for call in calls if call[0] == "retrain"] == [1]
     assert Path(result["markdown"]).read_text(encoding="utf-8").startswith(result["disclaimer"])
+    # The per-cycle columns the five-seed report and the Models screen read.
+    import json
+    models = json.loads(Path(result["models_json"]).read_text(encoding="utf-8"))
+    rows = models["cycles"]
+    assert [row["retrain"] for row in rows] == ["n"] * 5 + ["y"] + ["n"] * 6
+    assert [row["gate_decision"] for row in rows].count("—") == 11
+    assert rows[5]["gate_decision"] == "refused" and rows[5]["holdout_before"] == 0.74
+    assert all(row["serving_model"] == "base model" for row in rows)
+    assert models["day9"] == day9 and models["wall_seconds"] >= 0
+    assert result["day9"] == day9 and Path(result["models_json"]).parent == tmp_path / "results/platform/r11" / f"accuracy_{accuracy:.2f}"
