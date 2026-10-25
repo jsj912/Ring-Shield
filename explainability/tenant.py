@@ -125,46 +125,19 @@ def tenant_paths(cfg: dict, bank: int) -> dict:
     return {k: t[k].format(bank=bank, seed=t["seed"]) for k in ("rings", "edge_ids", "scored_edges", "out")}
 
 
-VISIBLE_SOURCE_KEY = b"ringshield_visible_source"
-
-
-def _shipped_scores(cfg: dict) -> str:
-    return cfg["inputs"]["scored_edges"].format(seed=cfg["tenants"]["seed"])
-
-
-def _visible_source(cfg: dict, bank: int) -> dict:
-    """What a bank's visible-scores file is cut from: the bank and the shipped scored edges' SHA-256."""
-    return {"bank": int(bank), "shipped_scored_edges_sha256": sha256(_shipped_scores(cfg))}
-
-
-def visible_scored_edges_current(cfg: dict, bank: int) -> bool:
-    """True only if the bank's visible-scores file exists and was cut from the current shipped scored edges.
-
-    A file from elsewhere (an R11 hand-off of the bank's own-model scores, an older detector run) carries no stamp or
-    another hash, and its is_seed flags need not match the rings built from the shipped scores."""
-    out = repo_path(tenant_paths(cfg, bank)["scored_edges"])
-    if not out.exists():
-        return False
-    stamp = (pq.ParquetFile(out).schema_arrow.metadata or {}).get(VISIBLE_SOURCE_KEY)
-    return stamp is not None and json.loads(stamp) == _visible_source(cfg, bank)
-
-
 def write_visible_scored_edges(cfg: dict, bank: int) -> Path:
-    """The shipped scored edges restricted to the edges the bank can see; must equal the platform's edge-id file.
-    Stamped with its source (VISIBLE_SOURCE_KEY) so a stale copy is never reused."""
+    """The shipped scored edges restricted to the edges the bank can see; must equal the platform's edge-id file."""
     p = tenant_paths(cfg, bank)
-    se = pd.read_parquet(repo_path(_shipped_scores(cfg)))
+    se = pd.read_parquet(repo_path(cfg["inputs"]["scored_edges"].format(seed=cfg["tenants"]["seed"])))
     vis = se[(se["from_bank"] == bank) | (se["to_bank"] == bank)].reset_index(drop=True)
     ids = pd.read_parquet(repo_path(p["edge_ids"]))["edge_id"].astype("int64")
     if set(ids) != set(vis["edge_id"]):
         raise ValueError(f"bank {bank}: the platform's edge-id file is not the from_bank/to_bank = {bank} edge set")
     out = repo_path(p["scored_edges"])
     out.parent.mkdir(parents=True, exist_ok=True)
-    tbl = pq.read_table(repo_path(_shipped_scores(cfg)))
+    tbl = pq.read_table(repo_path(cfg["inputs"]["scored_edges"].format(seed=cfg["tenants"]["seed"])))
     mask = np.isin(tbl.column("edge_id").to_numpy(), vis["edge_id"].to_numpy())
-    visible = tbl.filter(mask)                                  # same columns, types and schema metadata
-    metadata = {**(visible.schema.metadata or {}), VISIBLE_SOURCE_KEY: json.dumps(_visible_source(cfg, bank)).encode()}
-    pq.write_table(visible.replace_schema_metadata(metadata), out)
+    pq.write_table(tbl.filter(mask), out)                       # same columns, types and schema metadata
     return out
 
 
@@ -200,7 +173,7 @@ class TenantExplainer:
         from explainability.explain import build_context
         from explainability.feature_weights import FeatureExplainer
         self.bank, self.paths = int(bank), tenant_paths(cfg, bank)
-        if not visible_scored_edges_current(cfg, bank):         # missing, unstamped or cut from other scores
+        if not repo_path(self.paths["scored_edges"]).exists():
             write_visible_scored_edges(cfg, bank)
         self.cfg = tenant_cfg(cfg, bank)
         ctx, rings = build_context(self.cfg, self.cfg["inputs"]["scored_edges"], self.cfg["inputs"]["rings"],
