@@ -349,6 +349,38 @@ class DriftSeriesResponse(BaseModel):
     items: list[DailyDriftStatistic]
 
 
+class HourlyDriftStatistic(BaseModel):
+    day: datetime                 # the hour's start, as tenant_hourly.json names it
+    mean: float
+    p99: float
+
+
+class HourlyAdwinStep(BaseModel):
+    hour: datetime
+    adwin_mean_width: int
+    adwin_mean_drift: bool
+    adwin_p99_width: int
+    adwin_p99_drift: bool
+
+
+class HourlyDriftResponse(BaseModel):
+    """A bank's own hourly series for days 8-9 (jobs/experiment_worker.py::r12_tenant_hourly)."""
+    tenant_id: int
+    active_model_id: str
+    active_seed: int
+    step_seconds: int
+    statement: str
+    adwin_config: dict
+    items: list[HourlyDriftStatistic]
+    adwin: list[HourlyAdwinStep]
+    events: list[dict]
+
+
+class R12Panel(BaseModel):
+    """R12's panel for the administrator: experiment tenant and synthetic control, as written."""
+    results: dict
+
+
 class DriftActedOnUpdate(BaseModel):
     acted_on: bool
     # FR-D81: the React screen always sends a note; optional here so the frozen Streamlit

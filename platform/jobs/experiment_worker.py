@@ -114,6 +114,43 @@ def r11_results(root: Path = None) -> list[dict]:
     return lanes
 
 
+R12_AMENDED = REPO_ROOT / "results" / "platform" / "r12" / "amended"
+R12_EXPERIMENT_TENANT_IDS = frozenset({900001})          # docs/R12.md: the pooled experiment tenant
+_HOURLY_KEYS = ("tenant_id", "active_model_id", "active_seed", "step_seconds")
+
+
+def r12_tenant_hourly(tenant_id: int, path: Path = None) -> dict | None:
+    """One bank's real hourly score series for days 8-9 (R12 amendment A's tenant_hourly.json),
+    for the drift screen. Only the listed fields are copied, so nothing synthetic and no other
+    tenant can come through; the experiment tenant is never served. None when there is none."""
+    if int(tenant_id) in R12_EXPERIMENT_TENANT_IDS:
+        return None
+    source = path or R12_AMENDED / "tenant_hourly.json"
+    if not source.is_file():
+        return None
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    entry = next((item for item in payload.get("tenants", []) if int(item["tenant_id"]) == int(tenant_id)), None)
+    if entry is None:
+        return None
+    return {
+        **{key: entry[key] for key in _HOURLY_KEYS},
+        "statement": payload["statement"], "adwin_config": payload["adwin"],
+        "items": [{key: point[key] for key in ("day", "mean", "p99")} for point in entry["items"]],
+        "adwin": [{key: step[key] for key in ("hour", "adwin_mean_width", "adwin_mean_drift",
+                                                "adwin_p99_width", "adwin_p99_drift")} for step in entry["adwin"]],
+        "events": list(entry.get("events", [])),
+    }
+
+
+def r12_panel(path: Path = None) -> dict | None:
+    """R12's administrator panel (panel.json): the experiment tenant's real run and the synthetic
+    positive control, as written. Administrator routes only."""
+    source = path or R12_AMENDED / "panel.json"
+    if not source.is_file():
+        return None
+    return json.loads(source.read_text(encoding="utf-8"))
+
+
 def _post_hoc_interval(part: dict) -> dict:
     if not all(_finite(part[key]) for key in ("value", "low", "high")) or not isinstance(part["n"], int):
         raise ValueError("R10 post-hoc result contains an invalid metric")

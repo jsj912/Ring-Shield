@@ -27,7 +27,7 @@ from api.schemas import (DriftEventPage, DriftEventSummary, ModelVersionPage,
                          ModelVersionSummary, RetrainRunCreated, RetrainRunStatusResponse,
                          DriftActedOnUpdate, DriftSeriesResponse, DailyDriftStatistic,
                          RetrainCandidate, RetrainRunPage, RetrainRunSummary, DriftCheckStarted,
-                         R11Result)
+                         R11Result, HourlyDriftResponse)
 from db.models import DriftEvent, EdgeScore, ModelVersion, RetrainRun, Transaction
 from db.session import db_session
 from settings import load_platform_config
@@ -173,6 +173,18 @@ def get_drift_series(tenant_id: int, principal: Principal = Depends(get_principa
             day=datetime.fromtimestamp(day * 86_400 + 10, tz=timezone.utc), mean=mean, p99=p99,
         ) for day, mean, p99 in points],
     )
+
+
+@router.get("/tenants/{tenant_id}/drift/hourly", response_model=HourlyDriftResponse)
+def get_drift_hourly(tenant_id: int, principal: Principal = Depends(get_principal)) -> HourlyDriftResponse:
+    """The tenant's own real hourly score series for days 8-9 (R12 amendment A). Never the R12
+    experiment tenant and never the synthetic control."""
+    _require_drift_reader(tenant_id, principal)
+    from jobs.experiment_worker import r12_tenant_hourly
+    series = r12_tenant_hourly(tenant_id)
+    if series is None:
+        raise HTTPException(status_code=404, detail="No hourly drift series is available for this tenant")
+    return HourlyDriftResponse(**series)
 
 
 @router.post("/tenants/{tenant_id}/drift/check", response_model=DriftCheckStarted,

@@ -15,7 +15,7 @@ from audit import add_audit_event
 from api.identity import Principal
 from api.request_context import current_request_id, log_event
 from api.passwords import hash_password
-from api.schemas import ExperimentJobResponse, R10Result, TenantResponse, UserCreateRequest, UserResponse
+from api.schemas import ExperimentJobResponse, R10Result, R12Panel, TenantResponse, UserCreateRequest, UserResponse
 from db.models import Ring, Tenant, User, Verdict
 from db.session import db_session
 
@@ -115,6 +115,17 @@ def get_latest_tenant_vs_pooled(principal: Principal = Depends(require_roles("ad
         return R10Result(results=r10_registered_results())
     except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=404, detail="No registered R10 result is available") from exc
+
+
+@router.get("/experiments/r12", response_model=R12Panel)
+def get_r12_panel(principal: Principal = Depends(require_roles("admin"))) -> R12Panel:
+    """R12's real run on the experiment tenant and its synthetic positive control, for the
+    administrator's 'R12 experiment' panel only."""
+    from jobs.experiment_worker import r12_panel
+    panel = r12_panel()
+    if panel is None:
+        raise HTTPException(status_code=404, detail="No R12 panel is available")
+    return R12Panel(results=panel)
 
 
 @router.get("/experiments/tenant-vs-pooled/{job_id}", response_model=ExperimentJobResponse)
