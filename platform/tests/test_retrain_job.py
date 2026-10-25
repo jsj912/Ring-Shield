@@ -424,6 +424,21 @@ def test_retrain_refresh_requires_existing_output_file(monkeypatch, tmp_path):
         )
 
 
+def test_retrain_refresh_reads_the_result_after_the_research_cli_output(monkeypatch, tmp_path):
+    import json
+    import jobs.retrain as retrain
+
+    rings = tmp_path / "tenant_21_rings.parquet"
+    rings.write_bytes(b"rings")
+    result = json.dumps({"tenant_id": 21, "model_version_id": 91, "rings_path": str(rings)})
+    monkeypatch.setattr(retrain.subprocess, "run", lambda *_args, **_kwargs: SimpleNamespace(
+        returncode=0, stdout=f"ringshield run: 9 rings\n[rings] wrote {rings}\n{result}\n", stderr="",
+    ))
+    assert retrain._run_ring_refresh_process(
+        tenant_id=21, model_version_id=91, run_id="run-v91", log_path=tmp_path / "run.log",
+    ) == rings.resolve()
+
+
 def test_run_state_clears_stale_model_version_when_success_has_no_promotion(monkeypatch):
     import jobs.retrain as retrain
 

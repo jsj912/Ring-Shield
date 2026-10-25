@@ -412,7 +412,8 @@ def _run_ring_refresh_process(*, tenant_id: int, model_version_id: int, run_id: 
         _write_log(log_path, f"ring refresh failed: {reason}")
         raise RetrainError(f"ring refresh failed: {reason}")
     try:
-        response = json.loads(output)
+        # The worker's result is its last line: the research CLI it runs shares its stdout.
+        response = json.loads(output.splitlines()[-1] if output else "")
         if not isinstance(response, dict):
             raise TypeError("refresh response must be an object")
         rings_path = Path(response["rings_path"])
