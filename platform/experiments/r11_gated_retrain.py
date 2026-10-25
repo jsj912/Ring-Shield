@@ -202,6 +202,14 @@ def day9_report(*, tenant_id: int, config: dict, retrain: dict, truth_path: Path
             "serving_note": serving_note, "label": "descriptive only"}
 
 
+def _wait_for_run(tenant_id: int, run_id: str, *, timeout_seconds: int = 7_200, poll_seconds: float = 5.0) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    while _run_status(tenant_id, run_id) == "running":
+        if time.monotonic() > deadline:
+            raise RuntimeError(f"retrain run {run_id} did not finish within {timeout_seconds} s")
+        time.sleep(poll_seconds)
+
+
 def cycle_intervals(cycles: int = CYCLES, hours: int = CYCLE_HOURS) -> list[tuple[int, int]]:
     """[start, end) of each cycle in loader seconds: the primary window cut into equal slices."""
     window = truth_window_info(TRUTH_WINDOW)
@@ -271,7 +279,9 @@ def run_experiment(*, tenant_id: int, accuracy: float, cycles: int = CYCLES, out
                     log_path=f"platform/out/retrain/{run_id}.log",
                 ))
             # Exactly one retrain, on whatever day 8 produced: no minimum label count.
-            run_retrain_job(tenant_id, run_id, min_new_labels=1)
+            if run_retrain_job(tenant_id, run_id, min_new_labels=1) is False:
+                # The worker supervisor claimed this running row first; wait for its worker.
+                _wait_for_run(tenant_id, run_id)
             run_status = _run_status(tenant_id, run_id)
             after = _version_snapshot(tenant_id)
             # The first retrain also records each component's base model as the starting baseline;
