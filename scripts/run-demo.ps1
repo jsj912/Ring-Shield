@@ -23,7 +23,9 @@ param(
     [switch]$ValidateOnly,
     [switch]$StartFakeL4,
     [switch]$DefinitionsOnly,
-    [int]$PostgresTimeoutSeconds = 120
+    [int]$PostgresTimeoutSeconds = 120,
+    # Another platform config (for example one detector seed's, platform/out/r11/config_seed3.yaml).
+    [string]$PlatformConfig = 'platform/config.yaml'
 )
 
 $script:RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -31,6 +33,7 @@ $script:ComposeFile = Join-Path $script:RepoRoot 'docker-compose.dev.yml'
 $script:ProjectName = 'ringshield-demo'
 $script:CredentialsPath = Join-Path $script:RepoRoot 'platform/demo-credentials.txt'
 $script:RuntimeDir = Join-Path $script:RepoRoot 'platform/out/demo'
+$script:PlatformConfigPath = if ([System.IO.Path]::IsPathRooted($PlatformConfig)) { $PlatformConfig } else { Join-Path $script:RepoRoot $PlatformConfig }
 
 function Resolve-DemoPath {
     param([string]$Path)
@@ -122,20 +125,23 @@ function ConvertTo-DemoTenantIds {
     return ,$tenantIds.ToArray()
 }
 
+function Get-PlatformConfigValue {
+    param([string]$Key)
+    $match = Select-String -LiteralPath $script:PlatformConfigPath -Pattern ("^\s*" + [regex]::Escape($Key) + ":\s*(.+?)\s*$") -ErrorAction Stop |
+        Select-Object -First 1 -ErrorAction Stop
+    if (-not $match) { throw "$PlatformConfig is missing '$Key'." }
+    $value = $match.Matches[0].Groups[1].Value.Trim().Trim([char]'"').Trim([char]"'")
+    if ([string]::IsNullOrWhiteSpace($value)) { throw "$PlatformConfig has an empty '$Key'." }
+    return $value
+}
+
 function Get-PlatformConfigPath {
     param([string]$Key)
-    $configPath = Join-Path $script:RepoRoot 'platform/config.yaml'
-    $match = Select-String -LiteralPath $configPath -Pattern ("^\s*" + [regex]::Escape($Key) + ":\s*(.+?)\s*$") -ErrorAction Stop |
-        Select-Object -First 1 -ErrorAction Stop
-    if (-not $match) { throw "platform/config.yaml is missing '$Key'." }
-    $value = $match.Matches[0].Groups[1].Value.Trim().Trim([char]'"').Trim([char]"'")
-    if ([string]::IsNullOrWhiteSpace($value)) { throw "platform/config.yaml has an empty '$Key'." }
-    return Resolve-DemoPath $value
+    return Resolve-DemoPath (Get-PlatformConfigValue $Key)
 }
 
 function Get-ConfiguredL4Url {
-    $configPath = Join-Path $script:RepoRoot 'platform/config.yaml'
-    $match = Select-String -LiteralPath $configPath -Pattern '(?m)^\s+regenerate_url:\s*(.*?)\s*$' -ErrorAction Stop |
+    $match = Select-String -LiteralPath $script:PlatformConfigPath -Pattern '(?m)^\s+regenerate_url:\s*(.*?)\s*$' -ErrorAction Stop |
         Select-Object -First 1
     if (-not $match) { throw 'platform/config.yaml is missing l4.regenerate_url.' }
     $value = $match.Matches[0].Groups[1].Value.Trim().Trim([char]'"').Trim([char]"'")
@@ -276,7 +282,7 @@ function Assert-DemoInputs {
     foreach ($tenantId in $SelectedTenants) {
         $ring = Join-Path $ringsPath "tenant_${tenantId}_rings.parquet"
         $edgeIds = Join-Path $edgePath "tenant_${tenantId}_edge_ids.parquet"
-        $explanation = Join-Path $explanationsPath "explanations_${tenantId}_1.parquet"
+        $explanation = Join-Path $explanationsPath "explanations_${tenantId}_$(Get-PlatformConfigValue 'active_seed').parquet"
         foreach ($file in @($ring, $edgeIds, $explanation)) {
             Assert-SafeDemoPath $file
             if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
@@ -655,7 +661,7 @@ try {
     $python = $pythonCommand.Source
     $explanationCheckArguments = @('platform/jobs/check_explanations.py')
     foreach ($tenantId in $Tenants) {
-        $explanationFile = Join-Path $validated.ExplanationsDir "explanations_${tenantId}_1.parquet"
+        $explanationFile = Join-Path $validated.ExplanationsDir "explanations_${tenantId}_$(Get-PlatformConfigValue 'active_seed').parquet"
         $ringsLog = Join-Path $validated.RingsDir "tenant_${tenantId}_rings.parquet.log.json"
         $explanationCheckArguments += @('--explanations', $explanationFile,
             '--run-log', "$explanationFile.log.json", '--rings-log', $ringsLog)
@@ -711,7 +717,7 @@ try {
         $demoUserTenants = Get-DemoCredentialTenants $credentials
     }
     $env:RINGSHIELD_DATABASE_URL = $urls.App
-    $env:RINGSHIELD_PLATFORM_CONFIG = 'platform/config.yaml'
+    $env:RINGSHIELD_PLATFORM_CONFIG = $PlatformConfig
     $seedArguments = @('platform/jobs/seed_tenants.py', '--account-map', $accountMap)
     foreach ($tenantId in $Tenants) { $seedArguments += @('--loaded-bank', [string]$tenantId) }
     Invoke-Checked $python $seedArguments 'seed tenants and counterparty registry'
@@ -723,7 +729,7 @@ try {
 
     $env:RINGSHIELD_LOADER_DATABASE_URL = $urls.Loader
     $env:RINGSHIELD_DATABASE_URL = $urls.App
-    $env:RINGSHIELD_PLATFORM_CONFIG = 'platform/config.yaml'
+    $env:RINGSHIELD_PLATFORM_CONFIG = $PlatformConfig
     $edgeCounts = @{}
     $ringCounts = @{}
     foreach ($tenantId in $Tenants) {
@@ -741,7 +747,7 @@ try {
     }
     $explanationCounts = @{}
     foreach ($tenantId in $Tenants) {
-        $explanationFile = Join-Path $validated.ExplanationsDir "explanations_${tenantId}_1.parquet"
+        $explanationFile = Join-Path $validated.ExplanationsDir "explanations_${tenantId}_$(Get-PlatformConfigValue 'active_seed').parquet"
         $ringsLog = Join-Path $validated.RingsDir "tenant_${tenantId}_rings.parquet.log.json"
         Write-Host "Loading verified explanations for tenant $tenantId..."
         Invoke-Checked $python @('platform/jobs/load_explanations.py', '--explanations', $explanationFile,
@@ -817,7 +823,7 @@ try {
     $env:RINGSHIELD_AUTH_DATABASE_URL = $urls.Auth
     $env:RINGSHIELD_JWT_SECRET = $credentials.jwt_secret
     $env:RINGSHIELD_TIME_ORIGIN_UTC = $TimeOriginUtc
-    $env:RINGSHIELD_PLATFORM_CONFIG = 'platform/config.yaml'
+    $env:RINGSHIELD_PLATFORM_CONFIG = $PlatformConfig
     $env:PYTHON_DOTENV_DISABLED = '1'
     $env:RINGSHIELD_ARTIFACT_DIR = $modelDir
     $apiStdout = Join-Path $script:RuntimeDir 'api.out.log'
