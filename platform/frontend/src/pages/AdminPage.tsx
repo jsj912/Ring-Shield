@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Building2, FlaskConical, Loader2, Play, RotateCw, Users } from "lucide-react";
 import { api } from "@/api/endpoints";
-import type { ExperimentJobResponse, R10Results } from "@/api/types";
+import type { ExperimentJobResponse, R10PostHoc, R10Results } from "@/api/types";
 import { useTenantsQuery } from "@/app/tenant";
 import { useSessionValue } from "@/app/workspace";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,11 @@ import { ErrorState, KpiCard, Notice, PageHeader, TableSkeleton, errorText } fro
 import { Plot } from "@/components/Plot";
 import { fmtAsReceived, fmtPercent, fmtRecall, pyFixed } from "@/lib/formatters";
 import { deadlineExpired, newPollDeadline } from "@/lib/polling";
-import { PRIMARY_COLUMNS, ROBUSTNESS_COLUMNS, r10PerTenant, r10PrimaryTable, r10RobustnessTable, type R10Row } from "@/lib/r10";
+import {
+  AB_COLUMNS, COVERAGE_COLUMNS, COVERAGE_TENANT_COLUMNS, POST_HOC_LABEL, PRIMARY_COLUMNS, ROBUSTNESS_COLUMNS, VISIBLE_COLUMNS,
+  r10AbTable, r10CoverageTable, r10CoverageTenantTable, r10PerTenant, r10PrimaryTable, r10RobustnessTable, r10VisibleTable,
+  type R10Row,
+} from "@/lib/r10";
 import { cn } from "@/lib/utils";
 
 type R10Job = ExperimentJobResponse & { deadline: number };
@@ -75,7 +79,7 @@ export function R10ResultView({ results }: { results: R10Results }) {
       <ResultTable columns={PRIMARY_COLUMNS} rows={r10PrimaryTable(results)} testId="r10-primary" />
       <p className="text-muted-foreground text-xs">
         (a): the pooled model's scores, restricted to the bank's own edges. (b): the bank's own model on its own edges.
-        Budget-matched: (b) with the pooled seed count. Ring recall only; member coverage was not part of R10 as registered.
+        Budget-matched: (b) with the pooled seed count. Ring recall only; member coverage was not part of R10 as registered (it is in the post-hoc section below).
       </p>
       <h3 className="text-sm font-semibold">Robustness set (banks {results.rows.robustness.tenants.join(", ")})</h3>
       <ResultTable columns={ROBUSTNESS_COLUMNS} rows={r10RobustnessTable(results)} testId="r10-robustness" />
@@ -91,7 +95,38 @@ export function R10ResultView({ results }: { results: R10Results }) {
         layout={{ barmode: "group", xaxis: { title: { text: "Bank (primary set)" }, type: "category" }, yaxis: { title: { text: "Ring recall" } }, legend: { orientation: "h", y: -0.25 } }}
       />
       <p className="text-muted-foreground text-xs">Per-bank bars are descriptive; the claim is the pooled-across-tenants row.</p>
+      {results.post_hoc ? <R10PostHocView post={results.post_hoc} /> : null}
     </div>
+  );
+}
+
+/** Extras computed after the registered result from its ring sets: no claim, labelled everywhere. */
+function R10PostHocView({ post }: { post: R10PostHoc }) {
+  const tag = <Badge variant="outline" className="ml-2 align-middle font-normal">{POST_HOC_LABEL}</Badge>;
+  return (
+    <section className="space-y-3 rounded-md border border-dashed p-3" data-testid="r10-post-hoc">
+      <h3 className="text-sm font-semibold">Extras {tag}</h3>
+      <p className="text-muted-foreground text-xs">
+        Not registered in docs/TENANT_SIZES.md and computed after the registered result ({POST_HOC_LABEL}): from the same{" "}
+        {post.ring_sets_reused} ring sets as commit {post.registered_commit}
+        {post.registered_reproduced ? ", which reproduce every registered recall row exactly" : ""}. Computed {post.created_utc}.
+      </p>
+      <h4 className="text-xs font-semibold">Member coverage {tag}</h4>
+      <ResultTable columns={COVERAGE_COLUMNS} rows={r10CoverageTable(post)} testId="r10-post-hoc-coverage" />
+      <p className="text-muted-foreground text-xs">
+        Share of a matched truth ring's members that the matching ring holds, averaged over matched tenant-ring pairs and seeds; 95% CI
+        by the same bootstrap over rings ({POST_HOC_LABEL}).
+      </p>
+      <h4 className="text-xs font-semibold">(a) against (b), primary set {tag}</h4>
+      <ResultTable columns={AB_COLUMNS} rows={r10AbTable(post)} testId="r10-post-hoc-ab" />
+      <h4 className="text-xs font-semibold">Per-tenant member coverage {tag}</h4>
+      <ResultTable columns={COVERAGE_TENANT_COLUMNS} rows={r10CoverageTenantTable(post)} testId="r10-post-hoc-coverage-tenant" />
+      <h4 className="text-xs font-semibold">In-scope rings with a visible laundering edge {tag}</h4>
+      <ResultTable columns={VISIBLE_COLUMNS} rows={r10VisibleTable(post)} testId="r10-post-hoc-visible" />
+      <p className="text-muted-foreground text-xs">
+        A laundering edge of an in-scope ring in the primary window with the bank as sender or receiver ({POST_HOC_LABEL}).
+      </p>
+    </section>
   );
 }
 

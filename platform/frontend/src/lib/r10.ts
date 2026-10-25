@@ -2,7 +2,7 @@
  * The registered R10 result as tables (app.py::_r10_primary_table, _r10_robustness_table). Every
  * cell is a value the API sent, formatted; per-tenant cells are a lookup, never a computation.
  */
-import type { R10Interval, R10PerTenant, R10Results } from "@/api/types";
+import type { R10Interval, R10PerTenant, R10PostHoc, R10Results } from "@/api/types";
 import { MISSING, fmtInterval, fmtRecall } from "./formatters";
 
 export const R10_DEGENERATE: Record<number, string> = { 70: "degenerate: no ring edges visible" };
@@ -67,4 +67,56 @@ export function r10RobustnessTable(results: R10Results): R10Row[] {
     Note: "degenerate set: bank 70 has no visible ring laundering edge",
   });
   return table;
+}
+
+/** The extras computed after the registered result; every table and caption carries this label. */
+export const POST_HOC_LABEL = "post-hoc, descriptive";
+
+const ROW_NAMES: Record<R10PerTenant["row"], string> = {
+  primary: "(b) own scores, own edges", pooled_scores: "(a) pooled scores, own edges",
+  budget_matched: "Budget-matched", robustness: "Robustness set ((b))",
+};
+
+export const COVERAGE_COLUMNS = ["Ring set", "Tenant coverage", "Pooled coverage", "Matched (tenant / pooled)"] as const;
+
+/** Member coverage per registered row, tenant side against pooled side, with the bootstrap CI. */
+export function r10CoverageTable(post: R10PostHoc): R10Row[] {
+  return (Object.keys(ROW_NAMES) as R10PerTenant["row"][]).map((row) => {
+    const cov = post.member_coverage[row];
+    return {
+      "Ring set": ROW_NAMES[row], "Tenant coverage": r10Interval(cov.tenant), "Pooled coverage": r10Interval(cov.pooled),
+      "Matched (tenant / pooled)": `${cov.tenant.n} / ${cov.pooled.n}`,
+    };
+  });
+}
+
+export const AB_COLUMNS = ["Tenants", "Pairs", "(a) pooled scores, own edges", "(b) own scores, own edges", "(a) − (b)"] as const;
+
+export function r10AbTable(post: R10PostHoc): R10Row[] {
+  const ab = post.a_vs_b;
+  return [{
+    Tenants: ab.tenants.join(", "), Pairs: `${ab.n_rings} rings, ${ab.n_pairs} pairs`,
+    "(a) pooled scores, own edges": r10Interval(ab.a), "(b) own scores, own edges": r10Interval(ab.b),
+    "(a) − (b)": r10Interval(ab.difference),
+  }];
+}
+
+export const COVERAGE_TENANT_COLUMNS = ["Ring set", "Tenant", "Tenant coverage", "Pooled coverage", "Matched (tenant / pooled)"] as const;
+
+export function r10CoverageTenantTable(post: R10PostHoc): R10Row[] {
+  return post.per_tenant.map((item) => ({
+    "Ring set": ROW_NAMES[item.row], Tenant: String(item.tenant_id),
+    "Tenant coverage": fmtRecall(item.member_coverage_tenant), "Pooled coverage": fmtRecall(item.member_coverage_pooled),
+    "Matched (tenant / pooled)": `${item.n_matched_tenant} / ${item.n_matched_pooled}`,
+  }));
+}
+
+export const VISIBLE_COLUMNS = ["Tenant", "Set", "In-scope rings with a visible laundering edge", "Tenant-ring pairs", "Note"] as const;
+
+export function r10VisibleTable(post: R10PostHoc): R10Row[] {
+  return post.visible_laundering.map((item) => ({
+    Tenant: String(item.tenant_id), Set: item.sets.join(", "),
+    "In-scope rings with a visible laundering edge": String(item.in_scope_rings_with_visible_laundering_edge),
+    "Tenant-ring pairs": String(item.tenant_ring_pairs), Note: R10_DEGENERATE[item.tenant_id] ?? "",
+  }));
 }

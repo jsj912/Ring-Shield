@@ -359,6 +359,44 @@ export interface R10Results {
   mean_banks_per_ring: number;
   rows: { primary: R10Row; pooled_scores: R10Row; budget_matched: R10Row; robustness: R10Row };
   per_tenant: R10PerTenant[];
+  post_hoc?: R10PostHoc;
+}
+
+/** R10 extras computed after the registered result (jobs/experiment_worker.py::r10_post_hoc_results). */
+export interface R10PostHocInterval extends R10Interval {
+  n: number;
+}
+
+export interface R10PostHoc {
+  label: "post-hoc, descriptive";
+  created_utc: string;
+  registered_commit: string;
+  registered_reproduced: boolean;
+  ring_sets_reused: number;
+  ring_sets_manifest_sha256: string;
+  member_coverage: Record<R10PerTenant["row"], { tenant: R10PostHocInterval; pooled: R10PostHocInterval }>;
+  a_vs_b: {
+    tenants: number[];
+    n_pairs: number;
+    n_rings: number;
+    a: R10PostHocInterval;
+    b: R10PostHocInterval;
+    difference: R10PostHocInterval;
+  };
+  per_tenant: {
+    row: R10PerTenant["row"];
+    tenant_id: number;
+    member_coverage_tenant: number | null;
+    member_coverage_pooled: number | null;
+    n_matched_tenant: number;
+    n_matched_pooled: number;
+  }[];
+  visible_laundering: {
+    tenant_id: number;
+    sets: string[];
+    in_scope_rings_with_visible_laundering_edge: number;
+    tenant_ring_pairs: number;
+  }[];
 }
 
 export interface R10Result {
