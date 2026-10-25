@@ -20,17 +20,17 @@ One line per requirement: status, then how it was tested.
 | FR-D13 | Pagination using the API cursor, 50 rows per page, with total count shown | PASS | e2e/queue.spec.ts FR-D13: 200 rings, 4 pages of 50 by cursor, distinct first rows, total shown, Next disabled at the end |
 | FR-D14 | Clicking a row opens ring detail; the queue remembers filters and page when the user re... | PASS | e2e/queue.spec.ts FR-D14: page 2 with all statuses -> ring -> Back to queue restores page, filters and rows |
 | FR-D15 | Empty result shows a reason: &apos;No rings match these filters&apos; or, when the tena... | PASS | e2e/queue.spec.ts FR-D15: search with no match -> 'No rings match these filters'; Bank C (no rings) -> 'No rings have been generated for this tenant yet' |
-| FR-D20 | Show the narrative text exactly as received, followed by the ring summary: type and pro... | TODO | |
-| FR-D21 | Status badge and, if a verdict exists, the latest verdict with author and time | TODO | |
-| FR-D30 | Directed graph of the ring subgraph: accounts as nodes, transactions as edges with arro... | TODO | |
-| FR-D31 | Node colour by role: source, sink, mule, holder, peripheral, each with a legend entry; ... | TODO | |
-| FR-D32 | Edge width by w_total; seed edges drawn solid, expanded edges dashed; legend entry for ... | TODO | |
-| FR-D33 | Hover on a node shows account id, bank, role, inflow, outflow, hold time; hover on an e... | TODO | |
-| FR-D34 | Time slider spanning [start_time, end_time]; edges with timestamp after the slider posi... | TODO | |
-| FR-D36 | For rings above 60 nodes, render the 60 highest w_account nodes and their incident edge... | TODO | |
-| FR-D40 | Transactions tab: table of member edges sorted by w_total descending, columns: from, to... | TODO | |
-| FR-D41 | Accounts tab: table of member accounts sorted by w_account descending, columns: account... | TODO | |
-| FR-D42 | Detector signals tab: horizontal bar chart of the top 10 feature_weights by /mean_shap/... | TODO | |
+| FR-D20 | Show the narrative text exactly as received, followed by the ring summary: type and pro... | PASS | e2e/ring.spec.ts FR-D20: narrative textContent === API string; summary has type with topology_prob as received, total, closure %, window, model and aggregator ids; override test: ring -4 shows '(partial)' and 'closed loop', no % |
+| FR-D21 | Status badge and, if a verdict exists, the latest verdict with author and time | PASS | e2e/ring.spec.ts FR-D21: confirmed fixture ring shows the status badge and 'Latest verdict ... by <name> at <time>' |
+| FR-D30 | Directed graph of the ring subgraph: accounts as nodes, transactions as edges with arro... | PASS | e2e/ring.spec.ts FR-D30-32: every drawn edge goes from from_id to to_id (Cytoscape source/target), arrowheads on target |
+| FR-D31 | Node colour by role: source, sink, mule, holder, peripheral, each with a legend entry; ... | PASS | e2e/ring.spec.ts FR-D30-32: undetermined and mule nodes differ in colour, node size follows w_account, legend lists all six roles (fix 6e02f9f) |
+| FR-D32 | Edge width by w_total; seed edges drawn solid, expanded edges dashed; legend entry for ... | PASS | e2e/ring.spec.ts FR-D30-32: seed edges solid, expanded dashed, legend entries for both; width by w_total thresholds (ring-graph.test.ts) |
+| FR-D33 | Hover on a node shows account id, bank, role, inflow, outflow, hold time; hover on an e... | PASS | e2e/ring.spec.ts FR-D33: node hover shows account, bank, role, inflow, outflow, hold time; edge hover amount, time, payment format, w_total and its three parts |
+| FR-D34 | Time slider spanning [start_time, end_time]; edges with timestamp after the slider posi... | PASS | e2e/ring.spec.ts FR-D34: slider at stop 10/20 greys later edges only; Play runs to the end (5 s) and ungreys |
+| FR-D36 | For rings above 60 nodes, render the 60 highest w_account nodes and their incident edge... | PASS | e2e/ring.spec.ts FR-D36: 120-account fixture shows 'Showing 60 of 120 accounts' and 60 nodes; Load all draws 120 |
+| FR-D40 | Transactions tab: table of member edges sorted by w_total descending, columns: from, to... | PASS | e2e/ring.spec.ts FR-D40-42: all ten columns, rows sorted by w_total desc, bar in w_total cell; conversion rows only with the toggle (override 2) |
+| FR-D41 | Accounts tab: table of member accounts sorted by w_account descending, columns: account... | PASS | e2e/ring.spec.ts FR-D40-42: all seven columns, rows sorted by w_account desc |
+| FR-D42 | Detector signals tab: horizontal bar chart of the top 10 feature_weights by /mean_shap/... | PASS | e2e/ring.spec.ts FR-D40-42: ten bars labelled with display_name, caption verbatim; sign colours by comparison; fix 4713e27 takes the API's /mean_shap/ ranking as received |
 | FR-D50 | Three actions: Confirm ring, Reject ring, Partially correct; note field (optional for c... | TODO | |
 | FR-D51 | Partially correct opens a member and transaction checklist pre-ticked from the ring; th... | TODO | |
 | FR-D52 | On submit, POST the verdict; on success update the status badge, append to the verdict ... | TODO | |
@@ -51,7 +51,7 @@ One line per requirement: status, then how it was tested.
 | FR-D100 | Every screen has a loading state (skeleton or spinner) and an error state that shows th... | TODO | |
 | FR-D101 | Every number is displayed exactly as supplied by the API with formatting only: amounts ... | TODO | |
 | FR-D102 | The dashboard performs no arithmetic on API data (no sums, no ratios, no re-ranking bey... | TODO | |
-| FR-D103 | Cross-bank rings display the counter-party bank name; no other information about the co... | TODO | |
+| FR-D103 | Cross-bank rings display the counter-party bank name; no other information about the co... | PASS | e2e/ring.spec.ts FR-D103: cross-bank fixture names 'Bank 9101, Bank 9103, Bank 9105' in summary and header badge; nothing else about them |
 | FR-D104 | No screen ever displays ground-truth labels, pattern-group ids, or anything not returne... | TODO | |
 | NFR-D10 | The token is held in memory only; nothing sensitive in localStorage, sessionStorage, co... | PASS | e2e/login.spec.ts NFR-D10: sessionStorage and cookies empty, localStorage holds only the theme key, URL has no token; session.ts is a module variable |
 | NFR-D11 | All API calls carry the token in the Authorization header; the dashboard never embeds t... | PASS | e2e/login.spec.ts NFR-D11: every request after login has Authorization: Bearer and only tenant 1001 in /tenants/{id} |
@@ -60,7 +60,7 @@ One line per requirement: status, then how it was tested.
 | NFR-D14 | Session ends on token expiry; no silent refresh | PASS | useExpiryTimer ends the session at expires_at; no refresh call exists (grep); FR-D03 test |
 | NFR-D30 | Any API failure degrades to the screen&apos;s error state; the application never shows ... | TODO | |
 | NFR-D31 | A failed verdict submission preserves the form contents and offers retry | TODO | |
-| NFR-D32 | The graph panel failing (for example an oversized ring) does not prevent the narrative ... | TODO | |
+| NFR-D32 | The graph panel failing (for example an oversized ring) does not prevent the narrative ... | PASS | e2e/ring.spec.ts NFR-D32: subgraph answered 500 -> graph panel shows the message and request id, narrative and transactions render |
 | NFR-D50 | All API calls go through one client module with the base URL and token handling in one ... | PASS | Code review: fetch() appears only in src/api/client.ts (grep), base URL and token handled there |
 | NFR-D51 | Field names from Section 2 are used unchanged; no renaming layer | TODO | |
 | NFR-D53 | Formatting functions (amount, percentage, weight, time) have unit tests | TODO | |
