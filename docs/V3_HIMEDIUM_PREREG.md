@@ -1438,8 +1438,10 @@ is the part that is NOT used as justification here.**
 **Correction to this justification, 2026-10-16, from the cross-release boundary check (C11).** The
 two facts above are both true, but the implied link between them — that the 1.56× volume is *why*
 day 15 takes 87.5 % of the budget — **is not supported.** HI-Small's own pre-shutdown spike day is
-1.36× the weekday norm and takes **23.4 %** of its global-quantile seeds while holding 23 % of the
-edges, i.e. exactly its share. Volume alone does not capture a global quantile. HI-Medium's day 15
+1.36× the weekday norm and takes **23.4 %** of its global-quantile seeds ~~while holding 23 % of the
+edges, i.e. exactly its share~~ *(corrected 2026-10-25: it holds 75.8 % of the test split's edges, so
+it takes far less than its share; 23.4 % is seed 1, 22.0–36.3 % over seeds 1–5;
+`evaluation/c11_seed_share.py`)*. Volume alone does not capture a global quantile. HI-Medium's day 15
 captures it because **that detector's scores are systematically elevated on that day**, which is a
 property of the model, not of the generator's volume profile.
 
