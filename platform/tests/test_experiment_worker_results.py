@@ -47,3 +47,34 @@ def test_run_starts_the_registered_script_and_stores_its_result(tmp_path, monkey
     state = json.loads(state_path.read_text(encoding="utf-8"))
     assert state["status"] == "succeeded"
     assert state["results"]["rows"]["primary"]["n_pairs"] == 68
+
+
+def test_r10_post_hoc_extras_ride_along_labelled_and_aggregate_only():
+    post = experiment_worker.r10_registered_results()["post_hoc"]
+
+    assert post["label"] == "post-hoc, descriptive"
+    assert post["registered_commit"] == "3156d75" and post["registered_reproduced"] is True
+    assert post["ring_sets_reused"] == 90
+    assert set(post["member_coverage"]) == {"primary", "pooled_scores", "budget_matched", "robustness"}
+    assert post["a_vs_b"]["tenants"] == [1, 20, 11, 118, 12]
+    assert {item["tenant_id"]: item["in_scope_rings_with_visible_laundering_edge"]
+            for item in post["visible_laundering"]}[70] == 0
+    text = json.dumps(post)
+    for private in ("ring_id", "account", "pattern", "experiments/", "rings.parquet"):
+        assert private not in text
+
+
+def test_r10_post_hoc_extras_must_carry_the_label(tmp_path):
+    payload = json.loads(experiment_worker.R10_POST_HOC.read_text(encoding="utf-8"))
+    payload["label"] = "registered"
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError):
+        experiment_worker.r10_post_hoc_results(path)
+
+
+def test_r10_post_hoc_extras_are_left_out_of_a_result_read_from_another_file(tmp_path):
+    path = tmp_path / "r10_registered.json"
+    path.write_text(experiment_worker.R10_RESULT.read_text(encoding="utf-8"), encoding="utf-8")
+    assert "post_hoc" not in experiment_worker.r10_registered_results(path)
+    assert experiment_worker.r10_post_hoc_results(tmp_path / "missing.json") is None
