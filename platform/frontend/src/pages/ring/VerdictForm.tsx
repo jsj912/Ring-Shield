@@ -106,7 +106,7 @@ export function VerdictForm({ tenantId, ringId, ring }: { tenantId: number; ring
             <p className="text-sm"><strong>Partially correct:</strong> untick the accounts and transactions that are not part of the ring.</p>
             <div className="grid gap-3 lg:grid-cols-2">
               <fieldset className="rounded-md border p-3">
-                <legend className="px-1 text-xs font-medium">Accounts ({ring.member_accounts.length})</legend>
+                <legend className="px-1 text-xs font-medium">Accounts</legend>
                 <div className="grid max-h-56 grid-cols-1 gap-1.5 overflow-auto sm:grid-cols-2">
                   {ring.member_accounts.map((id) => (
                     <label key={id} className="flex items-center gap-2 font-mono text-xs">
@@ -118,7 +118,7 @@ export function VerdictForm({ tenantId, ringId, ring }: { tenantId: number; ring
                 </div>
               </fieldset>
               <fieldset className="rounded-md border p-3">
-                <legend className="px-1 text-xs font-medium">Transactions ({ring.member_edges.length})</legend>
+                <legend className="px-1 text-xs font-medium">Transactions</legend>
                 <div className="grid max-h-56 grid-cols-1 gap-1.5 overflow-auto sm:grid-cols-2">
                   {ring.member_edges.map((id) => (
                     <label key={id} className="flex items-center gap-2 font-mono text-xs">
