@@ -19,8 +19,11 @@ async function openRing(page: Page, ringId: string) {
   await expect(page.getByRole("heading", { name: new RegExp(ringId) })).toBeVisible();
 }
 
+interface DrawnNode { id: string; colour: string; shape: string; w: number; size: number }
+interface DrawnEdge { id: string; source: string; target: string; dash: string; width: number; later: boolean }
+
 /** The Cytoscape instance behind the graph panel (read-only inspection). */
-async function graph(page: Page) {
+async function graph(page: Page): Promise<{ nodes: DrawnNode[]; edges: DrawnEdge[] }> {
   await expect(page.getByTestId("ring-graph").locator("canvas").first()).toBeVisible();
   return page.evaluate(() => {
     const element = document.querySelector('[data-testid="ring-graph"]') as HTMLElement & { _cyreg?: { cy: any } };

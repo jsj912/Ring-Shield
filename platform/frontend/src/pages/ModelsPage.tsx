@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertOctagon, ChevronDown, Cpu, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertOctagon, ChevronDown, Cpu, Loader2, RefreshCw } from "lucide-react";
 import { api } from "@/api/endpoints";
 import type { RetrainCandidate } from "@/api/types";
 import { useSession } from "@/app/session";
@@ -174,8 +174,6 @@ export function ModelsPage() {
   }, [focus, models.data]);
 
   if (tenantId === null) return <PageHeader title="Models" />;
-  const promoted = models.data?.items.filter((item) => item.promoted).length ?? 0;   // counting
-  const refused = models.data?.items.filter((item) => !item.promoted && item.gate_reason).length ?? 0;
 
   return (
     <>
@@ -183,9 +181,6 @@ export function ModelsPage() {
       {models.isError ? <ErrorState error={models.error} onRetry={() => models.refetch()} /> : null}
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <KpiCard label="Active model" value={<span className="font-mono text-lg">{models.data?.active_model_id ?? "—"}</span>} hint={models.data ? `seed ${models.data.active_seed}` : undefined} icon={<Cpu />} />
-        <KpiCard label="Versions" value={models.data ? models.data.items.length : "—"} hint="listed" icon={<Cpu />} />
-        <KpiCard label="Promoted" value={models.data ? promoted : "—"} hint="currently in use" icon={<ShieldCheck />} tone="success" />
-        <KpiCard label="Refused by the gate" value={models.data ? refused : "—"} hint="not promoted, with the gate's reason" icon={<AlertOctagon />} tone="danger" />
       </div>
       {session.role === "supervisor" ? <RetrainSection tenantId={tenantId} onFocus={setFocus} /> : null}
       <Card>
