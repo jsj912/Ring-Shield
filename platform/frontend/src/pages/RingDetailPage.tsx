@@ -3,13 +3,14 @@
  * stacking below 1600 px, then the ring's verdicts. Each panel loads and fails on its own.
  */
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Globe2 } from "lucide-react";
+import { ArrowLeft, Globe2, Lock } from "lucide-react";
+import { ApiError } from "@/api/client";
 import { useSession } from "@/app/session";
 import { useActiveTenant } from "@/app/tenant";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ErrorState, PageHeader, ReadOnlyBanner, StatusBadge } from "@/components/shared";
+import { EmptyState, ErrorState, PageHeader, ReadOnlyBanner, StatusBadge } from "@/components/shared";
 import { fmtWeight } from "@/lib/formatters";
 import { EvidencePanel } from "./ring/EvidencePanel";
 import { GraphPanel } from "./ring/GraphPanel";
@@ -44,6 +45,11 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
         </div>
       </div>
     );
+  }
+  // A ring the tenant does not hold (another bank's, or none) answers 404 or 403: say "Not permitted"
+  // either way, so the screen does not tell whether another bank has a ring with this id.
+  if (ring.error instanceof ApiError && (ring.error.kind === "not_found" || ring.error.kind === "forbidden")) {
+    return <EmptyState title="Not permitted" icon={<Lock />}>This ring is not in your bank's queue.</EmptyState>;
   }
   if (ring.isError) return <ErrorState error={ring.error} onRetry={() => ring.refetch()} />;
   const detail = ring.data;
