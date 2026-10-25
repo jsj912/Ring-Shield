@@ -157,3 +157,64 @@ option (b) score files (`experiments/R10_tenant_visible/summary.csv`):
   subgraph. Its loss against pooled scoring therefore includes **distribution shift** (the model
   sees a graph unlike the one it was trained on), not only the loss of information from seeing
   fewer edges. The two are not separable in this design.
+
+## R11: registered 2026-10-25, before any R11 run
+
+Registered before any run of the five-seed R11 below. One earlier R11 run exists: detector seed 1
+only, 2026-10-24 (`docs/R11.md`, Result). Nothing below was chosen after seeing a result of the
+five-seed run. R11 is a demonstration that the feedback loop works end to end, **not an
+effectiveness experiment**: verdicts are about 0.06 % of the expansion policy's training rows, and
+one bank produces about 5 rings in 48 h.
+
+#### Tenant counts (step a)
+
+Seed-1 tenant rings (`platform/jobs/build_tenant_rings.py`, `--edge-subset`, fixed pooled cutoff, on
+each bank's own visible scores) counted when any member edge falls in days 8-9 (loader time
+691210-864009). Ties go to more visible test edges.
+
+| rank | bank | rings | rings in days 8-9 | visible test edges |
+|---:|---:|---:|---:|---:|
+| 1 | **1** | 9 | **7** | 15,158 |
+| 2 | 11 | 4 | 4 | 7,206 |
+| 3 | 12 | 3 | 3 | 20,039 |
+| 4 | 118 | 4 | 3 | 6,711 |
+| 5 | 20 | 5 | 2 | 10,315 |
+
+**Chosen tenant: bank 1.**
+
+#### Amendments to spec v1.1 (decided)
+
+1. **Window:** days 8-9 only, as 12 four-hour cycles. No loop over the whole test window.
+2. **Inputs:** the tenant's own visible score files; rings from `build_tenant_rings.py`
+   (`--edge-subset`, fixed pooled cutoff).
+3. **Review:** 100 % of the tenant's rings each cycle. The simulator's queries and verdict rules are
+   unchanged.
+4. **Retrain:** exactly once, after cycle 6, with `ringshield train` (expansion and affinity) and the
+   holdout guard. If the gate accepts, the new model serves cycles 7-12; if it rejects, the old model
+   continues.
+5. **Typing:** not refit. This is an amendment to v1.1, which refit typing.
+6. **Gate rejection test:** a unit test in which flipped verdicts make the holdout score worse, so the
+   gate rejects (`platform/tests/test_retrain_job.py::test_gate_rejects_a_retrain_made_worse_by_flipped_verdicts`).
+7. **Tenant:** of banks 1, 20, 11, 118 and 12, the one with the most seed-1 tenant rings in days 8-9;
+   ties go to more visible test edges. That is bank 1 (table above).
+
+#### Run, fixed now
+
+* **Detector seeds 1-5.** For seed s: bank 1's rings are built from
+  `data/tenant_visible/scored_edges_visible_1_gine_causal_{s}.parquet` at seed s's pooled cutoff;
+  the base model is `models/artifacts/full_gine_causal_seed{s}`; the gate's holdout inputs are seed
+  s's validation scores and embeddings; explanations come from `explainability.tenant` on those
+  rings.
+* **Simulator accuracy 0.90 and 0.70**, unchanged from v1.1; simulator seed 0 as configured. Every
+  verdict is simulated.
+* **A fresh demo database per (seed, accuracy)**, with bank 1 reloaded, so every run starts from the
+  same baseline.
+* **Reported per seed and accuracy:** a per-cycle table of rings, verdicts, retrain (y/n), gate
+  decision, holdout ring-F1 before and after, and the serving model version.
+* **Day-9 ring metrics, descriptive only:** ring precision, recall, F1 and member coverage at
+  Jaccard 0.5 on day 9 (loader time 777610-864009, `test_visible`), against the in-scope truth rings
+  with a scored member whose home bank is 1, for the old model and for the model serving cycles
+  7-12. If the gate rejects, the serving model is the old model and the two rows are the same by
+  construction.
+* **Wall time** per run and in total.
+* **Output for the Models screen:** JSON in the API's `ModelVersion` and `RetrainRun` field names.

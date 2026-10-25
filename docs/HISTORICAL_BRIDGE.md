@@ -156,6 +156,7 @@ comparable to the under-covered column or to the null. The honest reading is tha
 Item 1 was the only remaining route with a plausible path to a materially higher ring-F1. Its own
 diagnostic cancelled it, which is what §0.2 asks a diagnostic to be able to do, and 14.1b is not
 built. The ceiling decomposition is now complete in a stronger form than before: rings below
-`min_size`, rings no detector touches, and rings whose members are unreachable **from the recovered
+`min_size` that this pipeline leaves unmatched (not a cap: FINDINGS B7/B9, corrected), rings no
+detector touches, and rings whose members are unreachable **from the recovered
 fragment in the full graph** — not merely in the window.
 

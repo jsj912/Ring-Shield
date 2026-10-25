@@ -161,6 +161,8 @@ def test_retrain_job_gates_candidate_and_runs_refresh_as_a_separate_step(
     monkeypatch.setattr(retrain, "verify_holdout", lambda *_args: {"truth_ring_ids": [12, 38, 104], "n": 3})
     monkeypatch.setattr(retrain, "_run_log_path", lambda value: log_path)
     monkeypatch.setattr(retrain, "_tenant_lock", lambda tenant: nullcontext())
+    monkeypatch.setattr(retrain, "_run_claim", lambda tenant, run_id: nullcontext(True))
+    monkeypatch.setattr(retrain, "_run_is_open", lambda tenant, run_id: True)
     monkeypatch.setattr(retrain, "_set_run_state", lambda *args, **kwargs: states.append(kwargs["status"]))
     monkeypatch.setattr(retrain, "_promoted_version", lambda *args, **kwargs: current)
     monkeypatch.setattr(retrain, "_ensure_baseline", lambda **kwargs: current)
@@ -343,6 +345,8 @@ def test_gate_rejects_a_retrain_made_worse_by_flipped_verdicts(monkeypatch, flip
     monkeypatch.setattr(retrain, "verify_holdout", lambda *_args: {"truth_ring_ids": [38, 104], "n": 2})
     monkeypatch.setattr(retrain, "_run_log_path", lambda value: log_path)
     monkeypatch.setattr(retrain, "_tenant_lock", lambda tenant: nullcontext())
+    monkeypatch.setattr(retrain, "_run_claim", lambda tenant, run_id: nullcontext(True))
+    monkeypatch.setattr(retrain, "_run_is_open", lambda tenant, run_id: True)
     monkeypatch.setattr(retrain, "_set_run_state", lambda *args, **kwargs: None)
     monkeypatch.setattr(retrain, "_promoted_version", lambda *args, **kwargs: current)
     monkeypatch.setattr(retrain, "_ensure_baseline", lambda **kwargs: current)
@@ -424,6 +428,21 @@ def test_retrain_refresh_requires_existing_output_file(monkeypatch, tmp_path):
         )
 
 
+def test_retrain_refresh_reads_the_result_after_the_research_cli_output(monkeypatch, tmp_path):
+    import json
+    import jobs.retrain as retrain
+
+    rings = tmp_path / "tenant_21_rings.parquet"
+    rings.write_bytes(b"rings")
+    result = json.dumps({"tenant_id": 21, "model_version_id": 91, "rings_path": str(rings)})
+    monkeypatch.setattr(retrain.subprocess, "run", lambda *_args, **_kwargs: SimpleNamespace(
+        returncode=0, stdout=f"ringshield run: 9 rings\n[rings] wrote {rings}\n{result}\n", stderr="",
+    ))
+    assert retrain._run_ring_refresh_process(
+        tenant_id=21, model_version_id=91, run_id="run-v91", log_path=tmp_path / "run.log",
+    ) == rings.resolve()
+
+
 def test_run_state_clears_stale_model_version_when_success_has_no_promotion(monkeypatch):
     import jobs.retrain as retrain
 
@@ -475,6 +494,8 @@ def test_retrain_missing_holdout_fails_run_with_safe_reason(monkeypatch):
     monkeypatch.setattr(retrain, "_write_log", lambda _path, message: messages.append(message))
     monkeypatch.setattr(retrain, "_set_run_state", lambda *_args, **kwargs: states.append(kwargs))
     monkeypatch.setattr(retrain, "db_session", fake_db_session)
+    monkeypatch.setattr(retrain, "_run_claim", lambda tenant, run: nullcontext(True))
+    monkeypatch.setattr(retrain, "_run_is_open", lambda tenant, run: True)
 
     run_retrain_job(21, run_id)
 
@@ -483,3 +504,18 @@ def test_retrain_missing_holdout_fails_run_with_safe_reason(monkeypatch):
     assert any("holdout manifest or SHA-256 file is missing or invalid" in message
                for message in messages)
     assert all(str(PLATFORM_ROOT) not in message for message in messages)
+
+
+@pytest.mark.parametrize("claimed, open_run", [(False, True), (True, False)])
+def test_a_second_worker_for_the_same_run_exits_without_touching_it(monkeypatch, tmp_path, claimed, open_run):
+    """The worker supervisor dispatches every running row, so a run started by the API or by an
+    experiment can get a second worker; only the one that claims an open run may proceed."""
+    import jobs.retrain as retrain
+
+    monkeypatch.setattr(retrain, "_run_claim", lambda tenant, run_id: nullcontext(claimed))
+    monkeypatch.setattr(retrain, "_run_is_open", lambda tenant, run_id: open_run)
+    monkeypatch.setattr(retrain, "_run_log_path", lambda run_id: tmp_path / f"{run_id}.log")
+    monkeypatch.setattr(retrain, "_run_claimed_retrain_job",
+                        lambda *args, **kwargs: pytest.fail("a second worker ran the retrain"))
+    assert retrain.run_retrain_job(21, "run-x") is False
+    assert "exits without changing it" in (tmp_path / "run-x.log").read_text(encoding="utf-8")

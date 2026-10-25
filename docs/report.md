@@ -413,7 +413,7 @@ D-10) is recorded as future work.
 
 | ID | Objective | Steps | Expected | Actual | Status |
 |---|---|---|---|---|---|
-| T-13 | R10: ring recall a bank loses by seeing only its own edges | `evaluation/r10_registered.py`, 5 tenants, 5 seeds | table with 95 % CIs | tenant 0.088 [0.031, 0.161] vs pooled 0.359 [0.239, 0.500] | Pass |
+| T-13 | R10: ring recall of a pooled model applied to one bank's view (includes distribution shift) | `evaluation/r10_registered.py`, 5 tenants, 5 seeds | table with 95 % CIs | tenant 0.088 [0.031, 0.161] vs pooled 0.359 [0.239, 0.500] | Pass |
 | T-14 | R11: tenant selection rule | most seed-1 tenant rings in days 8–9 among banks 1, 20, 11, 118, 12 | one bank chosen | bank 1 (7 rings) | Pass |
 | T-15 | R11: verdicts recorded each cycle | 12 four-hour cycles, 100 % review | verdicts in the database | 6 on day 8, 1 on day 9 | Pass after fix (D-6) |
 | T-16 | R11: retrain uses the verdicts | one retrain after cycle 6 | trains on day 8's verdicts | skipped with "0 new labels" until fixed (D-7) | Pass after fix |
@@ -490,7 +490,7 @@ xychart-beta
 
 **Detection by ring type** (full pipeline, 5 seeds summed; `evaluation/unmatched_rings.py`):
 
-| Pattern | Found | < 3 visible members | Never flagged | Merged / partial | Found, % of detectable |
+| Pattern | Found | < 3 visible members, unmatched | Never flagged | Merged / partial | Found, % of found + never flagged + merged |
 |---|---:|---:|---:|---:|---:|
 | SCATTER-GATHER | 78 | 25 | 5 | 2 | 92 % |
 | FAN-OUT | 64 | 24 | 6 | 6 | 84 % |
@@ -509,10 +509,10 @@ xychart-beta
 | k | Proposed weights | Score only | Random |
 |---:|---:|---:|---:|
 | 3 | 0.900 | 0.901 | 0.879 |
-| 5 | 0.881 | 0.892 | 0.874 |
+| 5 | 0.881 | 0.891 | 0.874 |
 | 10 | 0.890 | 0.890 | 0.882 |
 
-Fidelity is high for every ranking because 343 of 401 matched rings contain only true transactions once
+Fidelity is high for every ranking because 343 of 401 matched ring-instances contain only true transactions once
 currency conversions are removed, so no ranking can separate itself (`results/xai/fidelity.json`).
 Latency: p50 **393 ms**, p95 **918 ms**, max 2,007 ms over 560 rings. Review of 30 explanations by the
 three team members (an internal review, not an analyst study): named accounts correct 91 %
@@ -558,12 +558,14 @@ Source: `results/tables/r6_detector_swap.csv`.
    members it adds are correct.
 3. **Partitioning is not significant on the shipped detector** (+0.015 matched rate, p_holm 0.49); on
    MEGA-GNN, where rings are more often merged, it is (+0.017, p_holm 0.011).
-4. **The ceiling is structural.** 28 % of rings have fewer than 3 visible members and 19 % are never
-   reached by a seed; 80.7 % of the largest residual class is disconnected inside the two-day window
-   (99.6 % for STACK across the whole test split). Ring recall is capped near 0.72 against 0.46 achieved.
-5. **A bank alone loses most rings.** With only its own transactions a bank recovers 8.8 % of its rings
-   against 35.9 % pooled; almost every ring crosses banks, so cross-bank cooperation, not a better
-   single-bank model, is what would close that gap.
+4. **Most of the remaining loss is structural.** 34 % of rings (60 of 174) have fewer than 3 visible
+   members, yet 11.4 of them per seed are still matched, so there is no `min_size` cap on recall
+   (~~"28 % … capped near 0.72"~~, retracted 2026-09-30: FINDINGS B7/B9). 19 % are untouched by the
+   shipped pipeline (13.8 % with MEGA-GNN, B8); 80.7 % of the largest residual class is disconnected
+   inside the two-day window (99.6 % for STACK across the whole test split). Achieved recall is 0.46.
+5. **One bank's view loses most rings.** A pooled model applied to one bank's view recovers 8.8 % of
+   its tenant-ring pairs against 35.9 % pooled, pooled − (b) = 0.271 [0.154, 0.407]. This includes
+   distribution shift, so it is not only the cost of seeing fewer edges; 172 of 174 rings cross banks.
 
 ---
 
@@ -580,7 +582,8 @@ and as one command end to end.
 
 The project also measured where ring recovery stops. A stronger detector buys no rings at a fixed seed
 budget; most remaining misses are rings too small or too disconnected to observe in a two-day window;
-and a single bank recovers about a quarter of what the pooled view does. The feedback loop works end
+and a pooled model applied to one bank's view recovers far fewer rings than the pooled view
+(0.088 against 0.359), a gap that includes distribution shift. The feedback loop works end
 to end but six verdicts cannot show an effect, and the drift monitor, as configured, cannot fire.
 
 Limitations, in order: the data is synthetic (AMLworld HI-Small); a share of laundering transactions

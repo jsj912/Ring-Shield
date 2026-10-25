@@ -59,7 +59,7 @@ monitor, 6.2 T-21), which is recorded as future work.
 
 | ID | Objective | Steps | Expected | Actual | Status |
 |---|---|---|---|---|---|
-| T-13 | R10: ring recall a bank loses by seeing only its own edges | `evaluation/r10_registered.py`, 5 tenants, 5 seeds | table with 95 % CIs | tenant 0.088 [0.031, 0.161] vs pooled 0.359 [0.239, 0.500]; 172 of 174 rings span banks | Pass |
+| T-13 | R10: ring recall of a pooled model applied to one bank's view (includes distribution shift) | `evaluation/r10_registered.py`, 5 tenants, 5 seeds | table with 95 % CIs | tenant 0.088 [0.031, 0.161] vs pooled 0.359 [0.239, 0.500]; 172 of 174 rings span banks | Pass |
 | T-14 | R11: tenant selection rule | most seed-1 tenant rings in days 8–9 among banks 1, 20, 11, 118, 12 | one bank chosen | bank 1 (7 rings) | Pass |
 | T-15 | R11: verdicts recorded each cycle | 12 four-hour cycles, 100 % review | verdicts in the database | 6 on day 8, 1 on day 9 | Pass after fix (D-6) |
 | T-16 | R11: retrain uses the verdicts | one retrain after cycle 6 | trains on day 8's verdicts | skipped with "0 new labels" until fixed (D-7) | Pass after fix |

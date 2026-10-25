@@ -1,0 +1,64 @@
+{
+  "experiment": "r11_gated_retrain",
+  "created_utc": "2026-10-25T16:16:23.412895+00:00",
+  "git_commit": "d7691a242cc3e33d44a7f1d8a6bd2b043bc26714",
+  "config_path": "platform/out/r11/config_seed4.yaml",
+  "config_sha256": "512d4d187cf5e690ac4ff2853fdadb10d3b609c8b68795a94b957fb6baceb2e3",
+  "input_sha256": {
+    "amlworld_gfp_features_val.parquet": "926e392771b3b2ef3099c5527722cab57a51b24ef7a4655b6aef8beaf3c54d10",
+    "amlworld_ring_ground_truth.parquet": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70",
+    "contract/out/scored_edges_gine_causal_4_val.parquet": "8c9f37293b6c1afe0971f3a765050833bb13f745ac3f07a98d343fb1cb795713",
+    "experiments/R1_gine_causal/embeddings_val_seed4.parquet": "1fde031b64caf5d2b621f0f31ca118b4c99aef7e7351ce275d7add103ed57cd3",
+    "platform/holdout/production/holdout_manifest.json": "32f7443a4dc5c6d3658f668bc269620cb2a284bb94d3e0197a651232cb267686",
+    "platform/holdout/production/holdout_manifest.sha256": "37cdcbaad94c3d517a7a369104f9dd41734380c705308085f32c278019f1532c",
+    "model.json": "88ff46a2137cc5fdfb44042d6860eb0a795cf259a0fd4bc421fbc0baf23a0872"
+  },
+  "tenant_id": 1,
+  "accuracy": 0.7,
+  "cycles": 12,
+  "cycle_hours": 4,
+  "truth_window": "primary",
+  "review_fraction": 1.0,
+  "retrain_after_cycle": 6,
+  "components": [
+    "expansion",
+    "affinity"
+  ],
+  "typing": "not refit; R5 head fixed",
+  "retrained_false": false,
+  "detector_seed": 4,
+  "day9": {
+    "window": {
+      "loader_seconds": [
+        777610,
+        864009
+      ],
+      "scope": "test_visible",
+      "jaccard": 0.5,
+      "truth": "in-scope rings with a scored member whose home bank is 1"
+    },
+    "old_model": {
+      "ring_precision": 1.0,
+      "ring_recall": 0.375,
+      "ring_f1": 0.5455,
+      "member_coverage": 0.7222,
+      "n_predicted": 3,
+      "n_truth": 8,
+      "n_matched": 3
+    },
+    "serving_model": {
+      "ring_precision": 1.0,
+      "ring_recall": 0.375,
+      "ring_f1": 0.5455,
+      "member_coverage": 0.7222,
+      "n_predicted": 3,
+      "n_truth": 8,
+      "n_matched": 3
+    },
+    "serving_note": "gate refused every candidate: the serving model is the old model",
+    "label": "descriptive only"
+  },
+  "wall_seconds": 775.9,
+  "models_screen_json": "results\\platform\\r11\\five_seeds\\seed4\\accuracy_0.70\\models.json",
+  "no_retrain_control": "static initial promoted holdout F1; no train job is run for this lane"
+}

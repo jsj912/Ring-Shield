@@ -31,7 +31,7 @@ Traps live in **`docs/PITFALLS.md`**.
 | L3a expansion | candidate generation + LightGBM policy trained on **cross-scored** train data | `ringshield/expand/` | `experiments/R3_expansion` |
 | L3b partition | shared-account pair affinity + average linkage | `ringshield/partition/` | `experiments/R4_partition` |
 | L3c roles / typing | account roles (source / sink / mule / holder / peripheral), ring confidence, topology head | `ringshield/roles.py`, `ringshield/typing/` | `experiments/R5_typing` |
-| **L4 explainability** | **L4 explains rings, not edges.** Edge weights combine the calibrated score, leave-one-out ring contribution via `rerun_ring`, and flow share; account weights and roles come from conservation; feature weights are SHAP on GFP+XGBoost over the seed edges; narratives are fixed templates whose every number traces to a stored value. **No attention weights, no language model.** Its measured claims are explanation fidelity@k (k = 3, 5, 10) against ground-truth ring edges versus random and score-only controls with bootstrap CIs; typology and role accuracy on matched rings; p95 latency under 2 s; and a 30-explanation internal review with Fleiss' κ, labelled internal rather than an analyst study. **Until those results exist the claims are defined but not yet measured.** | `explainability/` (branch `explainability-l4`) | `results/xai/`, `contract/out/xai/` |
+| **L4 explainability** | **L4 explains rings, not edges.** Edge weights combine the calibrated score, leave-one-out ring contribution via `rerun_ring`, and flow share; account weights and roles come from conservation; feature weights are SHAP on GFP+XGBoost over the seed edges; narratives are fixed templates whose every number traces to a stored value. **No attention weights, no language model.** Its measured claims are explanation fidelity@k (k = 3, 5, 10) against ground-truth ring edges versus random and score-only controls with bootstrap CIs; typology and role accuracy on matched rings; p95 latency under 2 s; and a 30-explanation internal review with Fleiss' κ, labelled internal rather than an analyst study. The results are in L4's own report (`explainability/report/xai_chapter.md`), not in `docs/FINDINGS.md`. | `explainability/` (branch `explainability-l4`) | `results/xai/`, `contract/out/xai/` |
 | Contract | `scored_edges` and `rings` v1 parquets for the platform side | `contract/` | `contract/out/` |
 | CLI | `run` / `train` / `eval` / `export-model` | `python -m ringshield` | `docs/CLI.md` |
 
@@ -39,14 +39,15 @@ Traps live in **`docs/PITFALLS.md`**.
 
 | ID | What | Result |
 |---|---|---|
-| **R1** | detector, 5 seeds, causal | test edge F1 0.5967 ± 0.070 |
+| **R1** | detector, 5 seeds, causal | primary-window edge F1 0.495 ± 0.027 (whole test split 0.596 ± 0.069, inflated by the tail: C1/C2) |
 | **R2** | B0 ring baseline, 3 detectors | gine 0.521 ± 0.045, gfpxgb 0.344, density 0.014 |
 | **R3** | expansion: policy vs rule baselines vs ablations | proposed 0.582; **quiet-member recall 0.005 → 0.21** |
 | **R4** | partition: 5 methods + CSGM | full 0.589; the stage is **not** significant on this detector |
-| **R5** | roles and topology typing | head 0.599 on the primary window, 0.594 on `whole` (~~0.219~~ corrected 2026-10-22, found by Ruhani (L4 Week 5 check): the old lookup typed the wrong ring) |
+| **R5** | roles and topology typing | head **0.599** [0.549, 0.648] vs rule 0.551 [0.499, 0.601] on the primary window (401 matched rings); 0.594 on `whole`: typing is not window-bounded (~~0.219~~ corrected 2026-10-22, found by Ruhani (L4 Week 5 check): the old lookup typed the wrong ring; B10, C3 withdrawn) |
 | **R6** | detector swap: MEGA-GNN and GFP-XGBoost | **+9.4 edge-F1 points buys 0.000 ring-F1** |
 | **R7** | held-out pattern types (3 arms) + LI-Small | transfer holds on CYCLE at undiminished precision |
 | **R9** | statistics: bootstrap CIs, permutation tests, Holm | every table carries an interval |
+| **R10** | tenant vs pooled: a pooled model applied to one bank's view (banks 1, 20, 11, 118, 12; 68 tenant-ring pairs) | pooled − (b) = **0.271 [0.154, 0.407]** ring recall; includes distribution shift (`docs/TENANT_SIZES.md`, `results/tables/r10_registered.md`) |
 | **R11b/c** | seed-budget reallocation (ensemble, per-account) | allocation is **not** the binding constraint |
 
 ### Headline findings
@@ -56,10 +57,17 @@ Traps live in **`docs/PITFALLS.md`**.
    (Jaccard 0.415) and agree on how many rings a 0.1 % budget reaches (128.8 vs 129.6 of 174).
 2. **Expansion recovers quiet members** — 0.5 % → 21 % — but a two-line rule matches it; the learned
    policy buys *purity* (0.926 vs 0.518 added-member precision), not recall.
-3. **The ceiling is structural.** 28 % of rings are below `min_size`, 19 % are untouched by any
-   detector edge, and **80.7 %** of the largest residual class is in a piece of the ring that is
-   *disconnected inside the evaluation window* — 99.6 % for STACK even across the whole test split.
-4. **Both ends of the AMLworld timeline are generator artefacts**, reproduced in two releases: day 0
+3. **Most of the remaining loss is structural, but there is no `min_size` cap on recall.** 34 % of
+   rings (60 of 174) have < 3 visible members, yet 11.4 of them per seed are still matched
+   (~~"28 % below `min_size`, recall capped at 0.72"~~, retracted 2026-09-30: B7/B9). 19 % are
+   untouched by the shipped pipeline (13.8 % with MEGA-GNN: B8), and **80.7 %** of the largest
+   residual class is in a piece of the ring that is *disconnected inside the evaluation window* —
+   99.6 % for STACK even across the whole test split.
+4. **One bank's view loses most of its rings (R10).** A pooled model applied to one bank's view
+   recovers 0.088 of that bank's tenant-ring pairs against 0.359 pooled: pooled − (b) = **0.271
+   [0.154, 0.407]**. This includes distribution shift (the model meets a graph unlike the one it was
+   trained on), so it is not only the cost of seeing fewer edges.
+5. **Both ends of the AMLworld timeline are generator artefacts**, reproduced in two releases: day 0
    holds ~34 % of training edges at 10× density, and the test tail collapses to a ~60 % base rate on
    ≤ 0.13 % of edges.
 
@@ -72,7 +80,7 @@ Traps live in **`docs/PITFALLS.md`**.
   asserts it reproduces the R4 run. Those detectors are research comparisons under
   `experiments/R6_full/`, not contract deliveries.
 * **SHAP over the expansion policy** — specified in the roadmap's XAI layer, not built. Leave-one-out answers the analyst's actual question ("what happens to this ring if this transaction is not real?") at 25 ms, whereas SHAP would explain a per-candidate probability the analyst never sees. That is a reframing of the scope, not a completion of it, and it is stated here rather than glossed.
-* **The XAI layer's claims are defined but not yet measured** (see the L4 row). There is no analyst study and no faithfulness metric, so it appears in `docs/FINDINGS.md` nowhere: it is a delivered capability, not a validated explanation. The contract fields should not be read as evidence.
+* **The XAI layer is not in `docs/FINDINGS.md`** (see the L4 row). Its measurements are L4's own and there is no analyst study, so it is a delivered capability, not a validated explanation. The contract fields should not be read as evidence.
 * Elliptic, EvolveGCN, GATv2, the escalation cascade, attention-based XAI — out of scope (Step 1).
 
 Seeds come from `configs/seeds.yaml` (`[1, 2, 3, 4, 5]`), paths from `configs/paths.yaml`

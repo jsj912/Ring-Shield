@@ -49,14 +49,17 @@ def detect_events(daily: list[tuple[int, float, float]], *, delta: float,
 class DriftStream:
     """Incremental two-series ADWIN state for chronological replay experiments."""
 
-    def __init__(self, *, delta: float, tenant_id: int, step_seconds: int = SECONDS_PER_DAY):
-        """One update per step: a day in live operation, an hour in the R12 replay."""
+    def __init__(self, *, delta: float, tenant_id: int, step_seconds: int = SECONDS_PER_DAY,
+                 clock: int | None = None):
+        """One update per step: a day in live operation, an hour in the R12 replay. `clock` is
+        river's test interval (default 32: ADWIN tests every 32nd update); R12's amendment A uses 1."""
         self.delta = float(delta)
         self.tenant_id = int(tenant_id)
         self.step_seconds = int(step_seconds)
+        options = {} if clock is None else {"clock": int(clock)}
         self.detectors = {
-            MONITORS["mean"]: ADWIN(delta=self.delta),
-            MONITORS["p99"]: ADWIN(delta=self.delta),
+            MONITORS["mean"]: ADWIN(delta=self.delta, **options),
+            MONITORS["p99"]: ADWIN(delta=self.delta, **options),
         }
         self.days: list[int] = []
 

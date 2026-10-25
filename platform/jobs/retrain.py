@@ -195,6 +195,37 @@ def _tenant_lock(tenant_id: int):
             connection.commit()
 
 
+@contextmanager
+def _run_claim(tenant_id: int, run_id: str):
+    """One worker per retrain run: a non-blocking session advisory lock on the run id, held for the
+    whole job. Yields False when another worker already holds it (the API's or the experiment's
+    caller and the worker supervisor can both start a worker for the same running row)."""
+    key = f"ringshield-l6-retrain-run:{run_id}"
+    with get_engine().connect() as connection:
+        connection.execute(text("SELECT set_config('app.tenant_id', :tenant_id, false)"),
+                           {"tenant_id": str(int(tenant_id))})
+        claimed = bool(connection.execute(text("SELECT pg_try_advisory_lock(hashtextextended(:key, 0))"),
+                                          {"key": key}).scalar())
+        connection.commit()
+        try:
+            yield claimed
+        finally:
+            if claimed:
+                connection.execute(text("SELECT pg_advisory_unlock(hashtextextended(:key, 0))"), {"key": key})
+                connection.commit()
+            connection.execute(text("SELECT set_config('app.tenant_id', '', false)"))
+            connection.commit()
+
+
+def _run_is_open(tenant_id: int, run_id: str) -> bool:
+    """A run another worker has not finished: status running and no finished_at."""
+    with db_session(tenant_id=tenant_id, role="supervisor") as session:
+        row = session.execute(select(RetrainRun.status, RetrainRun.finished_at).where(
+            RetrainRun.tenant_id == tenant_id, RetrainRun.run_id == run_id,
+        )).one_or_none()
+    return row is not None and row.status == "running" and row.finished_at is None
+
+
 def _set_run_state(tenant_id: int, run_id: str, *, status: str,
                    model_version_id: int | None = None, finished: bool = False) -> None:
     with db_session(tenant_id=tenant_id, role="supervisor") as session:
@@ -412,7 +443,8 @@ def _run_ring_refresh_process(*, tenant_id: int, model_version_id: int, run_id: 
         _write_log(log_path, f"ring refresh failed: {reason}")
         raise RetrainError(f"ring refresh failed: {reason}")
     try:
-        response = json.loads(output)
+        # The worker's result is its last line: the research CLI it runs shares its stdout.
+        response = json.loads(output.splitlines()[-1] if output else "")
         if not isinstance(response, dict):
             raise TypeError("refresh response must be an object")
         rings_path = Path(response["rings_path"])
@@ -427,9 +459,23 @@ def _run_ring_refresh_process(*, tenant_id: int, model_version_id: int, run_id: 
 
 
 def run_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli,
-                    min_new_labels: int | None = None) -> None:
-    """One gated retrain. `min_new_labels` overrides l6.retrain.min_new_labels (R11 retrains once,
-    on however many verdicts day 8 produced)."""
+                    min_new_labels: int | None = None) -> bool:
+    """One gated retrain, run by whichever worker claims the run first. Returns False, without
+    writing any state, when another worker holds the run or it has already finished.
+    `min_new_labels` overrides l6.retrain.min_new_labels (R11 retrains once, on however many
+    verdicts day 8 produced)."""
+    with _run_claim(tenant_id, run_id) as claimed:
+        if not claimed or not _run_is_open(tenant_id, run_id):
+            _write_log(_run_log_path(run_id), f"tenant {tenant_id}: run {run_id} "
+                       + ("is held by another worker" if not claimed else "is already finished")
+                       + "; this worker exits without changing it")
+            return False
+        _run_claimed_retrain_job(tenant_id, run_id, cli=cli, min_new_labels=min_new_labels)
+        return True
+
+
+def _run_claimed_retrain_job(tenant_id: int, run_id: str, *, cli=research_cli,
+                             min_new_labels: int | None = None) -> None:
     log_path = _run_log_path(run_id)
     relative_log_path = log_path.relative_to(REPO_ROOT)
     _write_log(log_path, f"tenant {tenant_id}: retrain run started")
