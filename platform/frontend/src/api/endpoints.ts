@@ -2,7 +2,7 @@
 import { request } from "./client";
 import type {
   DriftEventPage, DriftEventSummary, DriftSeriesResponse, ExperimentJobResponse, ExplanationJobResponse,
-  LoginRequest, ModelVersionPage, Params, R10Result, RetrainRunPage, RetrainRunStatusResponse, RingDetail,
+  LoginRequest, ModelVersionPage, Params, R10Result, R11Result, RetrainRunPage, RetrainRunStatusResponse, RingDetail,
   RingEvidenceGraph, RingExplanation, RingPage, RingSubgraph, SessionResponse, TenantResponse,
   TenantVerdictPage, VerdictHistoryPage, VerdictRequest, VerdictResponse,
 } from "./types";
@@ -51,6 +51,7 @@ export const api = {
   startRetrain: (tenantId: number) => request<{ run_id: string }>("POST", `/tenants/${tenantId}/retrain`),
   retrainRun: (tenantId: number, runId: string) =>
     request<RetrainRunStatusResponse>("GET", `/tenants/${tenantId}/retrain/${encodeURIComponent(runId)}`),
+  r11: (tenantId: number) => request<R11Result>("GET", `/tenants/${tenantId}/experiments/r11`),
   driftSeries: (tenantId: number) => request<DriftSeriesResponse>("GET", `/tenants/${tenantId}/drift/series`),
   driftEvents: (tenantId: number, params: Params) =>
     request<DriftEventPage>("GET", `/tenants/${tenantId}/drift`, { params }),

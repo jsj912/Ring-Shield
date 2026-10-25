@@ -81,6 +81,8 @@ class FixtureAPI:
             tenant_id, rest = int(tenant_match.group(1)), tenant_match.group(2) or ""
             if method == "GET" and rest == "/rings":
                 return self._ring_page(tenant_id, _param_dict(params))
+            if method == "GET" and rest == "/experiments/r11":
+                return self._r11(tenant_id, user)
             if rest == "/models" or rest.startswith("/retrain"):
                 return self._models(tenant_id, method, rest, user)
             if method == "GET" and rest == "/verdicts":
@@ -149,6 +151,14 @@ class FixtureAPI:
         if self.r10_jobs[job_id] < 2:
             return self._response(200, {"job_id": job_id, "status": "running", "message": None, "results": None})
         return self._response(200, {"job_id": job_id, "status": "succeeded", "message": None, "results": result})
+
+    def _r11(self, tenant_id: int, user: dict) -> httpx.Response:
+        """GET /tenants/{t}/experiments/r11 (operations.py): supervisor only, own tenant's lanes."""
+        if user["role"] != "supervisor":
+            return self._error(403, "Forbidden", "Only a tenant supervisor can access retraining")
+        r11 = self._load("r11.json", {})
+        return self._response(200, {"statement": r11.get("statement", ""),
+                                     "items": [lane for lane in r11.get("items", []) if lane["tenant_id"] == tenant_id]})
 
     def _models(self, tenant_id: int, method: str, rest: str, user: dict) -> httpx.Response:
         """GET /models, and the supervisor-only retrain routes (operations.py)."""

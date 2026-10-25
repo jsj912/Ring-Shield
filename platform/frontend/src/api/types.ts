@@ -310,6 +310,25 @@ export interface RetrainRunSummary {
   candidates: RetrainCandidate[];
 }
 
+/** GET /tenants/{id}/experiments/r11 (jobs/experiment_worker.py::r11_results). */
+export interface R11Lane {
+  tenant_id: number;
+  accuracy: number;
+  created_utc: string;
+  cycles: number;
+  cycle_hours: number;
+  retrain_after_cycle: number;
+  components: string[];
+  typing: string;
+  simulated: boolean;
+  cycle_rows: Record<string, string>[];
+}
+
+export interface R11Result {
+  statement: string;
+  items: R11Lane[];
+}
+
 export interface RetrainRunPage {
   items: RetrainRunSummary[];
 }

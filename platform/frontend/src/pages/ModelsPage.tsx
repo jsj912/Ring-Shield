@@ -62,6 +62,45 @@ function RetrainStatus({ tenantId, runId, onFinished }: { tenantId: number; runI
   );
 }
 
+/** The cycles.md columns shown for R11's retrain cycle, by their names in the API. */
+const R11_COLUMNS = ["retrain_status", "holdout_ring_f1", "no_retrain_control_holdout_ring_f1", "candidates",
+  "promotions", "refusals", "run_id"];
+
+/** Override 5: R11's outcome in the retrain dialog, every value as the API sends it. */
+function R11Results({ tenantId }: { tenantId: number }) {
+  const r11 = useQuery({ queryKey: ["r11", tenantId], queryFn: () => api.r11(tenantId) });
+  if (r11.isPending) return <TableSkeleton rows={2} columns={4} />;
+  if (r11.isError) return <ErrorState compact error={r11.error} onRetry={() => r11.refetch()} />;
+  if (!r11.data.items.length) return <p className="text-muted-foreground text-xs">R11 did not run for this bank.</p>;
+  return (
+    <div className="space-y-2" data-testid="r11-results">
+      <p className="text-sm font-medium">R11: gated retraining <Badge variant="warning">simulated verdicts</Badge></p>
+      <p className="text-muted-foreground text-xs">{r11.data.statement}</p>
+      {r11.data.items.map((lane) => (
+        <div key={lane.accuracy} className="rounded-md border" data-testid="r11-lane">
+          <p className="border-b px-2 py-1 text-xs">
+            Verdict accuracy {fmtAsReceived(lane.accuracy)} · retrained after cycle {lane.retrain_after_cycle} of {lane.cycles}
+            {" "}({lane.cycle_hours} h cycles) · {lane.components.join(", ")} · typing: {lane.typing}
+          </p>
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow><TableHead>cycle</TableHead>{R11_COLUMNS.map((column) => <TableHead key={column}>{column}</TableHead>)}</TableRow>
+            </TableHeader>
+            <TableBody>
+              {lane.cycle_rows.filter((row) => row.retrain_status !== "not run").map((row) => (
+                <TableRow key={row.cycle}>
+                  <TableCell>{row.cycle}</TableCell>
+                  {R11_COLUMNS.map((column) => <TableCell key={column} className="whitespace-normal">{row[column] ?? ""}</TableCell>)}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** FR-D73: a refused candidate's gate reason, prominently, with a link to its version row. */
 function Refusals({ runId, candidates, onFocus }: { runId: string; candidates: RetrainCandidate[]; onFocus: (id: number) => void }) {
   return (
@@ -104,11 +143,12 @@ function RetrainSection({ tenantId, onFocus }: { tenantId: number; onFocus: (id:
       </CardHeader>
       <CardContent className="space-y-3">
         <Dialog open={confirming} onOpenChange={setConfirming}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>Retrain now?</DialogTitle>
               <DialogDescription>{RETRAIN_SCOPE}</DialogDescription>
             </DialogHeader>
+            <R11Results tenantId={tenantId} />
             {start.isError ? <Notice tone="error">{errorText(start.error)}</Notice> : null}
             <DialogFooter>
               <Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
