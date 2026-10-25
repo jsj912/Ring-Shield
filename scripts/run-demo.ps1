@@ -873,6 +873,8 @@ try {
         Remove-Item "Env:$name" -ErrorAction SilentlyContinue
     }
     $env:RINGSHIELD_LOADER_DATABASE_URL = $urls.Loader
+    # The retrain worker records runs and reads verdicts through the restricted app role (RLS applies).
+    $env:RINGSHIELD_DATABASE_URL = $urls.App
     if (-not [string]::IsNullOrWhiteSpace($script:EffectiveXaiToken)) {
         $env:RINGSHIELD_XAI_TOKEN = $script:EffectiveXaiToken
     }
@@ -883,6 +885,7 @@ try {
         -WorkingDirectory (Join-Path $script:RepoRoot 'platform') -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $supervisorOut -RedirectStandardError $supervisorErr -ErrorAction Stop
     Remove-Item Env:RINGSHIELD_LOADER_DATABASE_URL -ErrorAction SilentlyContinue
+    Remove-Item Env:RINGSHIELD_DATABASE_URL -ErrorAction SilentlyContinue
     Remove-Item Env:RINGSHIELD_XAI_TOKEN -ErrorAction SilentlyContinue
     Save-DemoProcess -Process $supervisorProcess -Kind 'supervisor' -StopFile $stopFile
 
