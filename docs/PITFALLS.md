@@ -1,7 +1,7 @@
 # Pitfalls — traps this repository has actually fallen into
 
 Every entry below cost real time or produced a wrong number that had to be retracted. This is not
-a style guide; it is the list of things that look fine and are not. `docs/RINGSHIELD_IMPLEMENTATION_LOG_v2.md`
+a style guide; it is the list of things that look fine and are not. `docs/archive/RINGSHIELD_IMPLEMENTATION_LOG_v2.md`
 §10 holds the *accepted trade-offs*; this file holds the *mistakes*.
 
 ---
