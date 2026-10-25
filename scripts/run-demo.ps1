@@ -666,6 +666,7 @@ try {
         $explanationCheckArguments += @('--explanations', $explanationFile,
             '--run-log', "$explanationFile.log.json", '--rings-log', $ringsLog)
     }
+    $env:RINGSHIELD_PLATFORM_CONFIG = $PlatformConfig            # the check compares with its active seed
     Invoke-Checked $python $explanationCheckArguments 'validate tenant explanation handoffs (read-only)'
     & $docker.Source info *> $null
     if ($LASTEXITCODE -ne 0) { throw "Step 'check Docker Desktop' failed with exit code $LASTEXITCODE. Start Docker Desktop, then retry." }
