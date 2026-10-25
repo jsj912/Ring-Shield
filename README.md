@@ -47,6 +47,7 @@ Traps live in **`docs/PITFALLS.md`**.
 | **R6** | detector swap: MEGA-GNN and GFP-XGBoost | **+9.4 edge-F1 points buys 0.000 ring-F1** |
 | **R7** | held-out pattern types (3 arms) + LI-Small | transfer holds on CYCLE at undiminished precision |
 | **R9** | statistics: bootstrap CIs, permutation tests, Holm | every table carries an interval |
+| **R10** | tenant vs pooled: a pooled model applied to one bank's view (banks 1, 20, 11, 118, 12; 68 tenant-ring pairs) | pooled − (b) = **0.271 [0.154, 0.407]** ring recall; includes distribution shift (`docs/TENANT_SIZES.md`, `results/tables/r10_registered.md`) |
 | **R11b/c** | seed-budget reallocation (ensemble, per-account) | allocation is **not** the binding constraint |
 
 ### Headline findings
@@ -62,7 +63,11 @@ Traps live in **`docs/PITFALLS.md`**.
    untouched by the shipped pipeline (13.8 % with MEGA-GNN: B8), and **80.7 %** of the largest
    residual class is in a piece of the ring that is *disconnected inside the evaluation window* —
    99.6 % for STACK even across the whole test split.
-4. **Both ends of the AMLworld timeline are generator artefacts**, reproduced in two releases: day 0
+4. **One bank's view loses most of its rings (R10).** A pooled model applied to one bank's view
+   recovers 0.088 of that bank's tenant-ring pairs against 0.359 pooled: pooled − (b) = **0.271
+   [0.154, 0.407]**. This includes distribution shift (the model meets a graph unlike the one it was
+   trained on), so it is not only the cost of seeing fewer edges.
+5. **Both ends of the AMLworld timeline are generator artefacts**, reproduced in two releases: day 0
    holds ~34 % of training edges at 10× density, and the test tail collapses to a ~60 % base rate on
    ≤ 0.13 % of edges.
 
