@@ -18,6 +18,7 @@ negative outcomes are recorded as claims in `FINDINGS.md`, not dropped.
 | F5 | Validation-ring bootstrap for the detector choice | `configs/detector_choice.yaml` | none (a missing interval) | ≈ 1–2 h | open Step 9 item 1 |
 | F6 | 30-ring explanation review with Fleiss' κ | L4 claims | — | analyst time | planned on `explainability-l4` |
 | F7 | Larger AMLworld releases and real data | external validity | — | data access | open |
+| F8 | A drift monitor that can fire | L6 drift, R12 | — (the current monitor cannot detect a +3 SD step) | ≈ 1 day + re-register R12 | proposed (R12 stopped, 2026-10-24) |
 
 ---
 
@@ -44,9 +45,9 @@ policy, is the limit:
 | Evidence | Number | Source |
 |---|---|---|
 | Under-covered predictions are pure but small | purity 1.000 (34/34), median coverage 0.176 (3 of 14 members) | B12 |
-| Missing member edges with no in-window path to the fragment | **175 / 218 (80 %)**; STACK **140 / 140** | B13 |
+| Missing member edges with no in-window path to the fragment | **176 / 216 (81.5 %)**; STACK **140 / 140** | B13 |
 | Missing edges never generated as candidates | 85.6 % | B13 |
-| Widening to the ten-day window | STACK still 99.6 % disconnected | B13 |
+| Widening to the ten-day window | STACK still 100 % disconnected | B13 |
 | Walking the full 18-day history under the expansion's rules | **0 / 140** STACK edges reached (null 0 / 216) | B16 |
 | STACK + BIPARTITE share of untouched rings | 52 %, over-represented 2.2× / 2.7× | `CLASS_B_COMPOSITION.md` |
 
@@ -182,3 +183,29 @@ labelled internal, not an analyst study.
 All method numbers are on HI-Small. LI-Small has 38 matchable rings, too few to separate methods.
 Next: the Medium AMLworld releases (same generator, more rings), then real transaction data under
 a privacy agreement, where generator artefacts (C1, C8) cannot help any signal.
+
+## F8. A drift monitor that can fire
+
+**Evidence.** R12 (`docs/R12.md`) stopped at its registered positive control: a synthetic +3 SD step
+added to the hourly monitor input from hour 12 of day 9 was **not detected** by the platform's
+ADWIN monitor (`platform/jobs/drift_monitor.py`). Two measured causes:
+
+1. **ADWIN tests every 32 updates.** river's `ADWIN(clock=32)` default checks for a change once per
+   32 inputs. Over R12's 48 hourly steps that is one test, at step 32, before the step begins; in live
+   daily operation it is one test a month, so the monitor cannot fire inside the ten-day test split.
+2. **The calibrated 99th percentile is flat.** Isotonic calibration maps the top of the score range
+   onto a plateau: the hourly p99 is 0.015064 in all 24 day-8 hours, so its standard deviation is 0
+   and the p99 statistic cannot move however the input shifts.
+
+**Build.** Set `clock=1` (test every update) with a minimum window long enough for a stable
+reference; replace the calibrated p99 with a statistic that varies (the raw-score p99, or the share
+of edges above the seed cutoff); keep the monitor's output as events only, never a retraining trigger.
+
+**Cheapest test that could kill it.** Re-run R12's synthetic control: if a +3 SD step on both
+statistics is still not detected within a few hours, the statistic, not the clock, is the problem.
+A changed monitor needs **a new R12 registration**; the stopped R12 run stays as reported.
+
+**Upper bound.** None claimable from this data: with ~1 CYCLE transaction per ~24,000 per hour, even
+a working score-distribution monitor is not expected to see R12's injected shift. What F8 buys is a
+monitor that is able to fire on shifts large enough to matter.
+

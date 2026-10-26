@@ -1,0 +1,94 @@
+{
+  "created_utc": "2026-10-06T08:24:42+00:00",
+  "git_commit": "f0d225fb548f28c5023562d8564047b8fa05c2bb",
+  "hold_out_pattern": null,
+  "n_pairs_dropped_by_holdout": 0,
+  "inputs": {
+    "cross_scores": "experiments_hi_medium\\R3_cross_scores_c1prime\\cross_scores_train.parquet",
+    "training_set": "experiments_hi_medium\\R3_expansion\\training_set.parquet",
+    "policy_json": "experiments_hi_medium\\R3_expansion\\policy_proposed\\policy.json",
+    "p_min": 0.7,
+    "seed_frac_pct": 0.1,
+    "seeds_per_fold": [
+      {
+        "fold": 0,
+        "n_edges": 3021258,
+        "q": 0.6973384389877455,
+        "n_seeds": 3022,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10002455930609039
+      },
+      {
+        "fold": 1,
+        "n_edges": 828958,
+        "q": 0.43237010738257153,
+        "n_seeds": 829,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10000506660168548
+      },
+      {
+        "fold": 2,
+        "n_edges": 830607,
+        "q": 0.5004701942802654,
+        "n_seeds": 831,
+        "n_on_boundary": 0,
+        "seed_frac_pct_realised": 0.10004731479508361
+      }
+    ]
+  },
+  "included": {
+    "n": 4932,
+    "n_seeds": 4682,
+    "n_expanded": 250,
+    "n_expanded_member": 232,
+    "n_components": 3783,
+    "largest_component": 15,
+    "components_with_gt1_ring": 29,
+    "components_with_pairs": 487
+  },
+  "pairs": {
+    "n": 2995,
+    "n_pos": 2248,
+    "n_neg": 747,
+    "pos_rate": 0.750584307178631,
+    "by_kind": {
+      "seed_seed": {
+        "n": 2209,
+        "n_pos": 1549
+      },
+      "seed_exp": {
+        "n": 684,
+        "n_pos": 606
+      },
+      "exp_exp": {
+        "n": 102,
+        "n_pos": 93
+      }
+    },
+    "by_role": {
+      "source": {
+        "n": 1555,
+        "n_pos": 1321
+      },
+      "sink": {
+        "n": 810,
+        "n_pos": 594
+      },
+      "mule": {
+        "n": 424,
+        "n_pos": 309
+      },
+      "other": {
+        "n": 206,
+        "n_pos": 24
+      }
+    },
+    "components_all_positive": 242,
+    "components_mixed": 50,
+    "components_all_negative": 195,
+    "cos_emb_nan": 0,
+    "n_features": 20
+  },
+  "seconds": 129.2,
+  "out": "experiments_hi_medium\\R4_partition\\pairs_train.parquet"
+}

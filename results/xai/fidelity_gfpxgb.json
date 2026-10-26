@@ -1,0 +1,1447 @@
+{
+  "evaluation": {
+    "bootstrap_resamples": 1000,
+    "ci": 0.95,
+    "k": [
+      3,
+      5,
+      10
+    ],
+    "match_threshold": 0.5,
+    "mixing": {
+      "alpha": 0.6,
+      "beta": 0.0,
+      "gamma": 0.4
+    },
+    "mixing_retuned_on_test": false,
+    "permutation_resamples": 10000,
+    "policy": "converted",
+    "random_shuffles": 20,
+    "ranked_edges": "ring member_edges inside the window, currency conversions removed",
+    "scope": "test_visible",
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "stats_seed": 20260921,
+    "unit": "truth ring; its value = mean over the detector seeds in which it was matched (Joan, Q2)",
+    "window": "primary"
+  },
+  "experiment_id": "XAI-W4",
+  "explainer_version": "0.4.0-narrative",
+  "findings": {
+    "saturation": {
+      "n_matched_ring_instances": 372,
+      "n_no_true_ranked_edge": 15,
+      "n_non_saturated": 72,
+      "n_only_true_edges": 285,
+      "n_with_a_true_ranked_edge": 357,
+      "reading": "after removing currency conversions most matched predicted rings contain only true transactions: the rings are very clean, and fidelity cannot separate rankings on them (Joan, Q1-i)"
+    },
+    "xr05_strength": {
+      "chosen": {
+        "alpha": 0.6,
+        "beta": 0.0,
+        "gamma": 0.4
+      },
+      "grid_objective_range": [
+        0.8876425228953316,
+        0.9126375138594238
+      ],
+      "leave_one_out_weight": 0.0,
+      "n_validation_ring_instances_matched": 431,
+      "n_validation_ring_instances_that_can_discriminate": 89,
+      "reading": "the mixing weights were chosen on validation where only 89 of 431 matched ring-instances could discriminate, and the whole grid spans 0.025: the choice is weakly determined. Leave-one-out got zero weight (beta = 0.0). The weights were not re-tuned on test (Joan, Q1-ii).",
+      "validation_objective_chosen": 0.9126375138594238,
+      "validation_objective_default": 0.9016657608932889
+    }
+  },
+  "headline": {
+    "comparisons": {
+      "w_total vs random @10": {
+        "delta_ci": [
+          -0.0004936234263820461,
+          0.018481116584564857
+        ],
+        "mean_delta": 0.006921729611384786,
+        "n_nonzero": 19,
+        "n_permutations": 10000,
+        "n_units": 87,
+        "p_holm": 1.0,
+        "p_value": 0.43015698430156984,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs random @3": {
+        "delta_ci": [
+          -0.008919779693486557,
+          0.031446839080459775
+        ],
+        "mean_delta": 0.011599616858237564,
+        "n_nonzero": 24,
+        "n_permutations": 10000,
+        "n_units": 87,
+        "p_holm": 1.0,
+        "p_value": 0.27687231276872315,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs random @5": {
+        "delta_ci": [
+          -0.013580459770114925,
+          0.022230316091954035
+        ],
+        "mean_delta": 0.0045919540229885135,
+        "n_nonzero": 24,
+        "n_permutations": 10000,
+        "n_units": 87,
+        "p_holm": 1.0,
+        "p_value": 0.6452354764523548,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs score_only @10": {
+        "delta_ci": [
+          0.0,
+          0.0034482758620689646
+        ],
+        "mean_delta": 0.0011494252873563216,
+        "n_nonzero": 1,
+        "n_permutations": 10000,
+        "n_units": 87,
+        "p_holm": 1.0,
+        "p_value": 1.0,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs score_only @3": {
+        "delta_ci": [
+          -0.016858237547892715,
+          0.0007662835249042183
+        ],
+        "mean_delta": -0.006130268199233715,
+        "n_nonzero": 4,
+        "n_permutations": 10000,
+        "n_units": 87,
+        "p_holm": 1.0,
+        "p_value": 0.3762623737626237,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs score_only @5": {
+        "delta_ci": [
+          -0.0017241379310344806,
+          0.0
+        ],
+        "mean_delta": -0.0005747126436781602,
+        "n_nonzero": 1,
+        "n_permutations": 10000,
+        "n_units": 87,
+        "p_holm": 1.0,
+        "p_value": 1.0,
+        "reject_at_05": false,
+        "seed": 20260921
+      }
+    },
+    "fidelity": {
+      "random": {
+        "10": {
+          "ci": 0.95,
+          "hi": 0.8824732484948002,
+          "lo": 0.7743737889983582,
+          "n_resamples": 1000,
+          "n_units": 87,
+          "point": 0.8307917350848386,
+          "ring_instance_mean": 0.8399075140809013,
+          "seed": 20260921
+        },
+        "3": {
+          "ci": 0.95,
+          "hi": 0.9079719827586209,
+          "lo": 0.7964494731800764,
+          "n_resamples": 1000,
+          "n_units": 87,
+          "point": 0.8512994891443166,
+          "ring_instance_mean": 0.8512096774193548,
+          "seed": 20260921
+        },
+        "5": {
+          "ci": 0.95,
+          "hi": 0.8803538793103448,
+          "lo": 0.7725343869731801,
+          "n_resamples": 1000,
+          "n_units": 87,
+          "point": 0.8256379310344828,
+          "ring_instance_mean": 0.832334229390681,
+          "seed": 20260921
+        }
+      },
+      "score_only": {
+        "10": {
+          "ci": 0.95,
+          "hi": 0.8865439928845101,
+          "lo": 0.7799663382594417,
+          "n_resamples": 1000,
+          "n_units": 87,
+          "point": 0.8365640394088671,
+          "ring_instance_mean": 0.8468894009216589,
+          "seed": 20260921
+        },
+        "3": {
+          "ci": 0.95,
+          "hi": 0.9257391443167303,
+          "lo": 0.8121759259259259,
+          "n_resamples": 1000,
+          "n_units": 87,
+          "point": 0.8690293742017882,
+          "ring_instance_mean": 0.8696236559139785,
+          "seed": 20260921
+        },
+        "5": {
+          "ci": 0.95,
+          "hi": 0.8850833333333333,
+          "lo": 0.7712978927203065,
+          "n_resamples": 1000,
+          "n_units": 87,
+          "point": 0.8308045977011494,
+          "ring_instance_mean": 0.8393369175627241,
+          "seed": 20260921
+        }
+      },
+      "w_total": {
+        "10": {
+          "ci": 0.95,
+          "hi": 0.8876592432950191,
+          "lo": 0.7822344348659005,
+          "n_resamples": 1000,
+          "n_units": 87,
+          "point": 0.8377134646962233,
+          "ring_instance_mean": 0.8482334869431642,
+          "seed": 20260921
+        },
+        "3": {
+          "ci": 0.95,
+          "hi": 0.9182008301404854,
+          "lo": 0.8074664750957855,
+          "n_resamples": 1000,
+          "n_units": 87,
+          "point": 0.8628991060025543,
+          "ring_instance_mean": 0.8633512544802866,
+          "seed": 20260921
+        },
+        "5": {
+          "ci": 0.95,
+          "hi": 0.8850689655172413,
+          "lo": 0.7707212643678161,
+          "n_resamples": 1000,
+          "n_units": 87,
+          "point": 0.8302298850574712,
+          "ring_instance_mean": 0.8386648745519714,
+          "seed": 20260921
+        }
+      }
+    },
+    "holm_family": "the six comparisons of this block (2 controls x 3 k)",
+    "label": "fidelity@k on ring member edges (spec 6.1 definition)",
+    "n_ring_instances": 372,
+    "n_truth_rings": 87,
+    "overall": "negative",
+    "truth_rings_by_n_seeds_matched": {
+      "1": 12,
+      "2": 1,
+      "3": 2,
+      "4": 8,
+      "5": 64
+    },
+    "verdict_at_k5": {
+      "random": "negative (intervals overlap)",
+      "score_only": "negative (intervals overlap)"
+    }
+  },
+  "inputs": {
+    "files_read": [
+      "contract/out/scored_edges_gfpxgb_1.parquet",
+      "contract/out/rings_full_gfpxgb_1.parquet",
+      "results/xai/explanations_gfpxgb_seed1.parquet",
+      "contract/out/scored_edges_gfpxgb_2.parquet",
+      "contract/out/rings_full_gfpxgb_2.parquet",
+      "results/xai/explanations_gfpxgb_seed2.parquet",
+      "contract/out/scored_edges_gfpxgb_3.parquet",
+      "contract/out/rings_full_gfpxgb_3.parquet",
+      "results/xai/explanations_gfpxgb_seed3.parquet",
+      "contract/out/scored_edges_gfpxgb_4.parquet",
+      "contract/out/rings_full_gfpxgb_4.parquet",
+      "results/xai/explanations_gfpxgb_seed4.parquet",
+      "contract/out/scored_edges_gfpxgb_5.parquet",
+      "contract/out/rings_full_gfpxgb_5.parquet",
+      "results/xai/explanations_gfpxgb_seed5.parquet",
+      "data/processed/amlworld_ring_ground_truth.parquet",
+      "data/processed/amlworld_test.parquet"
+    ],
+    "xr05_choice": "results/xai/xr05_mixing_choice.json"
+  },
+  "per_seed": {
+    "1": {
+      "fidelity": {
+        "random": {
+          "10": 0.8292202917202918,
+          "3": 0.8416666666666667,
+          "5": 0.827240990990991
+        },
+        "score_only": {
+          "10": 0.8353764478764478,
+          "3": 0.8626126126126126,
+          "5": 0.8322072072072072
+        },
+        "w_total": {
+          "10": 0.8387548262548262,
+          "3": 0.8626126126126127,
+          "5": 0.8322072072072072
+        }
+      },
+      "n_matched": 74
+    },
+    "2": {
+      "fidelity": {
+        "random": {
+          "10": 0.8332578806170357,
+          "3": 0.8507042253521127,
+          "5": 0.8267018779342722
+        },
+        "score_only": {
+          "10": 0.8418455175497429,
+          "3": 0.8685446009389671,
+          "5": 0.8342723004694835
+        },
+        "w_total": {
+          "10": 0.8418455175497429,
+          "3": 0.8638497652582159,
+          "5": 0.8342723004694835
+        }
+      },
+      "n_matched": 71
+    },
+    "3": {
+      "fidelity": {
+        "random": {
+          "10": 0.8221560846560846,
+          "3": 0.8458888888888888,
+          "5": 0.8196111111111111
+        },
+        "score_only": {
+          "10": 0.8275820105820105,
+          "3": 0.8577777777777778,
+          "5": 0.8224444444444444
+        },
+        "w_total": {
+          "10": 0.8309153439153438,
+          "3": 0.8488888888888888,
+          "5": 0.8224444444444444
+        }
+      },
+      "n_matched": 75
+    },
+    "4": {
+      "fidelity": {
+        "random": {
+          "10": 0.8705511463844796,
+          "3": 0.8653292181069959,
+          "5": 0.8539917695473251
+        },
+        "score_only": {
+          "10": 0.8776601998824219,
+          "3": 0.8888888888888888,
+          "5": 0.8670781893004116
+        },
+        "w_total": {
+          "10": 0.8776601998824219,
+          "3": 0.8827160493827161,
+          "5": 0.8639917695473252
+        }
+      },
+      "n_matched": 81
+    },
+    "5": {
+      "fidelity": {
+        "random": {
+          "10": 0.8414878157835904,
+          "3": 0.8511737089201878,
+          "5": 0.8320070422535211
+        },
+        "score_only": {
+          "10": 0.8492231164766376,
+          "3": 0.8685446009389671,
+          "5": 0.8380281690140845
+        },
+        "w_total": {
+          "10": 0.8492231164766376,
+          "3": 0.8568075117370892,
+          "5": 0.8380281690140845
+        }
+      },
+      "n_matched": 71
+    }
+  },
+  "role_accuracy": {
+    "n_ring_instances": 372,
+    "n_truth_rings": 87,
+    "shipped_vs_recomputed": {
+      "n_accounts_compared": 3368,
+      "n_role_differs": 34,
+      "why": "the shipped roles include the 33 currency conversions the ring-builder used; the evaluation removes them on both sides (Joan, Q2)"
+    },
+    "unit": "truth ring; counts averaged over the detector seeds in which it was matched",
+    "variants": {
+      "accounts_in_both": {
+        "agreement": 0.7687427912341407,
+        "n_accounts": 1734,
+        "per_role": {
+          "holder": {
+            "n_correct": 0,
+            "n_predicted": 14,
+            "n_true": 0,
+            "precision": {
+              "denominator": 3.85,
+              "hi": 0.0,
+              "lo": 0.0,
+              "n_draws": 988,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": 0.0
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": null
+            }
+          },
+          "mule": {
+            "n_correct": 91,
+            "n_predicted": 322,
+            "n_true": 157,
+            "precision": {
+              "denominator": 70.26666666666667,
+              "hi": 0.44815395037683114,
+              "lo": 0.1639389972144847,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 20.06666666666667,
+              "point": 0.28557874762808355
+            },
+            "recall": {
+              "denominator": 35.86666666666666,
+              "hi": 0.7020113435184578,
+              "lo": 0.4371210264181216,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 20.06666666666667,
+              "point": 0.5594795539033459
+            }
+          },
+          "peripheral": {
+            "n_correct": 10,
+            "n_predicted": 54,
+            "n_true": 10,
+            "precision": {
+              "denominator": 10.899999999999999,
+              "hi": 0.4166666666666667,
+              "lo": 0.0,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 2.0,
+              "point": 0.1834862385321101
+            },
+            "recall": {
+              "denominator": 2.0,
+              "hi": 1.0,
+              "lo": 1.0,
+              "n_draws": 890,
+              "n_units": 87,
+              "numerator": 2.0,
+              "point": 1.0
+            }
+          },
+          "sink": {
+            "n_correct": 543,
+            "n_predicted": 566,
+            "n_true": 843,
+            "precision": {
+              "denominator": 132.34999999999997,
+              "hi": 0.9916611152133898,
+              "lo": 0.9145443639121958,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 127.0,
+              "point": 0.9595768794862111
+            },
+            "recall": {
+              "denominator": 195.05,
+              "hi": 0.7754020851203705,
+              "lo": 0.5208909058307315,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 127.0,
+              "point": 0.6511150986926428
+            }
+          },
+          "source": {
+            "n_correct": 689,
+            "n_predicted": 778,
+            "n_true": 724,
+            "precision": {
+              "denominator": 188.53333333333333,
+              "hi": 0.9246777575717032,
+              "lo": 0.8039185481572738,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 163.88333333333335,
+              "point": 0.8692538896746819
+            },
+            "recall": {
+              "denominator": 172.98333333333335,
+              "hi": 0.9823175636551432,
+              "lo": 0.9015187895211708,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 163.88333333333335,
+              "point": 0.9473937758936314
+            }
+          },
+          "undetermined": {
+            "n_correct": 0,
+            "n_predicted": 0,
+            "n_true": 0,
+            "precision": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": null
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": null
+            }
+          }
+        },
+        "what": "per-role agreement on accounts present in BOTH rings only -- pure role errors, no membership errors (Joan, Q2)"
+      },
+      "headline": {
+        "per_role": {
+          "holder": {
+            "n_correct": 0,
+            "n_predicted": 30,
+            "n_true": 4,
+            "precision": {
+              "denominator": 7.05,
+              "hi": 0.0,
+              "lo": 0.0,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": 0.0
+            },
+            "recall": {
+              "denominator": 1.0,
+              "hi": 0.0,
+              "lo": 0.0,
+              "n_draws": 637,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": 0.0
+            }
+          },
+          "mule": {
+            "n_correct": 91,
+            "n_predicted": 530,
+            "n_true": 198,
+            "precision": {
+              "denominator": 114.51666666666665,
+              "hi": 0.2834418913996181,
+              "lo": 0.10027611399599572,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 20.06666666666667,
+              "point": 0.17522922427594242
+            },
+            "recall": {
+              "denominator": 45.0,
+              "hi": 0.5788639281129654,
+              "lo": 0.33333333333333337,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 20.06666666666667,
+              "point": 0.445925925925926
+            }
+          },
+          "peripheral": {
+            "n_correct": 10,
+            "n_predicted": 74,
+            "n_true": 10,
+            "precision": {
+              "denominator": 15.950000000000001,
+              "hi": 0.32346104739352,
+              "lo": 0.0,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 2.0,
+              "point": 0.12539184952978055
+            },
+            "recall": {
+              "denominator": 2.0,
+              "hi": 1.0,
+              "lo": 1.0,
+              "n_draws": 890,
+              "n_units": 87,
+              "numerator": 2.0,
+              "point": 1.0
+            }
+          },
+          "sink": {
+            "n_correct": 543,
+            "n_predicted": 1365,
+            "n_true": 873,
+            "precision": {
+              "denominator": 331.2499999999999,
+              "hi": 0.48894803995557684,
+              "lo": 0.29295752174721895,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 127.0,
+              "point": 0.38339622641509447
+            },
+            "recall": {
+              "denominator": 202.0,
+              "hi": 0.746829886657387,
+              "lo": 0.49783490978790784,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 127.0,
+              "point": 0.6287128712871287
+            }
+          },
+          "source": {
+            "n_correct": 689,
+            "n_predicted": 1369,
+            "n_true": 820,
+            "precision": {
+              "denominator": 325.03333333333336,
+              "hi": 0.6014099329991053,
+              "lo": 0.41894651774550606,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 163.88333333333335,
+              "point": 0.5042046969541586
+            },
+            "recall": {
+              "denominator": 200.0,
+              "hi": 0.873888302672178,
+              "lo": 0.7561203596006592,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 163.88333333333335,
+              "point": 0.8194166666666668
+            }
+          },
+          "undetermined": {
+            "n_correct": 0,
+            "n_predicted": 0,
+            "n_true": 0,
+            "precision": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": null
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": null
+            }
+          }
+        },
+        "what": "our roles over the ring's seed + expanded edges (conversions removed), vs the truth ring's roles over its in-window edges; accounts in only one of the two rings count as errors (spec 6.5)"
+      },
+      "in_window": {
+        "per_role": {
+          "holder": {
+            "n_correct": 0,
+            "n_predicted": 0,
+            "n_true": 4,
+            "precision": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": null
+            },
+            "recall": {
+              "denominator": 1.0,
+              "hi": 0.0,
+              "lo": 0.0,
+              "n_draws": 637,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": 0.0
+            }
+          },
+          "mule": {
+            "n_correct": 91,
+            "n_predicted": 103,
+            "n_true": 198,
+            "precision": {
+              "denominator": 24.06666666666667,
+              "hi": 1.0,
+              "lo": 0.6301243023845763,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 20.06666666666667,
+              "point": 0.8337950138504155
+            },
+            "recall": {
+              "denominator": 45.0,
+              "hi": 0.5788639281129654,
+              "lo": 0.33333333333333337,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 20.06666666666667,
+              "point": 0.445925925925926
+            }
+          },
+          "peripheral": {
+            "n_correct": 5,
+            "n_predicted": 22,
+            "n_true": 10,
+            "precision": {
+              "denominator": 6.2,
+              "hi": 0.5357142857142857,
+              "lo": 0.0,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 1.0,
+              "point": 0.16129032258064516
+            },
+            "recall": {
+              "denominator": 2.0,
+              "hi": 1.0,
+              "lo": 0.0,
+              "n_draws": 890,
+              "n_units": 87,
+              "numerator": 1.0,
+              "point": 0.5
+            }
+          },
+          "sink": {
+            "n_correct": 794,
+            "n_predicted": 836,
+            "n_true": 873,
+            "precision": {
+              "denominator": 190.7,
+              "hi": 0.9802283245911755,
+              "lo": 0.9020799649788414,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 180.4,
+              "point": 0.9459884635553226
+            },
+            "recall": {
+              "denominator": 202.0,
+              "hi": 0.9410691660157946,
+              "lo": 0.8307014062935116,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 180.4,
+              "point": 0.8930693069306931
+            }
+          },
+          "source": {
+            "n_correct": 708,
+            "n_predicted": 813,
+            "n_true": 820,
+            "precision": {
+              "denominator": 194.03333333333333,
+              "hi": 0.9264828189202052,
+              "lo": 0.8006483416430104,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 168.73333333333335,
+              "point": 0.8696100326404399
+            },
+            "recall": {
+              "denominator": 200.0,
+              "hi": 0.8934455778916771,
+              "lo": 0.7873817088070468,
+              "n_draws": 1000,
+              "n_units": 87,
+              "numerator": 168.73333333333335,
+              "point": 0.8436666666666668
+            }
+          },
+          "undetermined": {
+            "n_correct": 0,
+            "n_predicted": 0,
+            "n_true": 0,
+            "precision": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": null
+            },
+            "recall": {
+              "denominator": 0.0,
+              "hi": null,
+              "lo": null,
+              "n_draws": 0,
+              "n_units": 87,
+              "numerator": 0.0,
+              "point": null
+            }
+          }
+        },
+        "what": "the same, our roles recomputed on the ring's in-window seed + expanded edges only -- separates the time-window effect from membership errors"
+      }
+    },
+    "what": "XR-26 role precision / recall of the narrated (converted) roles against roles derived from the truth ring's in-window edges with the same algorithm (ringshield roles_for_edges, converted)"
+  },
+  "secondary_non_saturated": {
+    "comparisons": {
+      "w_total vs random @10": {
+        "delta_ci": [
+          -0.001815476190476195,
+          0.08054166666666661
+        ],
+        "mean_delta": 0.033309523809523796,
+        "n_nonzero": 7,
+        "n_permutations": 10000,
+        "n_units": 20,
+        "p_holm": 1.0,
+        "p_value": 0.2515748425157484,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs random @3": {
+        "delta_ci": [
+          -0.02633333333333332,
+          0.16129583333333328
+        ],
+        "mean_delta": 0.07220833333333335,
+        "n_nonzero": 17,
+        "n_permutations": 10000,
+        "n_units": 20,
+        "p_holm": 0.9701029897010298,
+        "p_value": 0.1616838316168383,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs random @5": {
+        "delta_ci": [
+          -0.055500000000000015,
+          0.101
+        ],
+        "mean_delta": 0.02619999999999998,
+        "n_nonzero": 14,
+        "n_permutations": 10000,
+        "n_units": 20,
+        "p_holm": 1.0,
+        "p_value": 0.5460453954604539,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs score_only @10": {
+        "delta_ci": [
+          0.0,
+          0.014999999999999996
+        ],
+        "mean_delta": 0.004999999999999999,
+        "n_nonzero": 1,
+        "n_permutations": 10000,
+        "n_units": 20,
+        "p_holm": 1.0,
+        "p_value": 1.0,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs score_only @3": {
+        "delta_ci": [
+          -0.06666666666666668,
+          0.015000000000000008
+        ],
+        "mean_delta": -0.02166666666666666,
+        "n_nonzero": 4,
+        "n_permutations": 10000,
+        "n_units": 20,
+        "p_holm": 1.0,
+        "p_value": 0.36906309369063095,
+        "reject_at_05": false,
+        "seed": 20260921
+      },
+      "w_total vs score_only @5": {
+        "delta_ci": [
+          -0.00749999999999999,
+          0.0
+        ],
+        "mean_delta": -0.0024999999999999966,
+        "n_nonzero": 1,
+        "n_permutations": 10000,
+        "n_units": 20,
+        "p_holm": 1.0,
+        "p_value": 1.0,
+        "reject_at_05": false,
+        "seed": 20260921
+      }
+    },
+    "fidelity": {
+      "random": {
+        "10": {
+          "ci": 0.95,
+          "hi": 0.9216232142857144,
+          "lo": 0.7658637896825397,
+          "n_resamples": 1000,
+          "n_units": 20,
+          "point": 0.8465515873015873,
+          "ring_instance_mean": 0.8311337081128748,
+          "seed": 20260921
+        },
+        "3": {
+          "ci": 0.95,
+          "hi": 0.7690395833333332,
+          "lo": 0.5616458333333334,
+          "n_resamples": 1000,
+          "n_units": 20,
+          "point": 0.6669583333333333,
+          "ring_instance_mean": 0.6178240740740741,
+          "seed": 20260921
+        },
+        "5": {
+          "ci": 0.95,
+          "hi": 0.8382700000000001,
+          "lo": 0.65225625,
+          "n_resamples": 1000,
+          "n_units": 20,
+          "point": 0.7483000000000001,
+          "ring_instance_mean": 0.7179861111111111,
+          "seed": 20260921
+        }
+      },
+      "score_only": {
+        "10": {
+          "ci": 0.95,
+          "hi": 0.9469583333333333,
+          "lo": 0.793402777777778,
+          "n_resamples": 1000,
+          "n_units": 20,
+          "point": 0.8748611111111112,
+          "ring_instance_mean": 0.8672067901234567,
+          "seed": 20260921
+        },
+        "3": {
+          "ci": 0.95,
+          "hi": 0.8941875,
+          "lo": 0.6066666666666667,
+          "n_resamples": 1000,
+          "n_units": 20,
+          "point": 0.7608333333333334,
+          "ring_instance_mean": 0.7129629629629629,
+          "seed": 20260921
+        },
+        "5": {
+          "ci": 0.95,
+          "hi": 0.8870500000000001,
+          "lo": 0.649975,
+          "n_resamples": 1000,
+          "n_units": 20,
+          "point": 0.777,
+          "ring_instance_mean": 0.7541666666666667,
+          "seed": 20260921
+        }
+      },
+      "w_total": {
+        "10": {
+          "ci": 0.95,
+          "hi": 0.9524999999999999,
+          "lo": 0.7946909722222223,
+          "n_resamples": 1000,
+          "n_units": 20,
+          "point": 0.8798611111111111,
+          "ring_instance_mean": 0.8741512345679011,
+          "seed": 20260921
+        },
+        "3": {
+          "ci": 0.95,
+          "hi": 0.8708333333333332,
+          "lo": 0.5957708333333332,
+          "n_resamples": 1000,
+          "n_units": 20,
+          "point": 0.7391666666666665,
+          "ring_instance_mean": 0.6805555555555556,
+          "seed": 20260921
+        },
+        "5": {
+          "ci": 0.95,
+          "hi": 0.8870125000000001,
+          "lo": 0.6459750000000001,
+          "n_resamples": 1000,
+          "n_units": 20,
+          "point": 0.7745,
+          "ring_instance_mean": 0.7506944444444444,
+          "seed": 20260921
+        }
+      }
+    },
+    "holm_family": "the six comparisons of this block (2 controls x 3 k)",
+    "label": "the same, on ring-instances whose ranked edges are neither all true nor all false (the only ones where order matters)",
+    "n_ring_instances": 72,
+    "n_truth_rings": 20,
+    "overall": "negative",
+    "truth_rings_by_n_seeds_matched": {
+      "1": 5,
+      "2": 2,
+      "4": 2,
+      "5": 11
+    },
+    "verdict_at_k5": {
+      "random": "negative (intervals overlap)",
+      "score_only": "negative (intervals overlap)"
+    }
+  },
+  "what": "explanation fidelity with 95% bootstrap CIs over truth rings (XR-22), expanded-edge fidelity (XR-23), random and score-only controls with paired tests (XR-24); primary window; pooled over detector seeds",
+  "xr23": {
+    "a_expanded_precision": {
+      "mean": 0.9289186507936509,
+      "n_ring_instances_with_expanded_edges": 240,
+      "pooled": 0.948220064724919,
+      "what": "share of expanded in-window edges that are truly in the ring; measures the ring layer (L3), not the explanation"
+    },
+    "c_literal": {
+      "comparisons": {
+        "w_total vs random @10": {
+          "delta_ci": [
+            -1.586032892321652e-17,
+            1.588235715783178e-17
+          ],
+          "mean_delta": 8.8112938462314e-19,
+          "n_nonzero": 7,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 1.0,
+          "reject_at_05": false,
+          "seed": 20260921
+        },
+        "w_total vs random @3": {
+          "delta_ci": [
+            2.6433881538694202e-17,
+            0.021772486772486794
+          ],
+          "mean_delta": 0.008690476190476217,
+          "n_nonzero": 12,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 0.2556744325567443,
+          "reject_at_05": false,
+          "seed": 20260921
+        },
+        "w_total vs random @5": {
+          "delta_ci": [
+            -1.76225876924628e-18,
+            0.001309523809523822
+          ],
+          "mean_delta": 0.0004365079365079422,
+          "n_nonzero": 8,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 1.0,
+          "reject_at_05": false,
+          "seed": 20260921
+        },
+        "w_total vs score_only @10": {
+          "delta_ci": [
+            0.0,
+            0.0
+          ],
+          "mean_delta": 0.0,
+          "n_nonzero": 0,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 1.0,
+          "reject_at_05": false,
+          "seed": 20260921
+        },
+        "w_total vs score_only @3": {
+          "delta_ci": [
+            0.0,
+            0.0
+          ],
+          "mean_delta": 0.0,
+          "n_nonzero": 0,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 1.0,
+          "reject_at_05": false,
+          "seed": 20260921
+        },
+        "w_total vs score_only @5": {
+          "delta_ci": [
+            0.0,
+            0.0
+          ],
+          "mean_delta": 0.0,
+          "n_nonzero": 0,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 1.0,
+          "reject_at_05": false,
+          "seed": 20260921
+        }
+      },
+      "fidelity": {
+        "random": {
+          "10": {
+            "ci": 0.95,
+            "hi": 0.8885419343663391,
+            "lo": 0.778188003905266,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8349389014865205,
+            "ring_instance_mean": 0.8584175084175084,
+            "seed": 20260921
+          },
+          "3": {
+            "ci": 0.95,
+            "hi": 0.9163380731922397,
+            "lo": 0.8270701058201058,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8715564373897706,
+            "ring_instance_mean": 0.8891774891774891,
+            "seed": 20260921
+          },
+          "5": {
+            "ci": 0.95,
+            "hi": 0.9011455026455026,
+            "lo": 0.7921395502645503,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8473677248677248,
+            "ring_instance_mean": 0.8669119769119769,
+            "seed": 20260921
+          }
+        },
+        "score_only": {
+          "10": {
+            "ci": 0.95,
+            "hi": 0.8885419343663392,
+            "lo": 0.778188003905266,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8349389014865205,
+            "ring_instance_mean": 0.8584175084175084,
+            "seed": 20260921
+          },
+          "3": {
+            "ci": 0.95,
+            "hi": 0.9238227513227514,
+            "lo": 0.8357627865961199,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8802469135802468,
+            "ring_instance_mean": 0.8968253968253967,
+            "seed": 20260921
+          },
+          "5": {
+            "ci": 0.95,
+            "hi": 0.9020105820105819,
+            "lo": 0.7921395502645503,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8478042328042327,
+            "ring_instance_mean": 0.8673881673881674,
+            "seed": 20260921
+          }
+        },
+        "w_total": {
+          "10": {
+            "ci": 0.95,
+            "hi": 0.8885419343663392,
+            "lo": 0.778188003905266,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8349389014865205,
+            "ring_instance_mean": 0.8584175084175084,
+            "seed": 20260921
+          },
+          "3": {
+            "ci": 0.95,
+            "hi": 0.9238227513227514,
+            "lo": 0.8357627865961199,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8802469135802468,
+            "ring_instance_mean": 0.8968253968253967,
+            "seed": 20260921
+          },
+          "5": {
+            "ci": 0.95,
+            "hi": 0.9020105820105819,
+            "lo": 0.7921395502645503,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8478042328042327,
+            "ring_instance_mean": 0.8673881673881674,
+            "seed": 20260921
+          }
+        }
+      },
+      "holm_family": "the six comparisons of this block (2 controls x 3 k)",
+      "label": "spec wording: rank expanded edges only, against the truth ring's non-seed edges",
+      "n_ring_instances": 231,
+      "n_ring_instances_that_discriminate": 21,
+      "n_truth_rings": 63,
+      "overall": "negative",
+      "truth_rings_by_n_seeds_matched": {
+        "1": 15,
+        "2": 4,
+        "3": 2,
+        "4": 8,
+        "5": 34
+      },
+      "verdict_at_k5": {
+        "random": "negative (intervals overlap)",
+        "score_only": "negative (intervals overlap)"
+      }
+    },
+    "headline_b_expanded_recall": {
+      "comparisons": {
+        "w_total vs random @10": {
+          "delta_ci": [
+            -0.012579695767195769,
+            0.01739583333333331
+          ],
+          "mean_delta": 0.002322751322751319,
+          "n_nonzero": 7,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 0.8133186681331867,
+          "reject_at_05": false,
+          "seed": 20260921
+        },
+        "w_total vs random @3": {
+          "delta_ci": [
+            -0.22616402116402112,
+            -0.12277579365079365
+          ],
+          "mean_delta": -0.1742328042328042,
+          "n_nonzero": 40,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 0.0005999400059994001,
+          "p_value": 9.999000099990002e-05,
+          "reject_at_05": true,
+          "seed": 20260921
+        },
+        "w_total vs random @5": {
+          "delta_ci": [
+            -0.1479666005291005,
+            -0.04766455026455031
+          ],
+          "mean_delta": -0.09603439153439156,
+          "n_nonzero": 23,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 0.0014998500149985001,
+          "p_value": 0.00029997000299970003,
+          "reject_at_05": true,
+          "seed": 20260921
+        },
+        "w_total vs score_only @10": {
+          "delta_ci": [
+            0.0,
+            0.0
+          ],
+          "mean_delta": 0.0,
+          "n_nonzero": 0,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 1.0,
+          "reject_at_05": false,
+          "seed": 20260921
+        },
+        "w_total vs score_only @3": {
+          "delta_ci": [
+            -0.04656084656084657,
+            0.012169312169312167
+          ],
+          "mean_delta": -0.010052910052910055,
+          "n_nonzero": 4,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 1.0,
+          "reject_at_05": false,
+          "seed": 20260921
+        },
+        "w_total vs score_only @5": {
+          "delta_ci": [
+            0.0,
+            0.0
+          ],
+          "mean_delta": 0.0,
+          "n_nonzero": 0,
+          "n_permutations": 10000,
+          "n_units": 63,
+          "p_holm": 1.0,
+          "p_value": 1.0,
+          "reject_at_05": false,
+          "seed": 20260921
+        }
+      },
+      "fidelity": {
+        "random": {
+          "10": {
+            "ci": 0.95,
+            "hi": 0.9952419973544974,
+            "lo": 0.971319246031746,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.9847142857142857,
+            "ring_instance_mean": 0.9853896103896104,
+            "seed": 20260921
+          },
+          "3": {
+            "ci": 0.95,
+            "hi": 0.8261752645502644,
+            "lo": 0.7082576058201058,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.7699999999999999,
+            "ring_instance_mean": 0.7464646464646465,
+            "seed": 20260921
+          },
+          "5": {
+            "ci": 0.95,
+            "hi": 0.9316329365079364,
+            "lo": 0.843604761904762,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.8898439153439155,
+            "ring_instance_mean": 0.8848304473304472,
+            "seed": 20260921
+          }
+        },
+        "score_only": {
+          "10": {
+            "ci": 0.95,
+            "hi": 0.9992063492063492,
+            "lo": 0.9662420634920635,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.987037037037037,
+            "ring_instance_mean": 0.9825396825396826,
+            "seed": 20260921
+          },
+          "3": {
+            "ci": 0.95,
+            "hi": 0.7047817460317458,
+            "lo": 0.5058068783068783,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.6058201058201058,
+            "ring_instance_mean": 0.5598845598845598,
+            "seed": 20260921
+          },
+          "5": {
+            "ci": 0.95,
+            "hi": 0.8793730158730159,
+            "lo": 0.7010873015873016,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.7938095238095239,
+            "ring_instance_mean": 0.7816017316017314,
+            "seed": 20260921
+          }
+        },
+        "w_total": {
+          "10": {
+            "ci": 0.95,
+            "hi": 0.9992063492063492,
+            "lo": 0.9662420634920635,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.987037037037037,
+            "ring_instance_mean": 0.9825396825396826,
+            "seed": 20260921
+          },
+          "3": {
+            "ci": 0.95,
+            "hi": 0.6933862433862433,
+            "lo": 0.4946957671957672,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.5957671957671957,
+            "ring_instance_mean": 0.5505050505050505,
+            "seed": 20260921
+          },
+          "5": {
+            "ci": 0.95,
+            "hi": 0.8793730158730159,
+            "lo": 0.7010873015873016,
+            "n_resamples": 1000,
+            "n_units": 63,
+            "point": 0.7938095238095239,
+            "ring_instance_mean": 0.7816017316017314,
+            "seed": 20260921
+          }
+        }
+      },
+      "holm_family": "the six comparisons of this block (2 controls x 3 k)",
+      "label": "expanded recall@k: true expanded edges in the top k of the full member ranking / min(k, their number)",
+      "n_ring_instances": 231,
+      "n_truth_rings": 63,
+      "overall": "negative",
+      "truth_rings_by_n_seeds_matched": {
+        "1": 15,
+        "2": 4,
+        "3": 2,
+        "4": 8,
+        "5": 34
+      },
+      "verdict_at_k5": {
+        "random": "negative (intervals overlap)",
+        "score_only": "negative (intervals overlap)"
+      }
+    }
+  }
+}

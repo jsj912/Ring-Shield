@@ -1,0 +1,23 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "enum": [
+        "not_found",
+        "invalid_edit"
+      ],
+      "title": "Code",
+      "type": "string"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "message"
+  ],
+  "title": "ErrorBody",
+  "type": "object"
+}

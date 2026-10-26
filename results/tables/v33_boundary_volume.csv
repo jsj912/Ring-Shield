@@ -1,0 +1,4 @@
+dataset,n_days,clean_days,median_clean_edges,last_clean_day,last_clean_edges,ratio_last_to_median,day0_ratio,dropped_tail_days
+HI-Small,18,1-9,482650,9,208325,0.432,2.31,8
+HI-Medium,28,1-15,1930240,15,3021866,1.566,2.314,12
+HI-Large,165,1-96,1929594,96,831092,0.431,2.315,68

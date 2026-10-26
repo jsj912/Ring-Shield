@@ -164,10 +164,29 @@ def write_environment(path: Path):
 
 
 class CrossScorer:
-    def __init__(self, run_dir: Path, out_dir: Path, *, epochs: int, dry_run: bool, device=None):
+    def __init__(self, run_dir: Path, out_dir: Path, *, epochs: int, dry_run: bool, device=None,
+                 fold_days: list[list[int]] | None = None, label_exclude_days: list[int] | None = None,
+                 keep_held_out_in_graph: bool = False, feature_cache: Path | None = None):
+        """`fold_days` overrides the automatic 5-fold day partition with an explicit list of
+        held-out day groups. `label_exclude_days` are days whose labels are never used by any
+        fold. `keep_held_out_in_graph` leaves the held-out day's edges in the training graph as
+        unlabelled context instead of deleting them.
+
+        Step V3.3c (Amendment 8) uses all three: folds are held-out days 1, 2 and 3; day 0 is
+        excluded from every fold's labels (C10: it is 48.8 % of HI-Medium's training edges at
+        0.27x the base rate, and supervising on it cost C1 a third of its val AP); and the
+        held-out day stays in the graph, because that is what `--train-label-days` does for the
+        full C1' run and what the detector sees at scoring time -- the edge is visible, its
+        label is not. The shipped HI-Small defaults (5 folds, no label exclusion, held-out days
+        removed from the graph) are unchanged when these are left at None/False.
+        """
         self.run_dir, self.out_dir, self.epochs, self.dry_run = Path(run_dir), Path(out_dir), int(epochs), dry_run
         self.args, self.cfg = args_from_run_config(self.run_dir, dry_run=dry_run, dry_run_seed=TRAIN_SEED)
         self.args.causal = True
+        if feature_cache is not None:
+            self.args.feature_cache = Path(feature_cache)
+        self.label_exclude_days = sorted(int(d) for d in (label_exclude_days or []))
+        self.keep_held_out_in_graph = bool(keep_held_out_in_graph)
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         t0 = time.time()
         self.tr_data, self.val_data, _, self.tr_inds, self.val_inds, _, self.edge_meta = load_data(
@@ -178,10 +197,40 @@ class CrossScorer:
         self.tr_meta = self.edge_meta.iloc[:n_tr].reset_index(drop=True)
         self.day = days_of(self.tr_meta["Timestamp"].values)
         counts = pd.Series(self.day).value_counts().sort_index()
-        self.folds = fold_assignment({int(d): int(c) for d, c in counts.items()})
+        if fold_days is not None:
+            self.folds = [sorted(int(d) for d in f) for f in fold_days]
+            known = set(int(d) for d in counts.index)
+            missing = {d for f in self.folds for d in f} - known
+            assert not missing, f"fold days {sorted(missing)} are not train days {sorted(known)}"
+        else:
+            self.folds = fold_assignment({int(d): int(c) for d, c in counts.items()})
         print(f"[cross_score] data ready in {time.time() - t0:.0f}s; train days {counts.to_dict()}; "
-              f"folds {self.folds}")
+              f"folds {self.folds}"
+              + (f"; labels never use days {self.label_exclude_days}" if self.label_exclude_days else "")
+              + ("; held-out day kept in the graph" if self.keep_held_out_in_graph else ""))
         self.out_dir.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def for_embedding(cls, run_dir: Path, out_dir: Path, *, device=None, dry_run: bool = False,
+                      feature_cache: Path | None = None) -> "CrossScorer":
+        """Rebuild a scorer over an EXISTING cross-scoring run, for the embedding pass only.
+
+        The fold layout is read from that run's `cross_scores.json` rather than re-derived, because
+        `fold_assignment` would otherwise apply its 5-fold default -- which asserts outright on
+        HI-Medium (4 train days < 5 folds) and would silently disagree with the saved checkpoints
+        on any release where it did not. Label exclusion, graph policy and the feature cache are
+        taken from the same record so the graph matches the one the fold models were trained on.
+        """
+        meta = json.loads((Path(out_dir) / "cross_scores.json").read_text(encoding="utf-8"))
+        folds = sorted(meta["folds"], key=lambda f: int(f["fold"]))
+        excl = sorted({int(d) for f in folds for d in f.get("label_exclude_days", [])})
+        keep = bool(folds[0].get("held_out_kept_in_graph", False))
+        self = cls(run_dir, out_dir, epochs=0, dry_run=dry_run, device=device,
+                   fold_days=[list(f["held_out_days"]) for f in folds],
+                   label_exclude_days=excl or None, keep_held_out_in_graph=keep,
+                   feature_cache=feature_cache)
+        assert len(self.folds) == len(folds), (self.folds, [f["held_out_days"] for f in folds])
+        return self
 
     # ------------------------------------------------------------------ one fold
     def run_fold(self, k: int) -> dict:
@@ -194,13 +243,38 @@ class CrossScorer:
             torch.cuda.manual_seed_all(TRAIN_SEED)
 
         day_t = torch.as_tensor(self.day)
+        # days whose LABELS this fold may use
+        supervised_days = sorted(set(train_days) - set(self.label_exclude_days))
+        assert supervised_days, (f"fold {k}: excluding {self.label_exclude_days} leaves no "
+                                 f"supervised day in {train_days}")
         keep = ~torch.isin(day_t, torch.as_tensor(held))
         held_inds = torch.where(~keep)[0]
-        assert not set(self.day[keep.numpy()].tolist()) & set(held), "held-out day inside the training graph"
-        fold_data = subset_hetero(self.tr_data, keep)
-        fold_inds = torch.arange(int(keep.sum()))
-        print(f"\n[cross_score] fold {k}: held-out days {held} ({held_inds.numel():,} edges); training on days "
-              f"{train_days} ({fold_inds.numel():,} edges, {int(fold_data[TO].y.sum()):,} illicit)")
+        if self.keep_held_out_in_graph:
+            # graph = every train edge; supervision = the supervised days only. The held-out
+            # day's edges stay as unlabelled context, exactly as at scoring time.
+            fold_data = self.tr_data
+            fold_inds = torch.where(torch.isin(day_t, torch.as_tensor(supervised_days)))[0]
+            n_illicit = int(self.tr_data[TO].y[fold_inds].sum())
+            graph_desc = f"full train graph ({self.tr_data[TO].edge_index.size(1):,} edges)"
+        else:
+            assert not set(self.day[keep.numpy()].tolist()) & set(held), \
+                "held-out day inside the training graph"
+            fold_data = subset_hetero(self.tr_data, keep)
+            if self.label_exclude_days:
+                kept_days = self.day[keep.numpy()]
+                fold_inds = torch.where(torch.isin(torch.as_tensor(kept_days),
+                                                   torch.as_tensor(supervised_days)))[0]
+            else:
+                fold_inds = torch.arange(int(keep.sum()))
+            n_illicit = int(fold_data[TO].y[fold_inds].sum())
+            graph_desc = f"fold graph ({fold_data[TO].edge_index.size(1):,} edges)"
+        assert not (set(self.day[fold_inds.numpy()].tolist()) & set(held)), \
+            f"fold {k}: a held-out day edge is a SUPERVISED training example"
+        assert not (set(self.day[fold_inds.numpy()].tolist()) & set(self.label_exclude_days)), \
+            f"fold {k}: an excluded day edge is a SUPERVISED training example"
+        print(f"\n[cross_score] fold {k}: held-out days {held} ({held_inds.numel():,} edges); "
+              f"supervised days {supervised_days} ({fold_inds.numel():,} edges, {n_illicit:,} "
+              f"illicit); {graph_desc}")
 
         args, device = self.args, self.device
         transform = AddEgoIds() if args.ego else None
@@ -246,7 +320,11 @@ class CrossScorer:
         f1_grid = max(f1_score(y, (probs >= t).astype(int), zero_division=0) for t in np.arange(0.05, 0.95, 0.01))
         consts = head_constants(torch.load(ckpt, map_location="cpu", weights_only=True))
         info = {"fold": k, "held_out_days": [int(d) for d in held], "train_days": [int(d) for d in train_days],
-                "n_train_edges": int(fold_inds.numel()), "n_train_illicit": int(fold_data[TO].y.sum()),
+                "n_train_edges": int(fold_inds.numel()), "n_train_illicit": n_illicit,
+                "supervised_days": [int(d) for d in supervised_days],
+                "label_exclude_days": list(self.label_exclude_days),
+                "held_out_kept_in_graph": self.keep_held_out_in_graph,
+                "graph_edges": int(fold_data[TO].edge_index.size(1)),
                 "n_held_out_edges": int(held_inds.numel()), "n_held_out_illicit": int(y.sum()),
                 "epochs": self.epochs, "best_epoch": best_epoch, "best_val_f1": float(best_f1),
                 "val_tuned_threshold": thr, "train_seed": TRAIN_SEED,
@@ -385,6 +463,21 @@ def main(argv=None):
     ap.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--folds", type=int, nargs="*", default=None, help="fold indices to run (default all)")
+    ap.add_argument("--fold-days", type=int, nargs="+", action="append", default=None,
+                    metavar="DAY",
+                    help="explicit held-out day group for one fold; repeat per fold, e.g. "
+                         "--fold-days 1 --fold-days 2 --fold-days 3. Default: the automatic "
+                         "5-fold day partition.")
+    ap.add_argument("--label-exclude-days", type=int, nargs="*", default=None, metavar="DAY",
+                    help="days whose labels no fold may use (they stay in the graph). "
+                         "Step V3.3c passes 0; see FINDINGS C10.")
+    ap.add_argument("--keep-held-out-in-graph", action="store_true",
+                    help="leave the held-out day in the training graph as unlabelled "
+                         "context instead of deleting it. Default off (shipped behaviour).")
+    ap.add_argument("--feature-cache", type=Path, default=None,
+                    help="reuse cached ports/time-delta columns (see models/tgn.py). "
+                         "Shares entries with training and scoring runs on the same "
+                         "split; without it every invocation recomputes them.")
     ap.add_argument("--assemble-only", action="store_true")
     ap.add_argument("--embed-edges", type=Path, default=None, help="parquet (edge_id, fold): export embeddings, no training")
     ap.add_argument("--dry-run", action="store_true")
@@ -393,10 +486,16 @@ def main(argv=None):
         assemble(args.out_dir, args.run_dir, dry_run=args.dry_run)
         return
     if args.embed_edges is not None:
-        cs = CrossScorer(args.run_dir, args.out_dir, epochs=args.epochs, dry_run=args.dry_run)
+        cs = CrossScorer(args.run_dir, args.out_dir, epochs=args.epochs, dry_run=args.dry_run,
+                     fold_days=args.fold_days, label_exclude_days=args.label_exclude_days,
+                     keep_held_out_in_graph=args.keep_held_out_in_graph,
+                     feature_cache=args.feature_cache)
         cs.embed(pd.read_parquet(args.embed_edges))
         return
-    cs = CrossScorer(args.run_dir, args.out_dir, epochs=args.epochs, dry_run=args.dry_run)
+    cs = CrossScorer(args.run_dir, args.out_dir, epochs=args.epochs, dry_run=args.dry_run,
+                     fold_days=args.fold_days, label_exclude_days=args.label_exclude_days,
+                     keep_held_out_in_graph=args.keep_held_out_in_graph,
+                     feature_cache=args.feature_cache)
     folds = list(range(len(cs.folds))) if not args.folds else args.folds
     cs.write_config(folds)
     for k in folds:

@@ -1,0 +1,268 @@
+experiment: seed1
+step: 6.4 (R3 expansion)
+created_utc: '2026-10-06T08:22:02+00:00'
+git_commit: f0d225fb548f28c5023562d8564047b8fa05c2bb
+aggregator: expand
+method: policy:experiments_hi_medium\R3_expansion\policy_proposed
+policy_kind: model
+policy_features:
+- hop
+- gap_to_anchor_s
+- abs_gap_to_anchor_s
+- after_anchor
+- abs_gap_via_s
+- gap_to_nearest_seed_s
+- nearest_seed_before
+- n_anchors
+- n_included
+- log_amount
+- amount_below_p25
+- inc_in_sum
+- inc_out_sum
+- inc_in_cnt
+- inc_out_cnt
+- closure_before
+- closure_after
+- delta_closure
+- hold_time_s
+- cand_is_inflow
+- pair_in_out
+- pair_out_out
+- pair_in_in
+- pair_out_in
+- far_is_member
+- reach_1hop
+- reach_2hop
+- reach_count
+- far_24h_in_cnt
+- far_24h_out_cnt
+- far_24h_in_sum
+- far_24h_out_sum
+- far_24h_uniq_in
+- far_24h_uniq_out
+- far_24h_low_frac
+- far_72h_in_cnt
+- far_72h_out_cnt
+- far_72h_in_sum
+- far_72h_out_sum
+- far_72h_uniq_in
+- far_72h_uniq_out
+- far_72h_low_frac
+- shared_24h_in_cnt
+- shared_24h_out_cnt
+- shared_24h_in_sum
+- shared_24h_out_sum
+- shared_24h_uniq_in
+- shared_24h_uniq_out
+- shared_24h_low_frac
+- shared_72h_in_cnt
+- shared_72h_out_cnt
+- shared_72h_in_sum
+- shared_72h_out_sum
+- shared_72h_uniq_in
+- shared_72h_uniq_out
+- shared_72h_low_frac
+- cos_mean_included
+- cos_anchor
+- score_quantile
+- dead_region
+- gfp_fan_out
+- gfp_fan_in
+- gfp_deg_out_src
+- gfp_deg_in_src
+- gfp_deg_out_dst
+- gfp_deg_in_dst
+- gfp_scatter_gather
+- gfp_gather_scatter
+- gfp_temporal_cycle
+- gfp_cycle_length
+policy_drop_groups: []
+policy_hop1_only: false
+policy_cv: 0.799127600840432
+detector_seed: 1
+r1_dir: experiments_hi_medium\R1_gine_causal_c1prime
+model_id: gine_causal
+scope: test_visible
+choose_on: val
+b0_config: E:\JSJ\Ring-Shield\experiments\R2_b0\gine_causal\seed1\config.yaml
+b0_cell_fixed:
+  seed_frac_pct: 0.1
+  min_size: 3
+grid:
+  delta_t_h:
+  - 24.0
+  - 48.0
+  - 72.0
+  p_min:
+  - 0.3
+  - 0.5
+  - 0.7
+grid_results_val:
+- delta_t_h: 24.0
+  p_min: 0.3
+  n_rings: 861
+  ring_precision: 0.36
+  ring_recall: 0.401
+  ring_f1: 0.3794
+  member_coverage: 0.9548
+  n_matched: 310
+  n_expanded_edges: 1360
+  n_components_expanded: 663
+  seconds: 689.4
+- delta_t_h: 24.0
+  p_min: 0.5
+  n_rings: 787
+  ring_precision: 0.3939
+  ring_recall: 0.401
+  ring_f1: 0.3974
+  member_coverage: 0.9481
+  n_matched: 310
+  n_expanded_edges: 1094
+  n_components_expanded: 564
+  seconds: 714.8
+- delta_t_h: 24.0
+  p_min: 0.7
+  n_rings: 712
+  ring_precision: 0.4312
+  ring_recall: 0.3972
+  ring_f1: 0.4135
+  member_coverage: 0.9428
+  n_matched: 307
+  n_expanded_edges: 888
+  n_components_expanded: 462
+  seconds: 737.7
+- delta_t_h: 48.0
+  p_min: 0.3
+  n_rings: 883
+  ring_precision: 0.3556
+  ring_recall: 0.4062
+  ring_f1: 0.3792
+  member_coverage: 0.9677
+  n_matched: 314
+  n_expanded_edges: 1487
+  n_components_expanded: 707
+  seconds: 833.0
+- delta_t_h: 48.0
+  p_min: 0.5
+  n_rings: 800
+  ring_precision: 0.3912
+  ring_recall: 0.4049
+  ring_f1: 0.398
+  member_coverage: 0.96
+  n_matched: 313
+  n_expanded_edges: 1153
+  n_components_expanded: 592
+  seconds: 858.4
+- delta_t_h: 48.0
+  p_min: 0.7
+  n_rings: 723
+  ring_precision: 0.4288
+  ring_recall: 0.401
+  ring_f1: 0.4144
+  member_coverage: 0.9538
+  n_matched: 310
+  n_expanded_edges: 934
+  n_components_expanded: 485
+  seconds: 881.6
+- delta_t_h: 72.0
+  p_min: 0.3
+  n_rings: 883
+  ring_precision: 0.3556
+  ring_recall: 0.4062
+  ring_f1: 0.3792
+  member_coverage: 0.9677
+  n_matched: 314
+  n_expanded_edges: 1487
+  n_components_expanded: 707
+  seconds: 886.4
+- delta_t_h: 72.0
+  p_min: 0.5
+  n_rings: 800
+  ring_precision: 0.3912
+  ring_recall: 0.4049
+  ring_f1: 0.398
+  member_coverage: 0.96
+  n_matched: 313
+  n_expanded_edges: 1153
+  n_components_expanded: 592
+  seconds: 915.7
+- delta_t_h: 72.0
+  p_min: 0.7
+  n_rings: 723
+  ring_precision: 0.4288
+  ring_recall: 0.401
+  ring_f1: 0.4144
+  member_coverage: 0.9538
+  n_matched: 310
+  n_expanded_edges: 934
+  n_components_expanded: 485
+  seconds: 942.7
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  max_gap_hours: null
+  delta_t_h: 48.0
+  p_min: 0.7
+  val_ring_f1: 0.4144
+candidate_definition:
+  max_hops: 2
+  max_events_per_query: 500
+  window: '[min seed time - delta_t, max seed time + delta_t]'
+selection_column: score_raw
+confidence_column: score_calibrated
+calibrated: false
+context:
+  val:
+    gfp_parquet: E:\JSJ\Ring-Shield\data\processed_hi_medium\amlworld_gfp_features_val.parquet
+    embeddings_parquet: experiments_hi_medium\R1_gine_causal_c1prime\embeddings_val_seed1.parquet
+    checkpoint: experiments_hi_medium\R1_gine_causal_c1prime\model_best_seed1.pt
+    head_constants:
+    - 0.017156260088086128
+    - 0.01690254732966423
+    n_dead_region: 419500
+scope_windows:
+  val:
+  - 345610
+  - 518350
+val_only: true
+eval_window: configs\eval_window_hi_medium.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 4
+    - 5
+    bounds:
+    - 345610
+    - 518409
+  primary:
+    name: primary
+    split: test
+    days:
+    - 6
+    - 15
+    bounds:
+    - 518410
+    - 1382409
+  tail:
+    name: tail
+    split: test
+    days:
+    - 16
+    - 27
+    bounds:
+    - 1382410
+    - 2419209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 6
+    - 27
+    bounds:
+    - 518410
+    - 2419209
+primary_block: primary
+n_val_truth_rings: 773
+dry_run: false

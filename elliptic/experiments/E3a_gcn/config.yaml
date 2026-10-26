@@ -1,0 +1,17 @@
+experiment_id: "E3a"
+name: "gcn_elliptic"
+dataset: "elliptic"
+feature_set: "AF"
+split: "chronological_1-34_train_35-49_test"
+val_split: "chronological_1-29_train_proper_30-34_val"
+model: "GCN (2-layer, torch_geometric.nn.GCNConv)"
+hyperparameters:
+  hidden_dim: 100
+  lr: 0.01
+  weight_decay: 0.0005
+  dropout: 0.5
+  epochs: 200
+  class_weights: "selected via validation F1 comparison [True, False] — see metrics.json for chosen value"
+  decision_threshold: "selected via validation precision-recall curve F1-maximization — see metrics.json"
+random_seed: 42
+notes: Final reported model uses the simplest of four attempted configurations (train once on timesteps 1-29, evaluate that same model on test with a validation-tuned threshold) after three more elaborate attempts — early stopping, and walk-forward cross-validation for full-data training — each produced equal or worse results (0.478 and 0.375 respectively, vs. 0.495 for this simpler version). The walk-forward CV attempt specifically failed because it averaged optimal stopping epochs across two folds with very different dynamics (fold near the distribution shift- epoch 191; fold in the stable period- epoch 53), an approach that implicitly assumes fold exchangeability -- an assumption Elliptic's known mid-dataset distributionshift violates. This mirrors, and adds a concrete mechanistic example to, the paper's own finding that GCN underperforms Random Forest (0.796) on this dataset- GCN's performance here is real but sensitive to how trainingdata is used, more so than the tree-based baselines.

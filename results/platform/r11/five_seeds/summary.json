@@ -1,0 +1,446 @@
+{
+  "label": "R11 five seeds, registered 2026-10-25; simulated verdicts; a demonstration, not an effectiveness experiment",
+  "runs": [
+    {
+      "seed": 1,
+      "accuracy": 0.9,
+      "models_json": "results/platform/r11/five_seeds/seed1/accuracy_0.90/models.json",
+      "verdicts_before_retrain": 6,
+      "verdicts_after": 1,
+      "gate_decision": "refused",
+      "candidates": "expansion 0.6612 refused; affinity 0.6556 refused",
+      "holdout_before": 0.6883,
+      "holdout_after": 0.6883,
+      "serving_model": "base full_gine_causal_seed1",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 0.5,
+          "ring_recall": 0.25,
+          "ring_f1": 0.3333,
+          "member_coverage": 0.75,
+          "n_predicted": 4,
+          "n_truth": 8,
+          "n_matched": 2
+        },
+        "serving_model": {
+          "ring_precision": 0.5,
+          "ring_recall": 0.25,
+          "ring_f1": 0.3333,
+          "member_coverage": 0.75,
+          "n_predicted": 4,
+          "n_truth": 8,
+          "n_matched": 2
+        },
+        "serving_note": "gate refused every candidate: the serving model is the old model",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 766.6
+    },
+    {
+      "seed": 1,
+      "accuracy": 0.7,
+      "models_json": "results/platform/r11/five_seeds/seed1/accuracy_0.70/models.json",
+      "verdicts_before_retrain": 6,
+      "verdicts_after": 1,
+      "gate_decision": "refused",
+      "candidates": "expansion 0.6531 refused; affinity 0.6639 refused",
+      "holdout_before": 0.6883,
+      "holdout_after": 0.6883,
+      "serving_model": "base full_gine_causal_seed1",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 0.5,
+          "ring_recall": 0.25,
+          "ring_f1": 0.3333,
+          "member_coverage": 0.75,
+          "n_predicted": 4,
+          "n_truth": 8,
+          "n_matched": 2
+        },
+        "serving_model": {
+          "ring_precision": 0.5,
+          "ring_recall": 0.25,
+          "ring_f1": 0.3333,
+          "member_coverage": 0.75,
+          "n_predicted": 4,
+          "n_truth": 8,
+          "n_matched": 2
+        },
+        "serving_note": "gate refused every candidate: the serving model is the old model",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 745.8
+    },
+    {
+      "seed": 2,
+      "accuracy": 0.9,
+      "models_json": "results/platform/r11/five_seeds/seed2/accuracy_0.90/models.json",
+      "verdicts_before_retrain": 13,
+      "verdicts_after": 1,
+      "gate_decision": "refused",
+      "candidates": "expansion 0.5820 refused; affinity 0.5863 refused",
+      "holdout_before": 0.6412,
+      "holdout_after": 0.6412,
+      "serving_model": "base full_gine_causal_seed2",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 0.3,
+          "ring_recall": 0.375,
+          "ring_f1": 0.3333,
+          "member_coverage": 0.7222,
+          "n_predicted": 10,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_model": {
+          "ring_precision": 0.3,
+          "ring_recall": 0.375,
+          "ring_f1": 0.3333,
+          "member_coverage": 0.7222,
+          "n_predicted": 10,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_note": "gate refused every candidate: the serving model is the old model",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 849.3
+    },
+    {
+      "seed": 2,
+      "accuracy": 0.7,
+      "models_json": "results/platform/r11/five_seeds/seed2/accuracy_0.70/models.json",
+      "verdicts_before_retrain": 13,
+      "verdicts_after": 1,
+      "gate_decision": "refused",
+      "candidates": "expansion 0.5820 refused; affinity 0.5772 refused",
+      "holdout_before": 0.6412,
+      "holdout_after": 0.6412,
+      "serving_model": "base full_gine_causal_seed2",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 0.3,
+          "ring_recall": 0.375,
+          "ring_f1": 0.3333,
+          "member_coverage": 0.7222,
+          "n_predicted": 10,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_model": {
+          "ring_precision": 0.3,
+          "ring_recall": 0.375,
+          "ring_f1": 0.3333,
+          "member_coverage": 0.7222,
+          "n_predicted": 10,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_note": "gate refused every candidate: the serving model is the old model",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 843.2
+    },
+    {
+      "seed": 3,
+      "accuracy": 0.9,
+      "models_json": "results/platform/r11/five_seeds/seed3/accuracy_0.90/models.json",
+      "verdicts_before_retrain": 0,
+      "verdicts_after": 1,
+      "gate_decision": "no candidate",
+      "candidates": "",
+      "holdout_before": 0.6855,
+      "holdout_after": 0.6855,
+      "serving_model": "base full_gine_causal_seed3",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 1.0,
+          "ring_recall": 0.125,
+          "ring_f1": 0.2222,
+          "member_coverage": 0.5,
+          "n_predicted": 1,
+          "n_truth": 8,
+          "n_matched": 1
+        },
+        "serving_model": {
+          "ring_precision": 1.0,
+          "ring_recall": 0.125,
+          "ring_f1": 0.2222,
+          "member_coverage": 0.5,
+          "n_predicted": 1,
+          "n_truth": 8,
+          "n_matched": 1
+        },
+        "serving_note": "no candidate was trained (no new verdicts before the retrain); the serving model is the old model",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 437.5
+    },
+    {
+      "seed": 3,
+      "accuracy": 0.7,
+      "models_json": "results/platform/r11/five_seeds/seed3/accuracy_0.70/models.json",
+      "verdicts_before_retrain": 0,
+      "verdicts_after": 1,
+      "gate_decision": "no candidate",
+      "candidates": "",
+      "holdout_before": 0.6855,
+      "holdout_after": 0.6855,
+      "serving_model": "base full_gine_causal_seed3",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 1.0,
+          "ring_recall": 0.125,
+          "ring_f1": 0.2222,
+          "member_coverage": 0.5,
+          "n_predicted": 1,
+          "n_truth": 8,
+          "n_matched": 1
+        },
+        "serving_model": {
+          "ring_precision": 1.0,
+          "ring_recall": 0.125,
+          "ring_f1": 0.2222,
+          "member_coverage": 0.5,
+          "n_predicted": 1,
+          "n_truth": 8,
+          "n_matched": 1
+        },
+        "serving_note": "no candidate was trained (no new verdicts before the retrain); the serving model is the old model",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 426.2
+    },
+    {
+      "seed": 4,
+      "accuracy": 0.9,
+      "models_json": "results/platform/r11/five_seeds/seed4/accuracy_0.90/models.json",
+      "verdicts_before_retrain": 3,
+      "verdicts_after": 1,
+      "gate_decision": "refused",
+      "candidates": "expansion 0.6614 refused; affinity 0.6639 refused",
+      "holdout_before": 0.6855,
+      "holdout_after": 0.6855,
+      "serving_model": "base full_gine_causal_seed4",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 1.0,
+          "ring_recall": 0.375,
+          "ring_f1": 0.5455,
+          "member_coverage": 0.7222,
+          "n_predicted": 3,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_model": {
+          "ring_precision": 1.0,
+          "ring_recall": 0.375,
+          "ring_f1": 0.5455,
+          "member_coverage": 0.7222,
+          "n_predicted": 3,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_note": "gate refused every candidate: the serving model is the old model",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 775.8
+    },
+    {
+      "seed": 4,
+      "accuracy": 0.7,
+      "models_json": "results/platform/r11/five_seeds/seed4/accuracy_0.70/models.json",
+      "verdicts_before_retrain": 3,
+      "verdicts_after": 1,
+      "gate_decision": "refused",
+      "candidates": "expansion 0.6614 refused; affinity 0.6721 refused",
+      "holdout_before": 0.6855,
+      "holdout_after": 0.6855,
+      "serving_model": "base full_gine_causal_seed4",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 1.0,
+          "ring_recall": 0.375,
+          "ring_f1": 0.5455,
+          "member_coverage": 0.7222,
+          "n_predicted": 3,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_model": {
+          "ring_precision": 1.0,
+          "ring_recall": 0.375,
+          "ring_f1": 0.5455,
+          "member_coverage": 0.7222,
+          "n_predicted": 3,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_note": "gate refused every candidate: the serving model is the old model",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 775.9
+    },
+    {
+      "seed": 5,
+      "accuracy": 0.9,
+      "models_json": "results/platform/r11/five_seeds/seed5/accuracy_0.90/models.json",
+      "verdicts_before_retrain": 6,
+      "verdicts_after": 4,
+      "gate_decision": "1 promoted, 1 refused",
+      "candidates": "expansion 0.6460 promoted; affinity 0.6288 refused",
+      "holdout_before": 0.6496,
+      "holdout_after": 0.6477999999999999,
+      "serving_model": "expansion #2 v2-r11-122a",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 0.5,
+          "ring_recall": 0.375,
+          "ring_f1": 0.4286,
+          "member_coverage": 0.7778,
+          "n_predicted": 6,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_model": {
+          "ring_precision": 0.5,
+          "ring_recall": 0.375,
+          "ring_f1": 0.4286,
+          "member_coverage": 0.7778,
+          "n_predicted": 6,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_note": "promoted expansion #2",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 858.5
+    },
+    {
+      "seed": 5,
+      "accuracy": 0.7,
+      "models_json": "results/platform/r11/five_seeds/seed5/accuracy_0.70/models.json",
+      "verdicts_before_retrain": 6,
+      "verdicts_after": 4,
+      "gate_decision": "1 promoted, 1 refused",
+      "candidates": "expansion 0.6460 promoted; affinity 0.6316 refused",
+      "holdout_before": 0.6496,
+      "holdout_after": 0.6477999999999999,
+      "serving_model": "expansion #2 v2-r11-662b",
+      "day9": {
+        "window": {
+          "loader_seconds": [
+            777610,
+            864009
+          ],
+          "scope": "test_visible",
+          "jaccard": 0.5,
+          "truth": "in-scope rings with a scored member whose home bank is 1"
+        },
+        "old_model": {
+          "ring_precision": 0.5,
+          "ring_recall": 0.375,
+          "ring_f1": 0.4286,
+          "member_coverage": 0.7778,
+          "n_predicted": 6,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_model": {
+          "ring_precision": 0.5,
+          "ring_recall": 0.375,
+          "ring_f1": 0.4286,
+          "member_coverage": 0.7778,
+          "n_predicted": 6,
+          "n_truth": 8,
+          "n_matched": 3
+        },
+        "serving_note": "promoted expansion #2",
+        "label": "descriptive only"
+      },
+      "wall_seconds": 769.0
+    }
+  ],
+  "harness_wall_seconds_total": 7247.8
+}

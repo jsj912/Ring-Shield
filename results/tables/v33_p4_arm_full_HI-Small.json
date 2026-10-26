@@ -1,0 +1,26 @@
+{
+  "dataset": "HI-Small",
+  "stage": "full",
+  "draws": [
+    0,
+    9
+  ],
+  "created_utc": "2026-10-07T05:19:35+00:00",
+  "seed_quality_note": "CONTROLLED DIAGNOSTIC WITH LABEL-DERIVED SEEDS. P4's synthetic seeds are 0.93 precise; HI-Medium's real training seeds are 0.29 precise (per-fold 0.1 % cut of the C1' cross-scores, precision 0.2903 / recall 0.3195). P4 measures containment at matched, HI-Small-quality seeds and does not forecast the real pipeline on either dataset.",
+  "params": {
+    "min_size": 3,
+    "delta_t_h": 24.0,
+    "p_min": 0.7,
+    "cut": 0.5,
+    "method": "average",
+    "scope": "test_visible",
+    "recall_target": 0.28,
+    "precision_target": 0.93
+  },
+  "sources": {
+    "r1_dir": "experiments\\R1_gine_causal",
+    "policy_dir": "experiments\\R3_expansion\\policy_proposed",
+    "affinity_dir": "experiments\\R4_partition\\affinity"
+  },
+  "seconds": 619.2
+}

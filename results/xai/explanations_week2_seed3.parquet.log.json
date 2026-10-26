@@ -1,0 +1,46 @@
+{
+  "experiment_id": "XAI-W2",
+  "explainer_version": "0.2.0-week2",
+  "inputs": {
+    "rings": "contract/out/rings_full_gine_causal_3.parquet",
+    "scored_edges": "contract/out/scored_edges_gine_causal_3.parquet"
+  },
+  "latency_ms": {
+    "max": 1644.0,
+    "p50": 205.0,
+    "p95": 725.1999999999996,
+    "rings_over_5000_ms": []
+  },
+  "n_explained": 113,
+  "n_reproduces_shipped_ring": 112,
+  "n_rings": 113,
+  "n_rings_mixed_currency": 76,
+  "not_reproduced": [
+    "full-gine_causal-3-74"
+  ],
+  "outputs": {
+    "explanations": "results/xai/explanations_week2_seed3.parquet",
+    "role_disagreements": "results/xai/roles_disagreement_seed3.csv"
+  },
+  "provenance": {
+    "aggregator_id": "full",
+    "model_id": "gine_causal",
+    "seed": 3
+  },
+  "rerun": {
+    "affinity_dir": "experiments/R4_partition/affinity",
+    "aggregator_id": "full",
+    "cut": 0.5,
+    "embeddings": "experiments/R1_gine_causal/embeddings_test_seed3.parquet",
+    "gfp": "data/processed/amlworld_gfp_features_test.parquet",
+    "method": "average",
+    "min_size": 3,
+    "partition_config": "experiments/R4_partition/runs/average/seed3/config.yaml"
+  },
+  "role_disagreements": {
+    "by_cause": {
+      "undefined_hold_time": 2
+    },
+    "n_rows": 2
+  }
+}

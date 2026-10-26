@@ -1,0 +1,233 @@
+{
+  "_example": {
+    "ring_id": "cc-gine_causal-1-24",
+    "source": {
+      "explanations": "results/xai/explanations_week3_stub_cc_seed1.parquet",
+      "rings": "contract/out/rings_stub_cc.parquet",
+      "scores": "contract/out/scored_edges_gine_causal_1.parquet"
+    },
+    "tenant_id": 28237
+  },
+  "body": [
+    {
+      "account_id": 71717,
+      "bank_id": 9371,
+      "bank_name": "Future Bank",
+      "hold_time_s": 190980.0,
+      "inflow": 37454171.37,
+      "outflow": 114236.05612118848,
+      "role": "sink",
+      "w_account": 0.8387096774193548
+    },
+    {
+      "account_id": 314125,
+      "bank_id": 12,
+      "bank_name": "National Bank of the East",
+      "hold_time_s": null,
+      "inflow": 0.0,
+      "outflow": 12834538.11,
+      "role": "source",
+      "w_account": 0.5285403294909443
+    },
+    {
+      "account_id": 266050,
+      "bank_id": 1729,
+      "bank_name": "Willows Bancorp",
+      "hold_time_s": null,
+      "inflow": 6629.49,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.5240654156776373
+    },
+    {
+      "account_id": 131619,
+      "bank_id": 13858,
+      "bank_name": "Italy Bank #97",
+      "hold_time_s": null,
+      "inflow": 2091.9498439601584,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.5240634781463862
+    },
+    {
+      "account_id": 195001,
+      "bank_id": 217125,
+      "bank_name": "Russia Bank #38",
+      "hold_time_s": null,
+      "inflow": 14076.249203843905,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.5236058534294685
+    },
+    {
+      "account_id": 136976,
+      "bank_id": 129000,
+      "bank_name": "France Bank #1368",
+      "hold_time_s": null,
+      "inflow": 0.0,
+      "outflow": 18060.25,
+      "role": "source",
+      "w_account": 0.5224563427520914
+    },
+    {
+      "account_id": 466778,
+      "bank_id": 1124,
+      "bank_name": "First Bank of Plattsburg",
+      "hold_time_s": null,
+      "inflow": 10411.85,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.2730644230432338
+    },
+    {
+      "account_id": 200392,
+      "bank_id": 21884,
+      "bank_name": "UK Bank #33",
+      "hold_time_s": null,
+      "inflow": 6543.205892957663,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.18911809163685186
+    },
+    {
+      "account_id": 76146,
+      "bank_id": 40360,
+      "bank_name": "Oasis Bancorp",
+      "hold_time_s": null,
+      "inflow": 11225.44,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.14745342428580457
+    },
+    {
+      "account_id": 141622,
+      "bank_id": 11852,
+      "bank_name": "Netherlands Bank #4",
+      "hold_time_s": null,
+      "inflow": 2435.0363209709717,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.12406362464443318
+    },
+    {
+      "account_id": 273443,
+      "bank_id": 1124,
+      "bank_name": "First Bank of Plattsburg",
+      "hold_time_s": null,
+      "inflow": 2154.54,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.12406350487240494
+    },
+    {
+      "account_id": 216756,
+      "bank_id": 28237,
+      "bank_name": "Australia Bank #26",
+      "hold_time_s": null,
+      "inflow": 0.0,
+      "outflow": 9359.22,
+      "role": "source",
+      "w_account": 0.12245262740920468
+    },
+    {
+      "account_id": 17717,
+      "bank_id": 1688,
+      "bank_name": "Arbor Thrift",
+      "hold_time_s": null,
+      "inflow": 12509.09,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.10433874879895075
+    },
+    {
+      "account_id": 81796,
+      "bank_id": 4503,
+      "bank_name": "Golden Thrift",
+      "hold_time_s": null,
+      "inflow": 0.0,
+      "outflow": 24573024.75,
+      "role": "source",
+      "w_account": 0.095441321276379
+    },
+    {
+      "account_id": 149346,
+      "bank_id": 26624,
+      "bank_name": "France Bank #54",
+      "hold_time_s": null,
+      "inflow": 13843.484859455786,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.09449445978110366
+    },
+    {
+      "account_id": 316570,
+      "bank_id": 24550,
+      "bank_name": "National Bank of Springfield",
+      "hold_time_s": null,
+      "inflow": 9535.31,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.08656665646380482
+    },
+    {
+      "account_id": 35077,
+      "bank_id": 214621,
+      "bank_name": "Savings Bank of Augusta",
+      "hold_time_s": null,
+      "inflow": 0.0,
+      "outflow": 6031.9,
+      "role": "source",
+      "w_account": 0.07800676219794365
+    },
+    {
+      "account_id": 20395,
+      "bank_id": 16163,
+      "bank_name": "First Bank of Boston",
+      "hold_time_s": null,
+      "inflow": 3749.14,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.06951873122171424
+    },
+    {
+      "account_id": 137756,
+      "bank_id": 218267,
+      "bank_name": "Germany Bank #719",
+      "hold_time_s": null,
+      "inflow": 0.0,
+      "outflow": 8381.7,
+      "role": "source",
+      "w_account": 0.06790675546236447
+    },
+    {
+      "account_id": 49001,
+      "bank_id": 4503,
+      "bank_name": "Golden Thrift",
+      "hold_time_s": null,
+      "inflow": 5448.55,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.06573157808250638
+    },
+    {
+      "account_id": 6305,
+      "bank_id": 11813,
+      "bank_name": "Savings Bank of Fairfield",
+      "hold_time_s": null,
+      "inflow": 0.0,
+      "outflow": 4775.44,
+      "role": "source",
+      "w_account": 0.05671639890861847
+    },
+    {
+      "account_id": 6372,
+      "bank_id": 2843,
+      "bank_name": "Sappo Bancorp",
+      "hold_time_s": null,
+      "inflow": 13582.72,
+      "outflow": 0.0,
+      "role": "sink",
+      "w_account": 0.043605642692324025
+    }
+  ]
+}

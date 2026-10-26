@@ -1,0 +1,15 @@
+{
+  "_example": {
+    "ring_id": "cc-gine_causal-1-24",
+    "source": {
+      "explanations": "results/xai/explanations_week3_stub_cc_seed1.parquet",
+      "rings": "contract/out/rings_stub_cc.parquet",
+      "scores": "contract/out/scored_edges_gine_causal_1.parquet"
+    },
+    "tenant_id": 28237
+  },
+  "body": {
+    "code": "not_found",
+    "message": "ring not found"
+  }
+}

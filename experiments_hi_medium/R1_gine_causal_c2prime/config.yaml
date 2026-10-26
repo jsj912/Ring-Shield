@@ -1,0 +1,41 @@
+experiment: R1_gine_causal_c2prime
+model: Multi-GINe v2
+arch: gine
+git_commit: 1df003ec063d4d75dfa4f3ce20269789b850792b
+adaptations:
+- edge_MLPs
+- ports
+- time_deltas
+- reverse_MP
+- ego_IDs
+- GFP_features
+hold_out_pattern: null
+dataset: AMLworld HI-Medium
+split: forced day boundaries (--split-days)
+split_days:
+- 4
+- 6
+train_label_days:
+- 2
+- 3
+final_test_skipped: true
+seeds:
+- 1
+- 2
+- 3
+epochs: 100
+patience: 20
+batch_size: 8192
+lr: 0.006
+n_hidden: 66
+n_gnn_layers: 2
+w_ce1: 1.0
+w_ce2: 9.0
+num_neighbors:
+- 100
+- 100
+n_parameters: 148812
+causal_sampling: true
+loader_route: fallback
+loader_window_s: 1800
+dry_run: false

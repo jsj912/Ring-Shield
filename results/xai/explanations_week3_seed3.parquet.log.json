@@ -1,0 +1,108 @@
+{
+  "experiment_id": "XAI-W2",
+  "explainer_version": "0.5.0-review",
+  "fx_rates_sha256": "ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6",
+  "inputs": {
+    "rings": "contract/out/rings_full_gine_causal_3.parquet",
+    "scored_edges": "contract/out/scored_edges_gine_causal_3.parquet"
+  },
+  "latency_ms": {
+    "max": 2034.0,
+    "p50": 405.0,
+    "p95": 976.1999999999995,
+    "rings_over_5000_ms": []
+  },
+  "mixing": {
+    "source": "tuned on validation (XR-05)",
+    "values": {
+      "alpha": 0.6,
+      "beta": 0.0,
+      "gamma": 0.4
+    }
+  },
+  "n_conversions_dropped": 602,
+  "n_explained": 113,
+  "n_reproduces_shipped_ring": 112,
+  "n_rings": 113,
+  "n_rings_flow_partial": 0,
+  "n_rings_mixed_currency": 74,
+  "n_rings_with_conversions": 99,
+  "n_undetermined_accounts": 0,
+  "narrative": {
+    "feature_model": "experiments/R2_b0/gfpxgb_scores/model_seed3.json",
+    "n_narratives": 113,
+    "n_rings_without_shap_edges": 0,
+    "rings_with_clause": {
+      "banks": 3,
+      "banks_short": 93,
+      "closure": 107,
+      "cycle": 2,
+      "evidence": 113,
+      "fan_in": 12,
+      "fan_out": 24,
+      "features_both": 91,
+      "features_up": 18,
+      "gather_scatter": 2,
+      "head": 65,
+      "head_untyped": 48,
+      "money": 113,
+      "no_closure": 6,
+      "scatter_gather": 10,
+      "self_one": 4,
+      "stack": 15,
+      "type_guess": 45,
+      "type_guess_random": 3
+    },
+    "templates": {
+      "CYCLE": 2,
+      "FALLBACK": 48,
+      "FAN-IN": 12,
+      "FAN-OUT": 24,
+      "GATHER-SCATTER": 2,
+      "SCATTER-GATHER": 10,
+      "STACK": 15
+    },
+    "topology_source": "rings",
+    "words": {
+      "max": 90,
+      "p50": 87.0
+    }
+  },
+  "not_reproduced": [
+    "full-gine_causal-3-74"
+  ],
+  "outputs": {
+    "explanations": "results/xai/explanations_week3_seed3.parquet",
+    "role_disagreements": "results/xai/roles_disagreement_week3_seed3.csv"
+  },
+  "policy": "converted",
+  "provenance": {
+    "aggregator_id": "full",
+    "model_id": "gine_causal",
+    "rings_schema_version": 2,
+    "seed": 3
+  },
+  "rerun": {
+    "affinity_dir": "experiments/R4_partition/affinity",
+    "aggregator_id": "full",
+    "cut": 0.5,
+    "embeddings": "experiments/R1_gine_causal/embeddings_test_seed3.parquet",
+    "gfp": "data/processed/amlworld_gfp_features_test.parquet",
+    "method": "average",
+    "min_size": 3,
+    "partition_config": "experiments/R4_partition/runs/average/seed3/config.yaml"
+  },
+  "role_counts": {
+    "holder": 5,
+    "mule": 157,
+    "peripheral": 17,
+    "sink": 373,
+    "source": 333
+  },
+  "role_disagreements": {
+    "by_cause": {
+      "undefined_hold_time": 2
+    },
+    "n_rows": 2
+  }
+}

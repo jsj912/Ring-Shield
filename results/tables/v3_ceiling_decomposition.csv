@@ -1,0 +1,4 @@
+dataset,day_lo,day_hi,in_scope,below_bar,below_bar_share,of_which_ring_has_lt3_accounts_total,share_structurally_too_small,median_whole_ring_accounts,median_whole_ring_txn,median_visible_txn
+HI-Small,1,9,360,97,0.26944444444444443,78,0.8041237113402062,2.0,2.0,1.0
+HI-Medium,1,15,2704,756,0.27958579881656803,641,0.8478835978835979,2.0,2.0,1.0
+HI-Large,1,96,16241,4605,0.28354165383904933,3906,0.8482084690553746,2.0,2.0,1.0

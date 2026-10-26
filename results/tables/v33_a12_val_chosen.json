@@ -1,0 +1,28 @@
+{
+  "dataset": "HI-Medium",
+  "detector_seed": 1,
+  "chosen": {
+    "variant": "no_detector",
+    "p_min": 0.9,
+    "delta_t_h": 48.0,
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "cut": 0.3,
+    "val_ring_f1": 0.4769
+  },
+  "runner_up": {
+    "variant": "structural",
+    "p_min": 0.8,
+    "val_ring_f1": 0.4756,
+    "margin": 0.0013
+  },
+  "b0_same_cell_val_ring_f1": 0.4563,
+  "optimum_location": {
+    "proposed": "corner",
+    "no_detector": "corner",
+    "no_embedding": "corner",
+    "structural": "interior"
+  },
+  "rule": "highest val ring-F1; ties -> more groups dropped, then lower p_min",
+  "recorded_before_any_test_ring_metric": true
+}

@@ -1,0 +1,691 @@
+{
+ "frozen_on": "2026-10-26",
+ "tag": "review-2026-10-30",
+ "rule": "every value is read from its source by tests/test_frozen.py; any change fails the test. `reported` is the value rounded as the README/FINDINGS state it.",
+ "numbers": [
+  {
+   "id": "R1.edge_f1_primary",
+   "claim": "R1 detector, primary-window edge F1 (mean of 5 seeds)",
+   "value": 0.4954675215680277,
+   "reported": 0.495,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r1_edge_metrics.csv",
+    "where": {
+     "label": "causal"
+    },
+    "column": "primary_f1_minority_mean"
+   }
+  },
+  {
+   "id": "R1.edge_f1_primary_std",
+   "claim": "R1 detector, primary-window edge F1 (std over seeds)",
+   "value": 0.02709314898226194,
+   "reported": 0.027,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r1_edge_metrics.csv",
+    "where": {
+     "label": "causal"
+    },
+    "column": "primary_f1_minority_std"
+   }
+  },
+  {
+   "id": "R2.ring_f1_gine",
+   "claim": "R2 B0 ring F1, Multi-GINe",
+   "value": 0.52134,
+   "reported": 0.521,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r2_ring_b0.csv",
+    "where": {
+     "model": "gine_causal"
+    },
+    "column": "ring_f1_mean"
+   }
+  },
+  {
+   "id": "R2.ring_f1_gine_std",
+   "claim": "R2 B0 ring F1, Multi-GINe (std)",
+   "value": 0.04477044784229883,
+   "reported": 0.045,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r2_ring_b0.csv",
+    "where": {
+     "model": "gine_causal"
+    },
+    "column": "ring_f1_std"
+   }
+  },
+  {
+   "id": "R2.ring_f1_gfpxgb",
+   "claim": "R2 B0 ring F1, GFP-XGBoost",
+   "value": 0.34346,
+   "reported": 0.343,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r2_ring_b0.csv",
+    "where": {
+     "model": "gfpxgb"
+    },
+    "column": "ring_f1_mean"
+   }
+  },
+  {
+   "id": "R2.ring_f1_density",
+   "claim": "R2 B0 ring F1, density baseline",
+   "value": 0.0137,
+   "reported": 0.014,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r2_ring_b0.csv",
+    "where": {
+     "model": "density"
+    },
+    "column": "ring_f1_mean"
+   }
+  },
+  {
+   "id": "R3.ring_f1_proposed",
+   "claim": "R3 expansion, proposed policy ring F1",
+   "value": 0.58192,
+   "reported": 0.582,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r3_expansion.csv",
+    "where": {
+     "method": "proposed"
+    },
+    "column": "ring_f1_mean"
+   }
+  },
+  {
+   "id": "R3.quiet_member_recall_b0",
+   "claim": "R3 quiet-member recall, B0",
+   "value": 0.0052287581699346,
+   "reported": 0.005,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r3_expansion.csv",
+    "where": {
+     "method": "b0"
+    },
+    "column": "quiet_member_recall"
+   }
+  },
+  {
+   "id": "R3.quiet_member_recall_proposed",
+   "claim": "R3 quiet-member recall, proposed",
+   "value": 0.2091503267973856,
+   "reported": 0.21,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r3_expansion.csv",
+    "where": {
+     "method": "proposed"
+    },
+    "column": "quiet_member_recall"
+   }
+  },
+  {
+   "id": "A5.added_member_precision_proposed",
+   "claim": "Added-member precision, proposed (FINDINGS A5)",
+   "value": 0.9262899262899262,
+   "reported": 0.926,
+   "source": {
+    "kind": "csv",
+    "path": "results/figures/r9_quiet_vs_precision.csv",
+    "where": {
+     "method": "proposed"
+    },
+    "column": "prec"
+   }
+  },
+  {
+   "id": "A5.added_member_precision_b1b",
+   "claim": "Added-member precision, B1b rule (FINDINGS A5)",
+   "value": 0.5178970917225951,
+   "reported": 0.518,
+   "source": {
+    "kind": "csv",
+    "path": "results/figures/r9_quiet_vs_precision.csv",
+    "where": {
+     "method": "b1b"
+    },
+    "column": "prec"
+   }
+  },
+  {
+   "id": "R4.ring_f1_full",
+   "claim": "R4 full pipeline (average linkage) ring F1",
+   "value": 0.5894600000000001,
+   "reported": 0.589,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r4_partition.csv",
+    "where": {
+     "method": "average"
+    },
+    "column": "ring_f1_mean"
+   }
+  },
+  {
+   "id": "R5.typing_head_primary",
+   "claim": "R5 topology head accuracy, primary window",
+   "value": 0.5985037406483791,
+   "reported": 0.599,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r5_typing_ci.csv",
+    "where": {
+     "window": "primary",
+     "scorer": "head"
+    },
+    "column": "accuracy"
+   }
+  },
+  {
+   "id": "R5.typing_head_primary_lo",
+   "claim": "R5 topology head accuracy, 95% CI low",
+   "value": 0.5486284289276808,
+   "reported": 0.549,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r5_typing_ci.csv",
+    "where": {
+     "window": "primary",
+     "scorer": "head"
+    },
+    "column": "accuracy_lo"
+   }
+  },
+  {
+   "id": "R5.typing_head_primary_hi",
+   "claim": "R5 topology head accuracy, 95% CI high",
+   "value": 0.6483790523690773,
+   "reported": 0.648,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r5_typing_ci.csv",
+    "where": {
+     "window": "primary",
+     "scorer": "head"
+    },
+    "column": "accuracy_hi"
+   }
+  },
+  {
+   "id": "R5.typing_rule_primary",
+   "claim": "R5 rule typing accuracy, primary window",
+   "value": 0.5511221945137157,
+   "reported": 0.551,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r5_typing_ci.csv",
+    "where": {
+     "window": "primary",
+     "scorer": "rule"
+    },
+    "column": "accuracy"
+   }
+  },
+  {
+   "id": "R5.typing_head_whole",
+   "claim": "R5 topology head accuracy, whole test split",
+   "value": 0.5935334872979214,
+   "reported": 0.594,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r5_typing_ci.csv",
+    "where": {
+     "window": "whole",
+     "scorer": "head"
+    },
+    "column": "accuracy"
+   }
+  },
+  {
+   "id": "R5.n_matched_primary",
+   "claim": "R5 matched rings, primary window",
+   "value": 401,
+   "reported": 401,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r5_typing_ci.csv",
+    "where": {
+     "window": "primary",
+     "scorer": "head"
+    },
+    "column": "n_matched_rings"
+   }
+  },
+  {
+   "id": "R6.edge_f1_gine",
+   "claim": "R6 test edge F1, Multi-GINe",
+   "value": 0.5957466719407827,
+   "reported": 0.5957,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r6_detector_swap.csv",
+    "where": {
+     "detector": "gine_causal",
+     "method": "b0"
+    },
+    "column": "edge_f1"
+   }
+  },
+  {
+   "id": "R6.edge_f1_mega",
+   "claim": "R6 test edge F1, MEGA-GNN",
+   "value": 0.6892934093457064,
+   "reported": 0.6893,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r6_detector_swap.csv",
+    "where": {
+     "detector": "mega",
+     "method": "b0"
+    },
+    "column": "edge_f1"
+   }
+  },
+  {
+   "id": "R6.ring_f1_b0_gine",
+   "claim": "R6 B0 ring F1, Multi-GINe",
+   "value": 0.5213175026308443,
+   "reported": 0.5213,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r6_detector_swap.csv",
+    "where": {
+     "detector": "gine_causal",
+     "method": "b0"
+    },
+    "column": "ring_f1"
+   }
+  },
+  {
+   "id": "R6.ring_f1_b0_mega",
+   "claim": "R6 B0 ring F1, MEGA-GNN",
+   "value": 0.5208450357424363,
+   "reported": 0.5208,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r6_detector_swap.csv",
+    "where": {
+     "detector": "mega",
+     "method": "b0"
+    },
+    "column": "ring_f1"
+   }
+  },
+  {
+   "id": "R6.matched_rings_gine",
+   "claim": "R6 B0 matched truth rings per seed, Multi-GINe",
+   "value": 66.8,
+   "reported": 66.8,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r6_detector_swap.csv",
+    "where": {
+     "detector": "gine_causal",
+     "method": "b0"
+    },
+    "column": "matched_rings"
+   }
+  },
+  {
+   "id": "R6.matched_rings_mega",
+   "claim": "R6 B0 matched truth rings per seed, MEGA-GNN",
+   "value": 66.6,
+   "reported": 66.6,
+   "source": {
+    "kind": "csv",
+    "path": "results/tables/r6_detector_swap.csv",
+    "where": {
+     "detector": "mega",
+     "method": "b0"
+    },
+    "column": "matched_rings"
+   }
+  },
+  {
+   "id": "R10.tenant_recall",
+   "claim": "R10 tenant-view ring recall (b)",
+   "value": 0.0882,
+   "reported": 0.0882,
+   "source": {
+    "kind": "json",
+    "path": "results/tables/r10_registered.json",
+    "key": [
+     "rows",
+     "primary",
+     "tenant",
+     "value"
+    ]
+   }
+  },
+  {
+   "id": "R10.pooled_recall",
+   "claim": "R10 pooled ring recall",
+   "value": 0.3588,
+   "reported": 0.3588,
+   "source": {
+    "kind": "json",
+    "path": "results/tables/r10_registered.json",
+    "key": [
+     "rows",
+     "primary",
+     "pooled",
+     "value"
+    ]
+   }
+  },
+  {
+   "id": "R10.difference",
+   "claim": "R10 pooled - (b) ring recall",
+   "value": 0.2706,
+   "reported": 0.2706,
+   "source": {
+    "kind": "json",
+    "path": "results/tables/r10_registered.json",
+    "key": [
+     "rows",
+     "primary",
+     "difference",
+     "value"
+    ]
+   }
+  },
+  {
+   "id": "R10.difference_lo",
+   "claim": "R10 pooled - (b), 95% CI low",
+   "value": 0.1536,
+   "reported": 0.1536,
+   "source": {
+    "kind": "json",
+    "path": "results/tables/r10_registered.json",
+    "key": [
+     "rows",
+     "primary",
+     "difference",
+     "low"
+    ]
+   }
+  },
+  {
+   "id": "R10.difference_hi",
+   "claim": "R10 pooled - (b), 95% CI high",
+   "value": 0.4067,
+   "reported": 0.4067,
+   "source": {
+    "kind": "json",
+    "path": "results/tables/r10_registered.json",
+    "key": [
+     "rows",
+     "primary",
+     "difference",
+     "high"
+    ]
+   }
+  },
+  {
+   "id": "R10.n_pairs",
+   "claim": "R10 tenant-ring pairs",
+   "value": 68,
+   "reported": 68,
+   "source": {
+    "kind": "json",
+    "path": "results/tables/r10_registered.json",
+    "key": [
+     "rows",
+     "primary",
+     "n_pairs"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed1_acc0.9.gate_decision",
+   "claim": "R11 seed 1, verdict accuracy 0.9: gate decision",
+   "value": "refused",
+   "reported": "refused",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     0,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed1_acc0.7.gate_decision",
+   "claim": "R11 seed 1, verdict accuracy 0.7: gate decision",
+   "value": "refused",
+   "reported": "refused",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     1,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed2_acc0.9.gate_decision",
+   "claim": "R11 seed 2, verdict accuracy 0.9: gate decision",
+   "value": "refused",
+   "reported": "refused",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     2,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed2_acc0.7.gate_decision",
+   "claim": "R11 seed 2, verdict accuracy 0.7: gate decision",
+   "value": "refused",
+   "reported": "refused",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     3,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed3_acc0.9.gate_decision",
+   "claim": "R11 seed 3, verdict accuracy 0.9: gate decision",
+   "value": "no candidate",
+   "reported": "no candidate",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     4,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed3_acc0.7.gate_decision",
+   "claim": "R11 seed 3, verdict accuracy 0.7: gate decision",
+   "value": "no candidate",
+   "reported": "no candidate",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     5,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed4_acc0.9.gate_decision",
+   "claim": "R11 seed 4, verdict accuracy 0.9: gate decision",
+   "value": "refused",
+   "reported": "refused",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     6,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed4_acc0.7.gate_decision",
+   "claim": "R11 seed 4, verdict accuracy 0.7: gate decision",
+   "value": "refused",
+   "reported": "refused",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     7,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed5_acc0.9.gate_decision",
+   "claim": "R11 seed 5, verdict accuracy 0.9: gate decision",
+   "value": "1 promoted, 1 refused",
+   "reported": "1 promoted, 1 refused",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     8,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed5_acc0.7.gate_decision",
+   "claim": "R11 seed 5, verdict accuracy 0.7: gate decision",
+   "value": "1 promoted, 1 refused",
+   "reported": "1 promoted, 1 refused",
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     9,
+     "gate_decision"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed5.holdout_before",
+   "claim": "R11 seed 5: holdout ring F1 of the serving model before",
+   "value": 0.6496,
+   "reported": 0.6496,
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     8,
+     "holdout_before"
+    ]
+   }
+  },
+  {
+   "id": "R11.seed5.day9_ring_f1_serving",
+   "claim": "R11 seed 5: day-9 ring F1 of the serving model (unchanged from old)",
+   "value": 0.4286,
+   "reported": 0.4286,
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r11/five_seeds/summary.json",
+    "key": [
+     "runs",
+     8,
+     "day9",
+     "serving_model",
+     "ring_f1"
+    ]
+   }
+  },
+  {
+   "id": "R12.original.control_detected",
+   "claim": "R12 registered run (clock=32): positive control detected",
+   "value": false,
+   "reported": false,
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r12/amended/summary.json",
+    "key": [
+     "original_clock32",
+     "control"
+    ]
+   }
+  },
+  {
+   "id": "R12.a_hourly.control_detected",
+   "claim": "R12 amendment A (hourly, clock=1): control detected",
+   "value": false,
+   "reported": false,
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r12/amended/summary.json",
+    "key": [
+     "a_hourly_clock1",
+     "control",
+     "detected"
+    ]
+   }
+  },
+  {
+   "id": "R12.b_per_txn.control_detected_after_onset",
+   "claim": "R12 amendment B (per transaction): control detected after onset",
+   "value": false,
+   "reported": false,
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r12/amended/summary.json",
+    "key": [
+     "b_per_transaction",
+     "control",
+     "detected_after_onset"
+    ]
+   }
+  },
+  {
+   "id": "R12.b_per_txn.real_delay_hours",
+   "claim": "R12 amendment B: real stream, hours from day-9 onset to first detection",
+   "value": 11.15,
+   "reported": 11.15,
+   "source": {
+    "kind": "json",
+    "path": "results/platform/r12/amended/summary.json",
+    "key": [
+     "b_per_transaction",
+     "real",
+     "delay_hours"
+    ]
+   }
+  }
+ ]
+}

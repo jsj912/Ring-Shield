@@ -1,0 +1,20 @@
+{
+  "illicit_f1": 0.5571542765787371,
+  "illicit_precision": 0.49119097956307256,
+  "illicit_recall": 0.6435826408125577,
+  "roc_auc": 0.8866865935406432,
+  "confusion_matrix": [
+    [
+      14865,
+      722
+    ],
+    [
+      386,
+      697
+    ]
+  ],
+  "chosen_class_weights": false,
+  "chosen_threshold": 0.5570657253265381,
+  "training_time_seconds": 312.9137523174286,
+  "note": "Final model trained on timesteps 1-29 only (train_proper_mask), NOT refit on the full 1-34 train_mask, to preserve score-distribution consistency between the validation-tuned threshold and the model it is applied to (same fix applied to gcn.py after its val->test F1 collapse: 0.7955 -> 0.4058)."
+}

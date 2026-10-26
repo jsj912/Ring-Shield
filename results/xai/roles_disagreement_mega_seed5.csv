@@ -1,0 +1,7 @@
+ring_id,account_id,research_role,spec_role,research_hold_s,spec_hold_s,inflow,outflow,cause
+full-mega-5-15,309496,holder,peripheral,,,146677.90000000002,114394.56,undefined_hold_time
+full-mega-5-23,257871,holder,peripheral,,,30360.54,38367.37,undefined_hold_time
+full-mega-5-69,306715,holder,peripheral,,,4559.72,6058.07,undefined_hold_time
+full-mega-5-94,98968,holder,peripheral,,,16324.89,15730.69,undefined_hold_time
+full-mega-5-106,45394,holder,peripheral,,,7323.01,5740.59,undefined_hold_time
+full-mega-5-108,345917,holder,peripheral,,,7835.52,10388.14,undefined_hold_time

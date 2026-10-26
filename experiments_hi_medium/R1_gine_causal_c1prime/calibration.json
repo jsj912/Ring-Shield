@@ -1,0 +1,112 @@
+{
+  "created_utc": "2026-10-10T10:34:09+00:00",
+  "git_commit": "cf2342310f65e179b1b68787967c4ec461a058b0",
+  "scores_dir": "experiments_hi_medium\\R1_gine_causal_c1prime",
+  "method": "isotonic (sklearn IsotonicRegression, clip out of bounds)",
+  "fit_on": "exactly the val split (score_raw vs labels_val); applied to val and test; val_cross_fitted is a StratifiedKFold diagnostic",
+  "labels_dir": "contract\\out_hi_medium",
+  "ece_bins": 15,
+  "per_seed": [
+    {
+      "seed": 1,
+      "n_fit_rows": 3857689,
+      "n_folds": 5,
+      "n_isotonic_knots": 132,
+      "val": {
+        "brier_raw": 0.0008825285462541019,
+        "brier_cal": 0.0006891063090487643,
+        "ece_raw": 0.003107762843163805,
+        "ece_cal": 4.9573475988427385e-06
+      },
+      "val_cross_fitted": {
+        "brier_raw": 0.0008825285462541019,
+        "brier_cal": 0.0006923951288195996,
+        "ece_raw": 0.003107762843163805,
+        "ece_cal": 9.613372825493508e-06
+      },
+      "test": {
+        "brier_raw": 0.007525734139040083,
+        "brier_cal": 0.003825644267669177,
+        "ece_raw": 0.014225335717316092,
+        "ece_cal": 0.0061074726677962585
+      },
+      "monotone_check": true,
+      "n_unique_raw_test": 8959891,
+      "n_unique_cal_test": 2495
+    },
+    {
+      "seed": 2,
+      "n_fit_rows": 3857689,
+      "n_folds": 5,
+      "n_isotonic_knots": 158,
+      "val": {
+        "brier_raw": 0.0009542000591427343,
+        "brier_cal": 0.0007320482562795848,
+        "ece_raw": 0.0028759878058590136,
+        "ece_cal": 1.4951646224776085e-05
+      },
+      "val_cross_fitted": {
+        "brier_raw": 0.0009542000591427343,
+        "brier_cal": 0.0007354415556814847,
+        "ece_raw": 0.0028759878058590136,
+        "ece_cal": 1.433790857254674e-05
+      },
+      "test": {
+        "brier_raw": 0.029232774817328465,
+        "brier_cal": 0.013792165937858009,
+        "ece_raw": 0.04179154085451553,
+        "ece_cal": 0.02187996094769821
+      },
+      "monotone_check": true,
+      "n_unique_raw_test": 14822119,
+      "n_unique_cal_test": 4622
+    },
+    {
+      "seed": 3,
+      "n_fit_rows": 3857689,
+      "n_folds": 5,
+      "n_isotonic_knots": 131,
+      "val": {
+        "brier_raw": 0.000943242233877898,
+        "brier_cal": 0.0007450159753471244,
+        "ece_raw": 0.002986847142966492,
+        "ece_cal": 4.098648285044786e-05
+      },
+      "val_cross_fitted": {
+        "brier_raw": 0.000943242233877898,
+        "brier_cal": 0.0007483536891506854,
+        "ece_raw": 0.002986847142966492,
+        "ece_cal": 2.2881893703366106e-05
+      },
+      "test": {
+        "brier_raw": 0.04771821042149578,
+        "brier_cal": 0.039499785385426034,
+        "ece_raw": 0.049415715436461116,
+        "ece_cal": 0.04322590302011989
+      },
+      "monotone_check": true,
+      "n_unique_raw_test": 4328797,
+      "n_unique_cal_test": 38873
+    }
+  ],
+  "mean": {
+    "val": {
+      "brier_raw": 0.0009266569464249113,
+      "brier_cal": 0.0007220568468918245,
+      "ece_raw": 0.002990199263996437,
+      "ece_cal": 2.0298492224688896e-05
+    },
+    "val_cv": {
+      "brier_raw": 0.0009266569464249113,
+      "brier_cal": 0.0007253967912172566,
+      "ece_raw": 0.002990199263996437,
+      "ece_cal": 1.5611058367135452e-05
+    },
+    "test": {
+      "brier_raw": 0.02815890645928811,
+      "brier_cal": 0.01903919853031774,
+      "ece_raw": 0.03514419733609758,
+      "ece_cal": 0.02373777887853812
+    }
+  }
+}

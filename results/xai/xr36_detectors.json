@@ -1,0 +1,188 @@
+{
+  "detectors": {
+    "gfpxgb": {
+      "expanded_recall_at5": {
+        "random": 0.8898439153439155,
+        "score_only": 0.7938095238095239,
+        "w_total": 0.7938095238095239
+      },
+      "fidelity_at5": {
+        "random": 0.8256379310344828,
+        "score_only": 0.8308045977011494,
+        "w_total": 0.8302298850574712
+      },
+      "fidelity_at5_ci": {
+        "random": [
+          0.7725343869731801,
+          0.8803538793103448
+        ],
+        "score_only": [
+          0.7712978927203065,
+          0.8850833333333333
+        ],
+        "w_total": [
+          0.7707212643678161,
+          0.8850689655172413
+        ]
+      },
+      "inputs": {
+        "affinity_dir": "experiments/R6_gfpxgb_partition/affinity_gfpxgb",
+        "embeddings": null,
+        "partition": "rings_full_gfpxgb_1.parquet.log.json",
+        "rings": "contract/out/rings_full_gfpxgb_{seed}.parquet",
+        "scored_edges": "contract/out/scored_edges_gfpxgb_{seed}.parquet"
+      },
+      "label": "GFP+XGBoost, own policy and affinity (trained without embeddings)",
+      "latency_max_ms": 4727.0,
+      "latency_p95_ms": 1138.05,
+      "mixing": {
+        "alpha": 0.6,
+        "beta": 0.0,
+        "gamma": 0.4
+      },
+      "mixing_source": "tuned on validation (XR-05)",
+      "n_degraded": 0,
+      "n_explained": 873,
+      "n_matched_ring_instances": 372,
+      "n_reproduces_shipped_ring": 856,
+      "n_rings": 873,
+      "n_truth_rings": 87,
+      "role_agreement_accounts_in_both": 0.7687427912341407,
+      "rule_accuracy_primary": 0.5349462365591398,
+      "saturation": {
+        "n_matched_ring_instances": 372,
+        "n_no_true_ranked_edge": 15,
+        "n_non_saturated": 72,
+        "n_only_true_edges": 285,
+        "n_with_a_true_ranked_edge": 357,
+        "reading": "after removing currency conversions most matched predicted rings contain only true transactions: the rings are very clean, and fidelity cannot separate rankings on them (Joan, Q1-i)"
+      },
+      "typing_accuracy_primary": 0.5779569892473119,
+      "verdict": "negative"
+    },
+    "gine_causal": {
+      "expanded_recall_at5": {
+        "random": 0.8731934523809523,
+        "score_only": 0.7293154761904762,
+        "w_total": 0.7235119047619047
+      },
+      "fidelity_at5": {
+        "random": 0.8740795833333332,
+        "score_only": 0.8914916666666667,
+        "w_total": 0.8813583333333332
+      },
+      "fidelity_at5_ci": {
+        "random": [
+          0.8302853854166666,
+          0.9101944895833333
+        ],
+        "score_only": [
+          0.8477599999999998,
+          0.9281731249999998
+        ],
+        "w_total": [
+          0.8379272916666666,
+          0.9208943749999999
+        ]
+      },
+      "inputs": {
+        "affinity_dir": "experiments/R4_partition/affinity",
+        "embeddings": "experiments/R1_gine_causal/embeddings_test_seed{seed}.parquet",
+        "partition": "experiments/R4_partition/runs/average/seed1/config.yaml",
+        "rings": "contract/out/rings_full_gine_causal_{seed}.parquet",
+        "scored_edges": "contract/out/scored_edges_gine_causal_{seed}.parquet"
+      },
+      "label": "Multi-GINe, causal (shipped)",
+      "latency_max_ms": 2282.0,
+      "latency_p95_ms": 1032.9499999999991,
+      "mixing": {
+        "alpha": 0.6,
+        "beta": 0.0,
+        "gamma": 0.4
+      },
+      "mixing_source": "tuned on validation (XR-05)",
+      "n_degraded": 0,
+      "n_explained": 560,
+      "n_matched_ring_instances": 401,
+      "n_reproduces_shipped_ring": 555,
+      "n_rings": 560,
+      "n_truth_rings": 100,
+      "role_agreement_accounts_in_both": 0.8277583624563155,
+      "rule_accuracy_primary": 0.5511221945137157,
+      "saturation": {
+        "n_matched_ring_instances": 401,
+        "n_no_true_ranked_edge": 6,
+        "n_non_saturated": 52,
+        "n_only_true_edges": 343,
+        "n_with_a_true_ranked_edge": 395,
+        "reading": "after removing currency conversions most matched predicted rings contain only true transactions: the rings are very clean, and fidelity cannot separate rankings on them (Joan, Q1-i)"
+      },
+      "typing_accuracy_primary": 0.5985037406483791,
+      "verdict": "negative"
+    },
+    "mega": {
+      "expanded_recall_at5": {
+        "random": 0.8604497354497354,
+        "score_only": 0.7282010582010582,
+        "w_total": 0.7296560846560847
+      },
+      "fidelity_at5": {
+        "random": 0.869145631067961,
+        "score_only": 0.9062459546925566,
+        "w_total": 0.9044012944983819
+      },
+      "fidelity_at5_ci": {
+        "random": [
+          0.8272303802588999,
+          0.9071565938511326
+        ],
+        "score_only": [
+          0.8673733818770226,
+          0.9386051779935275
+        ],
+        "w_total": [
+          0.8659186893203884,
+          0.937882281553398
+        ]
+      },
+      "inputs": {
+        "affinity_dir": "experiments/R4_partition/affinity",
+        "embeddings": "experiments/R6_mega/embeddings_test_seed{seed}.parquet",
+        "partition": "rings_full_mega_1.parquet.log.json",
+        "rings": "contract/out/rings_full_mega_{seed}.parquet",
+        "scored_edges": "contract/out/scored_edges_mega_{seed}.parquet"
+      },
+      "label": "MEGA-GNN, through the gine-trained policy and affinity with MEGA's own embeddings",
+      "latency_max_ms": 4331.0,
+      "latency_p95_ms": 1144.1999999999998,
+      "mixing": {
+        "alpha": 0.6,
+        "beta": 0.0,
+        "gamma": 0.4
+      },
+      "mixing_source": "tuned on validation (XR-05)",
+      "n_degraded": 0,
+      "n_explained": 579,
+      "n_matched_ring_instances": 418,
+      "n_reproduces_shipped_ring": 571,
+      "n_rings": 579,
+      "n_truth_rings": 103,
+      "role_agreement_accounts_in_both": 0.8235572374645223,
+      "rule_accuracy_primary": 0.5454545454545454,
+      "saturation": {
+        "n_matched_ring_instances": 418,
+        "n_no_true_ranked_edge": 3,
+        "n_non_saturated": 49,
+        "n_only_true_edges": 366,
+        "n_with_a_true_ranked_edge": 415,
+        "reading": "after removing currency conversions most matched predicted rings contain only true transactions: the rings are very clean, and fidelity cannot separate rankings on them (Joan, Q1-i)"
+      },
+      "typing_accuracy_primary": 0.5789473684210527,
+      "verdict": "negative"
+    }
+  },
+  "experiment_id": "XAI-W5",
+  "explainer_version": "0.5.0-review",
+  "same_code": "explainability/ unchanged between detectors; only contract_io.detector_cfg swaps the inputs",
+  "what": "XR-36: the same layer run unchanged on every detector's contract files; per detector, what was read and the headline results (latency p95 = the worst seed's p95)"
+}

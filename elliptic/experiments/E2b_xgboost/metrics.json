@@ -1,0 +1,25 @@
+{
+  "illicit_f1": 0.7585877862595419,
+  "illicit_precision": 0.7847976307996052,
+  "illicit_recall": 0.7340720221606648,
+  "roc_auc": 0.9376314554336868,
+  "confusion_matrix": [
+    [
+      15369,
+      218
+    ],
+    [
+      288,
+      795
+    ]
+  ],
+  "chosen_scale_pos_weight": 8.188784395680948,
+  "chosen_config_name": "shallow_depth4",
+  "chosen_config": {
+    "max_depth": 4,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8
+  },
+  "chosen_threshold": 0.5626680850982666
+}

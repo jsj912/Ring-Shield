@@ -1,0 +1,167 @@
+{
+  "created_utc": "2026-10-05T15:10:16+00:00",
+  "git_commit": "003401baef8629686dbebf90b838729b821f923e",
+  "n_rows": 4680823,
+  "n_folds": 3,
+  "dry_run": false,
+  "assertion": {
+    "rule": "day(edge) not in train_days[fold(edge)] for every row; one row per train edge",
+    "violations": 0,
+    "passed": true
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "held_out_days": [
+        1
+      ],
+      "train_days": [
+        2,
+        3
+      ],
+      "n_train_edges": 1659565,
+      "n_train_illicit": 2922,
+      "supervised_days": [
+        2,
+        3
+      ],
+      "label_exclude_days": [
+        0
+      ],
+      "held_out_kept_in_graph": true,
+      "graph_edges": 9146808,
+      "n_held_out_edges": 3021258,
+      "n_held_out_illicit": 1331,
+      "epochs": 25,
+      "best_epoch": 19,
+      "best_val_f1": 0.5572949279899813,
+      "val_tuned_threshold": 0.5900000000000002,
+      "train_seed": 1,
+      "held_out": {
+        "f1_at_val_threshold": 0.10062468343744724,
+        "precision_at_val_threshold": 0.06489547038327526,
+        "recall_at_val_threshold": 0.22389181066867017,
+        "average_precision": 0.057145847302529404,
+        "f1_oracle_threshold": 0.1730365392692146,
+        "base_rate": 0.0004405449650443623
+      },
+      "head_constants": [
+        0.23550523817539215,
+        0.18072551488876343
+      ],
+      "n_dead_region": 1575,
+      "mean_epoch_time_s": 1466.5073787784577,
+      "score_seconds": 148.3,
+      "loader_route": "fallback",
+      "loader_window_s": 1800,
+      "git_commit": "003401baef8629686dbebf90b838729b821f923e",
+      "created_utc": "2026-10-04T23:08:26+00:00"
+    },
+    {
+      "fold": 1,
+      "held_out_days": [
+        2
+      ],
+      "train_days": [
+        1,
+        3
+      ],
+      "n_train_edges": 3851865,
+      "n_train_illicit": 2880,
+      "supervised_days": [
+        1,
+        3
+      ],
+      "label_exclude_days": [
+        0
+      ],
+      "held_out_kept_in_graph": true,
+      "graph_edges": 9146808,
+      "n_held_out_edges": 828958,
+      "n_held_out_illicit": 1373,
+      "epochs": 25,
+      "best_epoch": 22,
+      "best_val_f1": 0.42970754232939967,
+      "val_tuned_threshold": 0.7300000000000002,
+      "train_seed": 1,
+      "held_out": {
+        "f1_at_val_threshold": 0.43329775880469584,
+        "precision_at_val_threshold": 0.810379241516966,
+        "recall_at_val_threshold": 0.29570284049526585,
+        "average_precision": 0.4104188379903791,
+        "f1_oracle_threshold": 0.4562233790818741,
+        "base_rate": 0.0016562962176612083
+      },
+      "head_constants": [
+        0.09624461829662323,
+        0.03053239732980728
+      ],
+      "n_dead_region": 4356,
+      "mean_epoch_time_s": 1049.7023226833344,
+      "score_seconds": 41.5,
+      "loader_route": "fallback",
+      "loader_window_s": 1800,
+      "git_commit": "003401baef8629686dbebf90b838729b821f923e",
+      "created_utc": "2026-10-05T08:32:36+00:00"
+    },
+    {
+      "fold": 2,
+      "held_out_days": [
+        3
+      ],
+      "train_days": [
+        1,
+        2
+      ],
+      "n_train_edges": 3850216,
+      "n_train_illicit": 2704,
+      "supervised_days": [
+        1,
+        2
+      ],
+      "label_exclude_days": [
+        0
+      ],
+      "held_out_kept_in_graph": true,
+      "graph_edges": 9146808,
+      "n_held_out_edges": 830607,
+      "n_held_out_illicit": 1549,
+      "epochs": 25,
+      "best_epoch": 7,
+      "best_val_f1": 0.27876022057425365,
+      "val_tuned_threshold": 0.7100000000000002,
+      "train_seed": 1,
+      "held_out": {
+        "f1_at_val_threshold": 0.4219285364659814,
+        "precision_at_val_threshold": 0.8724696356275303,
+        "recall_at_val_threshold": 0.27824402840542284,
+        "average_precision": 0.4598508525457134,
+        "f1_oracle_threshold": 0.5042700284668564,
+        "base_rate": 0.0018649012108012575
+      },
+      "head_constants": [
+        0.15297868847846985,
+        0.14297813177108765
+      ],
+      "n_dead_region": 17,
+      "mean_epoch_time_s": 919.7811828899383,
+      "score_seconds": 44.4,
+      "loader_route": "fallback",
+      "loader_window_s": 1800,
+      "git_commit": "003401baef8629686dbebf90b838729b821f923e",
+      "created_utc": "2026-10-05T15:10:12+00:00"
+    }
+  ],
+  "columns": {
+    "score_raw": "fold model softmax",
+    "score_quantile": "rank / N of score_raw within the fold (the policy's detector feature, amendment a)",
+    "dead_region": "score_raw == a head constant of the fold model",
+    "score_calibrated": "R1 seed 1 val calibrator applied; recorded, not used by the policy"
+  },
+  "n_dead_region": 5948,
+  "caveats": [
+    "edge-feature z-normalisation statistics are R1's (all six train days, unsupervised)",
+    "checkpoint selection on the val split whose loader carries the full train graph as neighbourhood context (no held-out labels are used)"
+  ],
+  "out": "experiments_hi_medium\\R3_cross_scores_c1prime\\cross_scores_train.parquet"
+}

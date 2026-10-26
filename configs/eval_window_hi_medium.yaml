@@ -1,0 +1,28 @@
+# HI-Medium evaluation windows (Step V3.2). Selected by passing this file to
+# ringshield.windows.load_windows(path=...) / --eval-window; the HI-Small default in
+# configs/eval_window.yaml is untouched.
+#
+# Day index = (Timestamp - 10) // 86400 in the loader basis (day 0 = 2022/09/01, the first
+# calendar day of HI-Medium). Ranges are inclusive.
+#
+# The split is chosen by the rule in docs/V3_OBSERVABILITY.md (V3.2 section), not by edge
+# proportion: train = days 0-3, val = days 4-5, test = days 6-27. Day 0 is the warm-up
+# (4,465,985 edges, 2.31x the interior median -- the same ratio as HI-Small's day 0 and
+# HI-Large's) and is kept in TRAIN and excluded from evaluation, exactly as HI-Small does.
+#
+# primary: days 6-15, the whole clean part of the test split -- the reportable window. 2,361
+#          in-scope rings, 1,651 with >= 3 visible members (ceiling 0.699), 44.1 % of them
+#          fully contained against HI-Small's 11.5 %.
+# tail:    days 16-27, 8,047 edges at a ~59 % base rate (pattern injection continuing after the
+#          licit background stops). The same C1/C8 pathology as HI-Small's days 10-17.
+#          Always reported next to the primary numbers, never merged in.
+# whole:   the full test split, kept as a labelled third column for continuity.
+# val:     days 4-5; thresholds and grids are chosen here.
+day_zero_timestamp: 10
+seconds_per_day: 86400
+windows:
+  primary: {split: test, days: [6, 15]}
+  tail:    {split: test, days: [16, 27]}
+  whole:   {split: test, days: [6, 27]}
+  val:     {split: val,  days: [4, 5]}
+report_order: [val, primary, tail, whole]

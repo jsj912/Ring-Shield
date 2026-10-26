@@ -1,0 +1,6 @@
+seed,window,n_truth_rings,n_seed_edges_whole_split,n_seed_edges_in_window,n_seed_accounts,n_predictions,n_matched,n_class_b,n_class_b_ge3_in_seed_accounts,n_class_b_oracle,share_class_b_oracle
+1,val,157,966,966,1350,133,89,15,10,10,0.6666666666666666
+2,val,157,966,966,1407,148,88,16,10,10,0.625
+3,val,157,966,966,1335,134,88,12,7,7,0.5833333333333334
+4,val,157,966,966,1403,134,88,13,8,8,0.6153846153846154
+5,val,157,966,966,1451,120,78,19,9,9,0.47368421052631576

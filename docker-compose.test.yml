@@ -1,0 +1,35 @@
+services:
+  postgres-test:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ringshield
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ringshield-test-only
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ringshield"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: platform/Dockerfile.test
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    environment:
+      RINGSHIELD_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:ringshield-test-only@postgres-test:5432/ringshield
+      RINGSHIELD_DATABASE_ADMIN_PSQL_URL: postgresql://postgres:ringshield-test-only@postgres-test:5432/ringshield
+      RINGSHIELD_TEST_ADMIN_URL: postgresql+psycopg://postgres:ringshield-test-only@postgres-test:5432/ringshield
+      RINGSHIELD_DATABASE_URL: postgresql+psycopg://ringshield_test_app:test-app-only@postgres-test:5432/ringshield?options=-c%20role%3Dringshield_api
+      RINGSHIELD_AUTH_DATABASE_URL: postgresql+psycopg://ringshield_test_auth:test-auth-only@postgres-test:5432/ringshield?options=-c%20role%3Dringshield_auth
+      RINGSHIELD_LOADER_DATABASE_URL: postgresql+psycopg://ringshield_test_loader:test-loader-only@postgres-test:5432/ringshield?options=-c%20role%3Dringshield_loader
+      RINGSHIELD_SIMULATOR_DATABASE_URL: postgresql+psycopg://ringshield_test_simulator:test-simulator-only@postgres-test:5432/ringshield?options=-c%20role%3Dringshield_simulator
+      RINGSHIELD_JWT_SECRET: ringshield-test-secret-that-is-long-enough
+      RINGSHIELD_TIME_ORIGIN_UTC: "2020-01-01T00:00:00+00:00"
+      RINGSHIELD_PLATFORM_CONFIG: platform/tests/isolation/config.test.yaml
+      RINGSHIELD_TEST_FIXTURE_DIR: /tmp/ringshield-platform-fixture
+    command: ["sh", "platform/scripts/test_db.sh"]

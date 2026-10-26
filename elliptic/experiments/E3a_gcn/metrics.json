@@ -1,0 +1,20 @@
+{
+  "illicit_f1": 0.4951856946354883,
+  "illicit_precision": 0.4918032786885246,
+  "illicit_recall": 0.4986149584487535,
+  "roc_auc": 0.8423082461939866,
+  "confusion_matrix": [
+    [
+      15029,
+      558
+    ],
+    [
+      543,
+      540
+    ]
+  ],
+  "chosen_class_weights": false,
+  "chosen_threshold": 0.5622086524963379,
+  "training_time_seconds": 264.9501874446869,
+  "note": "Final model trained on timesteps 1-29 only (train_proper_mask), NOT refit on the full 1-34 train_mask, to preserve score-distribution consistency between the validation-tuned threshold and the model it is applied to. An earlier version of this script retrained a second model on the full train_mask before evaluating, which caused a val->test F1 collapse (0.7955 -> 0.4058) because the threshold was tuned on one model's score distribution and applied to a different, freshly-retrained model's distribution."
+}

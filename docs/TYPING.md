@@ -90,13 +90,15 @@ Two separate losses, measured rather than assumed:
    half and looks like FAN-OUT, a CYCLE that has not closed yet is a chain. On the primary
    window's **ground-truth** rings (114 with ≥ 3 visible members) the rule scores 0.404 and the
    head 0.421 — that is the ceiling for any classifier reading a 2-day fragment.
-2. **The predicted edge set.** On *matched* predicted rings accuracy falls further, to 0.207
-   (head) / 0.207 (rule) with the chosen head. A Jaccard-0.5 account match does not mean the same edges: the
+2. **The predicted edge set.** ~~On *matched* predicted rings accuracy falls further, to 0.207
+   (head) / 0.207 (rule) with the chosen head.~~ **Corrected 2026-10-25 (FINDINGS B10, C3 withdrawn 2026-10-22):** those numbers typed the wrong
+   ring; on the matched ring the head scores 0.599 and the rule 0.551 (401 rings). A Jaccard-0.5 account match does not mean the same edges: the
    prediction carries the member edges the aggregator included (seeds + expansions + licit
    traffic between members) and misses the quiet ones, so its shape differs from the pattern's.
 
-Neither is a classifier problem, and that is the reportable finding: **ring typing on AMLworld is
-bounded by the evaluation window, not by the model.**
+~~Neither is a classifier problem, and that is the reportable finding: **ring typing on AMLworld is
+bounded by the evaluation window, not by the model.**~~ **Corrected 2026-10-25 (FINDINGS B10, C3 withdrawn 2026-10-22):** typing is not
+window-bounded: primary 0.599 and whole 0.594 agree.
 
 **Measured in Step 9** (`results/tables/r5_typing_ci.csv`, bootstrap over matched rings):
 
@@ -157,13 +159,15 @@ Per class (pooled; the counts matter more than the rates here, amendment d):
 | BIPARTITE | 2 | 1 | 1 | 0 | 1 | 0 | **0** | 0 |
 | STACK | 1 | 0 | 1 | 0 | 1 | 0 | 0 | **1** |
 
-Reading it: the errors are not spread at random. **GATHER-SCATTER loses 40 of 117 rings to
+*(The paragraph below reads the superseded matrix above and is superseded with it, 2026-10-25.)*
+
+~~Reading it: the errors are not spread at random. **GATHER-SCATTER loses 40 of 117 rings to
 FAN-OUT and 12 to FAN-IN** -- the two-day window shows one half of the pattern and that half *is*
 a fan. SCATTER-GATHER loses 17 to FAN-IN and 13 to STACK for the same reason. Only FAN-OUT, whose
 fragment still looks like a fan, is typed better than chance-with-priors. BIPARTITE (5) and
 STACK (4) have too few matched rings for a rate to mean anything -- the counts are given instead,
 per amendment d. RANDOM is not the hardest class here (the box expected it to absorb the errors);
-the fan classes absorb them, because a truncated pattern *is* a fan.
+the fan classes absorb them, because a truncated pattern *is* a fan.~~
 
 ~~Rule vs head: the head is 0.012 better pooled (0.219 vs 0.207) and better on 3 of 5 seeds -- a
 difference of five rings. On the training distribution the gap is real (0.558 vs 0.420 OOF on

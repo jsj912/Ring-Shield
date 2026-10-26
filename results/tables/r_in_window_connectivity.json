@@ -1,0 +1,136 @@
+{
+  "created_utc": "2026-10-26T07:22:16+00:00",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "runs": "experiments/R4_partition/runs/average (full)",
+  "windows": {
+    "primary": {
+      "n_missing": 216,
+      "n_disconnected": 176,
+      "share": 0.8148148148148148,
+      "by_seed": {
+        "1": {
+          "n_missing": 44,
+          "n_disconnected": 35,
+          "share": 0.7954545454545454
+        },
+        "2": {
+          "n_missing": 30,
+          "n_disconnected": 26,
+          "share": 0.8666666666666667
+        },
+        "3": {
+          "n_missing": 48,
+          "n_disconnected": 35,
+          "share": 0.7291666666666666
+        },
+        "4": {
+          "n_missing": 39,
+          "n_disconnected": 38,
+          "share": 0.9743589743589743
+        },
+        "5": {
+          "n_missing": 55,
+          "n_disconnected": 42,
+          "share": 0.7636363636363637
+        }
+      },
+      "by_pattern": {
+        "BIPARTITE": {
+          "n_missing": 24,
+          "n_disconnected": 24,
+          "share": 1.0
+        },
+        "CYCLE": {
+          "n_missing": 19,
+          "n_disconnected": 11,
+          "share": 0.5789473684210527
+        },
+        "GATHER-SCATTER": {
+          "n_missing": 31,
+          "n_disconnected": 0,
+          "share": 0.0
+        },
+        "RANDOM": {
+          "n_missing": 2,
+          "n_disconnected": 1,
+          "share": 0.5
+        },
+        "STACK": {
+          "n_missing": 140,
+          "n_disconnected": 140,
+          "share": 1.0
+        }
+      }
+    },
+    "whole": {
+      "n_missing": 453,
+      "n_disconnected": 237,
+      "share": 0.5231788079470199,
+      "by_seed": {
+        "1": {
+          "n_missing": 57,
+          "n_disconnected": 44,
+          "share": 0.7719298245614035
+        },
+        "2": {
+          "n_missing": 75,
+          "n_disconnected": 45,
+          "share": 0.6
+        },
+        "3": {
+          "n_missing": 61,
+          "n_disconnected": 45,
+          "share": 0.7377049180327869
+        },
+        "4": {
+          "n_missing": 107,
+          "n_disconnected": 49,
+          "share": 0.45794392523364486
+        },
+        "5": {
+          "n_missing": 153,
+          "n_disconnected": 54,
+          "share": 0.35294117647058826
+        }
+      },
+      "by_pattern": {
+        "CYCLE": {
+          "n_missing": 44,
+          "n_disconnected": 0,
+          "share": 0.0
+        },
+        "FAN-IN": {
+          "n_missing": 6,
+          "n_disconnected": 0,
+          "share": 0.0
+        },
+        "FAN-OUT": {
+          "n_missing": 12,
+          "n_disconnected": 0,
+          "share": 0.0
+        },
+        "GATHER-SCATTER": {
+          "n_missing": 130,
+          "n_disconnected": 0,
+          "share": 0.0
+        },
+        "RANDOM": {
+          "n_missing": 24,
+          "n_disconnected": 0,
+          "share": 0.0
+        },
+        "STACK": {
+          "n_missing": 237,
+          "n_disconnected": 237,
+          "share": 1.0
+        }
+      }
+    }
+  }
+}

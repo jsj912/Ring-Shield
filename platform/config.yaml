@@ -1,0 +1,67 @@
+# Active detector configuration shared by ingestion, tenant ring jobs, and the API.
+active_model_id: gine_causal
+active_seed: 1
+worker_mode: spawn
+model_dir: models/artifacts/full_gine_causal_seed1
+scored_edges: contract/out/scored_edges_gine_causal_1.parquet
+gfp: data/processed/amlworld_gfp_features_test.parquet
+account_map: data/processed/account_bank.parquet
+embeddings: experiments/R1_gine_causal/embeddings_test_seed1.parquet
+# Fixed score_raw cut from the pooled test score log. Never infer a tenant-local cut.
+seed_score_cutoff: 0.9295209672451074
+seed_score_cutoff_source: contract/out/scored_edges_gine_causal_1.parquet.log.json:seed_rule.q
+seed_score_column: score_raw
+survey_candidate_count: 30
+fx_rates_sha256: ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6
+l4:
+  rings_schema_version: 2
+  regenerate_url: null
+  regenerate_timeout_seconds: 120
+  check_health_version: false
+# L6-A/L6-B configuration. Validation artifacts not present in this checkout
+# stay null; the L6 loader reports the exact missing key before starting work.
+l6:
+  simulator:
+    review_fraction: 0.05
+    accuracy: 0.90
+    cycle_days: 1
+    seed: 0
+    match_jaccard: 0.5
+    full_confirm_jaccard: 0.9
+  retrain:
+    epsilon: 0.005
+    components: [expansion, affinity]
+    min_new_labels: 5
+    holdout_manifest: platform/holdout/production/holdout_manifest.json
+    holdout_sha256_file: platform/holdout/production/holdout_manifest.sha256
+    val_scored_edges: contract/out/scored_edges_gine_causal_1_val.parquet
+    val_gfp: data/processed/amlworld_gfp_features_val.parquet
+    val_embeddings: experiments/R1_gine_causal/embeddings_val_seed1.parquet
+    truth_parquet: data/processed/amlworld_ring_ground_truth.parquet
+    eval_window: val
+    eval_scope: test_visible
+    base_model_dir: models/artifacts/full_gine_causal_seed1
+    # The scores and rings the tenant's verdicts were made on: real retraining rebuilds features
+    # in that context ({tenant_id}, {model_id}, {seed}). These are R11's bank-visible inputs (docs/R11.md).
+    label_scores_template: data/tenant_visible/scored_edges_visible_{tenant_id}_{model_id}_{seed}.parquet
+    label_rings_template: data/platform_tenant_runs/r11_visible_seed1/T{tenant_id}/tenant_{tenant_id}_rings.parquet
+  drift:
+    delta: 0.002
+
+scheduler:
+  enabled: false
+
+# CYCLE, not BIPARTITE: holding out BIPARTITE removes no training rows (expansion never reaches it).
+# The model is experiments/R7_l3only_cycle/runs/full/seed1 exported with ringshield export-model.
+r12:
+  pattern: CYCLE
+  model_dir: models/artifacts/l3only_cycle_full_seed1
+
+# Pooled scores remain the comparison baseline.
+# Tenant-visible templates must contain {tenant_id}, {model_id}, and {seed}.
+r10:
+  # Registered in docs/TENANT_SIZES.md: primary = tenant-visible scores at the fixed cutoff (option b);
+  # pooled is a secondary row (--tenant-score-source pooled).
+  tenant_score_source: tenant_visible
+  pooled_scores_template: contract/out/scored_edges_{model_id}_{seed}.parquet
+  tenant_visible_scores_template: data/tenant_visible/scored_edges_visible_{tenant_id}_{model_id}_{seed}.parquet

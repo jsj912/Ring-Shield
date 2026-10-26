@@ -1,0 +1,57 @@
+{
+  "available_truth_rings_by_type": {
+    "BIPARTITE": 1,
+    "CYCLE": 9,
+    "FAN-IN": 13,
+    "FAN-OUT": 14,
+    "GATHER-SCATTER": 29,
+    "RANDOM": 10,
+    "SCATTER-GATHER": 16,
+    "STACK": 1
+  },
+  "chosen_by_type": {
+    "BIPARTITE": 1,
+    "CYCLE": 4,
+    "FAN-IN": 4,
+    "FAN-OUT": 4,
+    "GATHER-SCATTER": 6,
+    "RANDOM": 4,
+    "SCATTER-GATHER": 6,
+    "STACK": 1
+  },
+  "do_not_send": "answer_key.parquet (git-ignored: stays on this machine until the review is scored)",
+  "excluded": {
+    "n_truth_rings": 7,
+    "why": "truth rings shown in the Week 3 pilot file, whose answer key is committed"
+  },
+  "files": {
+    "answers_R1.csv": "62f9e373cf3b57241d01d2a936e180a87908a1c16fe22be21f86514a0d377342",
+    "answers_R2.csv": "53b1eba5348166ece92d95f7021e491571c12813ad097d1f3bf73b578e2fe796",
+    "answers_R3.csv": "da31dadddaa2314735add07e15af75cdec813dce87cae27e65782a4620d2e750",
+    "packet_R1.md": "20d8b1383feb999ed23f8318096f5ad2034028f7e86e152656adce5cc5425d0d",
+    "packet_R2.md": "b735f8c44d33449fda0c0516c5697adb5d88b168713381208661508b00022c7d",
+    "packet_R3.md": "cd7dd3986cd5d59ea30bb12b476a6e66376c32710d43ba28e8817a0303b8b008"
+  },
+  "n_items": 30,
+  "reviewers": [
+    "R1",
+    "R2",
+    "R3"
+  ],
+  "rule": {
+    "n_items": 30,
+    "n_most_frequent": 2,
+    "per_type": 4,
+    "rng_seed": 20261026,
+    "top_edges": 5
+  },
+  "send_to_reviewers": [
+    "answers_R1.csv",
+    "answers_R2.csv",
+    "answers_R3.csv",
+    "packet_R1.md",
+    "packet_R2.md",
+    "packet_R3.md"
+  ],
+  "what": "XR-29 review sample (spec 7): matched primary-window rings of the shipped detector, one per truth ring, stratified by true pattern type: per_type each where available, the remainder from the most frequent types"
+}

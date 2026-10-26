@@ -1,0 +1,5 @@
+ring_id,account_id,research_role,spec_role,research_hold_s,spec_hold_s,inflow,outflow,cause
+full-gine_causal-2-20,309496,holder,peripheral,,,86090.05,82988.64,undefined_hold_time
+full-gine_causal-2-73,306715,holder,peripheral,,,4559.72,6058.07,undefined_hold_time
+full-gine_causal-2-86,64417,holder,peripheral,,,11221.94,9171.93,undefined_hold_time
+full-gine_causal-2-87,367905,holder,peripheral,,,19428.85,16998.1,undefined_hold_time

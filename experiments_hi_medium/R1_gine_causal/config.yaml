@@ -1,0 +1,58 @@
+# RECONSTRUCTED 2026-10-02, not written by the trainer.
+#
+# models/tgn.py writes config.yaml only after its final test evaluation returns. On the C1 seed-1
+# run that call stalled on the 18.9 M-edge test split for 7.6 h and the process was stopped
+# (docs/V3_HIMEDIUM_PREREG.md, Amendment 5), so no config was emitted. Every field below is the
+# literal value passed on the command line for that run; nothing is inferred or defaulted except
+# dropout / final_dropout, which the invocation did not pass and which therefore took the
+# argparse defaults recorded here.
+#
+# Exact invocation:
+#   RINGSHIELD_PATHS=configs/paths_hi_medium.yaml python models/tgn.py \
+#     --data-dir data/processed_hi_medium --raw-dir data/raw_hi_medium \
+#     --out-dir experiments_hi_medium/R1_gine_causal \
+#     --arch gine --causal --window-s 1800 --split-days 4 6 \
+#     --epochs 100 --patience 20 --batch-size 8192 --lr 0.006 \
+#     --n-hidden 66 --n-gnn-layers 2 --w-ce1 1.0 --w-ce2 9.0 \
+#     --num-neighs 100 100 --emlps --ports --tds --reverse-mp --ego --gfp --seeds 1
+experiment: R1_gine_causal
+model: Multi-GINe v2
+arch: gine
+reconstructed: true
+reconstructed_reason: trainer stopped during final test evaluation; see Amendment 5
+adaptations:
+- edge_MLPs
+- ports
+- time_deltas
+- reverse_MP
+- ego_IDs
+- GFP_features
+dataset: AMLworld HI-Medium
+split: forced day boundaries (--split-days)
+split_days:
+- 4
+- 6
+seeds:
+- 1
+epochs: 100
+patience: 20
+batch_size: 8192
+lr: 0.006
+n_hidden: 66
+n_gnn_layers: 2
+dropout: 0.01
+final_dropout: 0.1
+w_ce1: 1.0
+w_ce2: 9.0
+num_neighbors:
+- 100
+- 100
+n_parameters: 148812
+causal_sampling: true
+loader_route: fallback
+loader_window_s: 1800
+dry_run: false
+early_stop_epoch: 31
+best_epoch: 11
+best_val_f1: 0.3782
+best_threshold: 0.56

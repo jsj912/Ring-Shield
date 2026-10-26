@@ -1,0 +1,131 @@
+{
+  "request": {
+    "excluded_edges": [],
+    "excluded_members": [
+      64105
+    ],
+    "ring_id": "full-gine_causal-1-0",
+    "tenant_id": 12
+  },
+  "response": {
+    "account_weights": [
+      {
+        "account_id": 508502,
+        "hold_time_s": null,
+        "inflow": 0.0,
+        "outflow": 15103.848804265981,
+        "role": "source",
+        "w_account": 0.8
+      },
+      {
+        "account_id": 389499,
+        "hold_time_s": null,
+        "inflow": 8001.417843797288,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.6845236538260688
+      },
+      {
+        "account_id": 108227,
+        "hold_time_s": null,
+        "inflow": 5593.414567071814,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.6700300375544735
+      },
+      {
+        "account_id": 235443,
+        "hold_time_s": null,
+        "inflow": 1509.0163933968784,
+        "outflow": 0.0,
+        "role": "sink",
+        "w_account": 0.6454463086194576
+      }
+    ],
+    "edge_weights": [
+      {
+        "edge_id": 4567399,
+        "w_flow": 0.5297601920867575,
+        "w_loo": 1.0,
+        "w_score": 1.0,
+        "w_total": 0.811904076834703
+      },
+      {
+        "edge_id": 4379277,
+        "w_flow": 0.37033041309920905,
+        "w_loo": 1.0,
+        "w_score": 1.0,
+        "w_total": 0.7481321652396836
+      },
+      {
+        "edge_id": 4928763,
+        "w_flow": 0.09990939481403356,
+        "w_loo": 1.0,
+        "w_score": 1.0,
+        "w_total": 0.6399637579256134
+      }
+    ],
+    "evidence_summary": "{\"clauses\": [\"head_untyped\", \"money\", \"closure\", \"evidence\", \"features_both\", \"banks\"], \"slots\": {\"bank_list\": \"National Bank of the East, Germany Bank #65, Netherlands Bank #195 +1 more\", \"ccy0\": \"US Dollar\", \"closure_pct\": \"100\", \"features_down\": \"the amount received, the hour of the day\", \"features_up\": \"the payment method (ACH)\", \"n_banks\": \"4\", \"n_edges\": \"3\", \"n_members\": \"4\", \"top_edges\": \"508502→389499 (8,000, weight 0.81); 508502→108227 (5,590, weight 0.75); 508502→235443 (1,510, weight 0.64)\", \"total\": \"15,100\", \"window\": \"23.9 h\"}, \"template\": \"FALLBACK\", \"values\": {\"bank_names\": [\"National Bank of the East\", \"Germany Bank #65\", \"Netherlands Bank #195\", \"Switzerland Bank #20\"], \"banks\": [12, 22, 28726, 137218], \"closure\": 1.0, \"closure_partial\": false, \"closure_raw\": 1.0, \"currency_hub\": 0, \"currency_hub_name\": \"US Dollar\", \"currency_unconvertible\": [1], \"currency_unconvertible_names\": [\"Bitcoin\"], \"duration_s\": 85980.0, \"flow_partial\": false, \"hold_median_s\": null, \"mules\": [], \"n_edges\": 3, \"n_members\": 4, \"p_type\": null, \"self_payments_skipped\": 0, \"shape\": {\"depth\": 1, \"gs_hub\": null, \"gs_hub_role\": null, \"gs_n_in\": null, \"gs_n_out\": null, \"has_cycle\": false, \"in_hub\": 108227, \"in_hub_role\": \"sink\", \"n_in\": 1, \"n_out\": 3, \"n_pairs\": 0, \"out_hub\": 508502, \"out_hub_role\": \"source\"}, \"sinks\": [389499, 108227, 235443], \"sources\": [508502], \"top_edges\": [{\"amount_ccy0\": 8001.417843797288, \"currency\": 2, \"currency_name\": \"Euro\", \"edge_id\": 4567399, \"from_id\": 508502, \"to_id\": 389499, \"w_total\": 0.811904076834703}, {\"amount_ccy0\": 5593.414567071814, \"currency\": 2, \"currency_name\": \"Euro\", \"edge_id\": 4379277, \"from_id\": 508502, \"to_id\": 108227, \"w_total\": 0.7481321652396836}, {\"amount_ccy0\": 1509.0163933968784, \"currency\": 11, \"currency_name\": \"Swiss Franc\", \"edge_id\": 4928763, \"from_id\": 508502, \"to_id\": 235443, \"w_total\": 0.6399637579256134}], \"top_features\": [{\"detail\": \"ACH\", \"feature\": \"Payment Format\", \"mean_shap\": 2.4992849826812744}, {\"detail\": null, \"feature\": \"Amount Received\", \"mean_shap\": -1.5402231216430664}, {\"detail\": null, \"feature\": \"hour_of_day\", \"mean_shap\": -1.329464813073476}], \"topology_type\": \"UNKNOWN\", \"total_ccy0\": 15103.84880426598, \"type_source\": \"rings\", \"undetermined\": []}}",
+    "explainer_version": "0.5.0-review",
+    "feature_weights": [
+      {
+        "feature_name": "Payment Format",
+        "mean_shap": 2.4992849826812744,
+        "top_edge_id": 4567399
+      },
+      {
+        "feature_name": "Amount Received",
+        "mean_shap": -1.5402231216430664,
+        "top_edge_id": 4379277
+      },
+      {
+        "feature_name": "hour_of_day",
+        "mean_shap": -1.329464813073476,
+        "top_edge_id": 4379277
+      },
+      {
+        "feature_name": "fan_out",
+        "mean_shap": -1.303870439529419,
+        "top_edge_id": 4379277
+      },
+      {
+        "feature_name": "scatter_gather",
+        "mean_shap": 1.2320854266484578,
+        "top_edge_id": 4567399
+      },
+      {
+        "feature_name": "Amount Sent",
+        "mean_shap": -1.1796913941701253,
+        "top_edge_id": 4928763
+      },
+      {
+        "feature_name": "deg_in_dst",
+        "mean_shap": -0.8293961683909098,
+        "top_edge_id": 4928763
+      },
+      {
+        "feature_name": "deg_out_dst",
+        "mean_shap": -0.7782720526059469,
+        "top_edge_id": 4928763
+      },
+      {
+        "feature_name": "deg_out_src",
+        "mean_shap": -0.6985892653465271,
+        "top_edge_id": 4928763
+      },
+      {
+        "feature_name": "day_of_week",
+        "mean_shap": -0.678569495677948,
+        "top_edge_id": 4567399
+      }
+    ],
+    "latency_ms": 414,
+    "narrative": "Suspected ring: 4 accounts, 3 transactions over 23.9 h. Total moved: 15,100 (US Dollar). Across the ring, 100% of the sources' money reached the sinks. Strongest evidence: 508502→389499 (8,000, weight 0.81); 508502→108227 (5,590, weight 0.75); 508502→235443 (1,510, weight 0.64). Signals from a reference transaction-level model that raised suspicion: the payment method (ACH); that lowered it: the amount received, the hour of the day. The accounts span 4 banks (National Bank of the East, Germany Bank #65, Netherlands Bank #195 +1 more).",
+    "provenance": "{\"account_weight_shares\": {\"degree_share\": 0.5, \"score_share\": 0.5}, \"aggregator_id\": \"full\", \"currency_policy\": \"converted\", \"edges_removed_with_members\": [4973391, 4973392], \"evidence_edges\": \"member edges minus currency conversions\", \"excluded_edges\": [], \"excluded_members\": [64105], \"explainer_version\": \"0.5.0-review\", \"feature_model\": \"experiments/R2_b0/gfpxgb_scores/model_seed1.json\", \"feature_scope\": \"tenant_view\", \"feature_scope_note\": \"SHAP graph features recomputed on the tenant's visible edges; less faithful to the reference model, trained on full-graph features\", \"features_degraded\": false, \"flow_amount_column\": \"amount_received\", \"flow_partial\": false, \"flow_total_ccy0\": 15103.84880426598, \"fx_rates\": {\"path\": \"contract/fx_rates.json\", \"sha256\": \"ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6\"}, \"fx_rates_sha256\": \"ee0e8a23b6037e4aeceb44b6874a70d7b46114559551fd2cf94a3842bb8d4ac6\", \"lambda_split\": 0.5, \"loo\": {\"c0\": 1.0, \"reproduces_shipped_ring\": false, \"shipped_confidence\": 1.0}, \"loo_edges\": \"included\", \"loo_nan_policy\": \"full_loss\", \"mixing\": {\"alpha\": 0.6, \"beta\": 0.0, \"gamma\": 0.4}, \"mixing_source\": \"tuned on validation (XR-05)\", \"model_id\": \"gine_causal\", \"n_conversions_dropped\": 3, \"n_shap_edges\": 3, \"n_unconvertible_edges\": 0, \"n_undetermined_accounts\": 0, \"name_maps\": {\"bank\": \"contract/bank_names.json\", \"currency\": \"contract/currency_map.json\", \"payment_format\": \"contract/payment_format_map.json\"}, \"regenerated\": true, \"rerun\": {\"affinity_dir\": \"experiments/R4_partition/affinity\", \"aggregator_id\": \"full\", \"cut\": 0.5, \"embeddings\": \"experiments/R1_gine_causal/embeddings_test_seed1.parquet\", \"gfp\": \"data/processed/amlworld_gfp_features_test.parquet\", \"method\": \"average\", \"min_size\": 3, \"partition_config\": \"experiments/R4_partition/runs/average/seed1/config.yaml\"}, \"rings_schema_version\": 1, \"roles_source\": \"ringshield.roles.account_roles(edges='included', currency='converted')\", \"scope\": \"tenant\", \"seed\": 1, \"tenant_id\": 12, \"topology_source\": \"rings\", \"visibility\": \"edges with from_bank or to_bank == tenant_id\", \"w_flow_mode\": \"share of the ring's total converted to currency 0\"}",
+    "ring_id": "full-gine_causal-1-0",
+    "tenant_id": 12,
+    "topology_prob": null,
+    "topology_type": "UNKNOWN"
+  },
+  "what": "A real POST /regenerate to python -m explainability.serve (explainer 0.5.0-review): bank 12, ring full-gine_causal-1-0, one member excluded. The response is byte-for-byte what the service returned; a fresh call returns the same except latency_ms (measured time)."
+}

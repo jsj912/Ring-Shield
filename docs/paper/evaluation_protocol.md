@@ -49,10 +49,24 @@ The threshold is **fixed, never tuned**. Results at Jaccard 0.3 and 0.7 are repo
 sensitivity sweep in every table's appendix, precisely so that the headline cannot be read as the
 best of three.
 
-`min_size = 3`: predictions smaller than three accounts are discarded. This is a real ceiling and
-we quantify it rather than hide it — **28 %** of primary-window truth rings (48.6 of 174) have
-fewer than three *visible* members, and 1,359 of those 1,387 ring-instances have exactly two. Ring
-recall is therefore capped at about **0.72**, against 0.46 achieved.
+`min_size = 3`: predictions smaller than three accounts are discarded.
+
+> **Correction, 2026-09-30 (V3.2b).** This paragraph previously read: *"This is a real ceiling …
+> Ring recall is therefore capped at about 0.72, against 0.46 achieved."* **That is wrong and is
+> retracted.** `min_size` constrains the **unrestricted** prediction, but a prediction is matched
+> after being **restricted to the evaluation window**, and the restricted set is not subject to
+> the bound: 13 of 106 restricted predictions per seed have fewer than three members (minimum 1).
+> A 2-member truth ring is therefore matched by a 2-member restricted prediction at Jaccard 1.0,
+> or by a 3-member one at 2/3. Measured over the 5 shipped runs, **11.4 of the 80.2 matched rings
+> per seed (14 %) have fewer than three visible members**, one of them with a single member. The
+> old figure was computed as (174 − 48.6)/174, i.e. by subtracting the rings this pipeline left
+> unmatched — an outcome, not a bound.
+
+**34 %** of primary-window truth rings (60 of 174) have fewer than three *visible* members — 58
+with exactly two and 2 with one — and the pipeline matches 11.4 of them per seed anyway. The
+share with ≥ 3 visible members, **114/174 = 0.655**, is reported as a **comparator**, not a
+ceiling: it is the denominator of `Ring-Recall≥3`, which is the statistic to quote when the
+question is "how much of the reachable population did we get". Achieved ring recall is 0.46.
 
 ### The matching threshold is a methodological choice, not a neutral one
 
@@ -242,7 +256,7 @@ the measurement supports it in both AMLworld releases.
 But a two-day window **fragments long patterns**. Scoring a ring against the accounts of its
 in-window transactions means a pattern spread over more than two days can present as two or more
 disconnected components, and no expansion policy operating inside the window can bridge them.
-Measured: **80.7 %** of the missing members of under-covered rings sit in a piece with no path to
+Measured: **81.5 %** of the missing members of under-covered rings sit in a piece with no path to
 the recovered fragment. That caps ring recall in a way a longer window would not.
 
 Both facts are ours and both are measured, so the honest position is that **AMLworld's day split
@@ -250,9 +264,9 @@ offers no window that is both clean and long enough**: the tail is degenerate, a
 too short for long topologies.
 
 The control sharpens this rather than resolving it. Widening to the whole ten-day split drops
-disconnection **80.7 % → 51.7 %** and eliminates it for CYCLE (55 % → 0 %) and RANDOM — so for those
+disconnection **81.5 % → 52.3 %** and eliminates it for CYCLE (58 % → 0 %) and RANDOM — so for those
 patterns the fragmentation *is* an artefact of our two-day choice. **But STACK stays disconnected at
-99.6 % even across the whole test period.** For the pattern that dominates the class, the break is
+100 % even across the whole test period.** For the pattern that dominates the class, the break is
 not in our window at all: it is in the 60/20/20 **split**, which severs long chains at the train/val
 and val/test boundaries. A longer reporting window would not recover them; only a different split,
 or a scope rule that admits out-of-window member edges, would.
@@ -268,7 +282,7 @@ the window, so they are outside the ring's definition as well.
 
 The alternative is a scope rule that admits **out-of-window member edges** into the ring's account
 set while still requiring the method to work from in-window evidence. Under such a rule STACK's
-rings would be single connected objects again and the 99.6 % disconnection would largely vanish —
+rings would be single connected objects again and the 100 % disconnection would largely vanish —
 we know this because the disconnection is measured against the ring's own edge set, and the edges
 that reconnect it exist; they simply sit in another split.
 
@@ -284,7 +298,7 @@ Neither rule is obviously right, and the trade is real:
 
 We chose the first and report its cost: **28 %** of primary rings below `min_size`, **19 %** untouched
 by any detector edge, and of the touched-but-unmatched, the larger half unreachable by connectivity
-rather than declined by policy — **99.6 % of STACK's missing members still disconnected across the
+rather than declined by policy — **100 % of STACK's missing members still disconnected across the
 full ten-day test period**. Every one of those is a property of observing a multi-day process
 through a windowed, split-bounded, set-overlap metric.
 

@@ -1,0 +1,17 @@
+experiment_id: "E2b"
+name: "xgboost_elliptic"
+dataset: "elliptic"
+feature_set: "AF"
+split: "chronological_1-34_train_35-49_test"
+val_split: "chronological_1-29_train_proper_30-34_val"
+model: "XGBClassifier"
+hyperparameters:
+  n_estimators: 200
+  scale_pos_weight: 8.189
+  max_depth: 4
+  learning_rate: 0.1
+  subsample: 0.8
+  colsample_bytree: 0.8
+  decision_threshold: 0.5627
+random_seed: 42
+notes: No direct Weber et al. (2019) published number for XGBoost specifically.Target is "comparable to or better than E2a Random Forest" (0.822). This model is also reused as-is in the Phase 9 hybrid cascade (FR04.3).

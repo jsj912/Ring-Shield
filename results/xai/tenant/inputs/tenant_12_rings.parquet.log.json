@@ -1,0 +1,86 @@
+{
+  "created_utc": "2026-10-17T07:56:46+00:00",
+  "git_commit": "e6e445dc6b7fe20abf97145043d4236c4998f5d4",
+  "command": "run",
+  "scores": "E:\\New folder\\Ring-Shield\\contract\\out\\scored_edges_gine_causal_1.parquet",
+  "edge_subset": "E:\\New folder\\Ring-Shield\\platform\\out\\tenant_12_edge_ids.parquet",
+  "n_edges_in_file": 863900,
+  "n_edge_subset_ids": 20039,
+  "n_edges_used": 20039,
+  "n_scored": 20039,
+  "model_dir": "E:\\New folder\\Ring-Shield\\models\\artifacts\\full_gine_causal_seed1",
+  "model": {
+    "model_id": "gine_causal",
+    "seed": 1,
+    "aggregator": "full",
+    "version": 1,
+    "feature_set": "trailing_closescycle"
+  },
+  "aggregator": "full",
+  "params": {
+    "seed_frac_pct": 0.128966630594296,
+    "min_size": 3,
+    "max_gap_hours": null,
+    "delta_t_h": 24.0,
+    "p_min": 0.7,
+    "max_hops": 2,
+    "max_events_per_query": 500,
+    "policy_kind": "model",
+    "partition": "average",
+    "partition_cell": {
+      "cut": 0.5
+    },
+    "cluster_seed": 0,
+    "head_constants": [
+      0.0796026811003685,
+      0.01074153557419777
+    ]
+  },
+  "selection_column": "score_raw",
+  "quantile_cut": {
+    "q": 0.9295209672451462,
+    "rule": "strict: score_raw > q, computed within the edges given (after --edge-subset)",
+    "n_seeds": 26,
+    "n_on_boundary": 0
+  },
+  "n_rings": 5,
+  "n_seed_edges": 19,
+  "n_member_edges": 25,
+  "n_expanded_edges": 0,
+  "expansion": {
+    "n_rings_closure_nan": 0,
+    "n_rings_no_expansion_probs": 0,
+    "method": "average",
+    "n_included": 26,
+    "n_seeds": 26,
+    "n_components": 12,
+    "n_clusters": 12,
+    "n_dropped_edges": 0,
+    "n_pairs": 35,
+    "n_rings": 5,
+    "n_rings_gt100": 0,
+    "components_split": 0
+  },
+  "gfp": "E:\\New folder\\Ring-Shield\\data\\processed\\amlworld_gfp_features_test.parquet",
+  "embeddings": "E:\\New folder\\Ring-Shield\\experiments\\R1_gine_causal\\embeddings_test_seed1.parquet",
+  "partition": "average",
+  "partition_cell": {
+    "cut": 0.5
+  },
+  "ring_id_rule": "f'{aggregator}-{model_id}-{seed}-{idx}'",
+  "tenant_rule": "explicit tenant_id=12 for tenant-scoped edge subset",
+  "out": "E:\\New folder\\Ring-Shield\\platform\\out\\tenant_12_rings.parquet",
+  "split": "test",
+  "platform_config": {
+    "path": "E:\\New folder\\Ring-Shield\\platform\\config.yaml",
+    "active_model_id": "gine_causal",
+    "active_seed": 1,
+    "seed_score_cutoff": 0.9295209672451074,
+    "seed_score_cutoff_source": "contract/out/scored_edges_gine_causal_1.parquet.log.json:seed_rule.q",
+    "seed_score_column": "score_raw",
+    "effective_seed_frac_pct": 0.12896663059429603,
+    "cli_quantile_q": 0.9295209672451462,
+    "n_seeds": 26,
+    "tenant_assignment_deviation": "Tenant-scoped runs stamp the requested tenant_id explicitly. This differs from contract/schema.py's sender bank of earliest seed edge, because the same cross-bank transaction and tenant-visible ring may be copied to both endpoint banks."
+  }
+}

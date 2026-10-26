@@ -1,0 +1,12 @@
+{
+ "model_version_id": 14,
+ "component": "affinity",
+ "version_tag": "v0.3.1-r11a0090",
+ "trained_at": "2026-10-24T09:41:12Z",
+ "train_label_count": 7,
+ "holdout_ring_f1": 0.6556,
+ "promoted": false,
+ "shared": false,
+ "gate_reason": "holdout ring_f1 0.6556 < current 0.6883 - 0.005",
+ "retrain_run_id": "r11a0090-cycle6"
+}

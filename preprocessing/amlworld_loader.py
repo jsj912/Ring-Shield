@@ -162,35 +162,72 @@ def parse_patterns(patterns_path: Path, account_map: dict, first_ts: float):
     return df_rings
 
 
-def rebuild_account_map(raw_trans_path: Path):
-    """Re-read the raw HI-Small_Trans.csv and rebuild the exact account_map
-    and first_ts that format_kaggle_files.py used, so pattern transactions
-    can be matched to formatted_transactions.csv by (from_id, to_id, Timestamp).
+def rebuild_account_map(raw_trans_path: Path, legacy: bool = False):
+    """Rebuild the exact account_map and first_ts that format_kaggle_files.py used, so pattern
+    transactions can be matched to formatted_transactions.csv by (from_id, to_id, Timestamp).
+
+    Step V3.2: vectorised with Arrow dictionary encoding, which numbers keys in order of first
+    appearance -- the same rule the original's `get_dict_val` applies, with the two account
+    columns interleaved per row so `from` is numbered before `to`. The original walked the CSV
+    with `iterrows`, which is ~30 minutes on HI-Small's 5.1 M rows and does not finish in any
+    reasonable time on HI-Medium's 31.9 M. `legacy=True` keeps the old path for comparison;
+    `preprocessing/tests/test_account_map.py` asserts the two agree on HI-Small.
     """
-    print("  Rebuilding account map from raw Trans CSV (this may take a moment)...")
-    raw = pd.read_csv(raw_trans_path)
+    if legacy:
+        print("  Rebuilding account map from raw Trans CSV (legacy iterrows path)...")
+        raw = pd.read_csv(raw_trans_path)
+        account_map, first_ts = {}, None
+        for i, row in raw.iterrows():
+            dt_obj = dt_class.strptime(str(row["Timestamp"]), "%Y/%m/%d %H:%M")
+            if first_ts is None:
+                first_ts = dt_class(dt_obj.year, dt_obj.month, dt_obj.day).timestamp() - 10
+            from_acc = str(row["From Bank"]) + str(row.iloc[2])
+            to_acc = str(row["To Bank"]) + str(row.iloc[4])
+            if from_acc not in account_map:
+                account_map[from_acc] = len(account_map)
+            if to_acc not in account_map:
+                account_map[to_acc] = len(account_map)
+        print(f"  Account map rebuilt: {len(account_map)} unique accounts")
+        return account_map, first_ts
 
-    account_map = {}
-    first_ts = None
+    import pyarrow as pa
+    import pyarrow.compute as pc
+    import pyarrow.csv as pcsv
+    print("  Rebuilding account map from raw Trans CSV (vectorised)...")
+    tbl = pcsv.read_csv(raw_trans_path,
+                        read_options=pcsv.ReadOptions(block_size=1 << 28),
+                        convert_options=pcsv.ConvertOptions(column_types={
+                            "Timestamp": pa.string(), "From Bank": pa.string(),
+                            "To Bank": pa.string()}))
+    # The header carries "Account" twice. Some pyarrow versions keep both names, others
+    # de-duplicate the second to "Account.1", so the columns are taken POSITIONALLY -- which is
+    # also what the original does (`row.iloc[2]`, `row.iloc[4]`).
+    acc_i = (2, 4)
+    assert tbl.column_names[1] == "From Bank" and tbl.column_names[3] == "To Bank", \
+        tbl.column_names
 
-    for i, row in raw.iterrows():
-        dt_obj = dt_class.strptime(str(row["Timestamp"]), "%Y/%m/%d %H:%M")
-        if first_ts is None:
-            start_time = dt_class(dt_obj.year, dt_obj.month, dt_obj.day)
-            first_ts = start_time.timestamp() - 10
+    def pandas_str(arr):
+        """pandas parses a wholly-numeric column to int, and str() of that drops leading zeros."""
+        arr = arr.combine_chunks()
+        try:
+            return pc.cast(pc.cast(arr, pa.int64()), pa.string())
+        except pa.ArrowInvalid:
+            return arr
 
-        # Must match format_kaggle_files.py exactly: str(row["From Bank"]) + str(row.iloc[2])
-        # pandas may read bank IDs as int (stripping leading zeros) or str depending
-        # on the column dtype — str() on an int strips leading zeros, which is fine
-        # as long as the pattern parser does the same normalization.
-        from_acc = str(row["From Bank"]) + str(row.iloc[2])
-        to_acc = str(row["To Bank"]) + str(row.iloc[4])
-
-        if from_acc not in account_map:
-            account_map[from_acc] = len(account_map)
-        if to_acc not in account_map:
-            account_map[to_acc] = len(account_map)
-
+    fk = pc.binary_join_element_wise(pandas_str(tbl.column("From Bank")),
+                                     pandas_str(tbl.column(acc_i[0])), "")
+    tk = pc.binary_join_element_wise(pandas_str(tbl.column("To Bank")),
+                                     pandas_str(tbl.column(acc_i[1])), "")
+    n = tbl.num_rows
+    idx = np.empty(2 * n, dtype=np.int64)
+    idx[0::2] = np.arange(n)
+    idx[1::2] = np.arange(n) + n
+    enc = pa.concat_arrays([fk, tk]).take(idx).dictionary_encode()
+    keys = enc.dictionary.to_pylist()
+    account_map = {k: i for i, k in enumerate(keys)}
+    first = tbl.column("Timestamp")[0].as_py()          # the FIRST ROW, raw order, as before
+    dt_obj = dt_class.strptime(first, "%Y/%m/%d %H:%M")
+    first_ts = dt_class(dt_obj.year, dt_obj.month, dt_obj.day).timestamp() - 10
     print(f"  Account map rebuilt: {len(account_map)} unique accounts")
     return account_map, first_ts
 
@@ -274,6 +311,12 @@ def main():
                         help="row-sampling seed for --dry-run; default configs/seeds.yaml[0]")
     parser.add_argument("--dry-run", action="store_true",
                         help=f"process a {DRY_RUN_FRAC:.0%} row sample and write to <out-dir>/dryrun/")
+    parser.add_argument("--split-days", type=int, nargs=2, default=None, metavar=("I", "J"),
+                        help="force the split day boundaries: train=[0,I), val=[I,J), test=[J,end). "
+                             "Default is the automatic 60/20/20 day search. Step V3.2 added this "
+                             "because HI-Medium's split is chosen by ring observability "
+                             "(docs/V3_OBSERVABILITY.md), not by edge proportion, and its clean "
+                             "region gives 28.7/12.1/59.2 %% rather than 60/20/20.")
     args = parser.parse_args()
 
     if args.dry_run:
@@ -337,21 +380,27 @@ def main():
 
     import itertools
     d_ts = np.array(daily_counts)
-    split_per = [0.6, 0.2, 0.2]
-    best_score = float("inf")
-    best_ij = (0, 0)
-    for i, j in itertools.combinations(range(len(d_ts)), 2):
-        if j <= i:
-            continue
-        split_totals = [d_ts[:i].sum(), d_ts[i:j].sum(), d_ts[j:].sum()]
-        total = split_totals[0] + split_totals[1] + split_totals[2]
-        if total == 0:
-            continue
-        split_props = [v / total for v in split_totals]
-        score = max(abs(v - t) / t for v, t in zip(split_props, split_per))
-        if score < best_score:
-            best_score = score
-            best_ij = (i, j)
+    if args.split_days is not None:
+        best_ij = tuple(int(x) for x in args.split_days)
+        assert 0 < best_ij[0] < best_ij[1] <= len(d_ts), f"bad --split-days {best_ij} for {len(d_ts)} days"
+        print(f"  --split-days given: train=[0,{best_ij[0]}), val=[{best_ij[0]},{best_ij[1]}), "
+              f"test=[{best_ij[1]},{len(d_ts)}) -- the 60/20/20 day search is skipped")
+    else:
+        split_per = [0.6, 0.2, 0.2]
+        best_score = float("inf")
+        best_ij = (0, 0)
+        for i, j in itertools.combinations(range(len(d_ts)), 2):
+            if j <= i:
+                continue
+            split_totals = [d_ts[:i].sum(), d_ts[i:j].sum(), d_ts[j:].sum()]
+            total = split_totals[0] + split_totals[1] + split_totals[2]
+            if total == 0:
+                continue
+            split_props = [v / total for v in split_totals]
+            score = max(abs(v - t) / t for v, t in zip(split_props, split_per))
+            if score < best_score:
+                best_score = score
+                best_ij = (i, j)
 
     i_day, j_day = best_ij
     t1 = i_day * 24 * 3600
