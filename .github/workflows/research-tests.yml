@@ -16,10 +16,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install the research lock (CPU torch on the runner; pywinpty is Windows-only)
+      # The lock is the CUDA 12.1 build; the runner has no GPU, so torch and the PyG extensions
+      # (torch_scatter, torch_sparse) are swapped for the CPU builds of the same versions.
+      - name: Install the research lock (CPU torch and PyG wheels; pywinpty is Windows-only)
         run: |
           grep -v -i '^pywinpty==' requirements-lock.txt \
-            | sed -e 's/+cu121//' -e 's#download.pytorch.org/whl/cu121#download.pytorch.org/whl/cpu#' \
+            | sed -e 's#data.pyg.org/whl/torch-2.5.1+cu121.html#data.pyg.org/whl/torch-2.5.1+cpu.html#' \
+                  -e 's#download.pytorch.org/whl/cu121#download.pytorch.org/whl/cpu#' \
+                  -e 's/+pt25cu121/+pt25cpu/' \
+                  -e 's/^torch==2.5.1+cu121$/torch==2.5.1/' \
             > /tmp/requirements-ci.txt
           python -m pip install --upgrade pip
           python -m pip install -r /tmp/requirements-ci.txt

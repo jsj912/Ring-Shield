@@ -2,6 +2,7 @@
 # experiments/R4_partition/runs/average/seed1/environment.txt (Python 3.12.10, Windows 11). R1 and R3 recorded the same versions,
 # without lightgbm and python-louvain. Install with scripts/bootstrap.ps1.
 --extra-index-url https://download.pytorch.org/whl/cu121
+--find-links https://data.pyg.org/whl/torch-2.5.1+cu121.html
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.3
 aiosignal==1.4.0

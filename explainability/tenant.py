@@ -29,7 +29,7 @@ import hashlib
 import json
 import math
 import sys
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import numpy as np
 import pandas as pd
@@ -142,7 +142,7 @@ def rings_scores_source(cfg: dict, bank: int) -> Path:
     recorded = Path(recorded)
     if recorded.exists():
         return recorded
-    if recorded.name == shipped.name:
+    if PureWindowsPath(recorded).name == shipped.name:   # a log from Windows: split on \ too
         return shipped
     raise FileNotFoundError(f"bank {bank}: the rings were built from {recorded}, which is not here")
 
