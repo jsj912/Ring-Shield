@@ -42,7 +42,7 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-80" />
-        <div className="grid gap-4 min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
+        <div className="grid grid-cols-1 gap-4 min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
           <Skeleton className="h-[520px]" /><Skeleton className="h-[520px]" /><Skeleton className="h-[520px]" />
         </div>
       </div>
@@ -79,7 +79,7 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
       </PageHeader>
       {session.role === "admin" ? <ReadOnlyBanner /> : null}
       <RegenerationStatus tenantId={tenantId} ringId={ringId} explanation={explanation.data} />
-      <div className="grid items-start gap-4 min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
+      <div className="grid grid-cols-1 items-start gap-4 min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
         <NarrativePanel ring={detail} explanation={explanation.data} explanationState={explanationState} history={history.data} />
         <GraphPanel tenantId={tenantId} ringId={ringId} correction={correction} />
         <EvidencePanel

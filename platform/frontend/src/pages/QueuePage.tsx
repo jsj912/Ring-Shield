@@ -92,7 +92,7 @@ function FilterBar({ applied, onApply }: { applied: RingFilters; onApply: (filte
           <Label htmlFor="start-to">Start to</Label>
           <Input id="start-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
-        <div className="col-span-2 flex items-center gap-3 md:col-span-1 2xl:col-span-1">
+        <div className="col-span-2 flex flex-wrap items-center gap-3 md:col-span-1 2xl:col-span-1">
           <label className="flex h-9 items-center gap-2 text-xs font-medium whitespace-nowrap">
             <Switch checked={draft.cross_bank_only} onCheckedChange={(cross_bank_only) => setDraft({ ...draft, cross_bank_only })}
               aria-label="Cross-bank only" />
