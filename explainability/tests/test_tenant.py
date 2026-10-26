@@ -14,7 +14,7 @@ from explainability.contract_io import load_config, repo_path
 from explainability.tenant import GFP_COLS, adjacency, gfp_check, history, sha256, tenant_paths
 
 CFG = load_config()
-BANKS = CFG["tenants"]["banks"]
+BANKS = [20, 12]    # the committed L4 tenant handoff; the config may list more banks (demo.ps1 -AllRingBanks)
 INPUTS = repo_path("results/xai/tenant/inputs")
 
 
