@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState, Notice, VerdictBadge } from "@/components/shared";
 import { fmtAmount, fmtAsReceived, fmtClosure, fmtTime, fmtTimeUtc } from "@/lib/formatters";
+import { latestCorrection } from "./verdict-state";
 
 export function NarrativePanel({ ring, explanation, explanationState, history }: {
   ring: RingDetail;
@@ -15,9 +16,10 @@ export function NarrativePanel({ ring, explanation, explanationState, history }:
   history: VerdictHistoryPage | undefined;
 }) {
   const [copied, setCopied] = useState(false);
+  const correction = latestCorrection(ring, history);
   const rows: [string, ReactNode][] = [
     ["Type", `${ring.topology_type} (p = ${fmtAsReceived(ring.topology_prob)})`],
-    ["Members", String(ring.n_members)],
+    ["Members", correction ? `${ring.n_members} detected, ${correction.members} after the partial verdict` : String(ring.n_members)],
     ["Edges", String(ring.n_edges)],
     ["Total amount", fmtAmount(ring.total_amount, ring.total_currency, ring.total_partial)],
     ["Window", <span title={`${fmtTimeUtc(ring.start_time)} → ${fmtTimeUtc(ring.end_time)}`}>

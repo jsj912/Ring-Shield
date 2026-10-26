@@ -70,7 +70,8 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
           <Badge variant="outline">{detail.topology_type}</Badge>
           <Badge variant="outline">Confidence {fmtWeight(detail.confidence)}</Badge>
           {correction ? (
-            <Badge variant="outline">{correction.members} of {detail.n_members} members · {correction.edges} of {detail.n_edges} edges (corrected)</Badge>
+            // n_edges counts transactions while edge ids also list conversion legs, so only members are compared.
+            <Badge variant="outline">{correction.members} of {detail.n_members} members (corrected)</Badge>
           ) : (
             <Badge variant="outline">{detail.n_members} members · {detail.n_edges} edges</Badge>
           )}

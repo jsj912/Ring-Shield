@@ -64,7 +64,6 @@ export function useRecordVerdict(tenantId: number, ringId: string) {
 /** What the latest verdict removed, when it is a partial one; the screen then shows the corrected ring. */
 export interface Correction {
   members: number;
-  edges: number;
   removedAccounts: Set<number>;
   removedEdges: Set<number>;
 }
@@ -75,7 +74,7 @@ export function latestCorrection(ring: RingDetail, history: VerdictHistoryPage |
   const members = new Set(latest.corrected_members);
   const edges = new Set(latest.corrected_edges);
   return {
-    members: members.size, edges: edges.size,
+    members: members.size,
     removedAccounts: new Set(ring.member_accounts.filter((id) => !members.has(id))),
     removedEdges: new Set(ring.member_edges.filter((id) => !edges.has(id))),
   };
