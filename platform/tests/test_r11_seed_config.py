@@ -17,6 +17,6 @@ from settings import load_platform_config  # noqa: E402
 def test_a_loaded_platform_config_dumps_as_a_seed_config():
     if not (r11_seed_config.REPO_ROOT / "contract/out/scored_edges_gine_causal_1.parquet.log.json").is_file():
         pytest.skip("seed-1 score log is not present")
-    config = r11_seed_config.seed_config(1, load_platform_config())
+    config = r11_seed_config.seed_config(1, load_platform_config(r11_seed_config.BASE_CONFIG))
     assert "_path" not in config
     assert yaml.safe_load(yaml.safe_dump(config, sort_keys=False))["active_seed"] == 1
