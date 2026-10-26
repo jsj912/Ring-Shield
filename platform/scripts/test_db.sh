@@ -27,7 +27,7 @@ python -m pytest platform/tests -rA > /tmp/ringshield-platform-pytest.log 2>&1
 pytest_status=$?
 set -e
 cat /tmp/ringshield-platform-pytest.log
-passed=$(sed -nE 's/.*([0-9]+) passed.*/\1/p' /tmp/ringshield-platform-pytest.log | tail -n 1)
+passed=$(sed -nE 's/.*[^0-9]([0-9]+) passed.*/\1/p' /tmp/ringshield-platform-pytest.log | tail -n 1)
 rls_count=$(sed -nE 's/.*RLS_POSTGRES_TESTS_EXECUTED=([0-9]+).*/\1/p' /tmp/ringshield-platform-pytest.log | tail -n 1)
 passed=${passed:-0}
 rls_count=${rls_count:-0}
