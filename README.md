@@ -1,16 +1,47 @@
 # RingShield
 
-RingShield detects money-laundering rings, groups of accounts working together, instead of flagging single transactions. A causal Multi-GINe graph neural network scores every transaction in the IBM AMLworld HI-Small dataset. The top-scoring ones seed candidate rings, which a learned policy then expands and partitions into separate laundering attempts. Each ring comes with account roles, a pattern type and a traceable explanation. The full pipeline reaches a ring-F1 of 0.589 at 0.82 precision. It raises recovery of ring members the detector never flags from 0.5% to 21%. It also shows that a stronger edge detector doesn’t produce better rings, and it documents dataset artefacts that inflate published AMLworld results.
+RingShield detects money-laundering **rings** — groups of accounts working together through
+fan-out, fan-in, gather-scatter, cycle and stack patterns — instead of flagging single
+transactions. A causal Multi-GINe graph neural network scores every transaction of the IBM
+AMLworld HI-Small dataset; the top-scoring ones seed candidate rings, which a learned policy
+expands and partitions into separate laundering attempts. Each ring carries account roles, a
+pattern type and a traceable explanation, and an investigator works the rings in a
+multi-bank dashboard. The full pipeline reaches ring-F1 **0.589** and raises recovery of ring
+members the detector never flags from 0.5 % to 21 % (`docs/FINDINGS.md` A).
 
-RingShield is a research prototype for detecting money-laundering *rings* — groups of
-accounts that move funds through cycles, fan-in/fan-out, scatter-gather and similar
-motifs — in transaction graphs. Rather than scoring transactions one at a time, it
-(1) scores every edge of a temporal transaction graph with a GNN that has been fed
-per-edge graph-motif (GFP) features, then (2) aggregates the highest-scoring edges into
-connected account groups and evaluates those groups against a ring ground truth. All
-experiments run on the IBM AMLworld **HI-Small** dataset with a day-based 60/20/20
-train/validation/test split; thresholds and hyper-parameters are selected on the
-validation split only.
+## What it looks like
+
+| Ring queue (analyst, bank 12) | Ring detail: the graph |
+|---|---|
+| ![Ring queue](docs/screenshots/02-ring-queue-light.png) | ![Ring graph](docs/screenshots/03-ring-detail-graph-light.png) |
+| **The L4 narrative** | **Administrator: tenant vs pooled (R10)** |
+| ![Narrative](docs/screenshots/05-ring-detail-narrative-light.png) | ![Admin](docs/screenshots/12-admin-light.png) |
+
+Every screen, in light and dark, with what each one shows: **[docs/SCREENSHOTS.md](docs/SCREENSHOTS.md)**.
+
+## Quickstart
+
+On Windows 11 with Python 3.12, Node.js 18+ and Docker Desktop installed, and the data in place
+(see [Data](#data)):
+
+```bash
+.\scripts\bootstrap.ps1
+.\scripts\demo.ps1 -FromProcessedData
+```
+
+The first creates the Python environments from exact pins; the second runs the whole chain —
+processed data → rings → L4 explanations → database → API → React dashboard — and prints the URL
+(http://localhost:5173) and the demo logins. Without `-FromProcessedData` it loads the seed-1
+rings and explanations already built. Stop it with `.\scripts\run-demo.ps1 -Down`.
+
+## Where things live
+
+- **Claims:** [`docs/FINDINGS.md`](docs/FINDINGS.md) — A: what the pipeline achieves, B: what it
+  does not, C: measurement findings about the dataset. Nothing in this README goes beyond it.
+- **Commands:** [`docs/REPRODUCE.md`](docs/REPRODUCE.md), including the end-to-end check of this
+  integration. **Traps:** [`docs/PITFALLS.md`](docs/PITFALLS.md).
+- **Experiment numbering:** E1–E3 are the Elliptic baselines (Phase 0–3, [`elliptic/`](elliptic/README.md)),
+  E5–E7 the AMLworld edge-level experiments, R1–R12 the ring-level ones.
 
 ## What is implemented
 
@@ -41,15 +72,15 @@ Traps live in **`docs/PITFALLS.md`**.
 
 | ID | What | Result |
 |---|---|---|
-| **R1** | detector, 5 seeds, causal | primary-window edge F1 0.495 ± 0.027 (whole test split 0.596 ± 0.069, inflated by the tail: C1/C2) |
-| **R2** | B0 ring baseline, 3 detectors | gine 0.521 ± 0.045, gfpxgb 0.343, density 0.014 |
+| **R1** | detector, 5 seeds, causal | primary-window edge F1 0.495 ± 0.027 (the whole test split reads higher, inflated by the tail: C1/C2) |
+| **R2** | B0 ring baseline, 3 detectors | gine 0.521 ± 0.045, density 0.014 |
 | **R3** | expansion: policy vs rule baselines vs ablations | proposed 0.582; **quiet-member recall 0.005 → 0.21** |
 | **R4** | partition: 5 methods + CSGM | full 0.589; the stage is **not** significant on this detector |
 | **R5** | roles and topology typing | head **0.599** [0.549, 0.648] vs rule 0.551 [0.499, 0.601] on the primary window (401 matched rings); 0.594 on `whole`: typing is not window-bounded (~~0.219~~ corrected 2026-10-22, found by Ruhani (L4 Week 5 check): the old lookup typed the wrong ring; B10, C3 withdrawn) |
 | **R6** | detector swap: MEGA-GNN and GFP-XGBoost | **+9.4 edge-F1 points buys 0.000 ring-F1** |
 | **R7** | held-out pattern types (3 arms) + LI-Small | transfer holds on CYCLE at undiminished precision |
 | **R9** | statistics: bootstrap CIs, permutation tests, Holm | every table carries an interval |
-| **R10** | tenant vs pooled: a pooled model applied to one bank's view (banks 1, 20, 11, 118, 12; 68 tenant-ring pairs) | pooled − (b) = **0.271 [0.154, 0.407]** ring recall; includes distribution shift (`docs/TENANT_SIZES.md`, `results/tables/r10_registered.md`) |
+| **R10** | tenant vs pooled: a pooled model applied to one bank's view (banks 1, 20, 11, 118, 12) | platform-side; registered in `docs/TENANT_SIZES.md`, result in `results/tables/r10_registered.md` (not in FINDINGS) |
 | **R11b/c** | seed-budget reallocation (ensemble, per-account) | allocation is **not** the binding constraint |
 
 ### Headline findings
@@ -65,11 +96,7 @@ Traps live in **`docs/PITFALLS.md`**.
    untouched by the shipped pipeline (13.8 % with MEGA-GNN: B8), and **81.5 %** of the largest
    residual class is in a piece of the ring that is *disconnected inside the evaluation window* —
    100 % for STACK even across the whole test split.
-4. **One bank's view loses most of its rings (R10).** A pooled model applied to one bank's view
-   recovers 0.088 of that bank's tenant-ring pairs against 0.359 pooled: pooled − (b) = **0.271
-   [0.154, 0.407]**. This includes distribution shift (the model meets a graph unlike the one it was
-   trained on), so it is not only the cost of seeing fewer edges.
-5. **Both ends of the AMLworld timeline are generator artefacts**, reproduced in two releases: day 0
+4. **Both ends of the AMLworld timeline are generator artefacts**, reproduced in two releases: day 0
    holds ~34 % of training edges at 10× density, and the test tail collapses to a ~60 % base rate on
    ≤ 0.13 % of edges.
 
@@ -83,7 +110,9 @@ Traps live in **`docs/PITFALLS.md`**.
   `experiments/R6_full/`, not contract deliveries.
 * **SHAP over the expansion policy** — specified in the roadmap's XAI layer, not built. Leave-one-out answers the analyst's actual question ("what happens to this ring if this transaction is not real?") at 25 ms, whereas SHAP would explain a per-candidate probability the analyst never sees. That is a reframing of the scope, not a completion of it, and it is stated here rather than glossed.
 * **The XAI layer is not in `docs/FINDINGS.md`** (see the L4 row). Its measurements are L4's own and there is no analyst study, so it is a delivered capability, not a validated explanation. The contract fields should not be read as evidence.
-* Elliptic, EvolveGCN, GATv2, the escalation cascade, attention-based XAI — out of scope (Step 1).
+* EvolveGCN, GATv2, the escalation cascade, attention-based XAI — out of scope (Step 1).
+* **Elliptic**: the Elliptic baselines (E1–E3, Phase 0–3) live in [`elliptic/`](elliptic/README.md) and are
+  not part of the ring pipeline, because Elliptic has no ring labels.
 
 Seeds come from `configs/seeds.yaml` (`[1, 2, 3, 4, 5]`), paths from `configs/paths.yaml`
 (`$RINGSHIELD_PATHS` selects a per-dataset file). Pre-R1 runs used the seeds in their own
@@ -100,21 +129,19 @@ Windows 11, PowerShell. Install these yourself first:
 | Docker Desktop | with Compose v2 | the demo and test Postgres |
 | NVIDIA GPU + CUDA 12.1 | optional | retraining detectors (R1, R6); not needed for the demo or the tables |
 
-Two virtual environments, one for the research code and one for the platform (the platform pins
-different versions):
+The parts pin different versions of the same packages (pandas 3.0.5 / 2.3.3 / 2.2.3), so each has
+its own environment. One script creates them all from exact pins, plus the front end's packages:
 
 ```bash
-py -3.12 -m venv .venv312
-.\.venv312\Scripts\python.exe -m pip install -r requirements.txt
-py -3.12 -m venv ..\venv-platform
-..\venv-platform\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\scripts\bootstrap.ps1
 ```
 
-Then install the front end's packages:
-
-```bash
-npm ci --prefix platform/frontend
-```
+| Environment | Where | Pins | For |
+|---|---|---|---|
+| research | `.venv312` | `requirements-lock.txt` (what the shipped R4 runs recorded) | L0–L3, evaluation, tables |
+| xai | `..\venv-xai` | `explainability/requirements-test.txt` | L4 and its service |
+| platform | `..\venv-platform` | `requirements-dev.txt` | L5/L6 API, workers, tests |
+| elliptic | `.venv-elliptic` | `elliptic/requirements.txt` | E1–E3 and the pyvis visualisations |
 
 ## Data
 
@@ -149,13 +176,16 @@ Nothing in `data/`, `contract/out/*.parquet` or `experiments/**/*.parquet` is co
 
 ## Running the demo
 
-One command, from the repository root:
+One command, from the repository root. `scripts/demo.ps1` is the only entry point;
+`run-demo.ps1` and `e2e_demo.ps1` are helpers it calls.
 
 ```bash
-.\scripts\demo.ps1
+.\scripts\demo.ps1                       # loads the seed-1 rings and explanations already built
+.\scripts\demo.ps1 -FromProcessedData    # first rebuilds each bank's rings and L4 explanations
 ```
 
-The script does the following, in order:
+With `-FromProcessedData` it first builds each bank's rings from its visible edges in
+`data/processed/` and explains them with L4. It then does the following, in order:
 1. Checks for Python, Node/npm and Docker (the demo Postgres runs in Docker), plus every input file. It prints everything that is missing and stops.
 2. Starts an empty demo Postgres on `127.0.0.1:55433` and runs the migrations.
 3. Loads the seed-1 rings and explanations for banks 12 and 20.
@@ -224,6 +254,13 @@ Two checks tie the numbers to their sources:
 The second command runs the platform suite, including the row-level-security tests, against a
 throwaway Postgres.
 
+L4's tests run in its own environment (they need `fastapi` and the L4 outputs under
+`results/xai/`):
+
+```bash
+..\venv-xai\Scripts\python.exe -m pytest explainability/tests -q
+```
+
 For the front end:
 
 ```bash
@@ -232,7 +269,11 @@ npm --prefix platform/frontend test
 npm --prefix platform/frontend run test:e2e
 ```
 
-The front-end tests are typecheck, unit tests and Playwright, all on fixtures.
+The front-end tests are typecheck, unit tests and Playwright, all on fixtures. `npm run screenshots`
+re-captures `docs/screenshots/` from a running demo (`docs/SCREENSHOTS.md`).
+
+CI (`.github/workflows/`) runs the platform suite against Postgres, the research and explainability
+unit tests, and a check that no pull request adds or grows a file over 5 MB.
 
 Research tests that need `data/processed/` skip when it is absent. A changed skip count matters
 (`docs/PITFALLS.md` §8b).
@@ -241,3 +282,32 @@ Research tests that need `data/processed/` skip when it is absent. A changed ski
 
 All runs so far: Intel Xeon W-2295 (18C/36T, 3.0 GHz), 128 GB RAM, NVIDIA RTX A5000
 (24 GB), Windows 11 Pro, Python 3.12.10, PyTorch 2.5.1+cu121, PyG 2.8.0, XGBoost 3.4.1.
+
+## Repository layout
+
+| Folder | What |
+|---|---|
+| `preprocessing/`, `graph/` | L0: AMLworld splits, ring ground truth, GFP motif features |
+| `models/` | L1: the Multi-GINe detector, scoring, calibration; `models/artifacts/` the exported ring models |
+| `baselines/` | GFP-XGBoost and the other comparison detectors |
+| `ringshield/` | L2–L3: seeds, expansion, partition, roles, typing, and the `python -m ringshield` CLI |
+| `evaluation/` | ring metrics, statistics, every table and figure builder |
+| `contract/` | the `scored_edges` and `rings` parquet contract with the platform |
+| `explainability/` | L4: edge, account and feature weights, narratives, the regeneration service |
+| `platform/` | L5/L6: database, API, workers, the React dashboard (`platform/frontend/`) |
+| `elliptic/` | Phase 0–3 Elliptic baselines E1–E3 (not part of the ring pipeline) |
+| `configs/` | paths, seeds, evaluation windows, threshold rule |
+| `data/` | raw and processed data, not committed (see [Data](#data)) |
+| `experiments/` | run records of the HI-Small experiments (R1–R12): configs, metrics, logs |
+| `experiments_hi_medium/` | the same run records for the HI-Medium replication (V3); its run configs record this path |
+| `experiments_valrings/` | validation-split rings for L4 and the holdout; hash-checked manifests record this path |
+| `results/` | tables, figures, L4 outputs and platform experiment results |
+| `docs/` | findings, reproduction, design notes; `docs/specs/` the original specifications; `docs/archive/` superseded material |
+| `scripts/` | the demo, bootstrap, data checks and CI helpers |
+| `tests/` | research unit tests (the platform's are in `platform/tests/`) |
+| `third_party/` | MEGA-GNN shims (the upstream clone is not committed) |
+
+## Contributors
+
+See [`CONTRIBUTORS.md`](CONTRIBUTORS.md): Joan Sara Joe (JSJ), Ruhani Kumar, Kashish Mittal and
+Lakshmishree.
