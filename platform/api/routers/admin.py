@@ -30,20 +30,18 @@ def list_tenants(principal: Principal = Depends(require_roles("admin"))) -> list
         tenants = session.scalars(
             select(Tenant).where(Tenant.tenant_id != -1).order_by(Tenant.bank_code)
         ).all()
-        responses = []
-        for tenant in tenants:
-            ring_count = session.scalar(
-                select(func.count()).select_from(Ring).where(Ring.tenant_id == tenant.tenant_id)
-            )
-            verdict_count = session.scalar(
-                select(func.count()).select_from(Verdict).where(Verdict.tenant_id == tenant.tenant_id)
-            )
-            responses.append(TenantResponse(
-                tenant_id=tenant.tenant_id, bank_code=tenant.bank_code,
-                name=tenant.name, is_loaded=tenant.is_loaded, created_at=tenant.created_at,
-                ring_count=ring_count or 0, verdict_count=verdict_count or 0,
-            ))
-        return responses
+        # One grouped count per table, not two queries per tenant: the registry holds every bank
+        # (about 30,000), and per-tenant counts took about a minute.
+        ring_counts = dict(session.execute(
+            select(Ring.tenant_id, func.count()).group_by(Ring.tenant_id)).all())
+        verdict_counts = dict(session.execute(
+            select(Verdict.tenant_id, func.count()).group_by(Verdict.tenant_id)).all())
+        return [TenantResponse(
+            tenant_id=tenant.tenant_id, bank_code=tenant.bank_code,
+            name=tenant.name, is_loaded=tenant.is_loaded, created_at=tenant.created_at,
+            ring_count=ring_counts.get(tenant.tenant_id, 0),
+            verdict_count=verdict_counts.get(tenant.tenant_id, 0),
+        ) for tenant in tenants]
 
 
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
