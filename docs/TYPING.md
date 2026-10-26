@@ -111,7 +111,8 @@ window-bounded: primary 0.599 and whole 0.594 agree.
 accurate**, because the window no longer truncates a gather-scatter into a fan.~~ **Corrected
 2026-10-22, found by Ruhani (L4 Week 5 check): the prediction does not hold.** The primary row typed the wrong ring
 (316 of 401); with the matched ring, primary 0.599 and whole 0.594 agree. FINDINGS B10, C3 (withdrawn). Typing is
-reported with this window sensitivity; nothing about it is chosen on test.
+reported as a bounded-by-window result with the confusion matrix and this sensitivity; nothing
+about it is chosen on test.
 
 ## 8.4 results — `results/tables/r5_typing.csv`
 

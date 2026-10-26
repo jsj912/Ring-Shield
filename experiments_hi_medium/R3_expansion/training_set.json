@@ -1,0 +1,198 @@
+{
+  "created_utc": "2026-10-06T06:45:30+00:00",
+  "git_commit": "f0d225fb548f28c5023562d8564047b8fa05c2bb",
+  "dry_run": false,
+  "inputs": {
+    "cross_scores": "experiments_hi_medium\\R3_cross_scores_c1prime\\cross_scores_train.parquet",
+    "cross_scores_assertion": {
+      "rule": "day(edge) not in train_days[fold(edge)] for every row; one row per train edge",
+      "violations": 0,
+      "passed": true
+    },
+    "train_split": "amlworld_train.parquet",
+    "gfp": "amlworld_gfp_features_train.parquet",
+    "embeddings": {
+      "0": "experiments_hi_medium\\R3_cross_scores_c1prime\\embeddings_fold0.parquet",
+      "1": "experiments_hi_medium\\R3_cross_scores_c1prime\\embeddings_fold1.parquet",
+      "2": "experiments_hi_medium\\R3_cross_scores_c1prime\\embeddings_fold2.parquet"
+    }
+  },
+  "params": {
+    "delta_t_h": 72.0,
+    "max_hops": 2,
+    "seed_frac_pct": 0.1,
+    "seed_frac_source": "--seed-frac-pct",
+    "cut": "strict, quantile within the edge's fold",
+    "membership": "train parquet ring_id == test_visible on the train window"
+  },
+  "seeds_per_fold": [
+    {
+      "fold": 0,
+      "n_edges": 3021258,
+      "q": 0.6973384389877455,
+      "n_seeds": 3022,
+      "n_on_boundary": 0,
+      "seed_frac_pct_realised": 0.10002455930609039
+    },
+    {
+      "fold": 1,
+      "n_edges": 828958,
+      "q": 0.43237010738257153,
+      "n_seeds": 829,
+      "n_on_boundary": 0,
+      "seed_frac_pct_realised": 0.10000506660168548
+    },
+    {
+      "fold": 2,
+      "n_edges": 830607,
+      "q": 0.5004701942802654,
+      "n_seeds": 831,
+      "n_on_boundary": 0,
+      "seed_frac_pct_realised": 0.10004731479508361
+    }
+  ],
+  "n_seed_edges_total": 4682,
+  "dry_run_seed_note": null,
+  "rings": {
+    "train_visible": 626,
+    "with_seeds": 461,
+    "zero_seeds": 165,
+    "member_edges_total": 2290,
+    "seed_member_edges": 1396,
+    "quiet_member_edges": 894,
+    "quiet_member_edges_in_rings_with_seeds": 636,
+    "quiet_reached_as_candidates": 434,
+    "zero_seed_rings_by_pattern": {
+      "FAN-IN": 30,
+      "FAN-OUT": 25,
+      "RANDOM": 22,
+      "GATHER-SCATTER": 21,
+      "SCATTER-GATHER": 21,
+      "STACK": 17,
+      "CYCLE": 17,
+      "BIPARTITE": 12
+    }
+  },
+  "candidates_before_day0_drop": {
+    "n": 366809,
+    "n_pos": 434,
+    "n_truncated_queries": 737,
+    "by_hop": {
+      "1": {
+        "n": 22581,
+        "n_pos": 407
+      },
+      "2": {
+        "n": 344228,
+        "n_pos": 27
+      }
+    }
+  },
+  "day0_dropped": {
+    "n": 0,
+    "n_pos": 0
+  },
+  "training_set": {
+    "n_rows": 366809,
+    "n_pos": 434,
+    "n_neg": 366375,
+    "pos_rate": 0.0011831770758078456,
+    "neg_per_pos": 844.1820276497696,
+    "n_rings": 461,
+    "n_rings_with_positive": 218,
+    "by_hop": {
+      "1": {
+        "n": 22581,
+        "n_pos": 407,
+        "pos_rate": 0.01802400247996103
+      },
+      "2": {
+        "n": 344228,
+        "n_pos": 27,
+        "pos_rate": 7.84363851865624e-05
+      }
+    },
+    "by_fold": {
+      "0": {
+        "n": 238884,
+        "n_pos": 105,
+        "pos_rate": 0.0004395438790375245
+      },
+      "1": {
+        "n": 64734,
+        "n_pos": 138,
+        "pos_rate": 0.0021318009083325607
+      },
+      "2": {
+        "n": 63191,
+        "n_pos": 191,
+        "pos_rate": 0.0030225823297621497
+      }
+    },
+    "by_pattern": {
+      "BIPARTITE": {
+        "n": 60886,
+        "n_pos": 3,
+        "pos_rate": 4.927241073481589e-05
+      },
+      "CYCLE": {
+        "n": 33251,
+        "n_pos": 69,
+        "pos_rate": 0.00207512556013353
+      },
+      "FAN-IN": {
+        "n": 33981,
+        "n_pos": 59,
+        "pos_rate": 0.00173626438303758
+      },
+      "FAN-OUT": {
+        "n": 41157,
+        "n_pos": 41,
+        "pos_rate": 0.0009961853390674732
+      },
+      "GATHER-SCATTER": {
+        "n": 23799,
+        "n_pos": 57,
+        "pos_rate": 0.0023950586159082314
+      },
+      "RANDOM": {
+        "n": 28819,
+        "n_pos": 67,
+        "pos_rate": 0.002324855130295985
+      },
+      "SCATTER-GATHER": {
+        "n": 61786,
+        "n_pos": 74,
+        "pos_rate": 0.0011976823228563105
+      },
+      "STACK": {
+        "n": 83130,
+        "n_pos": 64,
+        "pos_rate": 0.0007698785035486587
+      }
+    },
+    "by_day": {
+      "1": {
+        "n": 238884,
+        "n_pos": 105,
+        "pos_rate": 0.0004395438790375245
+      },
+      "2": {
+        "n": 64734,
+        "n_pos": 138,
+        "pos_rate": 0.0021318009083325607
+      },
+      "3": {
+        "n": 63191,
+        "n_pos": 191,
+        "pos_rate": 0.0030225823297621497
+      }
+    },
+    "n_dead_region_rows": 119,
+    "n_features": 70,
+    "cosine_nan_rows": 0
+  },
+  "quiet_ceiling_note": "quiet members = member edges below the seed cut; the policy can only recover the ones that appear as candidates (quiet_reached_as_candidates); rings with zero seeds contribute nothing",
+  "out": "experiments_hi_medium\\R3_expansion\\training_set.parquet",
+  "seconds": 288.8
+}

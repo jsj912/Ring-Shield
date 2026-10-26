@@ -1,0 +1,58 @@
+experiment: R3_cross_scores_c1prime
+step: 6.3 cross-scoring of the train split
+created_utc: '2026-10-05T01:00:01+00:00'
+git_commit: 003401baef8629686dbebf90b838729b821f923e
+run_dir: experiments_hi_medium\R1_gine_causal_c1prime
+r1_config:
+  experiment: R1_gine_causal_c1prime
+  model: Multi-GINe v2
+  arch: gine
+  git_commit: 003401baef8629686dbebf90b838729b821f923e
+  adaptations:
+  - edge_MLPs
+  - ports
+  - time_deltas
+  - reverse_MP
+  - ego_IDs
+  - GFP_features
+  hold_out_pattern: null
+  dataset: AMLworld HI-Medium
+  split: forced day boundaries (--split-days)
+  split_days:
+  - 4
+  - 6
+  train_label_days:
+  - 1
+  - 3
+  final_test_skipped: true
+  epochs: 100
+  patience: 20
+  batch_size: 8192
+  lr: 0.006
+  n_hidden: 66
+  n_gnn_layers: 2
+  w_ce1: 1.0
+  w_ce2: 9.0
+  num_neighbors:
+  - 100
+  - 100
+  n_parameters: 148812
+  causal_sampling: true
+  loader_route: fallback
+  loader_window_s: 1800
+  dry_run: false
+epochs: 25
+train_seed: 1
+n_folds: 3
+folds:
+- - 1
+- - 2
+- - 3
+folds_run:
+- 1
+- 2
+fold_rule: contiguous day-aligned folds minimising the largest fold's edge count
+held_out_removed_from: training graph and labels
+checkpoint_selection: val split (days 6-7) F1, as R1
+scoring_graph: full train split, causal loader (edges <= the batch's latest seed)
+dry_run: false

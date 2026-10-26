@@ -1,0 +1,16 @@
+# HI-Medium paths (Step V3.2). Selected with
+#   RINGSHIELD_PATHS=configs/paths_hi_medium.yaml
+# so every script runs the SAME command against HI-Medium's own directories, exactly as
+# configs/paths_li_small.yaml does for LI-Small. Nothing here is shared with HI-Small: a run
+# against this file cannot overwrite the first dataset's artefacts. `raw_dir` is separate
+# because preprocessing/amlworld_loader.py reads a FIXED `formatted_transactions.csv` name
+# from it, which would otherwise be HI-Small's.
+dataset: HI-Medium
+raw_dir: data/raw_hi_medium
+processed_dir: data/processed_hi_medium
+experiments_dir: experiments_hi_medium
+
+account_bank_map: data/processed_hi_medium/account_bank.parquet
+
+# Same constant as HI-Small: the legacy CSV basis offset. Recorded for the contract asserts.
+legacy_csv_time_offset_s: 10

@@ -1,0 +1,329 @@
+experiment: sweep_full_seed1_a
+step: 7 close, item 3 (pre-registered operating-point sweep)
+created_utc: '2026-10-06T11:53:43+00:00'
+git_commit: f0d225fb548f28c5023562d8564047b8fa05c2bb
+hypothesis: partitioning prevents the chaining collapse B0 shows above 0.3 % seeds,
+  allowing a looser operating point
+variant: full
+aggregator: full
+method: average
+detector_seed: 1
+expansion_fixed:
+  delta_t_h: 48.0
+  p_min: 0.7
+grid:
+  seed_frac_pct:
+  - 0.1
+  - 0.15
+  - 0.2
+  cut:
+  - 0.3
+  - 0.5
+  - 0.7
+  min_size:
+  - 2
+  - 3
+  registered_seed_frac_pct:
+  - 0.1
+  - 0.15
+  - 0.2
+  - 0.3
+  - 0.5
+grid_results_val:
+- variant: b0
+  seed_frac_pct: 0.1
+  cut: null
+  min_size: 2
+  n_rings: 2601
+  ring_precision: 0.1761
+  ring_recall: 0.5925
+  ring_f1: 0.2715
+  mean_jaccard: 0.8625
+  max_members: 15
+- variant: full
+  seed_frac_pct: 0.1
+  cut: 0.3
+  min_size: 2
+  n_rings: 3062
+  ring_precision: 0.1878
+  ring_recall: 0.7439
+  ring_f1: 0.2999
+  mean_jaccard: 0.8691
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.1
+  cut: 0.5
+  min_size: 2
+  n_rings: 2975
+  ring_precision: 0.1903
+  ring_recall: 0.7322
+  ring_f1: 0.302
+  mean_jaccard: 0.8836
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.1
+  cut: 0.7
+  min_size: 2
+  n_rings: 2918
+  ring_precision: 0.1919
+  ring_recall: 0.7245
+  ring_f1: 0.3034
+  mean_jaccard: 0.9011
+  max_members: 13
+- variant: b0
+  seed_frac_pct: 0.1
+  cut: null
+  min_size: 3
+  n_rings: 406
+  ring_precision: 0.6626
+  ring_recall: 0.348
+  ring_f1: 0.4563
+  mean_jaccard: 0.8552
+  max_members: 15
+- variant: full
+  seed_frac_pct: 0.1
+  cut: 0.3
+  min_size: 3
+  n_rings: 780
+  ring_precision: 0.4385
+  ring_recall: 0.4424
+  ring_f1: 0.4404
+  mean_jaccard: 0.8946
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.1
+  cut: 0.5
+  min_size: 3
+  n_rings: 768
+  ring_precision: 0.4414
+  ring_recall: 0.4386
+  ring_f1: 0.44
+  mean_jaccard: 0.8985
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.1
+  cut: 0.7
+  min_size: 3
+  n_rings: 758
+  ring_precision: 0.4406
+  ring_recall: 0.4321
+  ring_f1: 0.4363
+  mean_jaccard: 0.905
+  max_members: 15
+- variant: b0
+  seed_frac_pct: 0.15
+  cut: null
+  min_size: 2
+  n_rings: 4226
+  ring_precision: 0.1126
+  ring_recall: 0.6158
+  ring_f1: 0.1904
+  mean_jaccard: 0.8727
+  max_members: 15
+- variant: full
+  seed_frac_pct: 0.15
+  cut: 0.3
+  min_size: 2
+  n_rings: 4899
+  ring_precision: 0.1217
+  ring_recall: 0.771
+  ring_f1: 0.2102
+  mean_jaccard: 0.8696
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.15
+  cut: 0.5
+  min_size: 2
+  n_rings: 4795
+  ring_precision: 0.122
+  ring_recall: 0.7568
+  ring_f1: 0.2101
+  mean_jaccard: 0.884
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.15
+  cut: 0.7
+  min_size: 2
+  n_rings: 4711
+  ring_precision: 0.1231
+  ring_recall: 0.7503
+  ring_f1: 0.2115
+  mean_jaccard: 0.9013
+  max_members: 14
+- variant: b0
+  seed_frac_pct: 0.15
+  cut: null
+  min_size: 3
+  n_rings: 543
+  ring_precision: 0.5322
+  ring_recall: 0.3739
+  ring_f1: 0.4392
+  mean_jaccard: 0.8635
+  max_members: 15
+- variant: full
+  seed_frac_pct: 0.15
+  cut: 0.3
+  min_size: 3
+  n_rings: 1266
+  ring_precision: 0.2773
+  ring_recall: 0.4541
+  ring_f1: 0.3443
+  mean_jaccard: 0.893
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.15
+  cut: 0.5
+  min_size: 3
+  n_rings: 1248
+  ring_precision: 0.2788
+  ring_recall: 0.4502
+  ring_f1: 0.3444
+  mean_jaccard: 0.8989
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.15
+  cut: 0.7
+  min_size: 3
+  n_rings: 1233
+  ring_precision: 0.2774
+  ring_recall: 0.4424
+  ring_f1: 0.341
+  mean_jaccard: 0.9059
+  max_members: 15
+- variant: b0
+  seed_frac_pct: 0.2
+  cut: null
+  min_size: 2
+  n_rings: 5954
+  ring_precision: 0.0806
+  ring_recall: 0.621
+  ring_f1: 0.1427
+  mean_jaccard: 0.8773
+  max_members: 15
+- variant: full
+  seed_frac_pct: 0.2
+  cut: 0.3
+  min_size: 2
+  n_rings: 6790
+  ring_precision: 0.0882
+  ring_recall: 0.7749
+  ring_f1: 0.1584
+  mean_jaccard: 0.87
+  max_members: 12
+- variant: full
+  seed_frac_pct: 0.2
+  cut: 0.5
+  min_size: 2
+  n_rings: 6677
+  ring_precision: 0.0881
+  ring_recall: 0.7607
+  ring_f1: 0.1579
+  mean_jaccard: 0.8853
+  max_members: 13
+- variant: full
+  seed_frac_pct: 0.2
+  cut: 0.7
+  min_size: 2
+  n_rings: 6571
+  ring_precision: 0.0886
+  ring_recall: 0.7529
+  ring_f1: 0.1585
+  mean_jaccard: 0.9027
+  max_members: 14
+- variant: b0
+  seed_frac_pct: 0.2
+  cut: null
+  min_size: 3
+  n_rings: 660
+  ring_precision: 0.45
+  ring_recall: 0.3842
+  ring_f1: 0.4145
+  mean_jaccard: 0.8662
+  max_members: 15
+- variant: full
+  seed_frac_pct: 0.2
+  cut: 0.3
+  min_size: 3
+  n_rings: 1793
+  ring_precision: 0.1969
+  ring_recall: 0.4567
+  ring_f1: 0.2751
+  mean_jaccard: 0.8915
+  max_members: 13
+- variant: full
+  seed_frac_pct: 0.2
+  cut: 0.5
+  min_size: 3
+  n_rings: 1774
+  ring_precision: 0.1967
+  ring_recall: 0.4515
+  ring_f1: 0.274
+  mean_jaccard: 0.8976
+  max_members: 13
+- variant: full
+  seed_frac_pct: 0.2
+  cut: 0.7
+  min_size: 3
+  n_rings: 1749
+  ring_precision: 0.1967
+  ring_recall: 0.445
+  ring_f1: 0.2728
+  mean_jaccard: 0.9052
+  max_members: 15
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  cut: 0.3
+  method: average
+  delta_t_h: 48.0
+  p_min: 0.7
+  val_ring_f1: 0.4404
+tie_break:
+- smallest_seed_frac_pct
+- largest_min_size
+- largest_cut
+scope: test_visible
+cluster_seed: 0
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 4
+    - 5
+    bounds:
+    - 345610
+    - 518409
+  primary:
+    name: primary
+    split: test
+    days:
+    - 6
+    - 15
+    bounds:
+    - 518410
+    - 1382409
+  tail:
+    name: tail
+    split: test
+    days:
+    - 16
+    - 27
+    bounds:
+    - 1382410
+    - 2419209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 6
+    - 27
+    bounds:
+    - 518410
+    - 2419209
+primary_block: primary
+val_only: true
+sources:
+  r1_dir: experiments_hi_medium\R1_gine_causal_c1prime
+  r3_dir: experiments_hi_medium\R3_expansion
+  r4_dir: experiments_hi_medium\R4_partition

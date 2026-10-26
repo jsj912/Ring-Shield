@@ -1,0 +1,9 @@
+dataset,policy,cv_auc_pr,ring_f1,ring_f1_split,delta_ring_f1,source
+HI-Small,proposed,0.8326,0.58192,test primary,0.0,r3_expansion.csv
+HI-Small,no_detector,0.8351,0.57356,test primary,-0.00836,r3_expansion.csv
+HI-Small,no_embedding,0.8338,0.56218,test primary,-0.01974,r3_expansion.csv
+HI-Medium,proposed,0.7991,0.4144,val @ chosen cell,0.0,R3_expansion/runs/proposed/seed1
+HI-Medium,no_detector,0.7694,0.4403,val @ chosen cell,0.0259,R3_expansion/runs/no_detector/seed1
+HI-Medium,no_embedding,0.789,0.426,val @ chosen cell,0.0116,R3_expansion/runs/no_embedding/seed1
+HI-Small,structural (drop both),0.7365,,,,R3_expansion/policy_structural
+HI-Medium,structural (drop both),0.738,,,,R3_expansion/policy_structural

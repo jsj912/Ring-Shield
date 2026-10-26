@@ -1,0 +1,32 @@
+{
+  "created_utc": "2026-10-17T05:52:31+00:00",
+  "git_commit": "1df003ec063d4d75dfa4f3ce20269789b850792b",
+  "run_dir": "experiments_hi_medium\\R1_gine_causal_c2prime",
+  "checkpoint": "experiments_hi_medium\\R1_gine_causal_c2prime\\model_best_seed1.pt",
+  "run_config_commit": "1df003ec063d4d75dfa4f3ce20269789b850792b",
+  "seed": 1,
+  "split": "val",
+  "dry_run": false,
+  "causal": true,
+  "loader_route": "fallback",
+  "loader_window_s": 1800,
+  "num_neighbors": [
+    100,
+    100
+  ],
+  "batch_size": 16384,
+  "n_rows": 3857689,
+  "n_split_edges": 3857689,
+  "n_nan_scores": 0,
+  "score_min": 7.398331517380457e-31,
+  "score_max": 0.9999997615814209,
+  "score_mean": 0.003088253116085641,
+  "timestamp_basis": "loader (seconds since first day 00:00 - 10 s)",
+  "timestamp_min": 345610,
+  "timestamp_max": 518350,
+  "embeddings": null,
+  "device": "cuda",
+  "seconds": 457.8,
+  "data_load_seconds": 54.3,
+  "scores_path": "experiments_hi_medium\\R1_gine_causal_c2prime\\scores_val_seed1.parquet"
+}

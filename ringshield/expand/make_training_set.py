@@ -102,6 +102,12 @@ def main(argv=None):
     ap.add_argument("--seed-frac-pct", type=float, default=None, help=f"default: chosen cell of {K_SOURCE.relative_to(REPO_ROOT)}")
     ap.add_argument("--ring-gt", type=Path, default=None)
     ap.add_argument("--no-embed", action="store_true", help="skip the embedding pass (cosine features NaN)")
+    ap.add_argument("--run-dir", type=Path, default=REPO_ROOT / "experiments" / "R1_gine_causal",
+                    help="detector run dir the fold checkpoints belong to (embedding pass)")
+    ap.add_argument("--device", default=None, choices=["cpu", "cuda"],
+                    help="device for the embedding pass; default cuda when available")
+    ap.add_argument("--feature-cache", type=Path, default=None,
+                    help="ports/time-delta cache for the embedding pass's data load")
     _add_holdout_argument(ap)
     ap.add_argument("--dry-run", action="store_true", help="use the *_dryrun cross-scores (1 %% of train)")
     args = ap.parse_args(argv)
@@ -221,8 +227,14 @@ def main(argv=None):
             missing[int(k)] = int((~g["edge_id"].isin(have)).sum())
         if any(missing.values()):
             print(f"[training_set] embedding pass needed: {missing} edges per fold -> cross_score.py --embed-edges")
+            import torch
+
             from ringshield.expand.cross_score import CrossScorer
-            cs = CrossScorer(REPO_ROOT / "experiments" / "R1_gine_causal", args.cross_scores, epochs=0, dry_run=args.dry_run)
+            dev = torch.device(args.device) if args.device else None
+            cs = CrossScorer.for_embedding(args.run_dir, args.cross_scores, device=dev,
+                                           dry_run=args.dry_run, feature_cache=args.feature_cache)
+            print(f"[training_set] embedding pass on {cs.device} from {args.run_dir.name}, "
+                  f"folds {cs.folds}")
             cs.embed(need)
         for k in sorted(need["fold"].unique()):
             p = args.cross_scores / f"embeddings_fold{int(k)}{tag}.parquet"

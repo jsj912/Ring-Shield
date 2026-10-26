@@ -1,0 +1,65 @@
+{
+  "chosen": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "cut": 0.3,
+    "method": "average",
+    "delta_t_h": 48.0,
+    "p_min": 0.7,
+    "val_ring_f1": 0.4404
+  },
+  "seed_frac_present": [
+    0.1,
+    0.15,
+    0.2,
+    0.3,
+    0.5
+  ],
+  "seed_frac_missing": [],
+  "registered_seed_frac": [
+    0.1,
+    0.15,
+    0.2,
+    0.3,
+    0.5
+  ],
+  "tie_break": [
+    "ring_f1 desc",
+    "seed_frac_pct asc",
+    "min_size desc",
+    "cut desc"
+  ],
+  "note": "the sweep ran in chunks: a single process exceeded the 2 h background limit twice. Cells are independent so the union is the registered grid.",
+  "b0_vs_full_min_size_3": [
+    {
+      "seed_frac_pct": 0.1,
+      "b0_val_ring_f1": 0.4563,
+      "full_best_val_ring_f1": 0.4404,
+      "delta_full_minus_b0": -0.0159
+    },
+    {
+      "seed_frac_pct": 0.15,
+      "b0_val_ring_f1": 0.4392,
+      "full_best_val_ring_f1": 0.3444,
+      "delta_full_minus_b0": -0.0948
+    },
+    {
+      "seed_frac_pct": 0.2,
+      "b0_val_ring_f1": 0.4145,
+      "full_best_val_ring_f1": 0.2751,
+      "delta_full_minus_b0": -0.1394
+    },
+    {
+      "seed_frac_pct": 0.3,
+      "b0_val_ring_f1": 0.3552,
+      "full_best_val_ring_f1": 0.1957,
+      "delta_full_minus_b0": -0.1595
+    },
+    {
+      "seed_frac_pct": 0.5,
+      "b0_val_ring_f1": 0.2132,
+      "full_best_val_ring_f1": 0.1123,
+      "delta_full_minus_b0": -0.1009
+    }
+  ]
+}

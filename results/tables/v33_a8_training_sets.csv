@@ -1,0 +1,2 @@
+rule,rings,ring_edges,zero_seed_rings,zero_seed_share,ge1_seed,ge2_seeds,seeds,seed_precision,seed_recall,edges,illicit,rings_ge3_accounts
+per_fold,626,2290,165,0.2636,461,282,4682,0.2903,0.3195,4680823,4253,378

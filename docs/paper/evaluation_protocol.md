@@ -49,10 +49,24 @@ The threshold is **fixed, never tuned**. Results at Jaccard 0.3 and 0.7 are repo
 sensitivity sweep in every table's appendix, precisely so that the headline cannot be read as the
 best of three.
 
-`min_size = 3`: predictions smaller than three accounts are discarded. This is a real ceiling and
-we quantify it rather than hide it — **28 %** of primary-window truth rings (48.6 of 174) have
-fewer than three *visible* members, and 1,359 of those 1,387 ring-instances have exactly two. Ring
-recall is therefore capped at about **0.72**, against 0.46 achieved.
+`min_size = 3`: predictions smaller than three accounts are discarded.
+
+> **Correction, 2026-09-30 (V3.2b).** This paragraph previously read: *"This is a real ceiling …
+> Ring recall is therefore capped at about 0.72, against 0.46 achieved."* **That is wrong and is
+> retracted.** `min_size` constrains the **unrestricted** prediction, but a prediction is matched
+> after being **restricted to the evaluation window**, and the restricted set is not subject to
+> the bound: 13 of 106 restricted predictions per seed have fewer than three members (minimum 1).
+> A 2-member truth ring is therefore matched by a 2-member restricted prediction at Jaccard 1.0,
+> or by a 3-member one at 2/3. Measured over the 5 shipped runs, **11.4 of the 80.2 matched rings
+> per seed (14 %) have fewer than three visible members**, one of them with a single member. The
+> old figure was computed as (174 − 48.6)/174, i.e. by subtracting the rings this pipeline left
+> unmatched — an outcome, not a bound.
+
+**34 %** of primary-window truth rings (60 of 174) have fewer than three *visible* members — 58
+with exactly two and 2 with one — and the pipeline matches 11.4 of them per seed anyway. The
+share with ≥ 3 visible members, **114/174 = 0.655**, is reported as a **comparator**, not a
+ceiling: it is the denominator of `Ring-Recall≥3`, which is the statistic to quote when the
+question is "how much of the reachable population did we get". Achieved ring recall is 0.46.
 
 ### The matching threshold is a methodological choice, not a neutral one
 

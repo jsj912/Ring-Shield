@@ -1,0 +1,46 @@
+{
+  "created_utc": "2026-09-30T10:50:18+00:00",
+  "dataset": "HI-Medium",
+  "pattern_lines": 22743,
+  "rings": 2756,
+  "transaction_rows": 31898238,
+  "levels": [
+    {
+      "level": "strict",
+      "distinct_keys": 22743,
+      "pattern_lines": 22743,
+      "keys_matched": 22743,
+      "keys_unmatched": 0,
+      "keys_matched_more_than_once": 0,
+      "pattern_lines_matched": 22743,
+      "pattern_lines_unmatched": 0,
+      "transaction_rows_matched": 22743,
+      "examples_unmatched": []
+    },
+    {
+      "level": "requested",
+      "distinct_keys": 22743,
+      "pattern_lines": 22743,
+      "keys_matched": 22743,
+      "keys_unmatched": 0,
+      "keys_matched_more_than_once": 0,
+      "pattern_lines_matched": 22743,
+      "pattern_lines_unmatched": 0,
+      "transaction_rows_matched": 22743,
+      "examples_unmatched": []
+    },
+    {
+      "level": "loose",
+      "distinct_keys": 22743,
+      "pattern_lines": 22743,
+      "keys_matched": 22743,
+      "keys_unmatched": 0,
+      "keys_matched_more_than_once": 2079,
+      "pattern_lines_matched": 22743,
+      "pattern_lines_unmatched": 0,
+      "transaction_rows_matched": 24822,
+      "examples_unmatched": []
+    }
+  ],
+  "all_matched": true
+}

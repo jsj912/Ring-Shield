@@ -1,0 +1,35 @@
+{
+  "mean_test_f1": NaN,
+  "std_test_f1": 0,
+  "mean_test_ap": NaN,
+  "std_test_ap": 0,
+  "per_seed": [
+    {
+      "seed": 1,
+      "best_val_f1": 0.5207242256471645,
+      "best_epoch": 12,
+      "best_threshold": 0.5400000000000001,
+      "epochs_run": 32,
+      "mean_epoch_time_s": 1490.865433551371,
+      "test": {}
+    },
+    {
+      "seed": 2,
+      "best_val_f1": 0.538603201586627,
+      "best_epoch": 31,
+      "best_threshold": 0.7400000000000002,
+      "epochs_run": 51,
+      "mean_epoch_time_s": 2328.5520083904266,
+      "test": {}
+    },
+    {
+      "seed": 3,
+      "best_val_f1": 0.5179295797501217,
+      "best_epoch": 33,
+      "best_threshold": 0.44000000000000006,
+      "epochs_run": 53,
+      "mean_epoch_time_s": 1404.8574291085297,
+      "test": {}
+    }
+  ]
+}

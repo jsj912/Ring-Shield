@@ -1,0 +1,17 @@
+{
+  "arm": "C1prime",
+  "seed": 1,
+  "source": "experiments_hi_medium/R1_gine_causal_c1prime/scores_val_seed1.parquet",
+  "rule": "configs/threshold_rule.yaml",
+  "grid_cells": 16,
+  "chosen": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3,
+    "val_ring_f1": 0.457
+  },
+  "hi_small_reference": {
+    "seed_frac_pct": 0.1,
+    "min_size": 3
+  },
+  "note": "recorded BEFORE any P4 result; P4 uses chosen.min_size for HI-Medium"
+}

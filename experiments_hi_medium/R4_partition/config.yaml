@@ -1,0 +1,15 @@
+step: 7.1 pairs training set
+out: experiments_hi_medium\R4_partition
+cross_scores: experiments_hi_medium\R3_cross_scores_c1prime
+training_set: experiments_hi_medium\R3_expansion\training_set.parquet
+policy_json: experiments_hi_medium\R3_expansion\policy_proposed\policy.json
+p_min: '0.7'
+seed_frac_pct: '0.1'
+hold_out_pattern: None
+no_embed: 'False'
+run_dir: experiments_hi_medium\R1_gine_causal_c1prime
+device: cpu
+feature_cache: data\processed_hi_medium\feature_cache
+p_min_used: 0.7
+created_utc: '2026-10-06T08:24:42+00:00'
+git_commit: f0d225fb548f28c5023562d8564047b8fa05c2bb

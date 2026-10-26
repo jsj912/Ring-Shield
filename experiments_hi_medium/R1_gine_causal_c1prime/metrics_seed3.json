@@ -1,0 +1,11 @@
+{
+  "seed": 3,
+  "best_val_f1": 0.4409260642270351,
+  "best_epoch": 39,
+  "best_threshold": 0.5600000000000002,
+  "test": {},
+  "final_test_skipped": true,
+  "n_params": 148812,
+  "epochs_run": 59,
+  "mean_epoch_time_s": 1588.4542161973857
+}

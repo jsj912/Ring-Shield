@@ -1,0 +1,49 @@
+{
+  "fold": 0,
+  "held_out_days": [
+    1
+  ],
+  "train_days": [
+    2,
+    3
+  ],
+  "n_train_edges": 1659565,
+  "n_train_illicit": 2922,
+  "supervised_days": [
+    2,
+    3
+  ],
+  "label_exclude_days": [
+    0
+  ],
+  "held_out_kept_in_graph": true,
+  "graph_edges": 9146808,
+  "n_held_out_edges": 3021258,
+  "n_held_out_illicit": 1331,
+  "epochs": 25,
+  "best_epoch": 19,
+  "best_val_f1": 0.5572949279899813,
+  "val_tuned_threshold": 0.5900000000000002,
+  "train_seed": 1,
+  "held_out": {
+    "f1_at_val_threshold": 0.10062468343744724,
+    "precision_at_val_threshold": 0.06489547038327526,
+    "recall_at_val_threshold": 0.22389181066867017,
+    "average_precision": 0.057145847302529404,
+    "f1_oracle_threshold": 0.1730365392692146,
+    "base_rate": 0.0004405449650443623
+  },
+  "head_constants": [
+    0.23550523817539215,
+    0.18072551488876343
+  ],
+  "n_dead_region": 1575,
+  "checkpoint": "experiments_hi_medium\\R3_cross_scores_c1prime\\fold0\\model_best.pt",
+  "scores": "experiments_hi_medium\\R3_cross_scores_c1prime\\scores_fold0.parquet",
+  "mean_epoch_time_s": 1466.5073787784577,
+  "score_seconds": 148.3,
+  "loader_route": "fallback",
+  "loader_window_s": 1800,
+  "git_commit": "003401baef8629686dbebf90b838729b821f923e",
+  "created_utc": "2026-10-04T23:08:26+00:00"
+}

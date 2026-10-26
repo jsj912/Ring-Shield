@@ -82,6 +82,12 @@ def main(argv=None):
     ap.add_argument("--seed-frac-pct", type=float, default=0.1)
     _add_holdout_argument(ap)
     ap.add_argument("--no-embed", action="store_true")
+    ap.add_argument("--run-dir", type=Path, default=REPO_ROOT / "experiments" / "R1_gine_causal",
+                    help="detector run dir the fold checkpoints belong to (embedding pass)")
+    ap.add_argument("--device", default=None, choices=["cpu", "cuda"],
+                    help="device for the embedding pass; default cuda when available")
+    ap.add_argument("--feature-cache", type=Path, default=None,
+                    help="ports/time-delta cache for the embedding pass's data load")
     args = ap.parse_args(argv)
     t_start = time.time()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -135,26 +141,36 @@ def main(argv=None):
     # ---- embeddings: every included edge under every fold model ---------------------------------
     emb_of = None
     if not args.no_embed:
-        need = pd.DataFrame({"edge_id": np.repeat(inc["edge_id"].to_numpy(), 5), "fold": np.tile(np.arange(5), len(inc))})
+        # the day-fold count comes from the cross-scores, not from a constant: HI-Small's shipped
+        # run has 5 folds, HI-Medium's C1' run has 3.
+        folds = np.sort(cross["fold"].unique()).astype(int)
+        nf = len(folds)
+        need = pd.DataFrame({"edge_id": np.repeat(inc["edge_id"].to_numpy(), nf),
+                             "fold": np.tile(folds, len(inc))})
         need.to_parquet(args.out / "needed_embeddings_pairs.parquet", index=False)
         missing = {}
-        for k in range(5):
+        for k in folds:
             p = args.cross_scores / f"embeddings_fold{k}.parquet"
             have = set(pd.read_parquet(p, columns=["edge_id"])["edge_id"].tolist()) if p.exists() else set()
             missing[k] = int((~inc["edge_id"].isin(have)).sum())
         if any(missing.values()):
             print(f"[pairs] embedding pass needed: {missing} edges per fold")
             from ringshield.expand.cross_score import CrossScorer
-            cs = CrossScorer(REPO_ROOT / "experiments" / "R1_gine_causal", args.cross_scores, epochs=0, dry_run=False)
+            import torch
+            dev = torch.device(args.device) if args.device else None
+            cs = CrossScorer.for_embedding(args.run_dir, args.cross_scores, device=dev,
+                                           dry_run=False, feature_cache=args.feature_cache)
+            print(f"[pairs] embedding pass on {cs.device} from {args.run_dir.name}, "
+                  f"folds {cs.folds}")
             cs.embed(need)
-        stores = {k: EmbeddingStore.from_parquet(args.cross_scores / f"embeddings_fold{k}.parquet", edge_ids=inc["edge_id"].to_numpy()) for k in range(5)}
+        stores = {k: EmbeddingStore.from_parquet(args.cross_scores / f"embeddings_fold{k}.parquet", edge_ids=inc["edge_id"].to_numpy()) for k in folds}
         fold_by_pos = pd.Series(fold_of, index=inc_pos)
 
         def emb_of(pa, pb):
-            A = np.full((len(pa), stores[0].dim), np.nan, np.float32)
+            A = np.full((len(pa), stores[int(folds[0])].dim), np.nan, np.float32)
             B = A.copy()
             fa = fold_by_pos.loc[pa].to_numpy()
-            for k in range(5):
+            for k in folds:
                 m = fa == k
                 if m.any():
                     A[m] = stores[k].get(idx.edge_id[pa[m]])

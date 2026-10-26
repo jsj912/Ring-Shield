@@ -65,6 +65,19 @@ _WINDOW = None
 _MAX_HOPS = None
 _LOOKBACK = None      # seconds; closes_cycle never reads an edge older than t - _LOOKBACK
 
+# Step V3.2b: CSR mode. `_CSR` is None in the legacy dict mode (which `tests/test_gfp_causality.py`
+# drives directly by assigning the four globals above, and which is therefore left untouched);
+# when it is set, the kernels read memory-mapped CSR arrays instead. One implementation of every
+# feature serves both modes, so the two cannot drift apart.
+#
+# Why: the dict mode hands each Pool worker its own pickled copy of the adjacency through
+# `initargs`. On HI-Medium that is 63.8 M Python tuples over 2.08 M nodes -- ~8.5 GB per worker,
+# measured -- so 36 workers need ~170 GB and simply never start computing (2 % CPU for 47
+# minutes). The CSR arrays are ~1 GB total, are written once to .npy, and each worker opens them
+# with mmap_mode="r": the OS keeps ONE physical copy in the page cache and every worker shares it.
+_CSR = None           # dict of memory-mapped arrays: {out,in}_{indptr,ts,oth}
+CSR_FILES = ("out_indptr", "out_ts", "out_oth", "in_indptr", "in_ts", "in_oth")
+
 
 def _init_worker(adj_out, adj_in, adj_out_ts, adj_in_ts, window, max_hops, lookback_s):
     global _ADJ_OUT, _ADJ_IN, _ADJ_OUT_TS, _ADJ_IN_TS, _WINDOW, _MAX_HOPS, _LOOKBACK
@@ -77,57 +90,96 @@ def _init_worker(adj_out, adj_in, adj_out_ts, adj_in_ts, window, max_hops, lookb
     _LOOKBACK = lookback_s
 
 
+def _init_worker_csr(paths, window, max_hops, lookback_s):
+    """Worker initializer for CSR mode: only file paths cross the process boundary."""
+    global _CSR, _WINDOW, _MAX_HOPS, _LOOKBACK
+    _CSR = {k: np.load(paths[k], mmap_mode="r") for k in CSR_FILES}
+    _WINDOW = window
+    _MAX_HOPS = max_hops
+    _LOOKBACK = lookback_s
+
+
+def _seg(side: str, node):
+    """(lo, hi) offsets of `node`'s edges in the CSR arrays; (0, 0) when it has none."""
+    ip = _CSR[side + "_indptr"]
+    n = int(node)
+    if n < 0 or n + 1 >= len(ip):
+        return 0, 0
+    return int(ip[n]), int(ip[n + 1])
+
+
 # ============================================================================
 # Per-edge feature computation (runs in worker processes)
 # ============================================================================
-def _fan_out_count(node, t):
-    ts_arr = _ADJ_OUT_TS.get(node)
-    if ts_arr is None:
+def _window_count(side, node, t):
+    """# edges at `node` with timestamp in [t - window, t). `bisect_left` and
+    `np.searchsorted(side="left")` agree exactly on a sorted array."""
+    if _CSR is None:
+        ts_arr = (_ADJ_OUT_TS if side == "out" else _ADJ_IN_TS).get(node)
+        if ts_arr is None:
+            return 0
+        return bisect_left(ts_arr, t) - bisect_left(ts_arr, t - _WINDOW)
+    a, b = _seg(side, node)
+    if a == b:
         return 0
-    lo = bisect_left(ts_arr, t - _WINDOW)
-    hi = bisect_left(ts_arr, t)  # strictly before t (backward only)
-    return hi - lo
+    seg = _CSR[side + "_ts"][a:b]
+    return int(np.searchsorted(seg, t, "left")) - int(np.searchsorted(seg, t - _WINDOW, "left"))
+
+
+def _cum_degree(side, node, t):
+    """# edges at `node` up to and including t. `bisect_right` == searchsorted(side="right")."""
+    if _CSR is None:
+        ts_arr = (_ADJ_OUT_TS if side == "out" else _ADJ_IN_TS).get(node)
+        if ts_arr is None:
+            return 0
+        return bisect_right(ts_arr, t)
+    a, b = _seg(side, node)
+    if a == b:
+        return 0
+    return int(np.searchsorted(_CSR[side + "_ts"][a:b], t, "right"))
+
+
+def _neighbors_before(side, node, t):
+    """Counterparties of `node`'s edges strictly before t, as a set."""
+    if _CSR is None:
+        adj = _ADJ_OUT if side == "out" else _ADJ_IN
+        edges = adj.get(node)
+        if not edges:
+            return set()
+        ts_arr = (_ADJ_OUT_TS if side == "out" else _ADJ_IN_TS)[node]
+        hi = bisect_left(ts_arr, t)
+        return {edges[i][1] for i in range(hi)}
+    a, b = _seg(side, node)
+    if a == b:
+        return set()
+    hi = int(np.searchsorted(_CSR[side + "_ts"][a:b], t, "left"))
+    if hi == 0:
+        return set()
+    return set(_CSR[side + "_oth"][a:a + hi].tolist())
+
+
+def _fan_out_count(node, t):
+    return _window_count("out", node, t)
 
 
 def _fan_in_count(node, t):
-    ts_arr = _ADJ_IN_TS.get(node)
-    if ts_arr is None:
-        return 0
-    lo = bisect_left(ts_arr, t - _WINDOW)
-    hi = bisect_left(ts_arr, t)  # strictly before t (backward only)
-    return hi - lo
+    return _window_count("in", node, t)
 
 
 def _cum_out_degree(node, t):
-    ts_arr = _ADJ_OUT_TS.get(node)
-    if ts_arr is None:
-        return 0
-    return bisect_right(ts_arr, t)
+    return _cum_degree("out", node, t)
 
 
 def _cum_in_degree(node, t):
-    ts_arr = _ADJ_IN_TS.get(node)
-    if ts_arr is None:
-        return 0
-    return bisect_right(ts_arr, t)
+    return _cum_degree("in", node, t)
 
 
 def _out_neighbors_before(node, t):
-    edges = _ADJ_OUT.get(node)
-    if not edges:
-        return set()
-    ts_arr = _ADJ_OUT_TS[node]
-    hi = bisect_left(ts_arr, t)
-    return {edges[i][1] for i in range(hi)}
+    return _neighbors_before("out", node, t)
 
 
 def _in_neighbors_before(node, t):
-    edges = _ADJ_IN.get(node)
-    if not edges:
-        return set()
-    ts_arr = _ADJ_IN_TS[node]
-    hi = bisect_left(ts_arr, t)
-    return {edges[i][1] for i in range(hi)}
+    return _neighbors_before("in", node, t)
 
 
 def _scatter_gather(src, dst, t):
@@ -162,14 +214,30 @@ def _closes_cycle(src, dst, t):
     for hops in range(1, _MAX_HOPS + 1):
         nxt = {}
         for node, bound in frontier.items():
-            ts_arr = _ADJ_IN_TS.get(node)
-            if ts_arr is None:
-                continue
-            edges = _ADJ_IN[node]
-            hi = bisect_left(ts_arr, bound)   # ts < bound
-            lo = bisect_left(ts_arr, t_lo)    # ts >= t - lookback
-            for idx in range(hi - 1, lo - 1, -1):
-                edge_ts, w = edges[idx]
+            # the in-edges of `node` with timestamp in [t_lo, bound), newest first
+            if _CSR is None:
+                ts_arr = _ADJ_IN_TS.get(node)
+                if ts_arr is None:
+                    continue
+                edges = _ADJ_IN[node]
+                hi = bisect_left(ts_arr, bound)   # ts < bound
+                lo = bisect_left(ts_arr, t_lo)    # ts >= t - lookback
+                seg = ((edges[idx][0], edges[idx][1]) for idx in range(hi - 1, lo - 1, -1))
+            else:
+                a, b = _seg("in", node)
+                if a == b:
+                    continue
+                seg_ts = _CSR["in_ts"][a:b]
+                hi = int(np.searchsorted(seg_ts, bound, "left"))
+                lo = int(np.searchsorted(seg_ts, t_lo, "left"))
+                if hi <= lo:
+                    continue
+                # materialise the sub-range once, as Python ints, then walk it newest-first --
+                # element-wise indexing of a memmap in this loop would dominate the runtime
+                tl = seg_ts[lo:hi].tolist()
+                wl = _CSR["in_oth"][a + lo:a + hi].tolist()
+                seg = ((tl[j], wl[j]) for j in range(len(tl) - 1, -1, -1))
+            for edge_ts, w in seg:
                 if w == dst:
                     return 1, hops
                 if hops < _MAX_HOPS and edge_ts > best.get(w, -1):
@@ -214,40 +282,104 @@ def _process_chunk(chunk_data):
 # ============================================================================
 # Build adjacency structures
 # ============================================================================
-def build_adjacency(edges_df):
-    """Build sorted adjacency dicts from edge DataFrame."""
-    adj_out = defaultdict(list)
-    adj_in = defaultdict(list)
+def build_adjacency(edges_df, legacy: bool = False):
+    """Build sorted adjacency dicts from an edge DataFrame.
 
-    for _, row in edges_df.iterrows():
-        src, dst, ts = int(row["from_id"]), int(row["to_id"]), int(row["Timestamp"])
-        adj_out[src].append((ts, dst))
-        adj_in[dst].append((ts, src))
+    Step V3.2: vectorised. The original walked the frame with `iterrows`, which is ~10 minutes on
+    HI-Small's 5.1 M edges and roughly an hour on HI-Medium's 31.9 M. Each node's list was then
+    sorted with `list.sort()` over `(ts, other)` tuples, so a single `lexsort` keyed
+    (node, ts, other) puts every node's edges in exactly that order, and the per-node lists are
+    contiguous slices of it. The output is identical in type and content -- dicts of
+    `node -> [(ts, other), ...]` plus `node -> np.int64 array of ts` -- so no caller changes.
+    `legacy=True` keeps the old path; the two are asserted equal in `--verify-adjacency`.
+    """
+    if legacy:
+        adj_out = defaultdict(list)
+        adj_in = defaultdict(list)
+        for _, row in edges_df.iterrows():
+            src, dst, ts = int(row["from_id"]), int(row["to_id"]), int(row["Timestamp"])
+            adj_out[src].append((ts, dst))
+            adj_in[dst].append((ts, src))
+        adj_out_sorted, adj_out_ts = {}, {}
+        for node, edges in adj_out.items():
+            edges.sort()
+            adj_out_sorted[node] = edges
+            adj_out_ts[node] = np.array([e[0] for e in edges], dtype=np.int64)
+        adj_in_sorted, adj_in_ts = {}, {}
+        for node, edges in adj_in.items():
+            edges.sort()
+            adj_in_sorted[node] = edges
+            adj_in_ts[node] = np.array([e[0] for e in edges], dtype=np.int64)
+        return adj_out_sorted, adj_in_sorted, adj_out_ts, adj_in_ts
 
-    # Sort by timestamp
-    adj_out_sorted = {}
-    adj_out_ts = {}
-    for node, edges in adj_out.items():
-        edges.sort()
-        adj_out_sorted[node] = edges
-        adj_out_ts[node] = np.array([e[0] for e in edges], dtype=np.int64)
+    src = edges_df["from_id"].to_numpy(np.int64)
+    dst = edges_df["to_id"].to_numpy(np.int64)
+    ts = edges_df["Timestamp"].to_numpy(np.int64)
 
-    adj_in_sorted = {}
-    adj_in_ts = {}
-    for node, edges in adj_in.items():
-        edges.sort()
-        adj_in_sorted[node] = edges
-        adj_in_ts[node] = np.array([e[0] for e in edges], dtype=np.int64)
+    def side(key, other):
+        # primary key = node, then ts, then the counterparty -- the order list.sort() gives
+        order = np.lexsort((other, ts, key))
+        k, t2, o2 = key[order], ts[order], other[order]
+        if len(k) == 0:
+            return {}, {}
+        cuts = np.flatnonzero(np.diff(k)) + 1
+        starts = np.concatenate(([0], cuts))
+        ends = np.concatenate((cuts, [len(k)]))
+        nodes = k[starts]
+        adj, adj_ts = {}, {}
+        for n, s, e in zip(nodes.tolist(), starts.tolist(), ends.tolist()):
+            tt = t2[s:e]
+            adj[n] = list(zip(tt.tolist(), o2[s:e].tolist()))
+            adj_ts[n] = tt
+        return adj, adj_ts
 
+    adj_out_sorted, adj_out_ts = side(src, dst)
+    adj_in_sorted, adj_in_ts = side(dst, src)
     return adj_out_sorted, adj_in_sorted, adj_out_ts, adj_in_ts
+
+
+def build_adjacency_csr(edges_df, out_dir: Path, prefix: str = "gfp_adj") -> dict:
+    """Write the adjacency as CSR `.npy` files and return {name: path}.
+
+    Per direction: `indptr` (n_nodes + 1 offsets), `ts` and `oth` (one entry per edge, grouped by
+    node and sorted within a node by (ts, counterparty) -- the same order `list.sort()` gives the
+    dict form, so the two are interchangeable). Workers memory-map these read-only, so the whole
+    pool shares one physical copy instead of one pickled copy each.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    src = edges_df["from_id"].to_numpy(np.int64)
+    dst = edges_df["to_id"].to_numpy(np.int64)
+    ts = edges_df["Timestamp"].to_numpy(np.int64)
+    n_nodes = int(max(src.max(initial=0), dst.max(initial=0))) + 1
+    paths = {}
+    for name, key, other in (("out", src, dst), ("in", dst, src)):
+        order = np.lexsort((other, ts, key))
+        indptr = np.zeros(n_nodes + 1, dtype=np.int64)
+        np.add.at(indptr, key + 1, 1)
+        np.cumsum(indptr, out=indptr)
+        for suffix, arr in (("indptr", indptr), ("ts", ts[order]), ("oth", other[order])):
+            p = out_dir / f"{prefix}_{name}_{suffix}.npy"
+            np.save(p, np.ascontiguousarray(arr))
+            paths[f"{name}_{suffix}"] = str(p)
+    total = sum(Path(p).stat().st_size for p in paths.values())
+    print(f"  CSR adjacency: {n_nodes:,} nodes, {len(ts):,} edges, "
+          f"{total / 1e9:.2f} GB on disk -> {out_dir}", flush=True)
+    return paths
 
 
 # ============================================================================
 # Main
 # ============================================================================
 def compute_features_parallel(df, adj_out, adj_in, adj_out_ts, adj_in_ts,
-                               window, max_hops, lookback_s, n_workers):
-    """Parallel GFP feature computation using multiprocessing Pool."""
+                               window, max_hops, lookback_s, n_workers, csr_paths=None):
+    """Parallel GFP feature computation using a multiprocessing Pool.
+
+    With `csr_paths`, workers are initialised in CSR mode and only the file paths are pickled;
+    the adjacency itself is memory-mapped and shared. Without it, the legacy dict path is used,
+    which pickles a full copy of the adjacency into every worker and does not scale past
+    HI-Small (see the note on `_CSR`).
+    """
     n = len(df)
     from_ids = df["from_id"].values.astype(np.int64)
     to_ids = df["to_id"].values.astype(np.int64)
@@ -271,11 +403,12 @@ def compute_features_parallel(df, adj_out, adj_in, adj_out_ts, adj_in_ts,
     completed = 0
 
     t0 = time.time()
-    with mp.Pool(
-        processes=n_workers,
-        initializer=_init_worker,
-        initargs=(adj_out, adj_in, adj_out_ts, adj_in_ts, window, max_hops, lookback_s),
-    ) as pool:
+    if csr_paths is not None:
+        init, args = _init_worker_csr, (csr_paths, window, max_hops, lookback_s)
+    else:
+        init = _init_worker
+        args = (adj_out, adj_in, adj_out_ts, adj_in_ts, window, max_hops, lookback_s)
+    with mp.Pool(processes=n_workers, initializer=init, initargs=args) as pool:
         for chunk_idx, chunk_result in pool.imap_unordered(_process_chunk, chunks):
             chunk_len = len(chunk_result)
             results_array[chunk_idx:chunk_idx + chunk_len] = chunk_result
@@ -306,6 +439,12 @@ def main():
                         help="Max BFS depth for temporal cycles (default: 5)")
     parser.add_argument("--lookback-days", type=float, default=LOOKBACK_DAYS_DEFAULT,
                         help="closes_cycle never reads an edge older than t - this (default: 14 days)")
+    parser.add_argument("--legacy-adjacency", action="store_true",
+                        help="use the pre-V3.2b dict adjacency, pickled into every worker. Kept "
+                             "for comparison only; it needs ~8.5 GB per worker on HI-Medium and "
+                             "does not finish.")
+    parser.add_argument("--adj-dir", type=Path, default=None,
+                        help="where to write the CSR .npy files (default: --out-dir)")
     parser.add_argument("--workers", type=int, default=0,
                         help="Number of worker processes (0 = all cores)")
     args = parser.parse_args()
@@ -337,9 +476,15 @@ def main():
 
     print("Building temporal adjacency structures...")
     t0 = time.time()
-    adj_out, adj_in, adj_out_ts, adj_in_ts = build_adjacency(all_edges)
-    print(f"  Done in {time.time()-t0:.1f}s "
-          f"({len(adj_out)} out-nodes, {len(adj_in)} in-nodes)")
+    adj_out = adj_in = adj_out_ts = adj_in_ts = None
+    csr_paths = None
+    if args.legacy_adjacency:
+        adj_out, adj_in, adj_out_ts, adj_in_ts = build_adjacency(all_edges)
+        print(f"  Done in {time.time()-t0:.1f}s "
+              f"({len(adj_out)} out-nodes, {len(adj_in)} in-nodes)")
+    else:
+        csr_paths = build_adjacency_csr(all_edges, args.adj_dir or args.out_dir)
+        print(f"  Done in {time.time()-t0:.1f}s")
 
     # --- Compute GFP features for each split ---
     for split in ["train", "val", "test"]:
@@ -355,7 +500,7 @@ def main():
 
         gfp_df = compute_features_parallel(
             df, adj_out, adj_in, adj_out_ts, adj_in_ts,
-            args.window, args.max_cycle_hops, lookback_s, n_workers
+            args.window, args.max_cycle_hops, lookback_s, n_workers, csr_paths=csr_paths
         )
 
         gfp_df["EdgeID"] = df["EdgeID"].values

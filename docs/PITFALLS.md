@@ -388,3 +388,27 @@ Every doc edit in this project goes through a Python file written with the Write
 
 `cmd | tail -50 &` buffers the whole pipeline. Redirect to a log file and `tail` the file instead,
 and pass `-u` to Python for unbuffered output.
+
+### 20. Holding out a day is not holding out a ring
+
+Cross-scoring folds here are built on **days**: a fold model trains on the other days and scores the
+held-out one, and the code asserts — correctly, with zero violations over 4,680,823 rows — that no
+edge is scored by a model whose training labels include that edge's day. That assertion is true, and
+it is not the one that matters. **Rings span days.** A fold model is supervised on ring R's Monday
+edges and then scores R's Tuesday edges, having already been shown what R looks like. 58–92 % of each
+fold's held-out rings sit in that fold's supervised days, on HI-Small and HI-Medium alike.
+
+The defect is easy to miss precisely because the guarantee you wrote down is satisfied. **Define
+out-of-fold at the level the downstream model reasons about.** The expansion policy consumes the
+cross-score as evidence about *ring membership*, so its folds must partition **rings**, not days, or
+the feature it learns from has seen its own answer. Note also what the fix is *not*: deleting the
+held-out day from the message-passing graph changes nothing here, because the leak runs through
+**labels on other days**, not through graph visibility.
+
+Measured, the effect was small (ROC-AUC gap +0.005 to +0.036, two folds reversed) and bounded above
+by the feature's own ablation, so nothing had to be retracted. That is luck, not method. Two rules.
+When you write an isolation assertion, write down separately **what unit the consumer generalises
+over**, and check the assertion against *that* unit. And measure a suspected leak with a
+**balance-invariant** metric: the first attempt here used AP ÷ base rate and returned 19,244× on a
+21-edge clean group, because both groups are scored against the same licit pool, so the base rate is
+set by the group's own size rather than by the leak. (2026-10-05)

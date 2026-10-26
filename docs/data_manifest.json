@@ -1,6 +1,6 @@
 {
-  "recorded_utc": "2026-09-17T12:21:16+00:00",
-  "git_commit": "ee8fadfd88603eff0c3e4c3daa2f7e72743f111e",
+  "recorded_utc": "2026-09-30T20:03:25+00:00",
+  "git_commit": "003401baef8629686dbebf90b838729b821f923e",
   "raw_dir": "data\\raw",
   "note": "formatted_transactions.csv row order defines edge_id. Since Step 3a it is produced with sort_values(kind='mergesort') (stable), so the numbering is reproducible from the raw file; the pre-Step-3a (introsort) numbering is mapped by data/processed/edge_id_remap.parquet.",
   "files": {
@@ -164,6 +164,74 @@
         "EdgeID"
       ],
       "gfp_metadata": null
+    }
+  },
+  "datasets_note": "Step V3.1 (2026-09-30): the larger AMLworld releases, hashed with `python scripts/data_manifest.py --datasets`. Not verified by a plain `--check`, which stays cheap for the table audit; pass --datasets to check them too.",
+  "datasets": {
+    "HI-Medium_Trans.csv": {
+      "sha256": "3126afb8155e7c8815d62bc5370549a7b5ae6bf7dfe872b3cd7813e66a3d7ff5",
+      "bytes": 3031783420,
+      "lines": 31898239
+    },
+    "HI-Medium_Patterns.txt": {
+      "sha256": "d612cd7ed6f7761c0e36f3b788dfbae68aa0842c77145b192c777c22daba5c9f",
+      "bytes": 2279574,
+      "lines": 31011
+    },
+    "HI-Large_Trans.csv": {
+      "sha256": "d13635e297c64673826217631fb88d635c4f506052e1bde833895eda2a65c3f2",
+      "bytes": 17052760651,
+      "lines": 179702230
+    },
+    "HI-Large_Patterns.txt": {
+      "sha256": "bcf815a1931cfdcefd5d6d9feaa8f95dbc33cfd6ef8cd52d9a41e8d994c22820",
+      "bytes": 13807473,
+      "lines": 187337
+    },
+    "data/raw_hi_medium/formatted_transactions.csv": {
+      "sha256": "840a89aa0163de87ce4615e5536585e6add828756282303f54620c306f54113c",
+      "bytes": 1751294536,
+      "lines": 31898239
+    },
+    "data/processed_hi_medium/account_bank.parquet": {
+      "sha256": "2caa131c0cc5e90cac62ea40a5363661959f7c61ecd659a4c92f6e7af108e213",
+      "bytes": 27757537,
+      "rows": 2077023
+    },
+    "data/processed_hi_medium/amlworld_train.parquet": {
+      "sha256": "eaf0add40d579ab3f305056d95a0ff95065bb727efb207ac0477c2907cbcca8f",
+      "bytes": 763903451,
+      "rows": 9146808
+    },
+    "data/processed_hi_medium/amlworld_val.parquet": {
+      "sha256": "57158912dc32261fb0c3e128ff79d8c439a6974a4ed11eec44e5e1e7cad6c427",
+      "bytes": 310463015,
+      "rows": 3857689
+    },
+    "data/processed_hi_medium/amlworld_test.parquet": {
+      "sha256": "b0c0130e3b8d0f50d2855e5c0d8c9c902d6283db966581d9e81dbfb07773a6f0",
+      "bytes": 1529464557,
+      "rows": 18893741
+    },
+    "data/processed_hi_medium/amlworld_ring_ground_truth.parquet": {
+      "sha256": "8fca50f785038c1d2e83423ca15843d744fc28d6f7d60aa60cb206e6e55fb3d6",
+      "bytes": 626150,
+      "rows": 22743
+    },
+    "data/processed_hi_medium/amlworld_gfp_features_train.parquet": {
+      "sha256": "7ab5b7123e6aedebaf4652093d9f9f71637c89b2fedfceedcd28ae20a2e46bf7",
+      "bytes": 95063560,
+      "rows": 9146808
+    },
+    "data/processed_hi_medium/amlworld_gfp_features_val.parquet": {
+      "sha256": "6583bf39b9de3784deb0937ed1c8856e84e46c345a3cced75bea973046aaa031",
+      "bytes": 42809986,
+      "rows": 3857689
+    },
+    "data/processed_hi_medium/amlworld_gfp_features_test.parquet": {
+      "sha256": "443b5d05c975d5363bce5f970fdb651e302fcf4c6f39f69662ff93a591d35289",
+      "bytes": 221478894,
+      "rows": 18893741
     }
   }
 }

@@ -66,28 +66,41 @@ def main(argv=None):
     ap.add_argument("--scope", default="test_visible")
     ap.add_argument("--cluster-seed", type=int, default=0)
     ap.add_argument("--eval-window", type=Path, default=EVAL_WINDOW_YAML)
+    ap.add_argument("--r1-dir", type=Path, default=R1)
+    ap.add_argument("--r3-dir", type=Path, default=R3)
+    ap.add_argument("--r4-dir", type=Path, default=R4)
+    ap.add_argument("--model-id", default="gine_causal")
+    ap.add_argument("--val-only", action="store_true",
+                    help="choose and record the cut on val, then stop without touching test")
+    ap.add_argument("--seed-frac", type=float, nargs="*", default=SEED_FRAC,
+                    help="restrict the swept seed fractions. The cells are independent, so the "
+                         "registered grid can be run in chunks and the partial grid_val.csv files "
+                         "concatenated; the chosen cell must then be taken over the union.")
     args = ap.parse_args(argv)
+    R1_d, R3_d, R4_d = args.r1_dir, args.r3_dir, args.r4_dir
+    splits = ("val",) if args.val_only else ("val", "test")
     t_start = time.time()
     S = args.seed
     paths = load_paths()
     pdir = paths["processed_dir"]
     args.out.mkdir(parents=True, exist_ok=True)
-    r3 = yaml.safe_load((R3 / "runs" / "proposed" / f"seed{S}" / "config.yaml").read_text(encoding="utf-8"))["chosen"]
+    r3 = yaml.safe_load((R3_d / "runs" / "proposed" / f"seed{S}" / "config.yaml").read_text(encoding="utf-8"))["chosen"]
     delta_t_h, p_min = float(r3["delta_t_h"]), float(r3["p_min"])
-    policy = Policy.load(R3 / "policy_proposed")
-    affinity = Affinity.load(R4 / "affinity")
+    policy = Policy.load(R3_d / "policy_proposed")
+    affinity = Affinity.load(R4_d / "affinity")
     ring_gt = pdir / "amlworld_ring_ground_truth.parquet"
-    W = load_windows()
+    W = load_windows(args.eval_window)
     test_windows = {k: w for k, w in W.items() if w.split == "test"}
-    labels = {s: (REPO_ROOT / "contract" / "out" / f"labels_{s}.parquet") for s in ("val", "test")}
+    labels = {s: (REPO_ROOT / "contract" / "out" / f"labels_{s}.parquet") for s in splits}
     labels = {s: (pd.read_parquet(p) if p.exists() else None) for s, p in labels.items()}
 
     se, ctx = {}, {}
-    for split in ("val", "test"):
-        se[split] = build_scored_edges(R1 / f"scores_{split}_seed{S}.parquet", split, model_id="gine_causal", seed=S, processed_dir=pdir)
-        emb = R1 / f"embeddings_{split}_seed{S}.parquet"
+    for split in splits:
+        se[split] = build_scored_edges(R1_d / f"scores_{split}_seed{S}.parquet", split, model_id=args.model_id, seed=S, processed_dir=pdir)
+        emb = R1_d / f"embeddings_{split}_seed{S}.parquet"
         ctx[split] = build_context(se[split], gfp_parquet=pdir / f"amlworld_gfp_features_{split}.parquet",
-                                   embeddings_parquet=emb if emb.exists() else None, checkpoint=R1 / f"model_best_seed{S}.pt")
+                                   embeddings_parquet=emb if emb.exists() else None, checkpoint=R1_d / f"model_best_seed{S}.pt")
+        print(f"[sweep] {split}: {len(se[split]):,} edges, embeddings {'yes' if emb.exists() else 'NO'}", flush=True)
     truth_val, pat_val = load_ground_truth(ring_gt, *split_window(pdir / "amlworld_val.parquet"), args.scope, verbose=False)
 
     cache: dict[tuple[str, float], tuple] = {}
@@ -119,7 +132,7 @@ def main(argv=None):
 
     # ---- val grid -----------------------------------------------------------------------------------
     grid = []
-    for k_pct in SEED_FRAC:
+    for k_pct in args.seed_frac:
         for ms in MIN_SIZES:
             r0 = rings_at("val", k_pct, None, ms, method="b0")
             m0 = evaluate_rings([r.member_set for r in r0], truth_val, 0.5, pat_val)
@@ -149,10 +162,16 @@ def main(argv=None):
               "hypothesis": "partitioning prevents the chaining collapse B0 shows above 0.3 % seeds, allowing a looser operating point",
               "variant": args.variant, "aggregator": "full" if args.variant == "full" else "cc+partition", "method": args.method,
               "detector_seed": S, "expansion_fixed": {"delta_t_h": delta_t_h, "p_min": p_min} if args.variant == "full" else None,
-              "grid": {"seed_frac_pct": SEED_FRAC, "cut": CUTS, "min_size": MIN_SIZES}, "grid_results_val": grid, "chosen": chosen,
+              "grid": {"seed_frac_pct": list(args.seed_frac), "cut": CUTS, "min_size": MIN_SIZES, "registered_seed_frac_pct": SEED_FRAC}, "grid_results_val": grid, "chosen": chosen,
               "tie_break": ["smallest_seed_frac_pct", "largest_min_size", "largest_cut"], "scope": args.scope,
               "cluster_seed": args.cluster_seed, "eval_windows": {k: w.as_dict() for k, w in W.items()}, "primary_block": "primary"}
+    config["val_only"] = bool(args.val_only)
+    config["sources"] = {"r1_dir": str(R1_d), "r3_dir": str(R3_d), "r4_dir": str(R4_d)}
     (args.out / "config.yaml").write_text(yaml.dump(config, sort_keys=False), encoding="utf-8")
+    if args.val_only:
+        print(f"[sweep] --val-only: grid in {args.out / 'grid_val.csv'}, chosen cell in "
+              f"{args.out / 'config.yaml'}. The test split was never read.")
+        return 0
 
     # ---- test once ------------------------------------------------------------------------------------
     rings = rings_at("test", chosen["seed_frac_pct"], chosen["cut"], chosen["min_size"])

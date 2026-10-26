@@ -29,6 +29,20 @@ from contract.make_scored_edges import git_commit, load_paths  # noqa: E402
 FILES = ["HI-Small_Trans.csv", "HI-Small_accounts.csv", "HI-Small_Patterns.txt", "formatted_transactions.csv"]
 DERIVED = [f"amlworld_gfp_features_{s}{tag}.parquet" for tag in ("", "_legacy_forwardcycle")
            for s in ("train", "val", "test")]
+# Step V3.1: the larger releases, recorded under a separate key and hashed only on demand --
+# HI-Large_Trans.csv alone is ~17 GB, and the routine `--check` used by the table audit must stay
+# cheap. A default run preserves whatever is already recorded here.
+DATASET_FILES = {ds: [f"{ds}_Trans.csv", f"{ds}_Patterns.txt"] for ds in ("HI-Medium", "HI-Large")}
+# Step V3.2: the artefacts an isolated preprocessing run produces, hashed alongside the raw files
+# so the HI-Medium split is pinned the way HI-Small's is. Paths are repo-relative.
+DATASET_DERIVED = {
+    "HI-Medium": ["data/raw_hi_medium/formatted_transactions.csv"]
+    + [f"data/processed_hi_medium/{n}" for n in
+       ("account_bank.parquet", "amlworld_train.parquet", "amlworld_val.parquet",
+        "amlworld_test.parquet", "amlworld_ring_ground_truth.parquet",
+        "amlworld_gfp_features_train.parquet", "amlworld_gfp_features_val.parquet",
+        "amlworld_gfp_features_test.parquet")],
+}
 MANIFEST = REPO_ROOT / "docs" / "data_manifest.json"
 
 
@@ -61,17 +75,46 @@ def describe_parquet(path: Path) -> dict | None:
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--datasets", nargs="*", default=None, metavar="NAME",
+                    help="also hash the larger AMLworld releases (default: all of "
+                         f"{', '.join(DATASET_FILES)}). ~19 GB of reading.")
     args = ap.parse_args(argv)
     paths = load_paths()
     raw_dir, processed_dir = paths["raw_dir"], paths["processed_dir"]
     current = {name: describe(raw_dir / name) for name in FILES}
     derived = {name: describe_parquet(processed_dir / name) for name in DERIVED}
+    want = (list(DATASET_FILES) if args.datasets == [] else args.datasets) or []
+    datasets = {}
+    for ds in want:
+        if ds not in DATASET_FILES:
+            raise SystemExit(f"unknown dataset {ds!r}; known: {', '.join(DATASET_FILES)}")
+        for name in DATASET_FILES[ds]:
+            p = raw_dir / name
+            if not p.exists():
+                print(f"  {name}: MISSING", file=sys.stderr)
+                continue
+            print(f"  hashing {name} ({p.stat().st_size / 1e9:.1f} GB)…", flush=True)
+            datasets[name] = describe(p)
+        for rel in DATASET_DERIVED.get(ds, []):
+            p = REPO_ROOT / rel
+            if not p.exists():
+                print(f"  {rel}: MISSING (not yet produced)", file=sys.stderr)
+                continue
+            print(f"  hashing {rel} ({p.stat().st_size / 1e9:.2f} GB)…", flush=True)
+            d = describe(p)
+            if p.suffix == ".parquet":
+                import pyarrow.parquet as pq
+                d = {"sha256": d["sha256"], "bytes": d["bytes"],
+                     "rows": pq.ParquetFile(p).metadata.num_rows}
+            datasets[rel] = d
 
     if args.check:
         rec = json.loads(MANIFEST.read_text())
         recorded, rec_derived = rec["files"], rec.get("derived", {})
         bad = [n for n in FILES if recorded.get(n, {}).get("sha256") != current[n]["sha256"]]
         bad += [n for n in DERIVED if (rec_derived.get(n) or {}).get("sha256") != (derived[n] or {}).get("sha256")]
+        rec_ds = rec.get("datasets", {})
+        bad += [n for n in datasets if (rec_ds.get(n) or {}).get("sha256") != datasets[n]["sha256"]]
         for n in bad:
             print(f"MISMATCH {n}")
         print("data manifest OK" if not bad else f"{len(bad)} file(s) differ")
@@ -93,6 +136,15 @@ def main(argv=None):
                          "results/tables/r1_edge_metrics.csv; they are not used for new training."),
         "derived": derived,
     }
+    # a default run must not drop a `datasets` block someone paid 19 GB of reading for
+    prev = json.loads(MANIFEST.read_text()).get("datasets", {}) if MANIFEST.exists() else {}
+    merged = {**prev, **datasets}
+    if merged:
+        manifest["datasets_note"] = (
+            "Step V3.1 (2026-09-30): the larger AMLworld releases, hashed with "
+            "`python scripts/data_manifest.py --datasets`. Not verified by a plain `--check`, "
+            "which stays cheap for the table audit; pass --datasets to check them too.")
+        manifest["datasets"] = merged
     MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"wrote {MANIFEST}")
     for n, d in current.items():
@@ -102,6 +154,11 @@ def main(argv=None):
             print(f"  {n:58s} MISSING")
         else:
             print(f"  {n:58s} {d['bytes']:>12,} B  {d['rows']:>10,} rows   {d['sha256'][:16]}…")
+    for n, d in datasets.items():
+        # raw CSV / text entries carry `lines`, derived parquet entries carry `rows`
+        unit = "lines" if "lines" in d else "rows"
+        print(f"  {n:46s} {d['bytes']:>14,} B  {d.get('lines', d.get('rows', 0)):>12,} "
+              f"{unit}  {d['sha256'][:16]}…")
 
 
 if __name__ == "__main__":
