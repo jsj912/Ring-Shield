@@ -1,0 +1,10 @@
+experiment_id: "E1"
+name: "logistic_regression_elliptic"
+dataset: "elliptic"
+feature_set: "AF"
+split: "chronological_1-34_train_35-49_test"
+model: "LogisticRegression"
+hyperparameters:
+  class_weight: "balanced"
+  max_iter: 1000
+random_seed: 42

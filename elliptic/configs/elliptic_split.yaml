@@ -1,0 +1,9 @@
+split_type: "chronological_by_timestep"
+train_timesteps: [1, 34]     # inclusive
+test_timesteps: [35, 49]     # inclusive
+val_timesteps: [30, 34]      
+notes: >
+  Matches Weber et al. 2019's 70:30 chronological split (49 * 0.7 ≈ 34.3 → 34 train / 15 test).
+  This is NOT sklearn.train_test_split — it is a hard filter on the time_step column.
+  Unlabeled nodes are excluded from train/test parquet files (Phase 1) but included
+  in elliptic_all.parquet / elliptic_graph.pt for GCN/GraphSAGE message passing (Phase 2/3).

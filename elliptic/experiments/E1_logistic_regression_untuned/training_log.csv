@@ -1,0 +1,2 @@
+epoch,note,converged
+0,LR is not epoch-based; single closed-loop fit,True
