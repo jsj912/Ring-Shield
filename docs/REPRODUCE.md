@@ -251,4 +251,30 @@ config loader that broke dataset isolation (`docs/PITFALLS.md` §8b).
   window cannot separate any method from any other. Its preprocessing, scope table, tail and day-0
   analyses *are* reproducible with the §1 commands and are the reported result
   (`docs/ring_scope_li_small.json`).
-* **Elliptic** is out of scope for this project.
+* **Elliptic** is not part of the ring pipeline (it has no ring labels). Its baselines, E1–E3, are
+  in `elliptic/` with their own commands (`elliptic/README.md`).
+
+## 13. End-to-end check of the integrated `main` (2026-10-26)
+
+Run on the development workstation (Windows 11, RTX A5000) on branch `integrate/main`, with
+`$PY=.venv312/Scripts/python.exe`, `PYTHONIOENCODING=utf-8`, the data from the Kaggle download, and
+the existing checkpoints and scores (nothing was retrained). Fixes made on the way are named by
+commit.
+
+| # | Command | Result |
+|---|---|---|
+| 1 | `$PY scripts/data_manifest.py --check` | `data manifest OK` |
+| 2a | `$PY -m pytest tests contract/tests preprocessing/tests -q` | **258 passed**, 47 skipped, 1 xfailed (one test needs `experiments/R1_gine_causal/scores_val_seed1.parquet` on disk) |
+| 2b | `..env-xai\Scripts\python.exe -m pytest explainability/tests -q` | **229 passed**, 35 failed, 6 errors, all environmental: L4 outputs not produced on this machine (`results/xai/explanations_week3_seed1.parquet`, `results/xai/review/answer_key.parquet`, `results/xai/explanations_converted_seed1.parquet`, `contract/out` seeds 2–5 and the v1 rings), `fastapi` not installed in the XAI environment, and the committed L4 tenant log recording tenant-ring inputs of 2026-10-17 (`eaa4f609…`) that predate the v2 rings now shipped (`d98cce48…`). One real test bug fixed: input fingerprints failed on an LF checkout (df4334f). |
+| 3 | `make test-db` (no `make` here: its three `docker compose` commands) | **563 passed**, 2 skipped, **22 RLS tests** against PostgreSQL, after fixes 9ce7a92 (`git_commit` without git), 9260bdf (simulator URL), 0f8d5ef (`.dockerignore`), cd7ea1e (the summary's pass count) |
+| 4 | `cd platform/frontend; npm ci; npm run build; npm run test; npm run test:e2e` | build OK; **361** unit tests passed; **58** Playwright tests passed |
+| 5 | `powershell -File scripts/tests/run-demo-validation.tests.ps1` | **18 checks passed**. Under `Invoke-Pester` (Pester 3.4.0) the file runs but counts as 0 tests: it is a script of checks, not `It` blocks. |
+| 6 | `$PY evaluation/audit_tables.py` | **traceable: 18, mismatched: 0** |
+| 7 | `$PY -m ringshield run --scores contract/out/scored_edges_gine_causal_1.parquet --model-dir models/artifacts/full_gine_causal_seed1 --aggregator full --gfp data/processed/amlworld_gfp_features_test.parquet --embeddings experiments/R1_gine_causal/embeddings_test_seed1.parquet --out <tmp>/rings_full_gine_causal_1.parquet` | 108 rings in 62 s; sha256 **`9d1e0b9e…5328`**, 57,618 bytes, **identical** to `contract/out/rings_full_gine_causal_1.parquet` as listed in `docs/HANDOFF_XAI.md`. Needs the model's typing head, which the exported model lacked (0069718). |
+| 8 | `.\scripts\demo.ps1 -FromProcessedData` (clean database) | banks 12 and 20: 5 rings each rebuilt from `data/processed/` (bank 12 byte-identical to the shipped tenant rings: `1e651963…`, edge ids `d98cce48…`); L4: 5/5 explained and reproduced per bank; demo ready at http://localhost:5173. Signed in as the bank-12 analyst: queue of 5 typed rings (FAN-OUT, FAN-IN, STACK ×3); `full-gine_causal-1-0` opens with its L4 narrative. |
+| 9 | `python elliptic/tests/test_split_no_leakage.py`; `python -m elliptic.baselines.random_forest` (in `..env-xai`, which has E2a's recorded pandas 2.3.3 / scikit-learn 1.8.0) | no train/test overlap; **E2a illicit F1 0.8221757322175732**, identical to `elliptic/experiments/E2a_random_forest/metrics.json`. All 31 `elliptic/` modules compile and their imports resolve except `pyvis` (not installed here). |
+
+Note: `demo.ps1 -FromProcessedData` regenerates L4's tenant explanations in `results/xai/tenant/`
+and rewrites their committed `.log.json` run records there; restore them with
+`git checkout -- results/xai/tenant/` after a run unless a new L4 handoff is intended.
+
