@@ -18,7 +18,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const OUT = resolve(ROOT, "docs/screenshots");
 const RING = "full-gine_causal-1-0";          // bank 12's top ring: FAN-OUT, five members, roles visible
-const REGEN_RING = "full-gine_causal-1-1";    // the ring shot 08 corrects, so RING stays open
+// Shot 08 corrects these (rings of 7 and 9 members, so one account can go); RING stays open.
+const REGEN = { light: { bank: 12, ring: "full-gine_causal-1-1" }, dark: { bank: 20, ring: "full-gine_causal-1-2" } };
 
 function credentials(): Record<string, string> {
   const text = readFileSync(resolve(ROOT, "platform/demo-credentials.txt"), "utf-8");
@@ -34,7 +35,7 @@ async function signIn(page: Page, key: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("sidebar-tenant")).toBeVisible();
+  await expect(page).not.toHaveURL(/\/login$/);            // the sidebar is hidden at phone width
 }
 
 /** In-app navigation: a page load would sign the user out (the session is in memory only). */
@@ -51,8 +52,9 @@ const masks = (page: Page): Locator[] => [
 async function shot(page: Page, name: string, theme: string, target?: Locator) {
   await page.waitForLoadState("networkidle");
   const path = resolve(OUT, `${name}-${theme}.png`);
-  if (target) await target.screenshot({ path, mask: masks(page), animations: "disabled" });
-  else await page.screenshot({ path, mask: masks(page), animations: "disabled" });
+  const options = { path, mask: masks(page), maskColor: "#9ca3af", animations: "disabled" } as const;
+  if (target) await target.screenshot(options);
+  else await page.screenshot(options);
 }
 
 const card = (page: Page, title: string) =>
@@ -92,18 +94,52 @@ for (const theme of ["light", "dark"] as const) {
       await shot(page, "06-verdict-form", theme, form);
     });
 
+    test(`12 administrator (${theme})`, async ({ page }) => {
+      await signIn(page, "admin");
+      await go(page, "/admin");
+      await expect(page.getByTestId("r10-summary")).toBeVisible();
+      await page.getByTestId("r10-summary").scrollIntoViewIfNeeded();   // the R10 table, below the tenant registry
+      await page.getByTestId("r10-summary").evaluate((el) => el.scrollIntoView({ block: "start" }));
+      await shot(page, "12-admin", theme);
+    });
+
+    test(`13 analyst at bank 20 (${theme})`, async ({ page }) => {
+      await signIn(page, "tenant_20_analyst");
+      await expect(page.getByTestId("ring-row").first()).toBeVisible();
+      await shot(page, "13-tenant-isolation", theme);
+    });
+  });
+}
+
+// writes: shot 08 records a partial verdict, after every read-only shot
+for (const theme of ["light", "dark"] as const) {
+  test.describe(`writes, ${theme} theme`, () => {
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript((value) => window.localStorage.setItem("ringshield-theme", value), theme);
+    });
+
     test(`08 partial verdict regenerates the narrative (${theme})`, async ({ page }) => {
-      await signIn(page, "tenant_12_analyst");
-      await go(page, `/rings/${REGEN_RING}?bank=12`);
+      await signIn(page, `tenant_${REGEN[theme].bank}_analyst`);
+      await go(page, `/rings/${REGEN[theme].ring}?bank=${REGEN[theme].bank}`);
       const partial = page.getByRole("button", { name: /Partially correct/ });
       await expect(page.getByTestId("narrative")).toBeVisible();
-      test.skip(!(await partial.isEnabled()), "already corrected in this database (shot 08 needs a fresh demo)");
+      test.skip(await partial.count() === 0, "already corrected in this database (shot 08 needs a fresh demo)");
       await partial.click();
       await page.getByRole("checkbox", { name: /^Keep account / }).last().click();
       await page.getByLabel("Note (required for partial)").fill("This account is not part of the ring.");
       await page.getByRole("button", { name: /Submit partial verdict/ }).click();
-      await expect(page.getByText(/Regenerat/).first()).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByText("Explanation regenerated for the corrected ring.")).toBeVisible({ timeout: 90_000 });
+      await page.locator("main").evaluate((el) => el.scrollTo(0, 0));
       await shot(page, "08-regeneration", theme);
+    });
+  });
+}
+
+// supervisor: after shot 08, so the history shows its verdicts
+for (const theme of ["light", "dark"] as const) {
+  test.describe(`supervisor, ${theme} theme`, () => {
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript((value) => window.localStorage.setItem("ringshield-theme", value), theme);
     });
 
     test(`09-11 supervisor at bank 12 (${theme})`, async ({ page }) => {
@@ -117,19 +153,6 @@ for (const theme of ["light", "dark"] as const) {
       await go(page, "/drift");
       await expect(page.getByTestId("drift-statement")).toBeVisible();
       await shot(page, "11-drift", theme);
-    });
-
-    test(`12 administrator (${theme})`, async ({ page }) => {
-      await signIn(page, "admin");
-      await go(page, "/admin");
-      await expect(page.getByTestId("r10-summary")).toBeVisible();
-      await shot(page, "12-admin", theme);
-    });
-
-    test(`13 analyst at bank 20 (${theme})`, async ({ page }) => {
-      await signIn(page, "tenant_20_analyst");
-      await expect(page.getByTestId("ring-row").first()).toBeVisible();
-      await shot(page, "13-tenant-isolation", theme);
     });
   });
 }
