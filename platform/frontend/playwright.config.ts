@@ -16,6 +16,7 @@ const webPort = 5174;
 
 export default defineConfig({
   testDir: "e2e",
+  testIgnore: "screenshots.spec.ts",  // the visual tour runs against the real demo: npm run screenshots
   timeout: 60_000,
   retries: 0,
   workers: 1,                       // every test shares one fixture server and resets it first
