@@ -29,8 +29,11 @@ def sha256_file(path: Path) -> str:
 
 
 def git_commit() -> str:
-    result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT,
-                            capture_output=True, text=True, check=False)
+    try:
+        result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT,
+                                capture_output=True, text=True, check=False)
+    except OSError:                                     # git not installed (the test image)
+        return "unknown"
     return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
