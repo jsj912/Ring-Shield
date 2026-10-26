@@ -53,8 +53,9 @@ For banks 12 and 20, the expected visible edge-ID and database transaction/score
 counts are **20,039** and **10,315** respectively, with **5 rings per tenant**.
 The runner verifies those counts and checks the loaded explanation count against
 the ring count. It prints per-tenant counts for every table with a `tenant_id`.
-The API is at `http://127.0.0.1:8000` and the Streamlit dashboard is at
-`http://127.0.0.1:8501`. Demo analyst, supervisor, and admin emails/passwords are
+The API is at `http://127.0.0.1:8000`. `scripts/demo.ps1` serves the React dashboard at
+`http://localhost:5173`; the frozen Streamlit dashboard is at `http://127.0.0.1:8501` when
+`scripts/run-demo.ps1` starts it. Demo analyst, supervisor, and admin emails/passwords are
 written once to the ignored file `platform/demo-credentials.txt`; passwords are
 never printed in the console or service logs. Log in with an analyst or supervisor
 to see tenant rings; use the admin account for the global admin views.
@@ -287,6 +288,7 @@ URLs must use those restricted non-owner roles. Start the API with:
 
 ```powershell
 uvicorn api.main:app --app-dir platform --env-file .env --reload --no-access-log
+# The investigator dashboard is platform/frontend (see its README). The first Streamlit version:
 streamlit run platform/dashboard/app.py
 ```
 
