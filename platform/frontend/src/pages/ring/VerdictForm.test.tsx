@@ -16,12 +16,12 @@ const ring = {
   source_accounts: [], sink_accounts: [], mule_accounts: [], model_id: "m", aggregator_id: "a",
 } satisfies RingDetail;
 
-function renderForm(role: Role, ringOverride: Partial<RingDetail> = {}) {
+function renderForm(role: Role, ringOverride: Partial<RingDetail> = {}, edges = [{ edge_id: 7, from_id: 11, to_id: 12 }]) {
   setSession({ user_id: 1, tenant_id: 1001, tenant_name: "Bank", role, token: "t", expires_at: "2099-01-01T00:00:00Z" });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <VerdictForm tenantId={1001} ringId={`ring-${role}-${Math.random()}`} ring={{ ...ring, ...ringOverride }} />
+      <VerdictForm tenantId={1001} ringId={`ring-${role}-${Math.random()}`} ring={{ ...ring, ...ringOverride }} edges={edges} />
     </QueryClientProvider>,
   );
 }
@@ -76,6 +76,19 @@ describe("VerdictForm", () => {
     expect(screen.getByText("The verdict was not recorded. Your entries are kept: submit again to retry.")).toBeInTheDocument();
     expect(screen.getByLabelText(/Note \(optional/)).toHaveValue("kept note");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ verdict: "confirm", note: "kept note" });
+  });
+
+  it("unticking an account unticks its transactions; ticking it again restores them", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const user = userEvent.setup();
+    renderForm("analyst", { n_members: 3, n_edges: 2, member_accounts: [11, 12, 13], member_edges: [7, 8] },
+      [{ edge_id: 7, from_id: 11, to_id: 12 }, { edge_id: 8, from_id: 12, to_id: 13 }]);
+    await user.click(screen.getByRole("button", { name: /Partially correct/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Keep account 13" }));
+    expect(screen.getByRole("checkbox", { name: "Keep transaction 8" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Keep transaction 7" })).toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: "Keep account 13" }));
+    expect(screen.getByRole("checkbox", { name: "Keep transaction 8" })).toBeChecked();
   });
 
   it("says when the ring is no longer open", () => {

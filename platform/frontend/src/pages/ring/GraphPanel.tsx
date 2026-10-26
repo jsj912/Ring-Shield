@@ -9,6 +9,7 @@ import { ErrorState, Notice } from "@/components/shared";
 import { RingGraph } from "@/components/RingGraph";
 import { NODE_CAP } from "@/lib/ring-graph";
 import { useSubgraph } from "./queries";
+import { isRemoved, type Correction } from "./verdict-state";
 
 /** Keeps a drawing failure inside the graph panel; the narrative and evidence stay up. */
 class GraphBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -23,8 +24,18 @@ class GraphBoundary extends Component<{ children: ReactNode }, { failed: boolean
   }
 }
 
-export function GraphPanel({ tenantId, ringId }: { tenantId: number; ringId: string }) {
-  const subgraph = useSubgraph(tenantId, ringId);
+export function GraphPanel({ tenantId, ringId, correction }: { tenantId: number; ringId: string; correction: Correction | null }) {
+  const query = useSubgraph(tenantId, ringId);
+  // After a partial verdict the graph draws the corrected ring: removed accounts and their transactions go.
+  const subgraph = correction && query.data ? {
+    ...query,
+    data: {
+      ...query.data,
+      nodes: query.data.nodes.filter((node) => !correction.removedAccounts.has(node.account_id)),
+      edges: query.data.edges.filter((edge) => !isRemoved(correction, edge.edge_id, edge.from_id, edge.to_id)),
+      n_accounts: query.data.nodes.filter((node) => !correction.removedAccounts.has(node.account_id)).length,
+    },
+  } : query;
   const [showConversions, setShowConversions] = useState(false);
   const [loadAll, setLoadAll] = useState(false);
   const capped = subgraph.data ? subgraph.data.n_accounts > NODE_CAP && !loadAll : false;
@@ -41,7 +52,7 @@ export function GraphPanel({ tenantId, ringId }: { tenantId: number; ringId: str
       <CardContent className="space-y-2">
         {subgraph.isPending ? <Skeleton className="h-[460px] w-full" /> : subgraph.isError ? (
           <>
-            <ErrorState compact error={subgraph.error} onRetry={() => subgraph.refetch()} />
+            <ErrorState compact error={query.error} onRetry={() => query.refetch()} />
             <p className="text-muted-foreground text-xs">The graph could not be loaded; the narrative and evidence are unaffected.</p>
           </>
         ) : (

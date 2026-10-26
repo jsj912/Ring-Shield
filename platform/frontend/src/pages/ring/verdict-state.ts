@@ -4,7 +4,7 @@
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/endpoints";
-import type { VerdictKind, VerdictResponse } from "@/api/types";
+import type { RingDetail, VerdictHistoryPage, VerdictKind, VerdictResponse } from "@/api/types";
 import { useSessionValue } from "@/app/workspace";
 import { newPollDeadline } from "@/lib/polling";
 import { ringKeys } from "./queries";
@@ -59,4 +59,30 @@ export function useRecordVerdict(tenantId: number, ringId: string) {
       queryClient.invalidateQueries({ queryKey: ["verdicts", tenantId] });
     },
   });
+}
+
+/** What the latest verdict removed, when it is a partial one; the screen then shows the corrected ring. */
+export interface Correction {
+  members: number;
+  edges: number;
+  removedAccounts: Set<number>;
+  removedEdges: Set<number>;
+}
+
+export function latestCorrection(ring: RingDetail, history: VerdictHistoryPage | undefined): Correction | null {
+  const latest = history?.items[0];
+  if (latest?.verdict !== "partial") return null;
+  const members = new Set(latest.corrected_members);
+  const edges = new Set(latest.corrected_edges);
+  return {
+    members: members.size, edges: edges.size,
+    removedAccounts: new Set(ring.member_accounts.filter((id) => !members.has(id))),
+    removedEdges: new Set(ring.member_edges.filter((id) => !edges.has(id))),
+  };
+}
+
+/** A transaction leaves the corrected ring when it was removed or touches a removed account. */
+export function isRemoved(correction: Correction | null, edgeId: number, from: number, to: number): boolean {
+  return correction !== null
+    && (correction.removedEdges.has(edgeId) || correction.removedAccounts.has(from) || correction.removedAccounts.has(to));
 }

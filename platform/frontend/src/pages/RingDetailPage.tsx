@@ -18,7 +18,8 @@ import { NarrativePanel } from "./ring/NarrativePanel";
 import { RegenerationStatus } from "./ring/RegenerationStatus";
 import { RingVerdicts } from "./ring/RingVerdicts";
 import { VerdictForm } from "./ring/VerdictForm";
-import { useEvidence, useExplanation, useRing, useRingVerdicts } from "./ring/queries";
+import { useEvidence, useExplanation, useRing, useRingVerdicts, useSubgraph } from "./ring/queries";
+import { latestCorrection } from "./ring/verdict-state";
 
 function BackToQueue() {
   // The queue keeps its filters and page in the workspace (FR-D14).
@@ -35,6 +36,7 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
   const explanation = useExplanation(tenantId, ringId);
   const evidence = useEvidence(tenantId, ringId);
   const history = useRingVerdicts(tenantId, ringId);
+  const subgraph = useSubgraph(tenantId, ringId);
 
   if (ring.isPending) {
     return (
@@ -53,6 +55,7 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
   }
   if (ring.isError) return <ErrorState error={ring.error} onRetry={() => ring.refetch()} />;
   const detail = ring.data;
+  const correction = latestCorrection(detail, history.data);
   const explanationState = { isPending: explanation.isPending, error: explanation.error, retry: () => explanation.refetch() };
 
   return (
@@ -66,7 +69,11 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="outline">{detail.topology_type}</Badge>
           <Badge variant="outline">Confidence {fmtWeight(detail.confidence)}</Badge>
-          <Badge variant="outline">{detail.n_members} members · {detail.n_edges} edges</Badge>
+          {correction ? (
+            <Badge variant="outline">{correction.members} of {detail.n_members} members · {correction.edges} of {detail.n_edges} edges (corrected)</Badge>
+          ) : (
+            <Badge variant="outline">{detail.n_members} members · {detail.n_edges} edges</Badge>
+          )}
           {detail.cross_bank ? <Badge variant="violet"><Globe2 /> Cross-bank: {detail.counterparty_banks.join(", ")}</Badge> : null}
         </div>
       </PageHeader>
@@ -74,9 +81,9 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
       <RegenerationStatus tenantId={tenantId} ringId={ringId} explanation={explanation.data} />
       <div className="grid items-start gap-4 min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
         <NarrativePanel ring={detail} explanation={explanation.data} explanationState={explanationState} history={history.data} />
-        <GraphPanel tenantId={tenantId} ringId={ringId} />
+        <GraphPanel tenantId={tenantId} ringId={ringId} correction={correction} />
         <EvidencePanel
-          ring={detail} ringId={ringId}
+          ring={detail} ringId={ringId} correction={correction}
           evidence={evidence.data}
           evidenceState={{ isPending: evidence.isPending, error: evidence.error, retry: () => evidence.refetch() }}
           explanation={explanation.data}
@@ -85,7 +92,7 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
       </div>
       <RingVerdicts history={history.data}
         state={{ isPending: history.isPending, error: history.error, retry: () => history.refetch() }} />
-      <VerdictForm tenantId={tenantId} ringId={ringId} ring={detail} />
+      <VerdictForm tenantId={tenantId} ringId={ringId} ring={detail} edges={subgraph.data?.edges} />
     </>
   );
 }

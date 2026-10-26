@@ -14,6 +14,7 @@ import { ErrorState, TableSkeleton, WeightBar } from "@/components/shared";
 import { Plot } from "@/components/Plot";
 import { downloadText, toCsv } from "@/lib/csv";
 import { fmtAmount, fmtSeconds, fmtTime, fmtTimeUtc, fmtWeight } from "@/lib/formatters";
+import { isRemoved, type Correction } from "./verdict-state";
 
 export const DETECTOR_CAPTION = "Signals from the transaction-level detector on the ring's seed transactions";
 
@@ -66,17 +67,20 @@ function ExportButton({ onClick }: { onClick: () => void }) {
   return <Button size="xs" variant="outline" onClick={onClick}><Download /> CSV</Button>;
 }
 
-export function EvidencePanel({ ring, ringId, evidence, evidenceState, explanation, explanationState }: {
-  ring: RingDetail; ringId: string;
+export function EvidencePanel({ ring, ringId, correction, evidence, evidenceState, explanation, explanationState }: {
+  ring: RingDetail; ringId: string; correction: Correction | null;
   evidence: RingEvidenceGraph | undefined;
   evidenceState: { isPending: boolean; error: unknown; retry: () => void };
   explanation: RingExplanation | null | undefined;
   explanationState: { isPending: boolean; error: unknown; retry: () => void };
 }) {
   const [showConversions, setShowConversions] = useState(false);
-  const transactions = transactionRows(evidence, explanation, ring, showConversions);
+  // After a partial verdict the tabs list the corrected ring only.
+  const transactions = transactionRows(evidence, explanation, ring, showConversions)
+    .filter((row) => !isRemoved(correction, row.edge_id, row.from, row.to));
   const banks = new Map((evidence?.nodes ?? []).map((node) => [node.account_id, node.bank_label]));
-  const accounts = byWeightDescending<AccountWeight>(explanation?.account_weights ?? [], (item) => item.w_account);
+  const accounts = byWeightDescending<AccountWeight>((explanation?.account_weights ?? [])
+    .filter((item) => !correction?.removedAccounts.has(item.account_id)), (item) => item.w_account);
   // The API sends feature_weights already ranked by |mean_shap| (explainability/feature_weights.py):
   // take its first ten as they come, reversed only so the chart draws the strongest at the top.
   const features = (explanation?.feature_weights ?? []).slice(0, 10).reverse();

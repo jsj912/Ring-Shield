@@ -1,7 +1,7 @@
 /** FR-D50-55: confirm, reject or partially correct; one request per click (app.py::_verdict_form). */
 import { useRef, useState } from "react";
 import { CheckCircle2, GitPullRequestDraft, Loader2, Lock, XCircle } from "lucide-react";
-import type { RingDetail } from "@/api/types";
+import type { RingDetail, SubgraphEdge } from "@/api/types";
 import { canRecordVerdicts } from "@/app/pages";
 import { useSession } from "@/app/session";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Notice, errorText } from "@/components/shared";
 import { useRecordVerdict, useSubmitted, type VerdictInput } from "./verdict-state";
 
-export function VerdictForm({ tenantId, ringId, ring }: { tenantId: number; ringId: string; ring: RingDetail }) {
+export function VerdictForm({ tenantId, ringId, ring, edges: ringEdges = [] }: {
+  tenantId: number; ringId: string; ring: RingDetail; edges?: Pick<SubgraphEdge, "edge_id" | "from_id" | "to_id">[];
+}) {
   const session = useSession()!;
   const record = useRecordVerdict(tenantId, ringId);
   const [submitted] = useSubmitted(tenantId, ringId);
@@ -85,6 +87,19 @@ export function VerdictForm({ tenantId, ringId, ring }: { tenantId: number; ring
     setPartialOpen(true);
   };
 
+  // A transaction needs both its accounts, so unticking an account unticks its transactions, and
+  // ticking it again restores those whose other account is still kept.
+  const toggleMember = (id: number, keep: boolean) => {
+    const members = { ...keepMembers, [id]: keep };
+    const edges = { ...keepEdges };
+    for (const edge of ringEdges) {
+      if (!(edge.edge_id in edges) || (edge.from_id !== id && edge.to_id !== id)) continue;
+      edges[edge.edge_id] = keep ? (members[edge.from_id] ?? true) && (members[edge.to_id] ?? true) : false;
+    }
+    setKeepMembers(members);
+    setKeepEdges(edges);
+  };
+
   const submitPartial = () => {
     const members = ring.member_accounts.filter((id) => keepMembers[id]);
     const edges = ring.member_edges.filter((id) => keepEdges[id]);
@@ -111,7 +126,7 @@ export function VerdictForm({ tenantId, ringId, ring }: { tenantId: number; ring
                   {ring.member_accounts.map((id) => (
                     <label key={id} className="flex items-center gap-2 font-mono text-xs">
                       <Checkbox checked={keepMembers[id] ?? true} aria-label={`Keep account ${id}`}
-                        onCheckedChange={(value) => setKeepMembers({ ...keepMembers, [id]: value === true })} />
+                        onCheckedChange={(value) => toggleMember(id, value === true)} />
                       Keep account {id}
                     </label>
                   ))}
