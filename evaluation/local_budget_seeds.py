@@ -16,7 +16,7 @@ highly.
 
 `FINDINGS.md` **B13** bounds what this can achieve in advance: a local budget cannot help a ring
 whose remaining members sit in a component disconnected from the seeded fragment inside the window,
-which is 80.7 % of the under-covered mass. It is run because it is cheap and because the
+which is 81.5 % of the under-covered mass. It is run because it is cheap and because the
 budget-allocation question deserves a third answer, not because a large effect is expected.
 
 Output: `experiments/R11c_local/scores_{val,test}_seed<S>.parquet` (+ config.yaml).
@@ -91,7 +91,7 @@ def main(argv=None):
                  "local maxima rank above all others, then the ordinary strict quantile cut at k* applies",
          "budget": "UNCHANGED at k* = 0.1 %",
          "expected_bound": "FINDINGS B13 -- a local budget cannot reach members in a component disconnected "
-                           "from the seeded fragment inside the window (80.7 % of the under-covered mass)",
+                           "from the seeded fragment inside the window (81.5 % of the under-covered mass)",
          "per_run": rep}, sort_keys=False), encoding="utf-8")
     print(f"\n-> {a.out_dir}")
     return rep

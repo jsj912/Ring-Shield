@@ -8,7 +8,7 @@ past, and in deployment an analyst on test day 9 can see days 0–8. Those trans
 **observable**; only their labels are off-limits. Restricting expansion to in-window edges is an
 artificial limitation corresponding to nothing real.
 
-`FINDINGS.md` **B13** measured that **80.7 %** of the missing members of under-covered rings have no
+`FINDINGS.md` **B13** measured that **81.5 %** (176 of 216; first quoted as 80.7 % of 218, corrected 2026-10-26) of the missing members of under-covered rings have no
 path to the recovered fragment *inside the window* — STACK **140/140**. The path may exist through
 earlier edges. At the val-chosen Δt = 24 h and `max_hops` 2, a day-9 seed reaches back into day 8;
 at Δt = 72 h it reaches day 5, which is in the **train** split.
@@ -77,7 +77,7 @@ band, and it is reported as its own result.
 
 ### Control check — nothing else is trustworthy without it
 
-Column (b) must reproduce B13 **exactly**: 80.7 % overall and STACK 140/140. If it does not, the
+Column (b) must reproduce B13 **exactly**: 80.7 % overall and STACK 140/140 (as B13 stood when this was registered; B13 now says 81.5 %, 176 of 216). If it does not, the
 walk is not measuring what B13 measured and no other column in the table can be believed.
 
 ---
@@ -136,7 +136,7 @@ both 2 and 3 hops, with no truncation. The BUILD band required >25 %.
 
 **The ceiling is structural.** STACK's missing members are not merely outside the evaluation
 window — they are not reachable from the recovered fragment through the *entire* 18-day graph under
-the expansion's own reachability rules. Widening the window does not help (B13: 99.6 % still
+the expansion's own reachability rules. Widening the window does not help (B13: STACK 100 % still
 disconnected on `whole`), and neither does letting the walk traverse history. The chain is severed
 in a way no in-graph walk from the recovered fragment repairs.
 

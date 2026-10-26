@@ -209,7 +209,7 @@ days. Implied ring-recall ceiling: 0.699.**
 
 Why this one:
 
-* **Containment is the lever, and it moves 3.8×.** B13 put 80.7 % of the under-covered class in
+* **Containment is the lever, and it moves 3.8×.** B13 put 81.5 % of the under-covered class in
   pieces with no in-window path, and `CLASS_B_COMPOSITION` found class (b) rings whose visible
   edges are a scatter of disjoint transactions. Both are consequences of scoring a ring against a
   2-day slice of a 3-day pattern. At 44.1 % containment most in-scope rings are present *as

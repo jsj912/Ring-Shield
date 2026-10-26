@@ -45,9 +45,9 @@ policy, is the limit:
 | Evidence | Number | Source |
 |---|---|---|
 | Under-covered predictions are pure but small | purity 1.000 (34/34), median coverage 0.176 (3 of 14 members) | B12 |
-| Missing member edges with no in-window path to the fragment | **175 / 218 (80 %)**; STACK **140 / 140** | B13 |
+| Missing member edges with no in-window path to the fragment | **176 / 216 (81.5 %)**; STACK **140 / 140** | B13 |
 | Missing edges never generated as candidates | 85.6 % | B13 |
-| Widening to the ten-day window | STACK still 99.6 % disconnected | B13 |
+| Widening to the ten-day window | STACK still 100 % disconnected | B13 |
 | Walking the full 18-day history under the expansion's rules | **0 / 140** STACK edges reached (null 0 / 216) | B16 |
 | STACK + BIPARTITE share of untouched rings | 52 %, over-represented 2.2× / 2.7× | `CLASS_B_COMPOSITION.md` |
 

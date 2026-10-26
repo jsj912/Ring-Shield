@@ -3,7 +3,7 @@
     python evaluation/historical_bridge.py --dry-run     # seed 1, control check only
     python evaluation/historical_bridge.py
 
-`FINDINGS.md` B13: 80.7 % of the missing members of under-covered rings have no path to the
+`FINDINGS.md` B13: 81.5 % of the missing members of under-covered rings have no path to the
 recovered fragment *inside the evaluation window* (STACK 140/140). Candidate generation only ever
 sees the split's own edges, but the detector's loader already samples the full past and an analyst
 on test day 9 can see days 0-8 — those transactions are observable, only their labels are not. So
@@ -257,7 +257,7 @@ def main(argv=None):
               f"({ctrl_disc/max(ctrl_tot,1)*100:.1f} %)", flush=True)
 
     print(f"\n(b) CONTROL — disconnected in-window: {ctrl_disc}/{ctrl_tot} = "
-          f"{ctrl_disc/max(ctrl_tot,1)*100:.1f} %   [B13 says 80.7 %]")
+          f"{ctrl_disc/max(ctrl_tot,1)*100:.1f} %   [B13 says 81.5 %]")
     if a.dry_run:
         print("[bridge] DRY RUN -- control only, nothing written")
         return None

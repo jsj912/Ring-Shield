@@ -561,8 +561,8 @@ Source: `results/tables/r6_detector_swap.csv`.
 4. **Most of the remaining loss is structural.** 34 % of rings (60 of 174) have fewer than 3 visible
    members, yet 11.4 of them per seed are still matched, so there is no `min_size` cap on recall
    (~~"28 % … capped near 0.72"~~, retracted 2026-09-30: FINDINGS B7/B9). 19 % are untouched by the
-   shipped pipeline (13.8 % with MEGA-GNN, B8); 80.7 % of the largest residual class is disconnected
-   inside the two-day window (99.6 % for STACK across the whole test split). Achieved recall is 0.46.
+   shipped pipeline (13.8 % with MEGA-GNN, B8); 81.5 % of the largest residual class is disconnected
+   inside the two-day window (100 % for STACK across the whole test split). Achieved recall is 0.46.
 5. **One bank's view loses most rings.** A pooled model applied to one bank's view recovers 8.8 % of
    its tenant-ring pairs against 35.9 % pooled, pooled − (b) = 0.271 [0.154, 0.407]. This includes
    distribution shift, so it is not only the cost of seeing fewer edges; 172 of 174 rings cross banks.

@@ -10,7 +10,7 @@ Source: `evaluation/v3_diagnostics.py`. Five seeds, primary window (test days 8�
 ## Why these two
 
 `FINDINGS.md` **B8** puts 33.2 rings per seed in **class (b)** — ≥ 3 visible members, and no
-included edge of any prediction touches one of their accounts. **B13** puts 80.7 % of the
+included edge of any prediction touches one of their accounts. **B13** puts 81.5 % of the
 under-covered class's missing members in a piece of the ring with no in-window path to the
 recovered fragment, and **B16** shows history does not bridge them. **B14** shows reallocating the
 *edge* seed budget does not lift the ceiling.

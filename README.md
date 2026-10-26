@@ -62,9 +62,9 @@ Traps live in **`docs/PITFALLS.md`**.
 3. **Most of the remaining loss is structural, but there is no `min_size` cap on recall.** 34 % of
    rings (60 of 174) have < 3 visible members, yet 11.4 of them per seed are still matched
    (~~"28 % below `min_size`, recall capped at 0.72"~~, retracted 2026-09-30: B7/B9). 19 % are
-   untouched by the shipped pipeline (13.8 % with MEGA-GNN: B8), and **80.7 %** of the largest
+   untouched by the shipped pipeline (13.8 % with MEGA-GNN: B8), and **81.5 %** of the largest
    residual class is in a piece of the ring that is *disconnected inside the evaluation window* —
-   99.6 % for STACK even across the whole test split.
+   100 % for STACK even across the whole test split.
 4. **One bank's view loses most of its rings (R10).** A pooled model applied to one bank's view
    recovers 0.088 of that bank's tenant-ring pairs against 0.359 pooled: pooled − (b) = **0.271
    [0.154, 0.407]**. This includes distribution shift (the model meets a graph unlike the one it was

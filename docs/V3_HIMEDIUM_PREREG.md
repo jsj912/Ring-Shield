@@ -90,7 +90,7 @@ and the CIs are reported whether or not they overlap — clearing a point estima
 pre-registered bar, and CI overlap is context, not a second bar moved in afterwards.
 
 **Mechanism.** 44.1 % of HI-Medium's in-scope rings are fully contained in the test window
-against HI-Small's 11.5 %. B13 attributed 80.7 % of the under-covered residual to rings arriving
+against HI-Small's 11.5 %. B13 attributed 81.5 % of the under-covered residual to rings arriving
 as disconnected pieces because the window cuts them; V3.0b (c1) showed 98.6 % of the class-(b)
 discard is a lone seed edge whose component never reaches `min_size`. Both are truncation
 effects, and truncation is what containment measures.
