@@ -677,15 +677,19 @@ try {
     if ($env:PYTHON) { $python = $env:PYTHON }
     elseif (Test-Path -LiteralPath $venvPython -PathType Leaf) { $python = $venvPython }
     else { $python = (Get-Command python -ErrorAction Stop).Source }
-    $explanationCheckArguments = @('platform/jobs/check_explanations.py')
-    foreach ($tenantId in $Tenants) {
-        $explanationFile = Join-Path $validated.ExplanationsDir "explanations_${tenantId}_$(Get-PlatformConfigValue 'active_seed').parquet"
-        $ringsLog = Join-Path $validated.RingsDir "tenant_${tenantId}_rings.parquet.log.json"
-        $explanationCheckArguments += @('--explanations', $explanationFile,
-            '--run-log', "$explanationFile.log.json", '--rings-log', $ringsLog)
-    }
     $env:RINGSHIELD_PLATFORM_CONFIG = $PlatformConfig            # the check compares with its active seed
-    Invoke-Checked $python $explanationCheckArguments 'validate tenant explanation handoffs (read-only)'
+    # Ten banks per call: three paths per bank overflow the Windows command line (32,767
+    # characters) at about a hundred banks, and the venv launcher then mangles the call.
+    for ($start = 0; $start -lt $Tenants.Count; $start += 10) {
+        $explanationCheckArguments = @('platform/jobs/check_explanations.py')
+        foreach ($tenantId in @($Tenants)[$start..([Math]::Min($start + 9, $Tenants.Count - 1))]) {
+            $explanationFile = Join-Path $validated.ExplanationsDir "explanations_${tenantId}_$(Get-PlatformConfigValue 'active_seed').parquet"
+            $ringsLog = Join-Path $validated.RingsDir "tenant_${tenantId}_rings.parquet.log.json"
+            $explanationCheckArguments += @('--explanations', $explanationFile,
+                '--run-log', "$explanationFile.log.json", '--rings-log', $ringsLog)
+        }
+        Invoke-Checked $python $explanationCheckArguments 'validate tenant explanation handoffs (read-only)'
+    }
     & $docker.Source info *> $null
     if ($LASTEXITCODE -ne 0) { throw "Step 'check Docker Desktop' failed with exit code $LASTEXITCODE. Start Docker Desktop, then retry." }
     if ($PostgresTimeoutSeconds -lt 10) { throw '-PostgresTimeoutSeconds must be at least 10.' }
