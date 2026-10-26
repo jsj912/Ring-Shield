@@ -169,6 +169,17 @@ database. Stop everything with:
 .\scripts\run-demo.ps1 -Down
 ```
 
+Simulated verdicts and a refused retrain (checklist lines 5 and 6) need R11's history. Bank 12 holds
+too few rings for a retrain, so this demo runs on bank 1, R11's bank (about 15 minutes more; no L4 service,
+which knows banks 12 and 20 only):
+
+```bash
+.\scripts\demo.ps1 -Tenants 1 -SupervisorTenants 1 -InputsDir data/platform_tenant_runs/r11_seed1/T1 -ExplanationsDir platform/out/r11/xai -R11History
+```
+
+It also needs R11's inputs for bank 1 (`docs/R11.md`): the rings in `data/platform_tenant_runs/r11_seed1/T1/`,
+`platform/out/r11/xai/explanations_1_1.parquet` and `data/tenant_visible/scored_edges_visible_1_gine_causal_1.parquet`.
+
 Other banks, a different detector seed, or the frozen Streamlit dashboard: call
 `scripts/run-demo.ps1` directly (`-Tenants`, `-PlatformConfig`, and without `-SkipStreamlit`).
 To run the dashboard on fixtures, without the API, see `platform/frontend/README.md`. The
