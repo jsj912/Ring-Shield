@@ -146,7 +146,10 @@ it. Selected rows (full curve in `v3_test_at_end.csv`):
 | HI-Large | 14 | 83–96 | 6,208 | 3,989 | 0.643 | 8.1 % | 82 |
 | HI-Large | 21 | 76–96 | 7,567 | 5,066 | 0.669 | 12.4 % | 75 |
 
-### The ceiling saturates at ~0.72 everywhere, and here is why
+### The ≥ 3-member share saturates at ~0.72 everywhere, and here is why
+
+*(First written as a ceiling on ring recall; it is not one. Corrected 2026-09-30 (V3.2b), see
+"V3.2 correction" below and FINDINGS B9: 0.72 is the share of rings `ring_recall_ge3` counts.)*
 
 No window on any release pushes the ceiling past **0.72**. HI-Small reaches 0.731 using its entire
 clean region; HI-Medium 0.720 using all of its. Decomposing the rings that fall below the bar,
