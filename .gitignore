@@ -158,3 +158,8 @@ platform/out/
 !platform/.env.example
 # The IEEE-CIS scratch models, committed with Ruhani's Phase 0-3 work.
 !elliptic/baselines/_ieee_cis_scratch/experiments/*/model.pkl
+# L4 tenant runs for the other banks (scripts/demo.ps1 -AllRingBanks -FromProcessedData) are
+# generated locally; banks 12 and 20 keep their committed L4 handoff records.
+results/xai/tenant/**/*.parquet.log.json
+!results/xai/tenant/**/*_12_*.parquet.log.json
+!results/xai/tenant/**/*_20_*.parquet.log.json
