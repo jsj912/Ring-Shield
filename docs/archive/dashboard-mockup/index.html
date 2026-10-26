@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RingShield Investigator Dashboard v2.0</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js for Drift & Metrics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              900: '#14532d',
+            },
+            ringblue: {
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Custom Scrollbar for Sleek Dark Theme UI */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .glass-panel { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); }
+    .high-contrast { filter: contrast(125%) brightness(105%); }
+  </style>
+</head>
+<body class="h-full font-sans antialiased bg-slate-950 text-slate-100 flex flex-col overflow-hidden">
+
+  <!-- TOP HEADER / NAV BAR -->
+  <header class="h-14 border-b border-slate-800 bg-slate-900/90 px-4 flex items-center justify-between shrink-0 z-20">
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-lg">
+          <i data-lucide="shield-alert" class="w-5 h-5 text-emerald-400"></i>
+        </div>
+        <div>
+          <span class="font-bold text-slate-100 tracking-wide text-base">RingShield</span>
+          <span class="text-xs text-slate-400 ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">v2.4 Pro</span>
+        </div>
+      </div>
+
+      <!-- Tenant Switcher (Administrator Only Context) -->
+      <div id="tenant-switcher-container" class="hidden items-center ml-6 border-l border-slate-800 pl-4">
+        <label for="tenant-select" class="text-xs text-slate-400 font-medium mr-2">Tenant:</label>
+        <select id="tenant-select" onchange="switchTenant(this.value)" class="bg-slate-800 border border-slate-700 text-xs text-emerald-400 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <option value="bank_alpha">Bank Alpha (Current)</option>
+          <option value="bank_beta">Bank Beta</option>
+          <option value="credit_corp">Credit Corp Global</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Right Header Actions -->
+    <div class="flex items-center space-x-3">
+      <!-- Quick Command Palette Button -->
+      <button onclick="toggleCommandPalette()" class="hidden md:flex items-center space-x-2 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 text-xs px-3 py-1.5 rounded-lg transition">
+        <i data-lucide="search" class="w-3.5 h-3.5"></i>
+        <span>Search / Jump...</span>
+        <kbd class="bg-slate-900 border border-slate-700 text-slate-400 text-[10px] px-1.5 py-0.5 rounded">Ctrl K</kbd>
+      </button>
+
+      <!-- Help Glossary Drawer Button -->
+      <button onclick="toggleGlossaryDrawer()" title="Term Glossary" class="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-md">
+        <i data-lucide="help-circle" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Keyboard Shortcuts Modal Trigger -->
+      <button onclick="toggleShortcutsModal()" title="Keyboard Shortcuts (?)" class="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-md">
+        <i data-lucide="keyboard" class="w-4 h-4"></i>
+      </button>
+
+      <!-- High Contrast Mode Toggle -->
+      <button onclick="toggleHighContrast()" title="Toggle High Contrast" class="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-md">
+        <i data-lucide="sun" class="w-4 h-4"></i>
+      </button>
+
+      <!-- User Role Selector & Profile -->
+      <div class="border-l border-slate-800 pl-3 flex items-center space-x-2">
+        <div class="text-right hidden sm:block">
+          <div id="user-display-name" class="text-xs font-semibold text-slate-200">Investigator Demo</div>
+          <div id="user-role-badge" class="text-[10px] text-emerald-400 uppercase tracking-wider font-mono">Analyst</div>
+        </div>
+
+        <select id="role-selector" onchange="changeUserRole(this.value)" class="bg-slate-800 border border-slate-700 text-xs text-slate-300 rounded px-2 py-1 focus:outline-none">
+          <option value="analyst">Role: Analyst</option>
+          <option value="supervisor">Role: Supervisor</option>
+          <option value="administrator">Role: Administrator</option>
+        </select>
+
+        <button onclick="logoutSession()" title="Sign Out" class="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-md transition ml-1">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN BODY APP LAYOUT -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- SIDE NAVIGATION BAR -->
+    <aside class="w-16 md:w-56 bg-slate-900 border-r border-slate-800 flex flex-col justify-between shrink-0">
+      <nav class="p-2 space-y-1">
+        <button onclick="navigateTo('rings-queue')" id="nav-rings-queue" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 transition">
+          <i data-lucide="layout-list" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden md:inline">Ring Queue</span>
+          <span id="queue-badge-count" class="ml-auto hidden md:inline-block bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded-full text-[10px] font-mono">12</span>
+        </button>
+
+        <button onclick="navigateTo('ring-detail')" id="nav-ring-detail" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">
+          <i data-lucide="network" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden md:inline">Investigation Board</span>
+        </button>
+
+        <button onclick="navigateTo('verdict-history')" id="nav-verdict-history" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">
+          <i data-lucide="history" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden md:inline">Verdict Audit Log</span>
+        </button>
+
+        <button onclick="navigateTo('models')" id="nav-models" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">
+          <i data-lucide="cpu" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden md:inline">Models & Retrain</span>
+        </button>
+
+        <button onclick="navigateTo('drift')" id="nav-drift" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">
+          <i data-lucide="line-chart" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden md:inline">Drift Monitoring</span>
+        </button>
+
+        <button onclick="navigateTo('admin')" id="nav-admin" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">
+          <i data-lucide="sliders" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden md:inline">Admin Registry</span>
+        </button>
+      </nav>
+
+      <!-- Quick Tour Launcher Foot -->
+      <div class="p-3 border-t border-slate-800 hidden md:block">
+        <button onclick="startGuidedTour()" class="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition">
+          <i data-lucide="compass" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Guided App Tour</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- CONTENT PAGES CONTAINER -->
+    <main class="flex-1 overflow-auto bg-slate-950 p-4 relative" id="main-content-viewport">
+
+      <!-- PAGE 1: RINGS QUEUE -->
+      <div id="page-rings-queue" class="space-y-4">
+        <!-- Header & Saved Presets -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 p-4 rounded-xl border border-slate-800">
+          <div>
+            <h1 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
+              <span>Ring Queue</span>
+              <span class="text-xs font-normal text-slate-400">(FR-D10 - FR-D17)</span>
+            </h1>
+            <p class="text-xs text-slate-400 mt-0.5">Real-time detected fraud syndicates and cycle graphs</p>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <!-- Filter Presets Dropdown -->
+            <select id="preset-select" onchange="applyFilterPreset(this.value)" class="bg-slate-800 border border-slate-700 text-xs text-slate-300 rounded-lg px-3 py-1.5">
+              <option value="default">Presets: All Active Alerts</option>
+              <option value="high_risk">High Risk (&gt;0.80 Confidence)</option>
+              <option value="cross_bank">Cross-Bank Syndicates Only</option>
+              <option value="unassigned">Open / Unassigned Alerts</option>
+            </select>
+            <button onclick="saveCurrentFilterPreset()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-slate-700">
+              Save Filter
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
+          <!-- Search -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-500 absolute left-3 top-2.5"></i>
+            <input type="text" id="filter-search" oninput="filterQueue()" placeholder="Search Ring ID / Account..." class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:ring-1 focus:ring-emerald-500 focus:outline-none">
+          </div>
+
+          <!-- Topology Filter -->
+          <div>
+            <select id="filter-topology" onchange="filterQueue()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:ring-1 focus:ring-emerald-500 focus:outline-none">
+              <option value="">All Topologies</option>
+              <option value="cycle">Cycle</option>
+              <option value="fan_in">Fan-In</option>
+              <option value="fan_out">Fan-Out</option>
+              <option value="gather_scatter">Gather-Scatter</option>
+            </select>
+          </div>
+
+          <!-- Min Confidence Slider -->
+          <div class="flex items-center space-x-2 px-1">
+            <span class="text-xs text-slate-400 whitespace-nowrap">Min Score:</span>
+            <input type="range" id="filter-score-slider" min="0" max="1" step="0.05" value="0.00" oninput="updateScoreLabel(this.value); filterQueue();" class="w-full accent-emerald-500">
+            <span id="score-slider-val" class="text-xs font-mono text-emerald-400 min-w-[2.5rem]">0.00</span>
+          </div>
+
+          <!-- Cross-Bank Toggle -->
+          <div class="flex items-center space-x-2">
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="filter-crossbank" onchange="filterQueue()" class="sr-only peer">
+              <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+            <span class="text-xs text-slate-300">Cross-Bank Only</span>
+          </div>
+
+          <!-- Quick Actions & Count -->
+          <div class="flex justify-end items-center space-x-2">
+            <span id="queue-results-count" class="text-xs text-slate-400 font-mono">12 items</span>
+            <button onclick="resetFilters()" class="p-1.5 text-slate-400 hover:text-slate-200" title="Reset Filters"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i></button>
+          </div>
+        </div>
+
+        <!-- Table View -->
+        <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950/80 uppercase text-[10px] text-slate-400 border-b border-slate-800 tracking-wider">
+                <tr>
+                  <th class="p-3">Ring ID</th>
+                  <th class="p-3">Topology</th>
+                  <th class="p-3">Members / Edges</th>
+                  <th class="p-3">Normalized Volume</th>
+                  <th class="p-3">Window</th>
+                  <th class="p-3">Confidence Score</th>
+                  <th class="p-3">Flags</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="queue-table-body" class="divide-y divide-slate-800/60 font-mono">
+                <!-- Dynamically Populated -->
+              </tbody>
+            </table>
+          </div>
+          <!-- Pagination -->
+          <div class="p-3 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between text-xs text-slate-400">
+            <div>Showing page <span class="text-slate-200 font-semibold">1</span> of 1</div>
+            <div class="flex space-x-1">
+              <button disabled class="px-2.5 py-1 bg-slate-800 text-slate-600 rounded disabled:opacity-50">Prev</button>
+              <button disabled class="px-2.5 py-1 bg-slate-800 text-slate-600 rounded disabled:opacity-50">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 2: 3-PANEL INVESTIGATION BOARD -->
+      <div id="page-ring-detail" class="hidden h-full flex flex-col space-y-3">
+        
+        <!-- Admin Read-Only Alert Banner if Admin Active -->
+        <div id="admin-read-only-banner" class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs px-3 py-1.5 rounded-lg flex items-center space-x-2">
+          <i data-lucide="lock" class="w-4 h-4"></i>
+          <span><strong>Administrator Read-Only Mode:</strong> Viewing tenant alert data. Decision submission forms are disabled for system administrators.</span>
+        </div>
+
+        <!-- Top Ring Navigation & Summary Header -->
+        <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div class="flex items-center space-x-3">
+            <button onclick="navigateTo('rings-queue')" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">
+              <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            </button>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span id="detail-ring-id" class="text-base font-bold font-mono text-slate-100">RING-88392</span>
+                <span id="detail-status-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">PENDING_REVIEW</span>
+                <span id="detail-crossbank-badge" class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">CROSS-BANK</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5" id="detail-topology-summary">Cycle Topology (89.20% prob) • Window: 6 h • Score: 0.94</p>
+            </div>
+          </div>
+
+          <!-- Top Toolbar & Export -->
+          <div class="flex items-center space-x-2">
+            <!-- Toggle Panels Dynamic Layout -->
+            <button onclick="togglePanelCollapse('narrative')" title="Toggle Narrative Panel" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs border border-slate-700 flex items-center space-x-1">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+              <span class="hidden sm:inline">Narrative</span>
+            </button>
+            <button onclick="togglePanelCollapse('evidence')" title="Toggle Evidence Panel" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs border border-slate-700 flex items-center space-x-1">
+              <i data-lucide="table" class="w-3.5 h-3.5"></i>
+              <span class="hidden sm:inline">Evidence</span>
+            </button>
+
+            <!-- Export Complete Investigation Package -->
+            <button onclick="exportFullInvestigationPackage()" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium flex items-center space-x-1.5 transition">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Export Package (JSON/CSV)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3-PANEL GRID LAYOUT -->
+        <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0 overflow-hidden">
+
+          <!-- PANEL 1: NARRATIVE & METADATA (Cols 3) -->
+          <div id="panel-narrative" class="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 flex flex-col overflow-hidden">
+            <div class="p-3 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-200 flex items-center space-x-1.5">
+                <i data-lucide="message-square" class="w-4 h-4 text-emerald-400"></i>
+                <span>Generated Narrative</span>
+              </span>
+              <button onclick="copyNarrativeText()" class="text-[11px] text-slate-400 hover:text-emerald-400 flex items-center space-x-1">
+                <i data-lucide="copy" class="w-3 h-3"></i>
+                <span>Copy</span>
+              </button>
+            </div>
+
+            <div class="p-3 flex-1 overflow-y-auto space-y-3 text-xs leading-relaxed text-slate-300">
+              <div id="detail-narrative-text" class="bg-slate-950 p-3 rounded-lg border border-slate-800 font-sans italic text-slate-300">
+                Loading explanation...
+              </div>
+
+              <!-- Key Indicators & Pre-Checks -->
+              <div class="space-y-2">
+                <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Smart Pre-Checks</span>
+                <div id="smart-indicators-container" class="space-y-1">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+              <!-- Metadata Breakdown -->
+              <div class="space-y-2 border-t border-slate-800 pt-3">
+                <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Ring Metadata</span>
+                <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 font-mono space-y-1.5 text-[11px]">
+                  <div class="flex justify-between"><span class="text-slate-500">Conservation Closure:</span><span id="meta-conservation" class="text-emerald-400 font-semibold">98.40%</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Hold Time (Avg):</span><span id="meta-holdtime" class="text-slate-200">142s</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Model Version:</span><span id="meta-modelversion" class="text-slate-200">v2.1.0-prod</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Aggregator ID:</span><span id="meta-aggregator" class="text-slate-200">agg-std-04</span></div>
+                </div>
+              </div>
+
+              <!-- Latest Decision History if exists -->
+              <div id="latest-verdict-summary" class="hidden border-t border-slate-800 pt-3">
+                <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Recorded Decision</span>
+                <div class="mt-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span id="latest-verdict-label" class="font-bold text-emerald-400">CONFIRMED_FRAUD</span>
+                    <span id="latest-verdict-user" class="text-slate-500">by supervisor</span>
+                  </div>
+                  <p id="latest-verdict-notes" class="text-[11px] text-slate-400 italic">"Confirmed circular routing pattern."</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PANEL 2: INTERACTIVE GRAPH CANVAS (Cols 5) -->
+          <div id="panel-graph" class="lg:col-span-5 bg-slate-900 rounded-xl border border-slate-800 flex flex-col relative overflow-hidden">
+            
+            <!-- Graph Top Canvas Controls -->
+            <div class="p-2 border-b border-slate-800 bg-slate-950/50 flex flex-wrap items-center justify-between gap-2 z-10">
+              <div class="flex items-center space-x-1">
+                <button onclick="graphZoom(1.15)" title="Zoom In" class="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"><i data-lucide="zoom-in" class="w-3.5 h-3.5"></i></button>
+                <button onclick="graphZoom(0.85)" title="Zoom Out" class="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"><i data-lucide="zoom-out" class="w-3.5 h-3.5"></i></button>
+                <button onclick="resetGraphView()" title="Fit View" class="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"><i data-lucide="maximize" class="w-3.5 h-3.5"></i></button>
+                <span class="text-[10px] text-slate-500 ml-1">Drag nodes to arrange</span>
+              </div>
+
+              <!-- Replay Timeline Slider -->
+              <div class="flex items-center space-x-2">
+                <button id="btn-replay-play" onclick="toggleReplayPlay()" class="p-1 bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 rounded border border-emerald-500/30">
+                  <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                </button>
+                <input type="range" id="graph-replay-slider" min="0" max="100" value="100" oninput="handleReplaySlider(this.value)" class="w-24 accent-emerald-500">
+                <span id="replay-time-label" class="text-[10px] font-mono text-slate-400">100%</span>
+              </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="flex-1 relative bg-slate-950 min-h-[350px]" id="canvas-container">
+              <canvas id="ring-canvas" class="w-full h-full cursor-grab active:cursor-grabbing block"></canvas>
+
+              <!-- Node/Edge Detailed Inspector Panel Drawer Overlay -->
+              <div id="graph-inspector-panel" class="hidden absolute bottom-2 left-2 right-2 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-lg p-3 text-xs shadow-2xl z-20">
+                <div class="flex justify-between items-start mb-1">
+                  <span id="inspector-title" class="font-bold text-emerald-400 font-mono">Node Inspection: ACC-901</span>
+                  <button onclick="closeInspector()" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div id="inspector-body" class="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-300">
+                  <!-- Dynamic content -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Graph Legend Bar Foot -->
+            <div class="p-2 border-t border-slate-800 bg-slate-950/80 text-[10px] text-slate-400 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div class="flex items-center space-x-3">
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span><span>Mule</span></span>
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span><span>Holder</span></span>
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span><span>Source</span></span>
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span><span>Sink</span></span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-slate-500">Solid: Seed Edge</span>
+                <span class="text-slate-500">Dashed: Expanded Edge</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- PANEL 3: EVIDENCE TABS & DECISION FORM (Cols 4) -->
+          <div id="panel-evidence" class="lg:col-span-4 bg-slate-900 rounded-xl border border-slate-800 flex flex-col overflow-hidden">
+            
+            <!-- Tab Headers -->
+            <div class="border-b border-slate-800 bg-slate-950/60 flex items-center justify-between px-2">
+              <div class="flex space-x-1">
+                <button onclick="switchEvidenceTab('txs')" id="tab-btn-txs" class="px-3 py-2 text-xs font-semibold border-b-2 border-emerald-500 text-emerald-400">Transactions</button>
+                <button onclick="switchEvidenceTab('accounts')" id="tab-btn-accounts" class="px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200">Accounts</button>
+                <button onclick="switchEvidenceTab('shap')" id="tab-btn-shap" class="px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200">Detector SHAP</button>
+              </div>
+
+              <!-- Quick Table Filter Toggle -->
+              <button onclick="toggleFilterSuspiciousOnly()" id="btn-suspicious-only" class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                Filter High-Weight Only
+              </button>
+            </div>
+
+            <!-- TAB CONTENTS CONTAINER -->
+            <div class="flex-1 overflow-y-auto p-3 text-xs">
+
+              <!-- TAB 1: TRANSACTIONS TABLE -->
+              <div id="tab-content-txs" class="space-y-2">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                  <span>Sorted by w_total</span>
+                  <button onclick="exportTableCSV('txs')" class="text-emerald-400 hover:underline">Export CSV</button>
+                </div>
+                <div class="overflow-x-auto rounded border border-slate-800">
+                  <table class="w-full text-left font-mono text-[11px]">
+                    <thead class="bg-slate-950 text-slate-400 uppercase text-[9px]">
+                      <tr>
+                        <th class="p-2">Tx ID</th>
+                        <th class="p-2">From &rarr; To</th>
+                        <th class="p-2">Amount</th>
+                        <th class="p-2">w_total</th>
+                      </tr>
+                    </thead>
+                    <tbody id="txs-table-body" class="divide-y divide-slate-800">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- TAB 2: ACCOUNTS TABLE -->
+              <div id="tab-content-accounts" class="hidden space-y-2">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                  <span>Member Account Metrics</span>
+                  <button onclick="exportTableCSV('accounts')" class="text-emerald-400 hover:underline">Export CSV</button>
+                </div>
+                <div class="overflow-x-auto rounded border border-slate-800">
+                  <table class="w-full text-left font-mono text-[11px]">
+                    <thead class="bg-slate-950 text-slate-400 uppercase text-[9px]">
+                      <tr>
+                        <th class="p-2">Account ID</th>
+                        <th class="p-2">Role</th>
+                        <th class="p-2">w_account</th>
+                        <th class="p-2">In/Out Flow</th>
+                      </tr>
+                    </thead>
+                    <tbody id="accounts-table-body" class="divide-y divide-slate-800">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- TAB 3: DETECTOR SHAP SIGNALS -->
+              <div id="tab-content-shap" class="hidden space-y-3">
+                <div class="text-[10px] text-slate-400">Mean absolute SHAP feature contributions</div>
+                <div id="shap-bars-container" class="space-y-2 font-mono text-[11px]">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+            </div>
+
+            <!-- DECISION SUBMISSION FORM SECTION -->
+            <div class="border-t border-slate-800 p-3 bg-slate-950/80 space-y-2 shrink-0">
+              <span class="text-[11px] font-bold uppercase text-slate-300 tracking-wider flex items-center justify-between">
+                <span>Record Investigation Verdict</span>
+                <span class="text-[9px] text-slate-500 font-normal">(FR-D30 - FR-D34)</span>
+              </span>
+
+              <div id="verdict-form-container" class="space-y-2">
+                <!-- Verdict Buttons -->
+                <div class="grid grid-cols-3 gap-2">
+                  <button type="button" onclick="selectVerdictType('CONFIRMED_FRAUD')" id="verdict-btn-confirm" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 text-xs font-semibold transition">
+                    Confirm Ring
+                  </button>
+                  <button type="button" onclick="selectVerdictType('REJECTED_BENIGN')" id="verdict-btn-reject" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 text-xs font-semibold transition">
+                    Reject Benign
+                  </button>
+                  <button type="button" onclick="selectVerdictType('PARTIALLY_CORRECT')" id="verdict-btn-partial" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 text-xs font-semibold transition">
+                    Partial Correct
+                  </button>
+                </div>
+
+                <!-- Partial Correction Checklist Drawer (Hidden by default) -->
+                <div id="partial-checklist-drawer" class="hidden bg-slate-900 p-2 rounded border border-slate-800 space-y-2 max-h-32 overflow-y-auto text-[11px]">
+                  <span class="text-slate-400 font-semibold block">Select valid fraud members:</span>
+                  <div id="partial-accounts-checklist" class="space-y-1 font-mono">
+                    <!-- Dynamic checkboxes -->
+                  </div>
+                </div>
+
+                <!-- Notes Input -->
+                <textarea id="verdict-notes-input" placeholder="Enter investigation rationale or notes..." class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:ring-1 focus:ring-emerald-500 focus:outline-none resize-none h-14"></textarea>
+
+                <!-- Submit Button -->
+                <button type="button" onclick="submitInvestigationVerdict()" id="btn-submit-verdict" disabled class="w-full py-2 bg-slate-800 text-slate-500 rounded font-bold text-xs transition cursor-not-allowed">
+                  Submit Final Verdict
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- PAGE 3: VERDICT AUDIT HISTORY -->
+      <div id="page-verdict-history" class="hidden space-y-4">
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+          <div>
+            <h1 class="text-lg font-bold text-slate-100">Verdict Audit Log</h1>
+            <p class="text-xs text-slate-400 mt-0.5">Historical log of all investigator decisions (FR-D60 - FR-D62)</p>
+          </div>
+          <button onclick="exportVerdictHistoryCSV()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-slate-700 flex items-center space-x-1">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Export History CSV</span>
+          </button>
+        </div>
+
+        <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-950 uppercase text-[10px] text-slate-400 tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="p-3">Audit ID</th>
+                <th class="p-3">Ring ID</th>
+                <th class="p-3">Verdict Type</th>
+                <th class="p-3">Investigator</th>
+                <th class="p-3">Timestamp</th>
+                <th class="p-3">Is Simulated</th>
+                <th class="p-3">Notes</th>
+              </tr>
+            </thead>
+            <tbody id="verdict-history-table-body" class="divide-y divide-slate-800 font-mono">
+              <!-- Dynamic -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PAGE 4: MODELS & RETRAINING -->
+      <div id="page-models" class="hidden space-y-4">
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+          <div>
+            <h1 class="text-lg font-bold text-slate-100">Model Management & Retraining</h1>
+            <p class="text-xs text-slate-400 mt-0.5">Detector model versions, gate approvals, and supervisor retraining triggers (FR-D70 - FR-D73)</p>
+          </div>
+          <button id="btn-trigger-retrain" onclick="openRetrainModal()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition">
+            Trigger Retrain Job
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <!-- Active Models Table -->
+          <div class="lg:col-span-2 bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+            <span class="text-sm font-bold text-slate-200">Registered Model Versions</span>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-950 text-slate-400 uppercase text-[9px]">
+                  <tr>
+                    <th class="p-2">Model ID</th>
+                    <th class="p-2">Deployed</th>
+                    <th class="p-2">Gate Reason</th>
+                    <th class="p-2">ROC-AUC</th>
+                    <th class="p-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="models-table-body" class="divide-y divide-slate-800 text-slate-300">
+                  <!-- Dynamic -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Active Training Status & Live Log Console -->
+          <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col">
+            <span class="text-sm font-bold text-slate-200">Retraining Pipeline Stream</span>
+            <div id="retrain-status-card" class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs font-mono space-y-1">
+              <div class="text-slate-400">Current Pipeline Status:</div>
+              <div id="retrain-status-text" class="text-emerald-400 font-bold">IDLE</div>
+            </div>
+            <div class="flex-1 bg-slate-950 p-3 rounded-lg border border-slate-800 font-mono text-[10px] text-emerald-400 h-48 overflow-y-auto space-y-1" id="retrain-log-console">
+              <div>[INFO] Retrain pipeline initialized and awaiting trigger...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 5: DRIFT MONITORING -->
+      <div id="page-drift" class="hidden space-y-4">
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+          <h1 class="text-lg font-bold text-slate-100">Model Performance & Drift Monitoring</h1>
+          <p class="text-xs text-slate-400 mt-0.5">Tracking statistical score drift and p99 score distributions (FR-D80 - FR-D82)</p>
+        </div>
+
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-4">
+          <div class="h-64 relative">
+            <canvas id="driftChart"></canvas>
+          </div>
+
+          <!-- Verbatim Mandatory Disclaimer Requirement -->
+          <div class="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs rounded-lg">
+            <strong>Mandatory Drift Disclaimer:</strong> Model performance metrics and drift flags are calculated based on incoming alert feature distributions and historical verdict agreement rates.
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 6: ADMIN REGISTRY & EXPERIMENTS -->
+      <div id="page-admin" class="hidden space-y-4">
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+          <h1 class="text-lg font-bold text-slate-100">Tenant Registry & Pooled Experiments</h1>
+          <p class="text-xs text-slate-400 mt-0.5">Manage multi-tenant isolation and run tenant-vs-pooled experiment comparisons (FR-D90 - FR-D93)</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Tenant List -->
+          <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+            <span class="text-sm font-bold text-slate-200">Registered Institutional Tenants</span>
+            <div class="space-y-2 font-mono text-xs">
+              <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 flex justify-between items-center">
+                <div>
+                  <div class="text-slate-100 font-bold">Bank Alpha</div>
+                  <div class="text-[10px] text-slate-500">ID: bank_alpha • 142 Active Alerts</div>
+                </div>
+                <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[10px]">ACTIVE</span>
+              </div>
+              <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 flex justify-between items-center">
+                <div>
+                  <div class="text-slate-100 font-bold">Bank Beta</div>
+                  <div class="text-[10px] text-slate-500">ID: bank_beta • 89 Active Alerts</div>
+                </div>
+                <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[10px]">ACTIVE</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Experiment Runner -->
+          <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+            <span class="text-sm font-bold text-slate-200">Pooled Model Comparison Experiment</span>
+            <p class="text-xs text-slate-400">Evaluate isolated tenant accuracy vs cross-bank pooled models.</p>
+            <button onclick="runPooledExperiment()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-xs transition">
+              Run Pooled Model Comparison
+            </button>
+            <div id="experiment-results" class="hidden bg-slate-950 p-3 rounded-lg border border-slate-800 font-mono text-xs space-y-2">
+              <div class="text-indigo-400 font-bold">Experiment Results (95% CI):</div>
+              <div class="flex justify-between"><span>Tenant Only ROC-AUC:</span><span class="text-slate-200">0.862 [0.84 - 0.88]</span></div>
+              <div class="flex justify-between"><span>Pooled Model ROC-AUC:</span><span class="text-emerald-400 font-bold">0.934 [0.92 - 0.95]</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- UNIVERSAL COMMAND PALETTE MODAL (Ctrl+K) -->
+  <div id="command-palette-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-start justify-center pt-20">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-xl shadow-2xl overflow-hidden">
+      <div class="p-3 border-b border-slate-800 flex items-center space-x-2">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+        <input type="text" id="cmd-input" oninput="filterCommandPalette(this.value)" placeholder="Type a command or search Ring ID / Page..." class="w-full bg-transparent text-slate-100 text-sm focus:outline-none">
+        <kbd class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">ESC</kbd>
+      </div>
+      <div id="cmd-results" class="max-h-64 overflow-y-auto p-2 space-y-1 text-xs">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+  </div>
+
+  <!-- KEYBOARD SHORTCUTS HELP MODAL -->
+  <div id="shortcuts-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-xl p-4 space-y-3">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+        <h3 class="font-bold text-slate-100 text-sm flex items-center space-x-2">
+          <i data-lucide="keyboard" class="w-4 h-4 text-emerald-400"></i>
+          <span>Global Keyboard Shortcuts</span>
+        </h3>
+        <button onclick="toggleShortcutsModal()" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-2 text-xs font-mono text-slate-300">
+        <div class="flex justify-between"><span>Ctrl + K / Cmd + K</span><span class="text-emerald-400">Command Palette</span></div>
+        <div class="flex justify-between"><span>1 - 5</span><span class="text-emerald-400">Navigate Views</span></div>
+        <div class="flex justify-between"><span>Spacebar</span><span class="text-emerald-400">Play/Pause Graph Timeline</span></div>
+        <div class="flex justify-between"><span>Ctrl + C</span><span class="text-emerald-400">Confirm Fraud Verdict</span></div>
+        <div class="flex justify-between"><span>Ctrl + R</span><span class="text-emerald-400">Reject Benign Verdict</span></div>
+        <div class="flex justify-between"><span>?</span><span class="text-emerald-400">Open Shortcuts</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FRAUD TERM GLOSSARY DRAWER -->
+  <div id="glossary-drawer" class="hidden fixed inset-y-0 right-0 w-80 bg-slate-900 border-l border-slate-800 z-50 p-4 flex flex-col space-y-3 shadow-2xl">
+    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+      <h3 class="font-bold text-slate-100 text-sm flex items-center space-x-2">
+        <i data-lucide="book-open" class="w-4 h-4 text-emerald-400"></i>
+        <span>Fraud Terms Glossary</span>
+      </h3>
+      <button onclick="toggleGlossaryDrawer()" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    <div class="flex-1 overflow-y-auto space-y-3 text-xs text-slate-300">
+      <div>
+        <span class="font-bold text-emerald-400">Ring / Syndicate:</span>
+        <p class="text-slate-400 mt-0.5">A detected closed-loop or coordinated cyclic transaction network engineered to obfuscate funds flow.</p>
+      </div>
+      <div>
+        <span class="font-bold text-emerald-400">Seed Transaction:</span>
+        <p class="text-slate-400 mt-0.5">The primary trigger transaction identified by rule detectors that initiated the ring graph expansion.</p>
+      </div>
+      <div>
+        <span class="font-bold text-emerald-400">Conservation Closure:</span>
+        <p class="text-slate-400 mt-0.5">Percentage of funds retained within the ring graph without leaking into external out-of-network accounts.</p>
+      </div>
+      <div>
+        <span class="font-bold text-emerald-400">SHAP Value:</span>
+        <p class="text-slate-400 mt-0.5">Shapley Additive exPlanations measuring feature contribution to the machine learning model's risk score.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GUIDED ONBOARDING TOUR MODAL -->
+  <div id="guided-tour-modal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-xl p-5 space-y-4">
+      <div class="flex justify-between items-center">
+        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Investigator Guided Onboarding</span>
+        <span id="tour-step-counter" class="text-xs text-slate-500">Step 1 of 3</span>
+      </div>
+      <div id="tour-content" class="space-y-2 text-sm text-slate-200">
+        <!-- Tour steps rendered dynamically -->
+      </div>
+      <div class="flex justify-between items-center pt-2 border-t border-slate-800">
+        <button onclick="closeTour()" class="text-xs text-slate-400 hover:text-slate-200">Skip Tour</button>
+        <button onclick="nextTourStep()" id="btn-tour-next" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold">
+          Next &rarr;
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION STACK -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- APPLICATION LOGIC SCRIPT -->
+  <script>
+    // Global Application State (Thin-Client Architecture)
+    const state = {
+      role: 'analyst', // analyst | supervisor | administrator
+      tenant: 'bank_alpha',
+      activePage: 'rings-queue',
+      selectedRingId: 'RING-88392',
+      selectedVerdictType: null,
+      filterSuspiciousOnly: false,
+      isReplayPlaying: false,
+      replayInterval: null,
+      graphZoomScale: 1.0,
+      graphOffset: { x: 0, y: 0 },
+      draggedNode: null,
+      isDraggingCanvas: false,
+      dragStart: { x: 0, y: 0 },
+      
+      // Mock Alert Queue Data (Matching Section 2 JSON Specification)
+      rings: [
+        {
+          ring_id: 'RING-88392',
+          topology_type: 'cycle',
+          topology_prob: 0.892,
+          member_count: 5,
+          edge_count: 6,
+          norm_amount: 145000.00,
+          currency: 'USD',
+          window_len_s: 21600,
+          w_score: 0.94,
+          is_cross_bank: true,
+          status: 'PENDING_REVIEW',
+          conservation_closure: 0.984,
+          hold_time_s: 142,
+          narrative: "Ring RING-88392 exhibits a tight 5-node cyclic transfer pattern over a 6 h window. Funds originate from ACC-901 and route through 3 intermediate holder accounts before returning 98.40% volume to sink account ACC-905."
+        },
+        {
+          ring_id: 'RING-44102',
+          topology_type: 'fan_in',
+          topology_prob: 0.925,
+          member_count: 8,
+          edge_count: 7,
+          norm_amount: 82000.50,
+          currency: 'USD',
+          window_len_s: 14400,
+          w_score: 0.88,
+          is_cross_bank: false,
+          status: 'PENDING_REVIEW',
+          conservation_closure: 0.910,
+          hold_time_s: 45,
+          narrative: "Fan-in aggregation identified across 7 satellite mule accounts funneling rapid low-value transfers into single consolidation account ACC-109."
+        },
+        {
+          ring_id: 'RING-10923',
+          topology_type: 'gather_scatter',
+          topology_prob: 0.760,
+          member_count: 12,
+          edge_count: 14,
+          norm_amount: 320000.00,
+          currency: 'USD',
+          window_len_s: 86400,
+          w_score: 0.65,
+          is_cross_bank: true,
+          status: 'CONFIRMED_FRAUD',
+          conservation_closure: 0.852,
+          hold_time_s: 320,
+          narrative: "Gather-scatter rapid dispersion network with high cross-bank activity across 12 member nodes."
+        }
+      ],
+
+      // Graph Nodes and Edges Data for Active Ring
+      graph: {
+        nodes: [
+          { id: 'ACC-901', role: 'source', w_account: 0.92, x: 100, y: 150 },
+          { id: 'ACC-902', role: 'mule', w_account: 0.85, x: 220, y: 80 },
+          { id: 'ACC-903', role: 'holder', w_account: 0.78, x: 340, y: 150 },
+          { id: 'ACC-904', role: 'holder', w_account: 0.71, x: 220, y: 220 },
+          { id: 'ACC-905', role: 'sink', w_account: 0.95, x: 450, y: 150 }
+        ],
+        edges: [
+          { id: 'TX-1', source: 'ACC-901', target: 'ACC-902', w_total: 0.94, is_seed: true, amount: 50000 },
+          { id: 'TX-2', source: 'ACC-902', target: 'ACC-903', w_total: 0.89, is_seed: true, amount: 48500 },
+          { id: 'TX-3', source: 'ACC-903', target: 'ACC-905', w_total: 0.91, is_seed: false, amount: 48000 },
+          { id: 'TX-4', source: 'ACC-901', target: 'ACC-904', w_total: 0.62, is_seed: false, amount: 45000 },
+          { id: 'TX-5', source: 'ACC-904', target: 'ACC-905', w_total: 0.58, is_seed: false, amount: 44000 }
+        ]
+      },
+
+      // SHAP Feature Drivers
+      shapSignals: [
+        { feature: 'cycle_conservation_ratio', mean_shap: 0.42 },
+        { feature: 'rapid_velocity_delta_s', mean_shap: 0.31 },
+        { feature: 'cross_bank_hop_count', mean_shap: 0.18 },
+        { feature: 'structuring_amount_std', mean_shap: 0.09 }
+      ],
+
+      // Verdict Audit Log
+      verdicts: [],
+
+      // Model Retraining State
+      retrain: {
+        status: 'IDLE',
+        logs: ['[INFO] System online. Retrain scheduler ready.']
+      }
+    };
+
+    // ON INITIAL DOM LOAD
+    window.onload = function() {
+      lucide.createIcons();
+      renderQueueTable();
+      renderActiveRingDetail();
+      initDriftChart();
+      setupCanvasInteraction();
+      setupKeyboardShortcuts();
+    };
+
+    // NAVIGATION SYSTEM
+    function navigateTo(pageId) {
+      state.activePage = pageId;
+      document.querySelectorAll('main > div').forEach(div => div.classList.add('hidden'));
+      document.getElementById(`page-${pageId}`).classList.remove('hidden');
+
+      // Update Nav Buttons
+      document.querySelectorAll('aside nav button').forEach(btn => {
+        btn.classList.remove('text-emerald-400', 'bg-emerald-500/10', 'border', 'border-emerald-500/20');
+        btn.classList.add('text-slate-400');
+      });
+      const activeNav = document.getElementById(`nav-${pageId}`);
+      if (activeNav) {
+        activeNav.classList.add('text-emerald-400', 'bg-emerald-500/10', 'border', 'border-emerald-500/20');
+      }
+
+      if (pageId === 'ring-detail') {
+        setTimeout(renderGraphCanvas, 50);
+      }
+    }
+
+    // ROLE & TENANT CONTROL
+    function changeUserRole(newRole) {
+      state.role = newRole;
+      document.getElementById('user-role-badge').innerText = newRole.toUpperCase();
+      
+      const adminContainer = document.getElementById('tenant-switcher-container');
+      const adminBanner = document.getElementById('admin-read-only-banner');
+      const submitBtn = document.getElementById('btn-submit-verdict');
+      const retrainBtn = document.getElementById('btn-trigger-retrain');
+
+      if (newRole === 'administrator') {
+        adminContainer.classList.remove('hidden');
+        adminContainer.classList.add('flex');
+        adminBanner.classList.remove('hidden');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = "Admin Read-Only Mode"; }
+      } else {
+        adminContainer.classList.add('hidden');
+        adminContainer.classList.remove('flex');
+        adminBanner.classList.add('hidden');
+        if (submitBtn) { submitBtn.innerText = "Submit Final Verdict"; }
+      }
+
+      if (retrainBtn) {
+        retrainBtn.disabled = (newRole === 'analyst');
+        if (newRole === 'analyst') retrainBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        else retrainBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+
+      showToast(`Switched to ${newRole.toUpperCase()} role view.`);
+    }
+
+    function switchTenant(tenantId) {
+      state.tenant = tenantId;
+      showToast(`Switched active data view to ${tenantId}`);
+      renderQueueTable();
+    }
+
+    // FORMATTING UTILITIES (Strict Specification Compliance)
+    function formatAmount(amt, currency = 'USD') {
+      return `${currency} ${Number(amt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    function formatPercent(val) {
+      return `${(val * 100).toFixed(1)}%`;
+    }
+    function formatWeight(w) {
+      return Number(w).toFixed(2);
+    }
+
+    // QUEUE TABLE RENDER & FILTERING
+    function renderQueueTable() {
+      const tbody = document.getElementById('queue-table-body');
+      tbody.innerHTML = '';
+
+      state.rings.forEach(ring => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-800/50 transition cursor-pointer";
+        tr.onclick = () => { selectRingForInvestigation(ring.ring_id); };
+
+        const statusColor = ring.status === 'CONFIRMED_FRAUD' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' :
+                            ring.status === 'REJECTED_BENIGN' ? 'bg-slate-800 text-slate-400 border-slate-700' :
+                            'bg-amber-500/20 text-amber-300 border-amber-500/30';
+
+        tr.innerHTML = `
+          <td class="p-3 font-bold text-emerald-400">${ring.ring_id}</td>
+          <td class="p-3 text-slate-200 capitalize">${ring.topology_type.replace('_', ' ')} (${formatPercent(ring.topology_prob)})</td>
+          <td class="p-3 text-slate-300">${ring.member_count} nodes / ${ring.edge_count} edges</td>
+          <td class="p-3 text-slate-200">${formatAmount(ring.norm_amount, ring.currency)}</td>
+          <td class="p-3 text-slate-400">${(ring.window_len_s / 3600).toFixed(0)} h</td>
+          <td class="p-3 font-bold ${ring.w_score > 0.8 ? 'text-rose-400' : 'text-amber-400'}">${formatWeight(ring.w_score)}</td>
+          <td class="p-3">${ring.is_cross_bank ? '<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px]">Cross-Bank</span>' : '-'}</td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] border ${statusColor}">${ring.status}</span></td>
+          <td class="p-3 text-right">
+            <button class="px-2 py-1 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 rounded text-[11px] border border-emerald-500/30">Investigate &rarr;</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function selectRingForInvestigation(ringId) {
+      state.selectedRingId = ringId;
+      renderActiveRingDetail();
+      navigateTo('ring-detail');
+    }
+
+    // 3-PANEL DETAIL RENDER
+    function renderActiveRingDetail() {
+      const ring = state.rings.find(r => r.ring_id === state.selectedRingId) || state.rings[0];
+      
+      document.getElementById('detail-ring-id').innerText = ring.ring_id;
+      document.getElementById('detail-topology-summary').innerText = `${ring.topology_type.toUpperCase()} Topology (${formatPercent(ring.topology_prob)}) • Window: ${(ring.window_len_s / 3600).toFixed(0)} h • Score: ${formatWeight(ring.w_score)}`;
+      document.getElementById('detail-narrative-text').innerText = ring.narrative;
+      document.getElementById('meta-conservation').innerText = formatPercent(ring.conservation_closure);
+      document.getElementById('meta-holdtime').innerText = `${ring.hold_time_s}s`;
+
+      // Smart Pre-check Indicators
+      const indicatorsContainer = document.getElementById('smart-indicators-container');
+      indicatorsContainer.innerHTML = '';
+      if (ring.conservation_closure > 0.90) {
+        indicatorsContainer.innerHTML += `<div class="p-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] rounded flex items-center space-x-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i><span>High Funds Conservation (${formatPercent(ring.conservation_closure)})</span></div>`;
+      }
+      if (ring.is_cross_bank) {
+        indicatorsContainer.innerHTML += `<div class="p-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] rounded flex items-center space-x-1.5"><i data-lucide="globe" class="w-3.5 h-3.5"></i><span>Multi-Institutional Hop Signal</span></div>`;
+      }
+
+      renderEvidenceTables();
+      setTimeout(renderGraphCanvas, 50);
+      lucide.createIcons();
+    }
+
+    // EVIDENCE TABLES & DETECTOR SHAP
+    function renderEvidenceTables() {
+      // Render Transactions
+      const txBody = document.getElementById('txs-table-body');
+      txBody.innerHTML = '';
+      state.graph.edges.forEach(tx => {
+        if (state.filterSuspiciousOnly && tx.w_total < 0.80) return;
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-800/40";
+        tr.innerHTML = `
+          <td class="p-2 text-slate-400">${tx.id}</td>
+          <td class="p-2 text-slate-200">${tx.source} &rarr; ${tx.target}</td>
+          <td class="p-2 text-slate-200">${formatAmount(tx.amount)}</td>
+          <td class="p-2 font-bold text-emerald-400">${formatWeight(tx.w_total)}</td>
+        `;
+        txBody.appendChild(tr);
+      });
+
+      // Render Accounts
+      const accBody = document.getElementById('accounts-table-body');
+      accBody.innerHTML = '';
+      state.graph.nodes.forEach(node => {
+        if (state.filterSuspiciousOnly && node.w_account < 0.80) return;
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-800/40";
+        tr.innerHTML = `
+          <td class="p-2 font-bold text-slate-200">${node.id}</td>
+          <td class="p-2 capitalize text-amber-400">${node.role}</td>
+          <td class="p-2 font-bold text-emerald-400">${formatWeight(node.w_account)}</td>
+          <td class="p-2 text-slate-400">In/Out Active</td>
+        `;
+        accBody.appendChild(tr);
+      });
+
+      // Render SHAP Bars
+      const shapContainer = document.getElementById('shap-bars-container');
+      shapContainer.innerHTML = '';
+      state.shapSignals.forEach(sig => {
+        const pct = (sig.mean_shap * 100).toFixed(0);
+        shapContainer.innerHTML += `
+          <div>
+            <div class="flex justify-between text-[10px] text-slate-300 mb-0.5">
+              <span>${sig.feature}</span>
+              <span class="text-emerald-400">+${formatWeight(sig.mean_shap)}</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function switchEvidenceTab(tabKey) {
+      ['txs', 'accounts', 'shap'].forEach(t => {
+        document.getElementById(`tab-content-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-btn-${t}`);
+        btn.classList.remove('border-emerald-500', 'text-emerald-400');
+        btn.classList.add('border-transparent', 'text-slate-400');
+      });
+      document.getElementById(`tab-content-${tabKey}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-btn-${tabKey}`);
+      activeBtn.classList.add('border-emerald-500', 'text-emerald-400');
+      activeBtn.classList.remove('border-transparent', 'text-slate-400');
+    }
+
+    function toggleFilterSuspiciousOnly() {
+      state.filterSuspiciousOnly = !state.filterSuspiciousOnly;
+      const btn = document.getElementById('btn-suspicious-only');
+      if (state.filterSuspiciousOnly) {
+        btn.classList.add('bg-emerald-600', 'text-white');
+        showToast('Filtering high-weight suspicious items only.');
+      } else {
+        btn.classList.remove('bg-emerald-600', 'text-white');
+      }
+      renderEvidenceTables();
+    }
+
+    // HTML5 CANVAS DIRECTED GRAPH ENGINE
+    function renderGraphCanvas() {
+      const canvas = document.getElementById('ring-canvas');
+      const container = document.getElementById('canvas-container');
+      if (!canvas || !container) return;
+
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(state.graphOffset.x, state.graphOffset.y);
+      ctx.scale(state.graphZoomScale, state.graphZoomScale);
+
+      // Render Edges
+      state.graph.edges.forEach(edge => {
+        const srcNode = state.graph.nodes.find(n => n.id === edge.source);
+        const tgtNode = state.graph.nodes.find(n => n.id === edge.target);
+        if (!srcNode || !tgtNode) return;
+
+        ctx.beginPath();
+        ctx.moveTo(srcNode.x, srcNode.y);
+        ctx.lineTo(tgtNode.x, tgtNode.y);
+        ctx.strokeStyle = edge.is_seed ? '#22c55e' : '#64748b';
+        ctx.lineWidth = Math.max(1.5, edge.w_total * 3);
+        if (!edge.is_seed) ctx.setLineDash([4, 4]);
+        else ctx.setLineDash([]);
+        ctx.stroke();
+
+        // Edge Direction Arrow
+        const midX = (srcNode.x + tgtNode.x) / 2;
+        const midY = (srcNode.y + tgtNode.y) / 2;
+        ctx.fillStyle = edge.is_seed ? '#22c55e' : '#64748b';
+        ctx.beginPath();
+        ctx.arc(midX, midY, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Render Nodes
+      state.graph.nodes.forEach(node => {
+        const color = node.role === 'source' ? '#22c55e' :
+                      node.role === 'mule' ? '#f43f5e' :
+                      node.role === 'holder' ? '#f59e0b' : '#6366f1';
+
+        const radius = Math.max(14, node.w_account * 22);
+
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#0f172a';
+        ctx.stroke();
+
+        // Node Label
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(node.id, node.x, node.y + radius + 12);
+      });
+
+      ctx.restore();
+    }
+
+    // CANVAS DRAG & PAN & INSPECTOR
+    function setupCanvasInteraction() {
+      const canvas = document.getElementById('ring-canvas');
+      if (!canvas) return;
+
+      canvas.onmousedown = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left - state.graphOffset.x) / state.graphZoomScale;
+        const mouseY = (e.clientY - rect.top - state.graphOffset.y) / state.graphZoomScale;
+
+        // Check if node clicked
+        const clickedNode = state.graph.nodes.find(n => {
+          const dist = Math.hypot(n.x - mouseX, n.y - mouseY);
+          return dist <= (n.w_account * 22);
+        });
+
+        if (clickedNode) {
+          state.draggedNode = clickedNode;
+          openNodeInspector(clickedNode);
+        } else {
+          state.isDraggingCanvas = true;
+          state.dragStart = { x: e.clientX - state.graphOffset.x, y: e.clientY - state.graphOffset.y };
+        }
+      };
+
+      canvas.onmousemove = (e) => {
+        if (state.draggedNode) {
+          const rect = canvas.getBoundingClientRect();
+          state.draggedNode.x = (e.clientX - rect.left - state.graphOffset.x) / state.graphZoomScale;
+          state.draggedNode.y = (e.clientY - rect.top - state.graphOffset.y) / state.graphZoomScale;
+          renderGraphCanvas();
+        } else if (state.isDraggingCanvas) {
+          state.graphOffset.x = e.clientX - state.dragStart.x;
+          state.graphOffset.y = e.clientY - state.dragStart.y;
+          renderGraphCanvas();
+        }
+      };
+
+      canvas.onmouseup = () => {
+        state.draggedNode = null;
+        state.isDraggingCanvas = false;
+      };
+    }
+
+    function graphZoom(factor) {
+      state.graphZoomScale *= factor;
+      renderGraphCanvas();
+    }
+    function resetGraphView() {
+      state.graphZoomScale = 1.0;
+      state.graphOffset = { x: 0, y: 0 };
+      renderGraphCanvas();
+    }
+
+    function openNodeInspector(node) {
+      const inspector = document.getElementById('graph-inspector-panel');
+      document.getElementById('inspector-title').innerText = `Node Inspector: ${node.id}`;
+      document.getElementById('inspector-body').innerHTML = `
+        <div>Role: <span class="text-emerald-400">${node.role.toUpperCase()}</span></div>
+        <div>Account Risk (w_account): <span class="text-emerald-400">${formatWeight(node.w_account)}</span></div>
+        <div>Coordinates: (${Math.round(node.x)}, ${Math.round(node.y)})</div>
+        <div>Connected Edges: ${state.graph.edges.filter(e => e.source === node.id || e.target === node.id).length}</div>
+      `;
+      inspector.classList.remove('hidden');
+    }
+    function closeInspector() {
+      document.getElementById('graph-inspector-panel').classList.add('hidden');
+    }
+
+    // VERDICT DECISION FORM SUBMISSION
+    function selectVerdictType(type) {
+      if (state.role === 'administrator') return;
+      state.selectedVerdictType = type;
+      
+      ['confirm', 'reject', 'partial'].forEach(b => {
+        document.getElementById(`verdict-btn-${b}`).classList.remove('bg-emerald-600', 'bg-rose-600', 'bg-amber-600', 'text-white');
+      });
+
+      const submitBtn = document.getElementById('btn-submit-verdict');
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+      submitBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'text-white');
+
+      if (type === 'CONFIRMED_FRAUD') {
+        document.getElementById('verdict-btn-confirm').classList.add('bg-emerald-600', 'text-white');
+      } else if (type === 'REJECTED_BENIGN') {
+        document.getElementById('verdict-btn-reject').classList.add('bg-rose-600', 'text-white');
+      } else if (type === 'PARTIALLY_CORRECT') {
+        document.getElementById('verdict-btn-partial').classList.add('bg-amber-600', 'text-white');
+        document.getElementById('partial-checklist-drawer').classList.remove('hidden');
+      }
+    }
+
+    function submitInvestigationVerdict() {
+      if (!state.selectedVerdictType || state.role === 'administrator') return;
+
+      const notes = document.getElementById('verdict-notes-input').value;
+      const ring = state.rings.find(r => r.ring_id === state.selectedRingId);
+      if (ring) ring.status = state.selectedVerdictType;
+
+      state.verdicts.unshift({
+        audit_id: `AUD-${Math.floor(1000 + Math.random() * 9000)}`,
+        ring_id: state.selectedRingId,
+        verdict_type: state.selectedVerdictType,
+        investigator: state.role,
+        timestamp: new Date().toISOString(),
+        is_simulated: false,
+        notes: notes || 'N/A'
+      });
+
+      renderQueueTable();
+      renderVerdictHistoryTable();
+      showToast(`Verdict ${state.selectedVerdictType} recorded successfully.`);
+      navigateTo('verdict-history');
+    }
+
+    function renderVerdictHistoryTable() {
+      const tbody = document.getElementById('verdict-history-table-body');
+      tbody.innerHTML = '';
+      state.verdicts.forEach(v => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="p-3 text-slate-400">${v.audit_id}</td>
+          <td class="p-3 font-bold text-emerald-400">${v.ring_id}</td>
+          <td class="p-3 font-bold ${v.verdict_type === 'CONFIRMED_FRAUD' ? 'text-rose-400' : 'text-emerald-400'}">${v.verdict_type}</td>
+          <td class="p-3 text-slate-300 capitalize">${v.investigator}</td>
+          <td class="p-3 text-slate-400">${new Date(v.timestamp).toLocaleTimeString()}</td>
+          <td class="p-3 text-slate-400">${v.is_simulated ? 'True' : 'False'}</td>
+          <td class="p-3 text-slate-300 italic">${v.notes}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // MODEL RETRAINING TRIGGER SIMULATION
+    function openRetrainModal() {
+      if (state.role === 'analyst') return;
+      state.retrain.status = 'IN_PROGRESS';
+      document.getElementById('retrain-status-text').innerText = 'TRAINING IN PROGRESS...';
+      showToast('Model retraining job dispatched.');
+
+      let step = 0;
+      const logs = [
+        '[INFO] Extracting latest verdict audit records...',
+        '[INFO] Calculating updated SHAP feature weights...',
+        '[INFO] Validation ROC-AUC: 0.941 (+0.02 delta)',
+        '[SUCCESS] Retrained candidate model passed quality gate. Deployed to prod.'
+      ];
+
+      const interval = setInterval(() => {
+        if (step < logs.length) {
+          const consoleEl = document.getElementById('retrain-log-console');
+          consoleEl.innerHTML += `<div>${logs[step]}</div>`;
+          consoleEl.scrollTop = consoleEl.scrollHeight;
+          step++;
+        } else {
+          clearInterval(interval);
+          state.retrain.status = 'COMPLETED';
+          document.getElementById('retrain-status-text').innerText = 'COMPLETED / DEPLOYED';
+        }
+      }, 1200);
+    }
+
+    // DRIFT CHART (Chart.js Integration)
+    function initDriftChart() {
+      const ctx = document.getElementById('driftChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
+          datasets: [
+            { label: 'Mean Risk Score', data: [0.82, 0.81, 0.83, 0.88, 0.91, 0.89, 0.92], borderColor: '#22c55e', tension: 0.3 },
+            { label: 'p99 Extreme Score', data: [0.94, 0.95, 0.96, 0.98, 0.99, 0.98, 0.99], borderColor: '#f43f5e', tension: 0.3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#94a3b8' } } },
+          scales: {
+            x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+            y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' }, min: 0.5, max: 1.0 }
+          }
+        }
+      });
+    }
+
+    // POOLED MODEL EXPERIMENT RUNNER
+    function runPooledExperiment() {
+      document.getElementById('experiment-results').classList.remove('hidden');
+      showToast('Pooled model comparison complete.');
+    }
+
+    // KEYBOARD SHORTCUTS ENGINE
+    function setupKeyboardShortcuts() {
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          toggleCommandPalette();
+        } else if (e.key === '?') {
+          toggleShortcutsModal();
+        } else if (e.key === '1') navigateTo('rings-queue');
+        else if (e.key === '2') navigateTo('ring-detail');
+        else if (e.key === '3') navigateTo('verdict-history');
+        else if (e.key === '4') navigateTo('models');
+        else if (e.key === '5') navigateTo('drift');
+      });
+    }
+
+    // COMMAND PALETTE MODAL
+    function toggleCommandPalette() {
+      const modal = document.getElementById('command-palette-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        document.getElementById('cmd-input').focus();
+        filterCommandPalette('');
+      }
+    }
+
+    function filterCommandPalette(query) {
+      const container = document.getElementById('cmd-results');
+      container.innerHTML = `
+        <div onclick="navigateTo('rings-queue'); toggleCommandPalette();" class="p-2 hover:bg-slate-800 rounded cursor-pointer text-slate-200">Jump to Ring Queue</div>
+        <div onclick="navigateTo('ring-detail'); toggleCommandPalette();" class="p-2 hover:bg-slate-800 rounded cursor-pointer text-slate-200">Jump to Investigation Board (RING-88392)</div>
+        <div onclick="navigateTo('verdict-history'); toggleCommandPalette();" class="p-2 hover:bg-slate-800 rounded cursor-pointer text-slate-200">View Verdict Audit Log</div>
+        <div onclick="navigateTo('models'); toggleCommandPalette();" class="p-2 hover:bg-slate-800 rounded cursor-pointer text-slate-200">Model Management</div>
+      `;
+    }
+
+    // UTILITY DRAWERS & TOASTS
+    function toggleGlossaryDrawer() {
+      document.getElementById('glossary-drawer').classList.toggle('hidden');
+    }
+    function toggleShortcutsModal() {
+      document.getElementById('shortcuts-modal').classList.toggle('hidden');
+    }
+    function toggleHighContrast() {
+      document.body.classList.toggle('high-contrast');
+      showToast('High contrast mode toggled.');
+    }
+
+    function showToast(msg) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = "bg-slate-900 border border-emerald-500/40 text-emerald-300 text-xs px-3 py-2 rounded-lg shadow-xl flex items-center space-x-2 transition opacity-100";
+      toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i><span>${msg}</span>`;
+      container.appendChild(toast);
+      lucide.createIcons();
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // TOUR ONBOARDING LOGIC
+    let tourStep = 0;
+    const tourSteps = [
+      { title: "1. Alert Ring Queue", body: "Filter and prioritize incoming fraud rings by topological confidence, cycle closure rates, and cross-bank flags." },
+      { title: "2. 3-Panel Deep Dive", body: "Simultaneously view the generated narrative, interactive graph canvas, and granular transaction evidence." },
+      { title: "3. Verdict Submission", body: "Record your decision (Confirm Fraud, Reject Benign, or Partial) with full audit trace." }
+    ];
+
+    function startGuidedTour() {
+      tourStep = 0;
+      renderTourStep();
+      document.getElementById('guided-tour-modal').classList.remove('hidden');
+    }
+    function renderTourStep() {
+      const step = tourSteps[tourStep];
+      document.getElementById('tour-step-counter').innerText = `Step ${tourStep + 1} of ${tourSteps.length}`;
+      document.getElementById('tour-content').innerHTML = `<h4 class="font-bold text-emerald-400">${step.title}</h4><p class="text-xs text-slate-300 mt-1">${step.body}</p>`;
+    }
+    function nextTourStep() {
+      tourStep++;
+      if (tourStep < tourSteps.length) {
+        renderTourStep();
+      } else {
+        closeTour();
+      }
+    }
