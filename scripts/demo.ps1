@@ -19,8 +19,17 @@
     cycles of simulated verdicts and one gated retrain (platform/experiments/r11_gated_retrain.py,
     accuracy 0.90), as registered in docs/R11.md. Bank 12 holds too few rings for a retrain
     (l6.retrain.min_new_labels), so the history demo runs on bank 1, R11's bank; see the example.
+
+    -FromProcessedData runs the whole chain from data/processed/: for each bank it first builds the
+    bank's rings from its visible edges and explains them with L4 (scripts/e2e_demo.ps1
+    -PrepareOnly, research Python .venv312), then loads those fresh files. Without it the demo
+    loads the seed-1 rings and explanations already in -InputsDir.
+
+    This is the one entry point. scripts/run-demo.ps1 and scripts/e2e_demo.ps1 are helpers it calls.
 .EXAMPLE
     .\scripts\demo.ps1
+.EXAMPLE
+    .\scripts\demo.ps1 -FromProcessedData
 .EXAMPLE
     .\scripts\demo.ps1 -Tenants 1 -SupervisorTenants 1 -InputsDir data/platform_tenant_runs/r11_seed1/T1 `
         -ExplanationsDir platform/out/r11/xai -R11History
@@ -36,7 +45,8 @@ param(
     [string[]]$SupervisorTenants = @('12'),
     [int]$WebPort = 5173,
     [int]$L4Port = 8765,
-    [switch]$R11History
+    [switch]$R11History,
+    [switch]$FromProcessedData
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,7 +54,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $frontend = Join-Path $repoRoot 'platform/frontend'
 $tenants = @($Tenants -split ',' | Where-Object { $_ })
 $supervisorTenants = @($SupervisorTenants -split ',' | Where-Object { $_ })
-if (-not $ExplanationsDir) { $ExplanationsDir = $InputsDir }
+if (-not $ExplanationsDir) { $ExplanationsDir = if ($FromProcessedData) { 'results/xai/tenant' } else { $InputsDir } }
 $missing = [System.Collections.Generic.List[string]]::new()
 
 function Test-Version {
@@ -87,7 +97,12 @@ if (-not $docker) {
 $inputs = Join-Path $repoRoot $InputsDir
 $explanations = Join-Path $repoRoot $ExplanationsDir
 $required = @((Join-Path $repoRoot $ScoredEdges), (Join-Path $repoRoot "$ScoredEdges.log.json"))
+$researchPython = Join-Path $repoRoot '.venv312/Scripts/python.exe'
+if ($FromProcessedData -and -not (Test-Path -LiteralPath $researchPython)) {
+    $missing.Add('Research Python: .venv312 (scripts/bootstrap.ps1 -Only research)')
+}
 foreach ($tenant in $tenants) {
+    if ($FromProcessedData) { continue }      # built below from data/processed/
     foreach ($name in @("tenant_${tenant}_rings.parquet", "tenant_${tenant}_rings.parquet.log.json", "tenant_${tenant}_edge_ids.parquet")) {
         $required += Join-Path $inputs $name
     }
@@ -128,6 +143,13 @@ if ($missing.Count -gt 0) {
 Write-Host "Found Python ($python), Node $(& node --version), npm $(& npm --version), Docker; all input files present."
 
 $runDemo = Join-Path $PSScriptRoot 'run-demo.ps1'
+if ($FromProcessedData) {
+    foreach ($tenant in $tenants) {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'e2e_demo.ps1') `
+            -Tenant $tenant -TimeOriginUtc $TimeOriginUtc -ResearchPython $researchPython -XaiPython $xaiPython -PrepareOnly
+        if ($LASTEXITCODE -ne 0) { throw "Building or explaining bank $tenant's rings failed; see the messages above." }
+    }
+}
 # R11's history needs R11's seed-1 config: its retrain labels come from the rings the demo loads.
 $configPath = if ($PlatformConfig) { $PlatformConfig } elseif ($R11History) { 'platform/out/r11/config_seed1.yaml' } else { 'platform/config.yaml' }
 if ($R11History -and -not $PlatformConfig) {

@@ -1,7 +1,8 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Start or stop an isolated local RingShield demo database and Windows services.
+    Internal helper: start or stop an isolated local RingShield demo database and Windows services.
+    The entry point is scripts/demo.ps1, which calls this; -Down here stops everything it started.
 .DESCRIPTION
     Loads only the requested tenants' visible edges and their tenant-scoped rings
     and explanations. Use -ValidateOnly for an offline preflight; use -Down to
