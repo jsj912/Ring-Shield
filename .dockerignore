@@ -6,6 +6,8 @@ env/
 .codex-test-deps/
 data/
 experiments/
+# The one committed experiment result the platform tests read.
+!experiments/R10/results.json
 models/artifacts/
 contract/out/
 *.parquet
