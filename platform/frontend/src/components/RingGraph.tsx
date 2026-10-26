@@ -28,6 +28,8 @@ function useIsDark(): boolean {
 interface Hover {
   x: number;
   y: number;
+  width: number;
+  height: number;
   lines: string[];
 }
 
@@ -95,7 +97,7 @@ export function RingGraph({ subgraph, showConversions, loadAll, ringId }: {
 
     cy.on("mouseover", "node, edge", (event) => {
       const position = event.renderedPosition ?? event.target.renderedMidpoint?.() ?? { x: 0, y: 0 };
-      setHover({ x: position.x, y: position.y, lines: event.target.data("hover") as string[] });
+      setHover({ x: position.x, y: position.y, width: cy.width(), height: cy.height(), lines: event.target.data("hover") as string[] });
     });
     cy.on("mouseout", "node, edge", () => setHover(null));
     cy.on("drag pan zoom", () => setHover(null));
@@ -180,10 +182,13 @@ export function RingGraph({ subgraph, showConversions, loadAll, ringId }: {
   return (
     <div className="space-y-2">
       <div className="bg-background/40 relative h-[460px] overflow-hidden rounded-md border">
-        <div ref={container} className="h-full w-full" data-testid="ring-graph" />
+        <div ref={container} className="h-full w-full" data-testid="ring-graph" onMouseLeave={() => setHover(null)} />
         {hover ? (
           <div className="bg-popover text-popover-foreground pointer-events-none absolute z-10 max-w-xs rounded-md border px-2.5 py-1.5 text-xs shadow-md"
-            style={{ left: hover.x + 12, top: hover.y + 12 }} role="tooltip">
+            style={{   // open toward the panel's middle so the box stays inside it
+              ...(hover.x > hover.width / 2 ? { right: hover.width - hover.x + 12 } : { left: hover.x + 12 }),
+              ...(hover.y > hover.height / 2 ? { bottom: hover.height - hover.y + 12 } : { top: hover.y + 12 }),
+            }} role="tooltip">
             {hover.lines.map((line, index) => (
               <div key={index} className={index === 0 ? "font-semibold" : "text-muted-foreground"}>{line}</div>
             ))}
