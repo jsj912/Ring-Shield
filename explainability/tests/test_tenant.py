@@ -1,6 +1,7 @@
 """Tenant-scoped explanations (Kashish's request): inputs verified, nothing hidden counted or mentioned, regenerate."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 
@@ -83,6 +84,14 @@ def test_nothing_hidden_is_mentioned(bank):
             assert int(a) in vis_accounts and int(b) in vis_accounts
 
 
+def _fingerprints(path) -> set[str]:
+    """The file's sha256 as checked out, and of its text in LF and CRLF form. A text input hashed on a
+    Windows checkout (core.autocrlf) is the same committed file as on an LF checkout."""
+    raw = repo_path(path).read_bytes()
+    lf = raw.replace(b"\r\n", b"\n")
+    return {hashlib.sha256(b).hexdigest() for b in (raw, lf, lf.replace(b"\n", b"\r\n"))}
+
+
 @pytest.mark.parametrize("bank", BANKS)
 def test_log_and_provenance_carry_scope_tenant_and_fingerprints(bank):
     p = tenant_paths(CFG, bank)
@@ -91,7 +100,7 @@ def test_log_and_provenance_carry_scope_tenant_and_fingerprints(bank):
     assert log["scope"] == "tenant" and log["tenant_id"] == bank and log["fx_rates_sha256"] == fx
     assert log["n_explained"] == log["n_rings"] == 5 and log["n_reproduces_shipped_ring"] == 5 and log["not_reproduced"] == []
     for k, v in log["input_sha256"].items():
-        assert sha256(v["path"]) == v["sha256"], k
+        assert v["sha256"] in _fingerprints(v["path"]), k
     for r in pq.read_table(repo_path(p["out"]), columns=["provenance"]).to_pylist():
         prov = json.loads(r["provenance"])
         assert (prov["scope"], prov["tenant_id"], prov["feature_scope"], prov["fx_rates_sha256"]) == \
