@@ -1,0 +1,45 @@
+name: Research tests
+
+on:
+  push:
+  pull_request:
+
+# Unit tests only: the AMLworld data is not in the repository, so tests that need data/processed/
+# skip (docs/PITFALLS.md section 8b). Each part runs in its own pinned environment, as locally
+# (scripts/bootstrap.ps1).
+jobs:
+  research:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the research lock (CPU torch on the runner; pywinpty is Windows-only)
+        run: |
+          grep -v -i '^pywinpty==' requirements-lock.txt \
+            | sed -e 's/+cu121//' -e 's#download.pytorch.org/whl/cu121#download.pytorch.org/whl/cpu#' \
+            > /tmp/requirements-ci.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r /tmp/requirements-ci.txt
+      - name: tests, contract/tests, preprocessing/tests
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m pytest tests contract/tests preprocessing/tests -q
+
+  explainability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: explainability/requirements-test.txt
+      - run: python -m pip install -r explainability/requirements-test.txt
+      - name: explainability/tests
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m pytest explainability/tests -q
