@@ -3,7 +3,7 @@ import torch
 import networkx as nx
 from pyvis.network import Network
 
-data = torch.load("data/processed/elliptic_graph.pt", weights_only=False)
+data = torch.load("elliptic/data/processed/elliptic_graph.pt", weights_only=False)
 
 G_full = nx.DiGraph()
 G_full.add_edges_from(data.edge_index.t().tolist())
@@ -21,7 +21,7 @@ print("Top 10 illicit nodes by 2-hop neighborhood size:")
 for n, s in sizes[:10]:
     print(f"  node {n}: {s} nodes")
 
-os.makedirs("results/figures", exist_ok=True)
+os.chdir(os.path.dirname(os.path.abspath(__file__)))   # pyvis links the HTML to ./lib/ (elliptic/graph/lib/)
 
 def render_ego(node_id, filename, radius=2):
     ego = nx.ego_graph(G_full, node_id, radius=radius)
@@ -38,7 +38,7 @@ def render_ego(node_id, filename, radius=2):
     print(f"saved: {filename} ({ego.number_of_nodes()} nodes)")
 
 # ---- 1. The single densest illicit node found across the full search ----
-render_ego(sizes[0][0], "results/figures/elliptic_densest_illicit_ego.html")
+render_ego(sizes[0][0], "elliptic_densest_illicit_ego.html")
 
 # ---- 2. A combined view: union of the top-8 illicit nodes' 2-hop neighborhoods.
 #         This is usually far more informative than any single node — it shows
@@ -58,5 +58,5 @@ for n in combined.nodes():
                  title=f"node {n} | label={'illicit' if label==1 else 'licit' if label==0 else 'unknown'}")
 for u, v in combined.edges():
     net.add_edge(u, v)
-net.write_html("results/figures/elliptic_top8_illicit_combined.html")
+net.write_html("elliptic_top8_illicit_combined.html")
 print(f"saved combined view ({combined.number_of_nodes()} nodes, {combined.number_of_edges()} edges)")

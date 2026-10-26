@@ -2,7 +2,7 @@ import torch
 import networkx as nx
 import matplotlib.pyplot as plt
 
-data = torch.load("data/processed/elliptic_graph.pt", weights_only=False)
+data = torch.load("elliptic/data/processed/elliptic_graph.pt", weights_only=False)
 
 # ---- Option A: one timestep's subgraph ----
 timestep_to_view = 1  # try a few — some timesteps are denser than others
@@ -30,7 +30,7 @@ pos = nx.spring_layout(G, seed=42, k=0.3)
 nx.draw(G, pos, node_color=color_map, node_size=40, edge_color="gray", arrows=True, arrowsize=6)
 plt.title(f"Elliptic subgraph — timestep {timestep_to_view} "
           f"({G.number_of_nodes()} nodes, {G.number_of_edges()} edges)")
-plt.savefig("results/figures/elliptic_timestep1_subgraph.png", dpi=150, bbox_inches="tight")
+plt.savefig("elliptic/results/figures/elliptic_timestep1_subgraph.png", dpi=150, bbox_inches="tight")
 print("saved")
 
 # ---- Option B: ego-network around a specific illicit node (often more visually
@@ -54,5 +54,5 @@ plt.figure(figsize=(10, 8))
 pos = nx.spring_layout(ego, seed=42)
 nx.draw(ego, pos, node_color=color_map, node_size=60, edge_color="gray", arrows=True)
 plt.title(f"2-hop neighborhood around illicit node {center_node}")
-plt.savefig("results/figures/elliptic_illicit_ego_network.png", dpi=150, bbox_inches="tight")
+plt.savefig("elliptic/results/figures/elliptic_illicit_ego_network.png", dpi=150, bbox_inches="tight")
 print("saved")

@@ -3,7 +3,7 @@ import torch
 import networkx as nx
 from pyvis.network import Network
 
-data = torch.load("data/processed/elliptic_graph.pt", weights_only=False)
+data = torch.load("elliptic/data/processed/elliptic_graph.pt", weights_only=False)
 
 G_full = nx.DiGraph()
 G_full.add_edges_from(data.edge_index.t().tolist())
@@ -22,7 +22,7 @@ for n in illicit_nodes[:300]:   # checking all ~4,545 is slow; 300 is enough to 
 print(f"Best illicit node found: {best_node} ({best_size} nodes in its 2-hop neighborhood)")
 ego = nx.ego_graph(G_full, best_node, radius=2)
 
-os.makedirs("results/figures", exist_ok=True)
+os.chdir(os.path.dirname(os.path.abspath(__file__)))   # pyvis links the HTML to ./lib/ (elliptic/graph/lib/)
 
 # ---- Build the interactive graph ----
 net = Network(height="800px", width="100%", directed=True, notebook=False, bgcolor="#ffffff")
@@ -44,6 +44,6 @@ for n in ego.nodes():
 for u, v in ego.edges():
     net.add_edge(u, v)
 
-out_path = "results/figures/elliptic_illicit_ego_network_interactive.html"
+out_path = "elliptic_illicit_ego_network_interactive.html"
 net.write_html(out_path)
 print("saved:", out_path)

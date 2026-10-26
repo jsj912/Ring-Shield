@@ -2,8 +2,8 @@ import torch
 import networkx as nx
 import pandas as pd
 
-def build_motif_features(static_graph_path="data/processed/amlworld_static_graph.pt",
-                          node_to_idx_path="data/processed/amlworld_node_to_idx.pt",
+def build_motif_features(static_graph_path="elliptic/data/processed/amlworld_static_graph.pt",
+                          node_to_idx_path="elliptic/data/processed/amlworld_node_to_idx.pt",
                           fan_threshold=5,
                           max_cycle_length=4):
     # ---- 1. Load the static graph and rebuild a NetworkX DiGraph from it ----
@@ -70,7 +70,7 @@ def build_motif_features(static_graph_path="data/processed/amlworld_static_graph
 
 if __name__ == "__main__":
     features = build_motif_features()
-    features.to_parquet("data/processed/amlworld_motif_features.parquet")
+    features.to_parquet("elliptic/data/processed/amlworld_motif_features.parquet")
 
     print(features.describe())
     print("\nNodes flagged fan_in:", features["fan_in_flag"].sum())

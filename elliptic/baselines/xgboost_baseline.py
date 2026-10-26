@@ -3,14 +3,12 @@ import yaml
 import joblib
 import numpy as np
 import pandas as pd
-import sys
-sys.path.append(".")
 from xgboost import XGBClassifier
 from sklearn.metrics import f1_score, precision_recall_curve
-from preprocessing.elliptic_loader import get_labeled_tabular_splits_with_val
-from evaluations.classification_metrics import compute_metrics, save_metrics
+from elliptic.preprocessing.elliptic_loader import get_labeled_tabular_splits_with_val
+from elliptic.evaluations.classification_metrics import compute_metrics, save_metrics
 
-seed = yaml.safe_load(open("configs/seed.yaml"))["seed"]
+seed = yaml.safe_load(open("elliptic/configs/seed.yaml"))["seed"]
 splits = get_labeled_tabular_splits_with_val()
 
 n_neg = (splits["y_train_proper"] == 0).sum()
@@ -59,7 +57,7 @@ metrics = compute_metrics(splits["y_test"], y_pred, y_score)
 metrics.update({"chosen_scale_pos_weight": float(computed_ratio), "chosen_config_name": best_name,
                  "chosen_config": best_cfg, "chosen_threshold": float(best_threshold)})
 
-out_dir = "experiments/E2b_xgboost"
+out_dir = "elliptic/experiments/E2b_xgboost"
 os.makedirs(out_dir, exist_ok=True)
 save_metrics(metrics, f"{out_dir}/metrics.json")
 joblib.dump({"model": final_model, "threshold": best_threshold}, f"{out_dir}/model.pkl")

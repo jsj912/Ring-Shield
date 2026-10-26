@@ -1,0 +1,15 @@
+# Phase 0-3 Elliptic baselines (elliptic/). Pins from the runs' environment.txt (Python 3.11).
+# torch-geometric is only needed for E3 (GCN, GraphSAGE) and the graph builders.
+jinja2==3.1.6
+joblib==1.5.2
+matplotlib==3.10.7
+networkx==3.6.1
+numpy==2.2.5
+pandas==2.3.3
+pyarrow==22.0.0
+pyvis==0.3.2
+pyyaml==6.0.3
+scikit-learn==1.8.0
+torch==2.13.0
+torch-geometric==2.8.0.post1
+xgboost==3.2.0

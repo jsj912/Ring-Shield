@@ -1,7 +1,7 @@
 import pandas as pd
 import yaml
 
-def load_elliptic_raw(raw_dir="data/raw/elliptic"):
+def load_elliptic_raw(raw_dir="elliptic/data/raw/elliptic"):
     features = pd.read_csv(f"{raw_dir}/elliptic_txs_features.csv", header=None)
     features.columns = ["txId", "time_step"] + [f"feat_{i}" for i in range(165)]
     classes = pd.read_csv(f"{raw_dir}/elliptic_txs_classes.csv")
@@ -21,9 +21,9 @@ def split_by_timestep(df, split_cfg):
     test_mask = df["time_step"].between(test_lo, test_hi)
     return train_mask, test_mask
 
-def get_labeled_tabular_splits(feature_cfg_path="configs/elliptic_features.yaml",
-                                split_cfg_path="configs/elliptic_split.yaml",
-                                raw_dir="data/raw/elliptic"):
+def get_labeled_tabular_splits(feature_cfg_path="elliptic/configs/elliptic_features.yaml",
+                                split_cfg_path="elliptic/configs/elliptic_split.yaml",
+                                raw_dir="elliptic/data/raw/elliptic"):
     with open(feature_cfg_path) as f:
         feat_cfg = yaml.safe_load(f)
     with open(split_cfg_path) as f:
@@ -49,9 +49,9 @@ def get_labeled_tabular_splits(feature_cfg_path="configs/elliptic_features.yaml"
     y_test = labeled.loc[test_mask_l, "label"]
 
     return X_train, y_train, X_test, y_test, labeled, df, edges
-def get_labeled_tabular_splits_with_val(feature_cfg_path="configs/elliptic_features.yaml",
-                                          split_cfg_path="configs/elliptic_split.yaml",
-                                          raw_dir="data/raw/elliptic"):
+def get_labeled_tabular_splits_with_val(feature_cfg_path="elliptic/configs/elliptic_features.yaml",
+                                          split_cfg_path="elliptic/configs/elliptic_split.yaml",
+                                          raw_dir="elliptic/data/raw/elliptic"):
 
     with open(feature_cfg_path) as f:
         feat_cfg = yaml.safe_load(f)

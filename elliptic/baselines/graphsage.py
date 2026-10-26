@@ -5,18 +5,16 @@ import torch.nn.functional as F
 import yaml
 import numpy as np
 import pandas as pd
-import sys
-sys.path.append(".")
 from torch_geometric.nn import SAGEConv
 from sklearn.metrics import f1_score, precision_recall_curve
-from evaluations.classification_metrics import compute_metrics, save_metrics
+from elliptic.evaluations.classification_metrics import compute_metrics, save_metrics
 
-seed = yaml.safe_load(open("configs/seed.yaml"))["seed"]
+seed = yaml.safe_load(open("elliptic/configs/seed.yaml"))["seed"]
 torch.manual_seed(seed)
 
-data = torch.load("data/processed/elliptic_graph.pt", weights_only=False)
+data = torch.load("elliptic/data/processed/elliptic_graph.pt", weights_only=False)
 
-split_cfg = yaml.safe_load(open("configs/elliptic_split.yaml"))
+split_cfg = yaml.safe_load(open("elliptic/configs/elliptic_split.yaml"))
 val_lo, val_hi = split_cfg["val_timesteps"]
 train_proper_mask = data.train_mask & (data.time_step < val_lo)
 val_mask = data.train_mask & (data.time_step >= val_lo) & (data.time_step <= val_hi)
@@ -113,7 +111,7 @@ metrics["note"] = (
     "to gcn.py after its val->test F1 collapse: 0.7955 -> 0.4058)."
 )
 
-out_dir = "experiments/E3b_graphsage"
+out_dir = "elliptic/experiments/E3b_graphsage"
 os.makedirs(out_dir, exist_ok=True)
 save_metrics(metrics, f"{out_dir}/metrics.json")
 pd.DataFrame(log_rows).to_csv(f"{out_dir}/training_log.csv", index=False)

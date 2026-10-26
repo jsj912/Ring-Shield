@@ -2,7 +2,7 @@ import torch
 from torch_geometric.data import Data, TemporalData
 import pandas as pd
 
-def build_amlworld_graph(trans_csv="data/raw/amlworld/HI-Small_Trans.csv"):
+def build_amlworld_graph(trans_csv="elliptic/data/raw/amlworld/HI-Small_Trans.csv"):
     # ---- 1. Load raw transactions ----
     df = pd.read_csv(trans_csv)
 
@@ -63,9 +63,9 @@ def build_amlworld_graph(trans_csv="data/raw/amlworld/HI-Small_Trans.csv"):
 if __name__ == "__main__":
     temporal_data, static_data, node_to_idx, payment_format_categories = build_amlworld_graph()
 
-    torch.save(temporal_data, "data/processed/amlworld_temporal_data.pt")
-    torch.save(static_data, "data/processed/amlworld_static_graph.pt")
-    torch.save(node_to_idx, "data/processed/amlworld_node_to_idx.pt")
+    torch.save(temporal_data, "elliptic/data/processed/amlworld_temporal_data.pt")
+    torch.save(static_data, "elliptic/data/processed/amlworld_static_graph.pt")
+    torch.save(node_to_idx, "elliptic/data/processed/amlworld_node_to_idx.pt")
 
     print("num_nodes:", static_data.num_nodes)
     print("num_edges (transactions):", static_data.num_edges)

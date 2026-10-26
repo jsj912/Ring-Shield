@@ -2,18 +2,16 @@ import os
 import yaml
 import joblib
 import pandas as pd
-import sys
-sys.path.append(".")
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LogisticRegression
-from evaluations.classification_metrics import compute_metrics, save_metrics
+from elliptic.evaluations.classification_metrics import compute_metrics, save_metrics
 
-seed = yaml.safe_load(open("configs/seed.yaml"))["seed"]
+seed = yaml.safe_load(open("elliptic/configs/seed.yaml"))["seed"]
 
 # ---- 1. Load and merge the two raw tables ----
-train_trans = pd.read_csv("data/raw/ieee_cis/train_transaction.csv")
-train_id = pd.read_csv("data/raw/ieee_cis/train_identity.csv")
+train_trans = pd.read_csv("elliptic/data/raw/ieee_cis/train_transaction.csv")
+train_id = pd.read_csv("elliptic/data/raw/ieee_cis/train_identity.csv")
 df = train_trans.merge(train_id, on="TransactionID", how="left")
 
 df = df.sample(50000, random_state=seed)
@@ -55,7 +53,7 @@ y_pred = model.predict(X_test)
 y_score = model.predict_proba(X_test)[:, 1]
 metrics = compute_metrics(y_test, y_pred, y_score)
 
-out_dir = "baselines/_ieee_cis_scratch/experiments/full_features"
+out_dir = "elliptic/baselines/_ieee_cis_scratch/experiments/full_features"
 os.makedirs(out_dir, exist_ok=True)
 save_metrics(metrics, f"{out_dir}/metrics.json")
 joblib.dump(model, f"{out_dir}/model.pkl")

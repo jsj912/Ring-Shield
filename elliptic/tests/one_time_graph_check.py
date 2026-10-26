@@ -1,6 +1,6 @@
 import torch, pandas as pd
-data = torch.load("data/processed/elliptic_graph.pt", weights_only = False)
-df = pd.read_parquet("data/processed/elliptic_all.parquet")
+data = torch.load("elliptic/data/processed/elliptic_graph.pt", weights_only = False)
+df = pd.read_parquet("elliptic/data/processed/elliptic_all.parquet")
 
 # pick 3 random edges and manually verify they correspond to real txId1,txId2 pairs
 idx_to_txid = dict(enumerate(df["txId"]))

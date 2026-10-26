@@ -3,15 +3,13 @@ import yaml
 import joblib
 import numpy as np
 import pandas as pd
-import sys
-sys.path.append(".")
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, precision_recall_curve
-from preprocessing.elliptic_loader import get_labeled_tabular_splits_with_val
-from evaluations.classification_metrics import compute_metrics, save_metrics
+from elliptic.preprocessing.elliptic_loader import get_labeled_tabular_splits_with_val
+from elliptic.evaluations.classification_metrics import compute_metrics, save_metrics
 
-seed = yaml.safe_load(open("configs/seed.yaml"))["seed"]
+seed = yaml.safe_load(open("elliptic/configs/seed.yaml"))["seed"]
 splits = get_labeled_tabular_splits_with_val()
 
 # ---- 1. Scale features (fit on train_proper only, never on val/test) ----
@@ -67,7 +65,7 @@ metrics = compute_metrics(splits["y_test"], y_pred, y_score)
 metrics["chosen_class_weight"] = best_weight_name
 metrics["chosen_threshold"] = float(best_threshold)
 
-out_dir = "experiments/E1b_logistic_regression_tuned"
+out_dir = "elliptic/experiments/E1b_logistic_regression_tuned"
 os.makedirs(out_dir, exist_ok=True)
 save_metrics(metrics, f"{out_dir}/metrics.json")
 joblib.dump({"model": final_model, "scaler": scaler, "threshold": best_threshold}, f"{out_dir}/model.pkl")

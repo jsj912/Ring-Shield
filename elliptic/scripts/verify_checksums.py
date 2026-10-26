@@ -6,11 +6,11 @@ def sha256_of(path):
             h.update(chunk)
     return h.hexdigest()
 files = [
-    "data/raw/elliptic/elliptic_txs_features.csv",
-    "data/raw/elliptic/elliptic_txs_classes.csv",
-    "data/raw/elliptic/elliptic_txs_edgelist.csv",
-    "data/raw/amlworld/HI-Small_Trans.csv",
-    "data/raw/amlworld/HI-Small_Patterns.txt",
+    "elliptic/data/raw/elliptic/elliptic_txs_features.csv",
+    "elliptic/data/raw/elliptic/elliptic_txs_classes.csv",
+    "elliptic/data/raw/elliptic/elliptic_txs_edgelist.csv",
+    "elliptic/data/raw/amlworld/HI-Small_Trans.csv",
+    "elliptic/data/raw/amlworld/HI-Small_Patterns.txt",
 ]
 for f in files:
     print(f, sha256_of(f))

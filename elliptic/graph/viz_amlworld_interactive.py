@@ -5,8 +5,8 @@ import networkx as nx
 from pyvis.network import Network
 
 # ---- 1. Load the structural graph (fast — no attributes, just connectivity) ----
-static_data = torch.load("data/processed/amlworld_static_graph.pt", weights_only=False)
-node_to_idx = torch.load("data/processed/amlworld_node_to_idx.pt", weights_only=False)
+static_data = torch.load("elliptic/data/processed/amlworld_static_graph.pt", weights_only=False)
+node_to_idx = torch.load("elliptic/data/processed/amlworld_node_to_idx.pt", weights_only=False)
 idx_to_node = {v: k for k, v in node_to_idx.items()}
 
 G_struct = nx.DiGraph()
@@ -14,7 +14,7 @@ G_struct.add_edges_from(static_data.edge_index.t().tolist())
 
 # ---- 2. Load raw transactions — needed for the rich columns (amount, currency,
 #         payment format, timestamp) that the saved static graph doesn't carry ----
-df = pd.read_csv("data/raw/amlworld/HI-Small_Trans.csv")
+df = pd.read_csv("elliptic/data/raw/amlworld/HI-Small_Trans.csv")
 df["src_node"] = df["From Bank"].astype(str) + "_" + df["Account"].astype(str)
 df["dst_node"] = df["To Bank"].astype(str) + "_" + df["Account.1"].astype(str)
 df["src_idx"] = df["src_node"].map(node_to_idx)
@@ -106,7 +106,7 @@ for _, row in sub_df.iterrows():
         title=tooltip,
     )
 
-os.makedirs("results/figures", exist_ok=True)
-out_path = "results/figures/amlworld_laundering_subgraph_interactive.html"
+os.chdir(os.path.dirname(os.path.abspath(__file__)))   # pyvis links the HTML to ./lib/ (elliptic/graph/lib/)
+out_path = "amlworld_laundering_subgraph_interactive.html"
 net.write_html(out_path)
 print("saved:", out_path)

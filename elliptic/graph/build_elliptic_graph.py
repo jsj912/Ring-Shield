@@ -3,9 +3,9 @@ from torch_geometric.data import Data
 import pandas as pd
 import yaml
 
-def build_elliptic_graph(full_parquet="data/processed/elliptic_all.parquet",
-                          edgelist_csv="data/raw/elliptic/elliptic_txs_edgelist.csv",
-                          split_cfg_path="configs/elliptic_split.yaml"):
+def build_elliptic_graph(full_parquet="elliptic/data/processed/elliptic_all.parquet",
+                          edgelist_csv="elliptic/data/raw/elliptic/elliptic_txs_edgelist.csv",
+                          split_cfg_path="elliptic/configs/elliptic_split.yaml"):
     # ---- 1. Load the full node table (all 203,769 rows, labeled + unlabeled) ----
     df = pd.read_parquet(full_parquet)
     edges = pd.read_csv(edgelist_csv)
@@ -49,7 +49,7 @@ def build_elliptic_graph(full_parquet="data/processed/elliptic_all.parquet",
 
 if __name__ == "__main__":
     data = build_elliptic_graph()
-    torch.save(data, "data/processed/elliptic_graph.pt")
+    torch.save(data, "elliptic/data/processed/elliptic_graph.pt")
 
     print(data)
     print("num_nodes:", data.num_nodes, "(expected: 203,769)")
