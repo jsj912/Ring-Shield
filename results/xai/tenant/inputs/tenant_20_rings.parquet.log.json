@@ -1,14 +1,28 @@
 {
-  "created_utc": "2026-10-17T07:56:38+00:00",
-  "git_commit": "e6e445dc6b7fe20abf97145043d4236c4998f5d4",
+  "created_utc": "2026-10-26T16:15:00+00:00",
+  "git_commit": "28a95fee4a6375ddd5fd32cacaa7f22aac3198b4",
   "command": "run",
-  "scores": "E:\\New folder\\Ring-Shield\\contract\\out\\scored_edges_gine_causal_1.parquet",
-  "edge_subset": "E:\\New folder\\Ring-Shield\\platform\\out\\tenant_20_edge_ids.parquet",
+  "scores": "E:\\JSJ\\RS-react\\contract\\out\\scored_edges_gine_causal_1.parquet",
+  "contract_version": "rings.parquet v2",
+  "currency_v2": {
+    "n_rings": 5,
+    "n_accounts_undetermined_ccy": 1,
+    "n_rings_with_undetermined": 1,
+    "n_roles_changed_ccy_total": 1,
+    "n_rings_roles_unchanged": 4,
+    "conservation_closure_ccy": {
+      "n_nan": 0,
+      "mean_non_nan": 0.8192586916344107
+    },
+    "currency_mode": "partitioned (v2 fields only; v1 fields remain raw cross-currency sums)",
+    "ccy_min_two_sided_share": 0.5
+  },
+  "edge_subset": "E:\\JSJ\\RS-react\\data\\platform_tenant_runs\\gine_causal_seed1\\tenant_20_edge_ids.parquet",
   "n_edges_in_file": 863900,
   "n_edge_subset_ids": 10315,
   "n_edges_used": 10315,
   "n_scored": 10315,
-  "model_dir": "E:\\New folder\\Ring-Shield\\models\\artifacts\\full_gine_causal_seed1",
+  "model_dir": "E:\\JSJ\\RS-react\\models\\artifacts\\full_gine_causal_seed1",
   "model": {
     "model_id": "gine_causal",
     "seed": 1,
@@ -48,6 +62,7 @@
   "n_member_edges": 26,
   "n_expanded_edges": 9,
   "expansion": {
+    "typing_head": "E:\\JSJ\\RS-react\\models\\artifacts\\full_gine_causal_seed1\\typing",
     "n_rings_closure_nan": 0,
     "n_rings_no_expansion_probs": 0,
     "method": "average",
@@ -61,18 +76,18 @@
     "n_rings_gt100": 0,
     "components_split": 1
   },
-  "gfp": "E:\\New folder\\Ring-Shield\\data\\processed\\amlworld_gfp_features_test.parquet",
-  "embeddings": "E:\\New folder\\Ring-Shield\\experiments\\R1_gine_causal\\embeddings_test_seed1.parquet",
+  "gfp": "E:\\JSJ\\Ring-Shield\\data\\processed\\amlworld_gfp_features_test.parquet",
+  "embeddings": "E:\\JSJ\\RS-react\\experiments\\R1_gine_causal\\embeddings_test_seed1.parquet",
   "partition": "average",
   "partition_cell": {
     "cut": 0.5
   },
   "ring_id_rule": "f'{aggregator}-{model_id}-{seed}-{idx}'",
   "tenant_rule": "explicit tenant_id=20 for tenant-scoped edge subset",
-  "out": "E:\\New folder\\Ring-Shield\\platform\\out\\tenant_20_rings.parquet",
+  "out": "E:\\JSJ\\RS-react\\data\\platform_tenant_runs\\gine_causal_seed1\\tenant_20_rings.parquet",
   "split": "test",
   "platform_config": {
-    "path": "E:\\New folder\\Ring-Shield\\platform\\config.yaml",
+    "path": "E:\\JSJ\\RS-react\\platform\\config.yaml",
     "active_model_id": "gine_causal",
     "active_seed": 1,
     "seed_score_cutoff": 0.9295209672451074,

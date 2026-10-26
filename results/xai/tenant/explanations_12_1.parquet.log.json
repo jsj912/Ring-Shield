@@ -5,11 +5,11 @@
   "input_sha256": {
     "affinity": {
       "path": "experiments/R4_partition/affinity/affinity.json",
-      "sha256": "5733605a3ebf99c17cfb9d8998716d92086a975ba8fc008f6b8706a47bcb21f1"
+      "sha256": "86a3a4aeb478bf79fabcabc98a22d27f55edfcc864b6459deb9c9c1130072e33"
     },
     "edge_ids": {
       "path": "results/xai/tenant/inputs/tenant_12_edge_ids.parquet",
-      "sha256": "eaa4f609480783e4161cc33b53ddfe82032c12e7570989c53162797def59e9e9"
+      "sha256": "d98cce48f6cab10ebc6881be772919b86a0854c3196a88d268372ad7855162a0"
     },
     "embeddings": {
       "path": "experiments/R1_gine_causal/embeddings_test_seed1.parquet",
@@ -25,11 +25,11 @@
     },
     "partition_config": {
       "path": "experiments/R4_partition/runs/average/seed1/config.yaml",
-      "sha256": "359b2fff86159df09de455084e8e9193f23eba0de1c2646db1c4427e48eecf7c"
+      "sha256": "6a1966f8fd8c5dfa906ed52e58f728a120ff4c970fd728f3af25f25224c72722"
     },
     "rings": {
       "path": "results/xai/tenant/inputs/tenant_12_rings.parquet",
-      "sha256": "e74cd104714d773b0d8338161b9be9c0b9628ec320fa209ee7c6593c1ff12e6a"
+      "sha256": "1e651963dea0142b03e2be11d211814654441c1771d29161659e3ab471a2d516"
     },
     "scored_edges_shipped": {
       "path": "contract/out/scored_edges_gine_causal_1.parquet",
@@ -37,13 +37,13 @@
     },
     "scored_edges_visible": {
       "path": "results/xai/tenant/inputs/scored_edges_visible_12_1.parquet",
-      "sha256": "987e5d60a4ac350929dd44cda6597a264932af3c1d2d89f07d05f5ed8393a5f8"
+      "sha256": "2a8ec20b01c3895e117e84a8b03a5a6692ec5f558fdad107b5a4bc1f849e5fe6"
     }
   },
   "latency_ms": {
-    "max": 387.0,
-    "p50": 310.0,
-    "p95": 385.4
+    "max": 348.0,
+    "p50": 294.0,
+    "p95": 345.6
   },
   "mixing": {
     "alpha": 0.6,
