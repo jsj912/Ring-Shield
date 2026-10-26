@@ -29,6 +29,7 @@ RINGS_DIR = "data/platform_tenant_runs/r11_seed{seed}/T{{tenant_id}}"
 
 def seed_config(seed: int, base: dict | None = None) -> dict:
     config = dict(base if base is not None else yaml.safe_load(BASE_CONFIG.read_text(encoding="utf-8")))
+    config = {key: value for key, value in config.items() if not key.startswith("_")}   # load_platform_config adds _path
     model_id = config["active_model_id"]
     scores = f"contract/out/scored_edges_{model_id}_{seed}.parquet"
     log = json.loads((REPO_ROOT / f"{scores}.log.json").read_text(encoding="utf-8"))
