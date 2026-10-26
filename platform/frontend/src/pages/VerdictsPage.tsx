@@ -214,7 +214,7 @@ export function VerdictsPage() {
                 </TableHeader>
                 <TableBody>
                   {data!.items.map((item) => {
-                    const open = () => navigate(`/rings/${encodeURIComponent(item.ring_id)}`);
+                    const open = () => navigate(`/rings/${encodeURIComponent(item.ring_id)}?bank=${tenantId}`);
                     return (
                       <TableRow key={item.verdict_id} className="cursor-pointer" tabIndex={0} onClick={open}
                         onKeyDown={(e) => { if (e.key === "Enter") open(); }} data-testid="verdict-row">

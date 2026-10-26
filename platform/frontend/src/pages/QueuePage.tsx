@@ -243,7 +243,7 @@ export function QueuePage() {
                 </TableHeader>
                 <TableBody>
                   {rows.map((row) => (
-                    <RingRow key={row.ring_id} row={row} tenantId={tenantId} canVerdict={canRecordVerdicts(session.role)} onOpen={() => navigate(`/rings/${encodeURIComponent(row.ring_id)}`)} />
+                    <RingRow key={row.ring_id} row={row} tenantId={tenantId} canVerdict={canRecordVerdicts(session.role)} onOpen={() => navigate(`/rings/${encodeURIComponent(row.ring_id)}?bank=${tenantId}`)} />
                   ))}
                 </TableBody>
               </Table>

@@ -55,7 +55,7 @@ test("FR-D60: columns, newest first, each filter narrows, the link opens the rin
 
   const ring = (await historyRows(page).first().locator("td").nth(1).textContent())!.trim();
   await historyRows(page).first().click();
-  await expect(page).toHaveURL(new RegExp(`/rings/${ring}$`));
+  await expect(page).toHaveURL(new RegExp(`/rings/${ring}\\?bank=\\d+$`));
   await expect(page.getByRole("heading", { name: new RegExp(ring) })).toBeVisible();
 });
 

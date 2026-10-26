@@ -108,7 +108,7 @@ test("FR-D14: returning from a ring restores filters and page", async ({ page })
   await expect(page.getByText("Page 2", { exact: true })).toBeVisible();
   const ring = await firstRingId(page);
   await rows(page).first().click();
-  await expect(page).toHaveURL(new RegExp(`/rings/${ring}$`));
+  await expect(page).toHaveURL(new RegExp(`/rings/${ring}\\?bank=\\d+$`));
   await page.getByRole("link", { name: "Back to queue" }).click();
   await expect(page.getByText("Page 2", { exact: true })).toBeVisible();
   await expect(total(page)).toHaveText("200 rings match these filters");
@@ -130,6 +130,14 @@ test("another bank's ring by URL says 'Not permitted' and shows nothing of it", 
   await signIn(page, USERS.analystB);
   await expect(rows(page)).not.toHaveCount(0);
   await go(page, "/rings/full-gine_causal-1-0");                      // a Bank A ring
+  await expect(page.getByText("Not permitted")).toBeVisible();
+  await expect(page.getByTestId("narrative")).toHaveCount(0);
+});
+
+test("a ring id Bank B also holds, linked for Bank A, still says 'Not permitted'", async ({ page }) => {
+  await signIn(page, USERS.analystB);
+  await expect(rows(page)).not.toHaveCount(0);
+  await go(page, "/rings/full-gine_causal-1-500?bank=1001");          // B's own id, named as A's ring
   await expect(page.getByText("Not permitted")).toBeVisible();
   await expect(page.getByTestId("narrative")).toHaveCount(0);
 });

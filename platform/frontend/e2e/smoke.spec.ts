@@ -25,7 +25,7 @@ test("an analyst opens the top ring and confirms it", async ({ page }) => {
   await expect(rows.first()).toContainText("full-gine_causal-1-0");     // highest confidence first
 
   await rows.first().getByText("full-gine_causal-1-0").click();
-  await expect(page).toHaveURL(/\/rings\/full-gine_causal-1-0$/);
+  await expect(page).toHaveURL(/\/rings\/full-gine_causal-1-0\?bank=1001$/);
   await expect(page.getByTestId("narrative")).toContainText("ring");
   await expect(page.getByTestId("ring-graph").locator("canvas").first()).toBeVisible();
   await expect(page.getByTestId("transaction-row").first()).toBeVisible();

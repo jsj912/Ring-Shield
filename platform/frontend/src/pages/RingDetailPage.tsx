@@ -2,7 +2,7 @@
  * Ring detail (app.py::_ring_detail): narrative | graph | evidence side by side on wide screens,
  * stacking below 1600 px, then the ring's verdicts. Each panel loads and fails on its own.
  */
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Globe2, Lock } from "lucide-react";
 import { ApiError } from "@/api/client";
 import { useSession } from "@/app/session";
@@ -92,7 +92,11 @@ function RingDetail({ tenantId, ringId }: { tenantId: number; ringId: string }) 
 
 export function RingDetailPage() {
   const { ringId = "" } = useParams();
-  const { tenantId } = useActiveTenant();
+  const { tenantId: activeTenant } = useActiveTenant();
+  // Ring ids repeat across banks, so a link names its bank. Asking the API for that bank lets the
+  // API refuse another bank's ring instead of the screen opening this bank's ring with the same id.
+  const bank = Number(useSearchParams()[0].get("bank"));
+  const tenantId = activeTenant === null ? null : Number.isInteger(bank) && bank > 0 ? bank : activeTenant;
   return (
     <>
       <BackToQueue />
