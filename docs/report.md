@@ -43,7 +43,7 @@ flowchart TB
     subgraph Platform["Application track"]
         DB[("PostgreSQL 16<br/>row-level security per bank")]
         API["L5 FastAPI service<br/>JWT login, rings, verdicts, admin"]
-        UI["L5 Streamlit dashboard"]
+        UI["L5 React dashboard"]
         L6["L6 Feedback<br/>verdict simulator, gated retrain, drift monitor"]
     end
     L0 --> L1 --> L2 --> L3 --> C
@@ -248,7 +248,7 @@ flowchart TD
 | Platform API | `platform/api/` | authentication, ring, verdict, admin and retrain routes |
 | Database | `platform/db/` | SQLAlchemy models, Alembic migrations, roles and RLS |
 | Jobs | `platform/jobs/` | loaders, tenant ring builder, simulator, retrain, drift monitor |
-| Dashboard | `platform/dashboard/` | Streamlit investigator screens |
+| Dashboard | `platform/frontend/` | React investigator screens (the Streamlit app in `platform/dashboard/` is the frozen first version) |
 | Experiments | `platform/experiments/` | R11 and R12 harnesses |
 
 ---
@@ -269,7 +269,7 @@ flowchart TD
 | Explanations | SHAP | 0.50.0 |
 | API | FastAPI, Uvicorn | 0.115.12, 0.34.0 |
 | Database | PostgreSQL (Docker), SQLAlchemy, Alembic, psycopg | 16, 2.0.40, 1.15.2, 3.2.6 |
-| Dashboard | Streamlit | 1.44.1 |
+| Dashboard | React, Vite, Cytoscape, Plotly | 19, 6, 3, 3 (see `platform/frontend/package.json`) |
 | Drift detection | river (ADWIN) | 0.22.0 |
 | Scheduling, auth | APScheduler, bcrypt, JWT | 3.11.0, 5.0.0 |
 | Containers | Docker Desktop with Compose | 29.9.2, Compose 5.6.1 |
@@ -297,8 +297,8 @@ and one language lets the platform call the research code through a command-line
 **PyTorch Geometric** for the GNN detector (edge-level message passing with time-aware neighbour
 sampling). **LightGBM** for the expansion and affinity models (fast on millions of tabular rows).
 **PostgreSQL** because row-level security enforces tenant isolation inside the database, where an
-application bug cannot bypass it. **FastAPI** for a typed, documented API; **Streamlit** for the
-dashboard, because a Python team can build every required screen in it. **Docker** so the database
+application bug cannot bypass it. **FastAPI** for a typed, documented API; **React** for the
+dashboard (it replaced a first Streamlit version once the graph, time slider and large-ring screens outgrew it). **Docker** so the database
 comes up the same way on every machine.
 
 ## 5.2 Model Implementation & Algorithm
