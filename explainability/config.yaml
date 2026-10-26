@@ -180,7 +180,9 @@ review:
 # one, written by explainability/tenant.py. history = the research GFP's edge history (train + val + test).
 tenants:
   seed: 1
-  banks: [20, 12]
+  # Every bank with at least one ring in the tenant survey (results/platform/tenant_survey/), so the
+  # demo can load them all (scripts/demo.ps1 -AllRingBanks). 12 and 20 were the first two.
+  banks: [1, 3, 9, 10, 11, 12, 15, 19, 20, 22, 23, 24, 28, 116, 117, 118, 119, 210, 211, 220, 222, 223, 410, 701, 908, 1124, 1267, 1292, 1412, 1420, 1467, 1490, 1501, 1547, 1601, 1665, 1674, 1729, 2591, 2824, 3051, 3335, 3514, 4403, 4503, 4726, 7548, 9371, 9679, 11056, 11128, 11852, 12381, 12963, 13083, 13554, 13862, 14099, 14663, 14804, 15010, 15040, 15055, 15085, 17863, 18067, 19329, 19740, 21258, 21575, 21611, 21745, 21749, 21918, 23289, 23842, 25075, 26302, 27755, 29404, 29685, 33245, 41407, 48309, 50528, 117070, 139342, 148350, 150240, 210261, 210431, 213952, 214749, 225215, 231212, 232391, 235509]
   rings: results/xai/tenant/inputs/tenant_{bank}_rings.parquet
   edge_ids: results/xai/tenant/inputs/tenant_{bank}_edge_ids.parquet
   scored_edges: results/xai/tenant/inputs/scored_edges_visible_{bank}_{seed}.parquet
