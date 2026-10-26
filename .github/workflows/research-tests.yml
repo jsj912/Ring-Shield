@@ -39,7 +39,13 @@ jobs:
           cache: pip
           cache-dependency-path: explainability/requirements-test.txt
       - run: python -m pip install -r explainability/requirements-test.txt
-      - name: explainability/tests
+      # The other explainability test files read L4's outputs (results/xai/*.parquet, contract/out rings),
+      # which are not in git; run them locally after an L4 run (docs/REPRODUCE.md section 13).
+      - name: explainability/tests that need no L4 outputs
         env:
           PYTHONIOENCODING: utf-8
-        run: python -m pytest explainability/tests -q
+        run: >-
+          python -m pytest -q
+          explainability/tests/test_account_weights.py explainability/tests/test_edge_weights.py
+          explainability/tests/test_match.py explainability/tests/test_narrative.py
+          explainability/tests/test_stats.py explainability/tests/test_tenant_visible_cache.py
