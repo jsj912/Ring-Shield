@@ -20,6 +20,10 @@
     accuracy 0.90), as registered in docs/R11.md. Bank 12 holds too few rings for a retrain
     (l6.retrain.min_new_labels), so the history demo runs on bank 1, R11's bank; see the example.
 
+    -AllRingBanks loads every bank that has at least one ring (97 banks, from
+    results/platform/tenant_survey/tenant_survey_top100.csv) instead of -Tenants; combine it with
+    -FromProcessedData the first time, to build and explain their rings.
+
     -FromProcessedData runs the whole chain from data/processed/: for each bank it first builds the
     bank's rings from its visible edges and explains them with L4 (scripts/e2e_demo.ps1
     -PrepareOnly, research Python .venv312), then loads those fresh files. Without it the demo
@@ -46,15 +50,22 @@ param(
     [int]$WebPort = 5173,
     [int]$L4Port = 8765,
     [switch]$R11History,
-    [switch]$FromProcessedData
+    [switch]$FromProcessedData,
+    [switch]$AllRingBanks
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $frontend = Join-Path $repoRoot 'platform/frontend'
 $tenants = @($Tenants -split ',' | Where-Object { $_ })
+if ($AllRingBanks) {
+    # Every bank the tenant survey found with at least one ring (scripts/survey_tenants.py).
+    $survey = Join-Path $repoRoot 'results/platform/tenant_survey/tenant_survey_top100.csv'
+    $tenants = @(Import-Csv -LiteralPath $survey | Where-Object { [int]$_.rings -gt 0 } |
+        ForEach-Object { [string][int]$_.bank_id } | Sort-Object { [int]$_ })
+}
 $supervisorTenants = @($SupervisorTenants -split ',' | Where-Object { $_ })
-if (-not $ExplanationsDir) { $ExplanationsDir = if ($FromProcessedData) { 'results/xai/tenant' } else { $InputsDir } }
+if (-not $ExplanationsDir) { $ExplanationsDir = if ($FromProcessedData -or $AllRingBanks) { 'results/xai/tenant' } else { $InputsDir } }
 $missing = [System.Collections.Generic.List[string]]::new()
 
 function Test-Version {
@@ -197,7 +208,9 @@ if (-not $R11History) {
     Remove-Item Env:RINGSHIELD_XAI_TOKEN
     Write-Host 'Starting the L4 regeneration service...'
     $l4Ready = $false
-    for ($attempt = 0; $attempt -lt 60 -and -not $l4Ready; $attempt++) {
+    # L4 builds one explainer per bank at start-up: about 5 s each (97 banks: 8.5 min, 10 GB).
+    $l4Attempts = [Math]::Max(60, 4 * $tenants.Count)
+    for ($attempt = 0; $attempt -lt $l4Attempts -and -not $l4Ready; $attempt++) {
         $l4.Refresh()
         if ($l4.HasExited) { throw "The L4 service exited; inspect $l4Err." }
         try { $l4Ready = (Invoke-RestMethod -Uri "http://127.0.0.1:$L4Port/health" -TimeoutSec 2).status -eq 'ok' }
@@ -274,7 +287,11 @@ $logins = @($tenants | ForEach-Object { , @("Analyst, bank $_", "tenant_${_}_ana
 Write-Host ''
 Write-Host "RingShield demo is ready: $url" -ForegroundColor Green
 Write-Host '(use localhost, not 127.0.0.1: the API accepts this origin only)'
-foreach ($login in $logins) {
+$shown = @($logins | Where-Object { $_[0] -notmatch '^Analyst' -or $_[1] -match '^tenant_(12|20)_' -or $tenants.Count -le 4 })
+foreach ($login in $shown) {
     Write-Host ("  {0,-20} {1,-34} {2}" -f $login[0], $credentials["$($login[1])_email"], $credentials["$($login[1])_password"])
+}
+if ($shown.Count -lt $logins.Count) {
+    Write-Host "  ... and $($logins.Count - $shown.Count) more analysts (one per bank) in platform/demo-credentials.txt"
 }
 Write-Host 'Stop with: .\scripts\run-demo.ps1 -Down'

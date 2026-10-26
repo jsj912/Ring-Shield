@@ -184,6 +184,17 @@ One command, from the repository root. `scripts/demo.ps1` is the only entry poin
 .\scripts\demo.ps1 -FromProcessedData    # first rebuilds each bank's rings and L4 explanations
 ```
 
+By default the demo loads banks 12 and 20. **`-AllRingBanks` loads every bank with at least one
+ring: 97 banks, 152 rings** (from the tenant survey, `results/platform/tenant_survey/`), each with
+an analyst login (all logins in `platform/demo-credentials.txt`). The first time, add
+`-FromProcessedData` to build and explain their rings (about 26 minutes); L4 then needs about
+8.5 minutes and 10 GB to start, and loading takes about 30 minutes.
+
+```bash
+.\scripts\demo.ps1 -AllRingBanks -FromProcessedData   # first time
+.\scripts\demo.ps1 -AllRingBanks                      # afterwards
+```
+
 With `-FromProcessedData` it first builds each bank's rings from its visible edges in
 `data/processed/` and explains them with L4. It then does the following, in order:
 1. Checks for Python, Node/npm and Docker (the demo Postgres runs in Docker), plus every input file. It prints everything that is missing and stops.
