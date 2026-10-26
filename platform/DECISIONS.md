@@ -51,7 +51,7 @@ This file records findings and changes in the order requested for the platform h
 
 - Fixed-cutoff bank 20 rerun: 10,315 visible edges, 21 seeds, 5 rings. The earlier tenant-local quantile run had 11 seeds and 3 rings; under the fixed threshold this changes by +10 seeds and +2 rings.
 - `python -m pytest platform/tests --ignore=platform/tests/isolation -q`: **29 passed**.
-- Top-30 tenant survey completed and wrote `reports/tenant_survey.csv` plus its selection log. Top results by ring count: banks 1, 12, and 20 each have 5 rings; bank 119 has 4; banks 23, 118, and 220 have 3.
+- Top-30 tenant survey completed and wrote `results/platform/tenant_survey/tenant_survey.csv` plus its selection log. Top results by ring count: banks 1, 12, and 20 each have 5 rings; bank 119 has 4; banks 23, 118, and 220 have 3.
 - Local DB-free tests do not replace Part 1's missing PostgreSQL verification.
 
 ## Part 3 — tenant survey
@@ -62,9 +62,9 @@ This file records findings and changes in the order requested for the platform h
 
 ### Verification
 
-- The top-30 survey completed with the active model/seed and fixed cutoff. It printed the top 10 banks by ring count and produced `reports/tenant_survey.csv`.
+- The top-30 survey completed with the active model/seed and fixed cutoff. It printed the top 10 banks by ring count and produced `results/platform/tenant_survey/tenant_survey.csv`.
 - Bank 213 had no scores above the fixed cutoff and correctly produced zero seeds and zero rings.
-- The top-100 survey covered 157 banks: 100 selected by visible-edge count and 100 by seed-edge count at the active cutoff, with 43 shared between lists. The CSV and log are `reports/tenant_survey_top100.csv` and its `.log.json` sidecar.
+- The top-100 survey covered 157 banks: 100 selected by visible-edge count and 100 by seed-edge count at the active cutoff, with 43 shared between lists. The CSV and log are `results/platform/tenant_survey/tenant_survey_top100.csv` and its `.log.json` sidecar.
 - Proposed demo tenants, ranked by rings with at least five members descending, then total ring count descending, visible-edge count descending, and bank ID ascending: **12 (2 qualifying / 5 total rings), 20 (2 / 5), 21749 (2 / 2), 21611 (2 / 2), 11128 (2 / 2)**. These are proposals only; none were loaded into the database.
 
 ## Part 4 — commit hygiene
@@ -307,7 +307,7 @@ This file records findings and changes in the order requested for the platform h
 
 - Added `docs/REQUIREMENTS_STATUS.md`, mapping every PR-01–PR-52 and every FR-D ID in the source specification to code/test evidence, status, remaining work, blocked inputs, and the requested handoff checks.
 - Audit is read-only for implementation: no code, tests, migrations or configuration were changed. Status `TESTED` means a named automated test exists; it does not mean that this audit ran the test or verified CI. Database/RLS and R10–R12 execution were not performed.
-- Source specs used: `directions/RingShield_L5_L6_Platform_Spec.docx` and `directions/RingShield_Dashboard_Requirements.docx`. No requirement IDs were invented.
+- Source specs used: `docs/specs/RingShield_L5_L6_Platform_Spec.docx` and `docs/specs/RingShield_Dashboard_Requirements.docx`. No requirement IDs were invented.
 
 ## Retrain handoff WP9-WP12 audit - 2026-10-19
 

@@ -161,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path)
     parser.add_argument("--top", "--candidate-count", dest="top", type=int)
-    parser.add_argument("--output", type=Path, default=REPO_ROOT / "reports" / "tenant_survey.csv")
+    parser.add_argument("--output", type=Path, default=REPO_ROOT / "results" / "platform" / "tenant_survey" / "tenant_survey.csv")
     parser.add_argument("--output-dir", type=Path,
                         default=REPO_ROOT / "data" / "platform_tenant_runs" / "tenant_survey")
     args = parser.parse_args(argv)

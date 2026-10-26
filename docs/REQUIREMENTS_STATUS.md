@@ -122,7 +122,7 @@
 
 **Part 3 complete: audit results, gap priority, blockers, risks, handoff facts, and execution scope are recorded below.**
 
-The source documents used were `directions/RingShield_L5_L6_Platform_Spec.docx` and `directions/RingShield_Dashboard_Requirements.docx`. IDs and requirement meanings come from those documents, not the abbreviated task summaries.
+The source documents used were `docs/specs/RingShield_L5_L6_Platform_Spec.docx` and `docs/specs/RingShield_Dashboard_Requirements.docx`. IDs and requirement meanings come from those documents, not the abbreviated task summaries.
 
 ### Required grep checks
 

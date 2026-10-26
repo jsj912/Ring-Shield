@@ -232,7 +232,7 @@ simulated verdicts and retraining history. Reports live under
 `results/platform/r12/<run-id>/` with config and input hashes.
 
 The implementation is being built in vertical slices, beginning with the API and
-database foundation described in `directions/RingShield_L5_L6_Platform_Spec.docx`.
+database foundation described in `docs/specs/RingShield_L5_L6_Platform_Spec.docx`.
 
 Install the exact pinned platform dependencies with `python -m pip install -r platform/requirements.txt`.
 For database-free unit tests, install `python -m pip install -r requirements-dev.txt` and run
@@ -430,7 +430,7 @@ edges at the active detector cutoff, without loading anything into the database:
 
 ```powershell
 python scripts/survey_tenants.py --top 30
-python scripts/survey_tenants.py --top 100 --output reports/tenant_survey_top100.csv
+python scripts/survey_tenants.py --top 100 --output results/platform/tenant_survey/tenant_survey_top100.csv
 ```
 
 The CSV includes the union of the top N banks by visible-edge count and the top N by

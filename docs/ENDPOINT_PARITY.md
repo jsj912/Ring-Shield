@@ -1,6 +1,6 @@
 # RingShield API endpoint parity (Section 6)
 
-Compared against `directions/RingShield_L5_L6_Platform_Spec.docx`, Section 6, and
+Compared against `docs/specs/RingShield_L5_L6_Platform_Spec.docx`, Section 6, and
 the registered FastAPI routes in `platform/api`. Path parameters `{t}`, `{r}` and
 `{job}` below correspond to `{tenant_id}`, `{ring_id}` and `{job_id}` in code.
 “Differs” means a related route exists but does not implement the specified route or
