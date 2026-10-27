@@ -36,17 +36,21 @@ def typing_primary():
     return typing_rows(CFG, seeds, "primary", mapping="position"), typing_rows(CFG, seeds, "primary")
 
 
-def test_research_lookup_reproduces_r5_typing_exactly(typing_primary):
-    """With research's rings[m.pred_idx] lookup our code gives r5_typing.json to the last digit (point, CI, macro-F1,
-    per-class recall, both confusion matrices) -- so the difference in the headline is the lookup and nothing else."""
+def test_corrected_r5_typing_equals_the_lookup_by_ring_id(typing_primary):
+    """Research corrected its lookup (ca49ecd, "type the matched ring"), so r5_typing.json now equals our lookup by
+    ring id: point estimates, macro-F1, per-class recall and both confusion matrices to the last digit. The 95 %
+    bounds differ slightly (same 401 rings and 1,000 resamples, different row order, so different draws); each
+    interval must hold the point. The old published 0.219 is what the position lookup gives -- the bug, kept on record."""
     from explainability.evaluate import typing_metrics
-    legacy, _ = typing_primary
+    legacy, prim = typing_primary
     r5 = json.loads(repo_path("results/tables/r5_typing.json").read_text(encoding="utf-8"))["by_window"]["primary"]
-    got = typing_metrics(legacy, 1000, 0)
+    got = typing_metrics(prim, 1000, 0)
     for k in ("head", "rule"):
-        assert got[k] == r5[k], k
+        assert (got[k]["point"], got[k]["n"]) == (r5[k]["point"], r5[k]["n"]), k
+        assert r5[k]["lo"] <= r5[k]["point"] <= r5[k]["hi"] and abs(got[k]["lo"] - r5[k]["lo"]) < 0.01, k
     for k in ("head_macro_f1", "rule_macro_f1", "per_class", "head_confusion", "rule_confusion"):
         assert got[k] == r5[k], k
+    assert round(typing_metrics(legacy, 1000, 0)["head"]["point"], 3) == 0.219
 
 
 def test_the_lookup_by_ring_id_types_the_matched_ring(typing_primary):
