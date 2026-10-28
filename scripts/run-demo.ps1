@@ -331,9 +331,11 @@ function Invoke-DemoCompose {
 
 function Stop-DemoProcesses {
     $pidFile = Join-Path $script:RuntimeDir 'processes.json'
-    if (-not (Test-Path -LiteralPath $pidFile)) { return }
-    try { $processes = Get-Content -LiteralPath $pidFile -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
-    catch { Write-Warning 'Could not read demo process list; leaving local processes untouched.'; return }
+    $processes = @()                    # no list: still free the demo's ports below
+    if (Test-Path -LiteralPath $pidFile) {
+        try { $processes = Get-Content -LiteralPath $pidFile -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
+        catch { Write-Warning 'Could not read demo process list; leaving local processes untouched.'; return }
+    }
     foreach ($entry in @($processes | Where-Object { $_.Kind -eq 'supervisor' -and $_.StopFile })) {
         try {
             New-Item -ItemType File -Path $entry.StopFile -Force -ErrorAction Stop | Out-Null
@@ -359,6 +361,26 @@ function Stop-DemoProcesses {
             }
         }
         if ($entry.StopFile) { Remove-Item -LiteralPath $entry.StopFile -Force -ErrorAction SilentlyContinue }
+    }
+    # A listed launcher can exit and leave its interpreter holding the port (it then no longer
+    # matches the list). Stop what still listens on the demo's ports, if it is this project's
+    # Python or Node: the API 8000, Streamlit 8501, the React build 5173, L4 8765.
+    $projectParent = (Split-Path -Parent $script:RepoRoot).TrimEnd('\') + '\'
+    $left = @()
+    foreach ($port in 8000, 8501, 5173, 8765) {
+        foreach ($listener in @(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue)) {
+            $holder = Get-Process -Id $listener.OwningProcess -ErrorAction SilentlyContinue
+            if (-not $holder -or $holder.ProcessName -notin 'python', 'node') { continue }
+            $path = try { $holder.Path } catch { $null }
+            if ($holder.ProcessName -eq 'python' -and -not ($path -and $path.StartsWith($projectParent, 'OrdinalIgnoreCase'))) { continue }
+            & taskkill.exe /PID $holder.Id /T /F *> $null
+            if (Get-Process -Id $holder.Id -ErrorAction SilentlyContinue) { $left += "$($holder.ProcessName) $($holder.Id) on port $port" }
+        }
+    }
+    if ($left) {
+        # Keep the list so the next -Down tries again.
+        Write-Warning "Still running: $($left -join '; '). Stop them with: taskkill /PID <id> /T /F"
+        return
     }
     Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
 }
