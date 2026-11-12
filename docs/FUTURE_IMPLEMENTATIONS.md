@@ -16,7 +16,7 @@ negative outcomes are recorded as claims in `FINDINGS.md`, not dropped.
 | F3 | Scoped policy relaxation for pass-through accounts | GATHER-SCATTER declines | ≤ 1.6 rings/seed (≈ 0.9 recall points) | ≈ 1 day | proposed |
 | F4 | Detector-specific expansion policy; MEGA-GenAgg as a detector | detector swap | small (C6: the budget binds) | ≈ 1 day + ≈ 18 h per detector | proposed |
 | F5 | Validation-ring bootstrap for the detector choice | `configs/detector_choice.yaml` | none (a missing interval) | ≈ 1–2 h | open Step 9 item 1 |
-| F6 | 30-ring explanation review with Fleiss' κ | L4 claims | — | analyst time | planned on `explainability-l4` |
+| F6 | 30-ring explanation review with Fleiss' κ | L4 claims | — | analyst time | done (internal; `explainability/report/xai_chapter.md` §7.2.4) |
 | F7 | Larger AMLworld releases and real data | external validity | — | data access | open |
 | F8 | A drift monitor that can fire | L6 drift, R12 | — (the current monitor cannot detect a +3 SD step) | ≈ 1 day + re-register R12 | proposed (R12 stopped, 2026-10-24) |
 
@@ -134,6 +134,7 @@ paths (val-chosen Δt per hop, 2–3 hops); these signals need no path at all.
   rings, against 129.6 for Multi-GINe alone, but it is a 0.2 %-budget number. At a fixed 0.1 %, an
   ensemble gains only +4.0 rings, because 484 of 864 seed edges are shared at the top of both
   rankings.
+- *(Updated 2026-11-12: for `gine_causal` this is already answered — `r4_sweep_val_curve.csv` holds 0.15, 0.20, 0.30 and 0.50 %, and validation chose 0.10 % on every seed. Only MEGA and the min-rank ensemble remain.)*
 - **Test.** Add 0.2 % to the validation grid for `full` (both detectors and the min-rank ensemble)
   and let validation choose, as in Step 3c. The precision cost is the open question: at 0.15 %,
   added-member precision already falls to 0.782 (E5/E6).
@@ -168,14 +169,14 @@ paths (val-chosen Δt per hop, 2–3 hops); these signals need no path at all.
 ## F5. Validation-ring bootstrap for the detector choice
 
 `detector_choice.yaml` records the margin (0.5927 vs 0.5620, 4 of 5 seeds) without an interval,
-because no run wrote a validation `rings.parquet`. Re-run `full` on the val split for both
+because no run wrote a validation `rings.parquet`. *(Corrected 2026-11-12: `experiments_valrings/average/seed1–5` (2026-10-11) are validation rings for `gine_causal`; only the MEGA side is missing.)* Re-run `full` on the val split for both
 detectors × 5 seeds (≈ 1–2 h) and bootstrap over val rings. This cannot reverse the decision; it
 closes the open Step 9 item 1.
 
 ## F6. Explanation review (L4)
 
 The L4 fidelity verdict is negative because the rings saturate (343 of 401 ring-instances hold only
-true edges). The planned 30-ring internal review with Fleiss' κ is the next measurement; it is
+true edges). *(Updated 2026-11-12: the 30-ring internal review is complete — κ 0.60 / 0.86 / 0.72, `xai_chapter.md` §7.2.4. The external study is drafted in `review/`.)* The 30-ring internal review with Fleiss' κ was the next measurement; it is
 labelled internal, not an analyst study.
 
 ## F7. External validity

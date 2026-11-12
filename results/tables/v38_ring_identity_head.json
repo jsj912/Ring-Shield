@@ -1,0 +1,98 @@
+{
+  "created_utc": "2026-11-11T19:24:24+00:00",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "rng": 20261112,
+  "head": {
+    "arch": "198-128-64 relu, l2",
+    "tau": 0.1,
+    "lr": 0.001,
+    "wd": 0.0001,
+    "batch": 512,
+    "max_epochs": 200,
+    "patience": 20,
+    "nonring_multiple": 20
+  },
+  "training": {
+    "1": {
+      "epochs_run": 37,
+      "best_holdout_loss": 4.093326568603516,
+      "first_holdout_loss": 4.5959320068359375,
+      "n_ring_edges": 710,
+      "n_rings": 157,
+      "n_holdout_rings": 31
+    },
+    "2": {
+      "epochs_run": 55,
+      "best_holdout_loss": 4.0967607498168945,
+      "first_holdout_loss": 4.63132381439209,
+      "n_ring_edges": 710,
+      "n_rings": 157,
+      "n_holdout_rings": 31
+    },
+    "3": {
+      "epochs_run": 33,
+      "best_holdout_loss": 3.6307106018066406,
+      "first_holdout_loss": 4.1533050537109375,
+      "n_ring_edges": 710,
+      "n_rings": 157,
+      "n_holdout_rings": 31
+    },
+    "4": {
+      "epochs_run": 36,
+      "best_holdout_loss": 4.213499546051025,
+      "first_holdout_loss": 4.635448455810547,
+      "n_ring_edges": 710,
+      "n_rings": 157,
+      "n_holdout_rings": 31
+    },
+    "5": {
+      "epochs_run": 33,
+      "best_holdout_loss": 4.6407976150512695,
+      "first_holdout_loss": 4.823943138122559,
+      "n_ring_edges": 710,
+      "n_rings": 157,
+      "n_holdout_rings": 31
+    }
+  },
+  "pooled_auc": [
+    {
+      "embedding": "head",
+      "pool": "class_b",
+      "auc_vs_different_ring": 0.6180682176,
+      "auc_vs_matched_random": 0.6809984482,
+      "n_pairs": 146.8
+    },
+    {
+      "embedding": "head",
+      "pool": "under_covered",
+      "auc_vs_different_ring": 0.6053194042,
+      "auc_vs_matched_random": 0.6509716037,
+      "n_pairs": 180.8
+    },
+    {
+      "embedding": "raw",
+      "pool": "class_b",
+      "auc_vs_different_ring": 0.5518543342,
+      "auc_vs_matched_random": 0.6132569988,
+      "n_pairs": 146.8
+    },
+    {
+      "embedding": "raw",
+      "pool": "under_covered",
+      "auc_vs_different_ring": 0.5256730636,
+      "auc_vs_matched_random": 0.6143205424,
+      "n_pairs": 180.8
+    }
+  ],
+  "stage1_pass_by_pool": {
+    "class_b": false,
+    "under_covered": false
+  },
+  "stage1_pass": false
+}

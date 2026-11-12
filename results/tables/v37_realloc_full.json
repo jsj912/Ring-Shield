@@ -1,0 +1,340 @@
+{
+  "created_utc": "2026-11-11T18:27:56+00:00",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "k_pct": 0.1,
+  "exp_root": "..\\RS-e2e\\experiments",
+  "summary": {
+    "('seeds_in_window', 'mean')": {
+      "ensemble": 407.4,
+      "global": 463.0,
+      "local": 513.4
+    },
+    "('seeds_in_window', 'std')": {
+      "ensemble": 30.6154,
+      "global": 84.2229,
+      "local": 78.9829
+    },
+    "('rings_touched', 'mean')": {
+      "ensemble": 133.6,
+      "global": 129.6,
+      "local": 116.2
+    },
+    "('rings_touched', 'std')": {
+      "ensemble": 7.9561,
+      "global": 4.827,
+      "local": 3.7014
+    },
+    "('seeds_per_touched_ring', 'mean')": {
+      "ensemble": 2.7164,
+      "global": 2.7456,
+      "local": 2.9688
+    },
+    "('seeds_per_touched_ring', 'std')": {
+      "ensemble": 0.1449,
+      "global": 0.1376,
+      "local": 0.1692
+    },
+    "('seeds_off_ring_share', 'mean')": {
+      "ensemble": 0.1092,
+      "global": 0.2139,
+      "local": 0.3142
+    },
+    "('seeds_off_ring_share', 'std')": {
+      "ensemble": 0.0277,
+      "global": 0.1303,
+      "local": 0.1203
+    },
+    "('b0_ring_f1', 'mean')": {
+      "ensemble": 0.5146,
+      "global": 0.5213,
+      "local": 0.5193
+    },
+    "('b0_ring_f1', 'std')": {
+      "ensemble": 0.0318,
+      "global": 0.0448,
+      "local": 0.0438
+    },
+    "('b0_matched', 'mean')": {
+      "ensemble": 64.6,
+      "global": 66.8,
+      "local": 68.6
+    },
+    "('b0_matched', 'std')": {
+      "ensemble": 5.2726,
+      "global": 6.8702,
+      "local": 6.6558
+    },
+    "('full_ring_f1', 'mean')": {
+      "ensemble": 0.6105,
+      "global": 0.5895,
+      "local": 0.5752
+    },
+    "('full_ring_f1', 'std')": {
+      "ensemble": 0.0139,
+      "global": 0.0371,
+      "local": 0.0343
+    },
+    "('full_matched', 'mean')": {
+      "ensemble": 82.8,
+      "global": 80.2,
+      "local": 79.4
+    },
+    "('full_matched', 'std')": {
+      "ensemble": 2.6833,
+      "global": 5.933,
+      "local": 5.1769
+    },
+    "('full_b_untouched', 'mean')": {
+      "ensemble": 28.2,
+      "global": 33.2,
+      "local": 31.2
+    },
+    "('full_b_untouched', 'std')": {
+      "ensemble": 1.9235,
+      "global": 3.5637,
+      "local": 2.2804
+    },
+    "('added_member_precision', 'mean')": {
+      "ensemble": 0.9424,
+      "global": 0.9261,
+      "local": 0.8989
+    },
+    "('added_member_precision', 'std')": {
+      "ensemble": 0.0161,
+      "global": 0.0147,
+      "local": 0.0383
+    }
+  },
+  "paired_vs_global": {
+    "ensemble": {
+      "seeds_in_window": {
+        "mean": -55.6,
+        "sd": 61.6385,
+        "per_seed": [
+          11.0,
+          -54.0,
+          0.0,
+          -116.0,
+          -119.0
+        ]
+      },
+      "rings_touched": {
+        "mean": 4.0,
+        "sd": 6.892,
+        "per_seed": [
+          10.0,
+          9.0,
+          -4.0,
+          -3.0,
+          8.0
+        ]
+      },
+      "seeds_per_touched_ring": {
+        "mean": -0.0292,
+        "sd": 0.0961,
+        "per_seed": [
+          -0.138,
+          -0.098,
+          -0.015,
+          -0.006,
+          0.111
+        ]
+      },
+      "seeds_off_ring_share": {
+        "mean": -0.1047,
+        "sd": 0.1178,
+        "per_seed": [
+          -0.0028,
+          -0.1382,
+          0.0343,
+          -0.1682,
+          -0.2485
+        ]
+      },
+      "b0_ring_f1": {
+        "mean": -0.0067,
+        "sd": 0.0488,
+        "per_seed": [
+          -0.0215,
+          -0.0271,
+          -0.0272,
+          -0.0376,
+          0.0799
+        ]
+      },
+      "b0_matched": {
+        "mean": -2.2,
+        "sd": 7.6942,
+        "per_seed": [
+          -3.0,
+          -5.0,
+          -5.0,
+          -9.0,
+          11.0
+        ]
+      },
+      "full_ring_f1": {
+        "mean": 0.0211,
+        "sd": 0.0382,
+        "per_seed": [
+          0.021,
+          -0.0052,
+          0.0268,
+          -0.0181,
+          0.0808
+        ]
+      },
+      "full_matched": {
+        "mean": 2.6,
+        "sd": 6.0663,
+        "per_seed": [
+          5.0,
+          -1.0,
+          3.0,
+          -5.0,
+          11.0
+        ]
+      },
+      "full_b_untouched": {
+        "mean": -5.0,
+        "sd": 5.0,
+        "per_seed": [
+          -10.0,
+          -8.0,
+          -4.0,
+          3.0,
+          -6.0
+        ]
+      },
+      "added_member_precision": {
+        "mean": 0.0163,
+        "sd": 0.0194,
+        "per_seed": [
+          0.0113,
+          -0.0055,
+          0.0167,
+          0.0114,
+          0.0476
+        ]
+      }
+    },
+    "local": {
+      "seeds_in_window": {
+        "mean": 50.4,
+        "sd": 18.5822,
+        "per_seed": [
+          63.0,
+          56.0,
+          53.0,
+          18.0,
+          62.0
+        ]
+      },
+      "rings_touched": {
+        "mean": -13.4,
+        "sd": 4.5607,
+        "per_seed": [
+          -9.0,
+          -21.0,
+          -11.0,
+          -13.0,
+          -13.0
+        ]
+      },
+      "seeds_per_touched_ring": {
+        "mean": 0.2232,
+        "sd": 0.1241,
+        "per_seed": [
+          0.196,
+          0.346,
+          0.319,
+          0.223,
+          0.032
+        ]
+      },
+      "seeds_off_ring_share": {
+        "mean": 0.1003,
+        "sd": 0.0364,
+        "per_seed": [
+          0.1299,
+          0.1224,
+          0.1001,
+          0.0385,
+          0.1108
+        ]
+      },
+      "b0_ring_f1": {
+        "mean": -0.0021,
+        "sd": 0.0026,
+        "per_seed": [
+          0.0008,
+          -0.0033,
+          0.0004,
+          -0.0054,
+          -0.0029
+        ]
+      },
+      "b0_matched": {
+        "mean": 1.8,
+        "sd": 0.8367,
+        "per_seed": [
+          2.0,
+          2.0,
+          3.0,
+          1.0,
+          1.0
+        ]
+      },
+      "full_ring_f1": {
+        "mean": -0.0143,
+        "sd": 0.0135,
+        "per_seed": [
+          -0.0038,
+          -0.01,
+          -0.0032,
+          -0.0357,
+          -0.0186
+        ]
+      },
+      "full_matched": {
+        "mean": -0.8,
+        "sd": 2.6833,
+        "per_seed": [
+          1.0,
+          1.0,
+          1.0,
+          -5.0,
+          -2.0
+        ]
+      },
+      "full_b_untouched": {
+        "mean": -2.0,
+        "sd": 1.8708,
+        "per_seed": [
+          -2.0,
+          -5.0,
+          -2.0,
+          0.0,
+          -1.0
+        ]
+      },
+      "added_member_precision": {
+        "mean": -0.0272,
+        "sd": 0.0264,
+        "per_seed": [
+          -0.0314,
+          -0.0468,
+          0.0007,
+          -0.0009,
+          -0.0575
+        ]
+      }
+    }
+  }
+}

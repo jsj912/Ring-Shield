@@ -169,7 +169,7 @@ alone would throw away the half of the evidence that is well powered.
 |---|---|---|---|
 | **BIPARTITE, L3-only** | 27 rings, **0 of 244 positive policy rows** | a mechanical no-op | Nothing to withhold: endpoint-adjacent expansion never generates a BIPARTITE candidate, so the pattern was already invisible to the policy. Ring recall 0.00 → 0.05, quiet recall 0.000 → 0.000. |
 | **BIPARTITE, full (detector too)** | 148 of 2,530 train illicit labels (5.9 %) | an underpowered null | Δ test edge F1 = **+0.0014 points** (0.5967 vs 0.5967), exact paired sign-flip p = 1.0000. Pre-registered as uninformative in advance; the honest reading is that it could not have detected an effect of that size. |
-| **CYCLE, L3-only** | 54 rings, **36 of 244 positive policy rows** | the only informative test | Quiet recall 0.161 → 0.134 (CI includes zero), **added-member precision 0.952 → 0.970**. Transfer holds on the well-powered half. |
+| **CYCLE, L3-only** | 36 of 220 train rings withheld (22 CYCLE truth rings in the primary-window bootstrap), **36 of 244 positive policy rows** | the only informative test | Quiet recall 0.161 → 0.134 (CI includes zero), **added-member precision 0.952 → 0.970**. Transfer holds on the well-powered half. |
 
 Each arm's limitation is stated above its result, and each was established before the result
 existed: BIPARTITE's zero-positive count from the shipped training set, the detector arm's power

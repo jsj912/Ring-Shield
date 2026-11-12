@@ -1,6 +1,6 @@
 ﻿# Tenant size check
 
-Status: partial. Account and edge counts below are computed from the local contract/data files. Ring-member counts by bank are not computed because the ground-truth membership input is missing from this checkout.
+Status: complete (2026-11-12). The first pass lacked the ground-truth membership input and stopped at account and edge counts; the later sections of this file compute the ring-member counts by bank.
 
 ## Method and scope
 

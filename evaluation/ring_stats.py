@@ -254,6 +254,38 @@ def paired_permutation(evs_a: Sequence[RingEvidence], evs_b: Sequence[RingEviden
             "delta_ci": [float(np.percentile(bd, 2.5)), float(np.percentile(bd, 97.5))]}
 
 
+def paired_unit_bootstrap(stat: Callable, comparisons: Sequence[tuple], n_units: int, *, n_boot: int = N_PERMUTATION,
+                          seed: int = 0, batch: int = 1000) -> dict:
+    """Paired bootstrap on the difference of precision-bearing metrics (PITFALLS.md sections 7-8).
+
+    `stat(method, W)` maps a (B, n_units) matrix of unit multiplicities to {metric: (B,) array}; the
+    caller pools / averages seeds inside it. Both arms of every comparison are evaluated on the SAME
+    draw, so the interval is on the paired difference. Returns {(comparison, metric): {delta, lo,
+    hi, p, n_valid}} with a two-sided p = min(1, 2 * min(#(d <= 0) + 1, #(d >= 0) + 1) / (n + 1))."""
+    rng = np.random.default_rng(seed)
+    methods = sorted({m for _, x, y in comparisons for m in (x, y)})
+    point = {m: stat(m, np.ones((1, n_units))) for m in methods}
+    draws: dict = {m: {} for m in methods}
+    done = 0
+    while done < n_boot:
+        b = min(batch, n_boot - done)
+        Wb = np.stack([np.bincount(rng.integers(0, n_units, n_units), minlength=n_units) for _ in range(b)]).astype(float)
+        for m in methods:
+            for k, v in stat(m, Wb).items():
+                draws[m].setdefault(k, []).append(v)
+        done += b
+    out = {}
+    for c, x, y in comparisons:
+        for k in draws[x]:
+            d = np.concatenate(draws[x][k]) - np.concatenate(draws[y][k])
+            d = d[~np.isnan(d)]
+            n = len(d)
+            p = min(1.0, 2 * min(int((d <= 0).sum()) + 1, int((d >= 0).sum()) + 1) / (n + 1))
+            out[(c, k)] = {"delta": float(point[x][k][0] - point[y][k][0]), "lo": float(np.percentile(d, 2.5)),
+                           "hi": float(np.percentile(d, 97.5)), "p": float(p), "n_valid": n}
+    return out
+
+
 def holm(pairs: Iterable[tuple]) -> list[dict]:
     """Holm-Bonferroni over (name, p) pairs -> [{name, p_raw, p_holm, rank, reject_at_05}]."""
     items = sorted(((n, float(p)) for n, p in pairs), key=lambda x: x[1])

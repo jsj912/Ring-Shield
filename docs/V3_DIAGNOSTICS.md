@@ -104,7 +104,7 @@ Tables: `results/tables/v3_account_reach.csv`, `v3_embedding_grouping.csv`,
 > over the **in-window** edges (863 seeds). That is not the shipped rule: `run_partition` passes
 > the **whole** test split to `seed_mask_for_pct`, so the shipped selection is **864 seeds over
 > 863,900 edges**, of which only **463 per seed** fall inside the primary window — the rest land
-> in the day 10–17 tail, which holds 0.13 % of the edges and 41 % of the positives
+> in the day 10–17 tail, which holds 0.13 % of the edges and 40.7 % (655 / 1,611) of the positives
 > (`docs/TEST_TAIL.md`). `under_covered.py` and `historical_bridge.py` both use the whole-split
 > mask intersected with the window, and part (a) now does too. Every number in this section is the
 > corrected one. The direction of the verdict did not change; its size did — the oracle prize fell
@@ -148,7 +148,7 @@ them and the aggregator then discarded them for want of connectivity.
 accounts into a kept set that is **96.3 %** ring accounts, and the 294.8 it discards are **63.5 %
 non-ring**. Of the 107.6 real ring accounts it does throw away, **70.8 — 66 % — are class (b)
 members**. So the discard is simultaneously where class (b) is lost and part of why ring precision
-holds at 0.86. Retaining the class (b) accounts by relaxing the filter means retaining roughly 187
+holds at 0.82 (five-seed, `r9_ring_ci.csv`; 0.86 was seed 1 alone, `r4_sweep_test.csv` — corrected 2026-11-12). Retaining the class (b) accounts by relaxing the filter means retaining roughly 187
 non-ring accounts with them, unless something discriminates between the two.
 
 ### Class (b) inside each tier

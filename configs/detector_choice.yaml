@@ -48,6 +48,8 @@ known_gap:
   why: >
     Each run records the val ring-F1 of its chosen cell as a point estimate computed in memory
     during the grid search; no run materialised a val rings.parquet, so a bootstrap over validation
+    [Corrected 2026-11-12: experiments_valrings/average/seed1-5 (2026-10-11) hold gine_causal val rings;
+    the MEGA counterpart is still missing, so the bootstrap remains not computed.]
     rings would require re-running the `full` aggregator on the val split for 2 detectors x 5 seeds
     (~1-2 h). The decision does not turn on it: the margin is consistent in direction across 4 of 5
     paired seeds, and an interval would not reverse a 0.031 gap that already sits inside the

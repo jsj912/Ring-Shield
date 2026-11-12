@@ -166,7 +166,8 @@ def write_environment(path: Path):
 class CrossScorer:
     def __init__(self, run_dir: Path, out_dir: Path, *, epochs: int, dry_run: bool, device=None,
                  fold_days: list[list[int]] | None = None, label_exclude_days: list[int] | None = None,
-                 keep_held_out_in_graph: bool = False, feature_cache: Path | None = None):
+                 keep_held_out_in_graph: bool = False, feature_cache: Path | None = None,
+                 ring_folds: bool = False):
         """`fold_days` overrides the automatic 5-fold day partition with an explicit list of
         held-out day groups. `label_exclude_days` are days whose labels are never used by any
         fold. `keep_held_out_in_graph` leaves the held-out day's edges in the training graph as
@@ -209,6 +210,37 @@ class CrossScorer:
               + (f"; labels never use days {self.label_exclude_days}" if self.label_exclude_days else "")
               + ("; held-out day kept in the graph" if self.keep_held_out_in_graph else ""))
         self.out_dir.mkdir(parents=True, exist_ok=True)
+        # edge -> fold. Default: the edge's day group (shipped). Ring folds (docs/deep-analysis.md #8,
+        # B17 re-registration 2026-11-12): every edge of a train ring (split parquet ring_id > 0) goes
+        # to the day fold holding the plurality of that ring's edges (ties -> lower fold index); every
+        # other edge keeps its day fold. Fold k's held-out set (removed from its graph and labels, and
+        # scored by it) is edge_fold == k, so no fold model sees any edge of a ring it scores.
+        day_fold = np.full(len(self.day), -1, np.int64)
+        for k, f in enumerate(self.folds):
+            day_fold[np.isin(self.day, f)] = k
+        assert (day_fold >= 0).all(), "a train day belongs to no fold"
+        self.ring_folds, self.edge_fold, self.ring_fold_record = bool(ring_folds), day_fold, None
+        if self.ring_folds:
+            tr = pd.read_parquet(Path(self.args.data_dir) / "amlworld_train.parquet", columns=["EdgeID", "ring_id"])
+            eid = self.tr_meta["EdgeID"].to_numpy(np.int64)
+            rid = tr.set_index("EdgeID")["ring_id"].reindex(eid).fillna(-1).to_numpy(np.int64)
+            ring = rid > 0
+            df = pd.DataFrame({"ring": rid[ring], "f": day_fold[ring]})
+            cnt = (df.groupby(["ring", "f"]).size().reset_index(name="n")
+                   .sort_values(["ring", "n", "f"], ascending=[True, False, True]))
+            owner = cnt.drop_duplicates("ring").set_index("ring")["f"]
+            self.edge_fold = day_fold.copy()
+            self.edge_fold[ring] = owner.reindex(rid[ring]).to_numpy(np.int64)
+            spans = df.groupby("ring")["f"].nunique()
+            self.ring_fold_record = {
+                "rule": "ring edges -> the ring's plurality day fold (ties -> lower fold); all other edges -> day fold",
+                "n_rings": int(len(owner)), "n_ring_edges": int(ring.sum()),
+                "n_rings_spanning_day_folds": int((spans > 1).sum()),
+                "n_edges_moved_from_day_fold": int((self.edge_fold != day_fold).sum()),
+                "rings_per_fold": {int(k): int(v) for k, v in owner.value_counts().sort_index().items()}}
+            pd.DataFrame({"edge_id": eid[ring], "ring_id": rid[ring], "fold": self.edge_fold[ring]}).to_parquet(
+                self.out_dir / "ring_folds.parquet", index=False)
+            print(f"[cross_score] RING FOLDS: {self.ring_fold_record}")
 
     @classmethod
     def for_embedding(cls, run_dir: Path, out_dir: Path, *, device=None, dry_run: bool = False,
@@ -226,6 +258,7 @@ class CrossScorer:
         excl = sorted({int(d) for f in folds for d in f.get("label_exclude_days", [])})
         keep = bool(folds[0].get("held_out_kept_in_graph", False))
         self = cls(run_dir, out_dir, epochs=0, dry_run=dry_run, device=device,
+                   ring_folds=folds[0].get("fold_unit") == "ring",
                    fold_days=[list(f["held_out_days"]) for f in folds],
                    label_exclude_days=excl or None, keep_held_out_in_graph=keep,
                    feature_cache=feature_cache)
@@ -247,17 +280,17 @@ class CrossScorer:
         supervised_days = sorted(set(train_days) - set(self.label_exclude_days))
         assert supervised_days, (f"fold {k}: excluding {self.label_exclude_days} leaves no "
                                  f"supervised day in {train_days}")
-        keep = ~torch.isin(day_t, torch.as_tensor(held))
+        keep = torch.as_tensor(self.edge_fold != k)            # == "day not in held" unless ring folds
         held_inds = torch.where(~keep)[0]
         if self.keep_held_out_in_graph:
             # graph = every train edge; supervision = the supervised days only. The held-out
             # day's edges stay as unlabelled context, exactly as at scoring time.
             fold_data = self.tr_data
-            fold_inds = torch.where(torch.isin(day_t, torch.as_tensor(supervised_days)))[0]
+            fold_inds = torch.where(torch.isin(day_t, torch.as_tensor(supervised_days)) & keep)[0]
             n_illicit = int(self.tr_data[TO].y[fold_inds].sum())
             graph_desc = f"full train graph ({self.tr_data[TO].edge_index.size(1):,} edges)"
         else:
-            assert not set(self.day[keep.numpy()].tolist()) & set(held), \
+            assert self.ring_folds or not set(self.day[keep.numpy()].tolist()) & set(held), \
                 "held-out day inside the training graph"
             fold_data = subset_hetero(self.tr_data, keep)
             if self.label_exclude_days:
@@ -268,8 +301,13 @@ class CrossScorer:
                 fold_inds = torch.arange(int(keep.sum()))
             n_illicit = int(fold_data[TO].y[fold_inds].sum())
             graph_desc = f"fold graph ({fold_data[TO].edge_index.size(1):,} edges)"
-        assert not (set(self.day[fold_inds.numpy()].tolist()) & set(held)), \
-            f"fold {k}: a held-out day edge is a SUPERVISED training example"
+        if self.ring_folds:
+            pos = torch.arange(len(self.day)) if self.keep_held_out_in_graph else torch.where(keep)[0]
+            assert not (self.edge_fold[pos[fold_inds].numpy()] == k).any(), \
+                f"fold {k}: a held-out (ring-fold) edge is a SUPERVISED training example"
+        else:
+            assert not (set(self.day[fold_inds.numpy()].tolist()) & set(held)), \
+                f"fold {k}: a held-out day edge is a SUPERVISED training example"
         assert not (set(self.day[fold_inds.numpy()].tolist()) & set(self.label_exclude_days)), \
             f"fold {k}: an excluded day edge is a SUPERVISED training example"
         print(f"\n[cross_score] fold {k}: held-out days {held} ({held_inds.numel():,} edges); "
@@ -324,6 +362,7 @@ class CrossScorer:
                 "supervised_days": [int(d) for d in supervised_days],
                 "label_exclude_days": list(self.label_exclude_days),
                 "held_out_kept_in_graph": self.keep_held_out_in_graph,
+                "fold_unit": "ring" if self.ring_folds else "day", "ring_folds": self.ring_fold_record,
                 "graph_edges": int(fold_data[TO].edge_index.size(1)),
                 "n_held_out_edges": int(held_inds.numel()), "n_held_out_illicit": int(y.sum()),
                 "epochs": self.epochs, "best_epoch": best_epoch, "best_val_f1": float(best_f1),
@@ -406,23 +445,36 @@ def assemble(out_dir: Path, run_dir: Path, *, dry_run: bool = False) -> dict:
     assert folds, f"no fold.json under {out_dir}"
     infos = [json.loads(p.read_text(encoding="utf-8")) for p in folds]
     parts = []
+    ring_mode = any(i.get("fold_unit") == "ring" for i in infos)
+    assert not ring_mode or all(i.get("fold_unit") == "ring" for i in infos), "mixed fold units"
     for info in infos:
         k = info["fold"]
         sc = pd.read_parquet(out_dir / f"scores_fold{k}{tag}.parquet")
         sc["fold"] = np.int64(k)
         sc["day"] = days_of(sc["timestamp"].values).astype(np.int64)
-        assert not set(sc["day"].unique().tolist()) & set(info["train_days"]), (
-            f"fold {k}: scored an edge from a training day {sorted(set(sc['day'].unique()) & set(info['train_days']))}")
-        assert set(sc["day"].unique().tolist()) <= set(info["held_out_days"]), (k, sc["day"].unique())
+        if not ring_mode:
+            assert not set(sc["day"].unique().tolist()) & set(info["train_days"]), (
+                f"fold {k}: scored an edge from a training day {sorted(set(sc['day'].unique()) & set(info['train_days']))}")
+            assert set(sc["day"].unique().tolist()) <= set(info["held_out_days"]), (k, sc["day"].unique())
         r = sc["score_raw"].rank(method="average").to_numpy()
         sc["score_quantile"] = r / len(sc)
         sc["dead_region"] = dead_region_mask(sc["score_raw"].to_numpy(), info["head_constants"])
         parts.append(sc)
     df = pd.concat(parts, ignore_index=True).sort_values("edge_id").reset_index(drop=True)
     assert df["edge_id"].is_unique, "an edge was scored by more than one fold"
-    train_days = {i["fold"]: set(i["train_days"]) for i in infos}
-    viol = sum(int(d in train_days[f]) for d, f in zip(df["day"].tolist(), df["fold"].tolist()))
-    assert viol == 0, f"{viol} edges scored by a model trained on their day"
+    if ring_mode:
+        # ring-level check: every edge of a ring is scored by ONE fold model, the ring's owner, which
+        # (run_fold asserts) neither trained on nor saw any of that ring's edges
+        rf = pd.read_parquet(out_dir / "ring_folds.parquet")
+        got = df.set_index("edge_id")["fold"].reindex(rf["edge_id"]).to_numpy()
+        viol = int((got != rf["fold"].to_numpy()).sum()) + int((rf.groupby("ring_id")["fold"].nunique() > 1).sum())
+        assert viol == 0, f"{viol} ring edges not scored by their ring's held-out fold model"
+        rule = "every edge of a train ring scored by the single fold model that held out the whole ring; one row per train edge"
+    else:
+        train_days = {i["fold"]: set(i["train_days"]) for i in infos}
+        viol = sum(int(d in train_days[f]) for d, f in zip(df["day"].tolist(), df["fold"].tolist()))
+        assert viol == 0, f"{viol} edges scored by a model trained on their day"
+        rule = "day(edge) not in train_days[fold(edge)] for every row; one row per train edge"
     cal_path = run_dir / f"calibrator_seed{TRAIN_SEED}.pkl"
     if cal_path.exists():
         with open(cal_path, "rb") as fh:
@@ -434,7 +486,8 @@ def assemble(out_dir: Path, run_dir: Path, *, dry_run: bool = False) -> dict:
     df.to_parquet(out, index=False)
     summary = {"created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "git_commit": git_commit(),
                "n_rows": int(len(df)), "n_folds": len(infos), "dry_run": dry_run,
-               "assertion": {"rule": "day(edge) not in train_days[fold(edge)] for every row; one row per train edge",
+               "fold_unit": "ring" if ring_mode else "day",
+               "assertion": {"rule": rule,
                              "violations": viol, "passed": viol == 0},
                "folds": [{k: v for k, v in i.items() if k not in ("checkpoint", "scores")} for i in infos],
                "columns": {"score_raw": "fold model softmax", "score_quantile": "rank / N of score_raw within the fold "
@@ -478,6 +531,9 @@ def main(argv=None):
                     help="reuse cached ports/time-delta columns (see models/tgn.py). "
                          "Shares entries with training and scoring runs on the same "
                          "split; without it every invocation recomputes them.")
+    ap.add_argument("--ring-folds", action="store_true",
+                    help="fold by RING: each train ring's edges all go to its plurality day fold "
+                         "(deep-analysis #8 / B17). Default off (shipped day folds).")
     ap.add_argument("--assemble-only", action="store_true")
     ap.add_argument("--embed-edges", type=Path, default=None, help="parquet (edge_id, fold): export embeddings, no training")
     ap.add_argument("--dry-run", action="store_true")
@@ -489,13 +545,13 @@ def main(argv=None):
         cs = CrossScorer(args.run_dir, args.out_dir, epochs=args.epochs, dry_run=args.dry_run,
                      fold_days=args.fold_days, label_exclude_days=args.label_exclude_days,
                      keep_held_out_in_graph=args.keep_held_out_in_graph,
-                     feature_cache=args.feature_cache)
+                     feature_cache=args.feature_cache, ring_folds=args.ring_folds)
         cs.embed(pd.read_parquet(args.embed_edges))
         return
     cs = CrossScorer(args.run_dir, args.out_dir, epochs=args.epochs, dry_run=args.dry_run,
                      fold_days=args.fold_days, label_exclude_days=args.label_exclude_days,
                      keep_held_out_in_graph=args.keep_held_out_in_graph,
-                     feature_cache=args.feature_cache)
+                     feature_cache=args.feature_cache, ring_folds=args.ring_folds)
     folds = list(range(len(cs.folds))) if not args.folds else args.folds
     cs.write_config(folds)
     for k in folds:

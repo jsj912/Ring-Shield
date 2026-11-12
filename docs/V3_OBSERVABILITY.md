@@ -593,7 +593,7 @@ for HI-Small.
 
 Throughput falls across the splits — 13,299 → 4,108 → 2,014 txn/s — because the 14-day
 `closes_cycle` lookback covers an ever-denser accumulated graph as the window advances. Within
-the test split the rate recovers at the end (the day 16–27 tail holds only 8,047 edges), which is
+the test split the rate recovers at the end (the day 16–27 tail holds only 6,987 edges, `v3_day_profile_HI-Medium.csv`; corrected from 8,047 on 2026-11-12), which is
 why the running ETA swung between 30 h and 3 min; the honest figure is the 9,379.7 s total. The
 55.2 GB peak is the sum of per-process RSS sampled every 2 s and **double-counts shared
 memory-mapped pages**; the OS-level total observed during the run was **32 GB**, against 102 GB

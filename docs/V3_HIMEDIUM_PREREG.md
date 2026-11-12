@@ -1531,3 +1531,30 @@ What has happened since:
 Nothing in the ring layer has been fitted. `ring 657` in the paragraph above is the loader's train
 count over days **0–3**; the ring-layer training set uses days **1–3** and has **626** rings, which
 is why the two numbers differ.
+
+---
+
+## Dated notes (2026-11-12)
+
+**An undocumented third detector arm, now recorded.** `experiments_hi_medium/R1_gine_causal_c2prime`
+(in the `Ring-Shield` checkout, files dated 2026-10-16) is a C1′-style run with training labels
+restricted to **days 2–3**, three seeds. It is not referenced anywhere else in `docs/`.
+
+| seed | epochs run | best val F1 | val AP at that epoch |
+|---|---|---|---|
+| 1 | 32 | 0.5207 | 0.4751 |
+| 2 | 51 | 0.5386 | 0.5075 |
+| 3 | 53 | 0.5179 | 0.4692 |
+
+Only `scores_val_seed1.parquet` was written, with no test scores, so no ring result exists for it
+and nothing downstream uses it. It is recorded here as an exploratory arm. It is not a registered
+detector and plays no part in the C1′ choice or in Amendments 13–14.
+
+**P1–P4 and Amendments 13–14 have no outcome yet.** No verdict and no output table existed as of
+this date. The close-out runs are in progress:
+- `evaluation/hm_closeout.py`: seeds 1–3, the primary window and the five 2-day blocks, both budget
+  rules, writing to `experiments_hi_medium/closeout/`;
+- `evaluation/hm_closeout_report.py`: computes P1–P3 (to be written);
+- registration of the execution: `docs/deep-analysis.md` §7.
+
+Every verdict will carry the C1′ gate-failure caveat (mean val AP 0.4049 < 0.45) and the P4 caveat.

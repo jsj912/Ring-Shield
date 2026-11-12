@@ -1,0 +1,331 @@
+{
+  "created_utc": "2026-11-11T12:59:57+00:00",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "scope": "test_visible",
+  "window": {
+    "name": "primary",
+    "split": "test",
+    "days": [
+      8,
+      9
+    ],
+    "bounds": [
+      691210,
+      864009
+    ]
+  },
+  "summary": {
+    "global": {
+      "seeds_total": {
+        "mean": 864.0,
+        "sd": 0.0
+      },
+      "seeds_in_window": {
+        "mean": 463.0,
+        "sd": 84.2229
+      },
+      "n_truth": {
+        "mean": 174.0,
+        "sd": 0.0
+      },
+      "rings_touched": {
+        "mean": 129.6,
+        "sd": 4.827
+      },
+      "seed_precision_in_window": {
+        "mean": 0.7861,
+        "sd": 0.1303
+      },
+      "added_member_precision": {
+        "mean": 0.9261,
+        "sd": 0.0147
+      },
+      "n_added_edges": {
+        "mean": 80.8,
+        "sd": 6.0581
+      },
+      "b0_ring_p": {
+        "mean": 0.8138,
+        "sd": 0.0494
+      },
+      "b0_ring_r": {
+        "mean": 0.3839,
+        "sd": 0.0395
+      },
+      "b0_ring_f1": {
+        "mean": 0.5213,
+        "sd": 0.0448
+      },
+      "b0_n_rings": {
+        "mean": 95.6,
+        "sd": 3.2094
+      },
+      "b0_matched": {
+        "mean": 66.8,
+        "sd": 6.8702
+      },
+      "b0_a_lt3_members": {
+        "mean": 52.0,
+        "sd": 1.8708
+      },
+      "b0_b_untouched": {
+        "mean": 40.2,
+        "sd": 3.7683
+      },
+      "b0_c_over_merged": {
+        "mean": 5.0,
+        "sd": 1.5811
+      },
+      "b0_c_under_covered": {
+        "mean": 10.0,
+        "sd": 3.3912
+      },
+      "full_ring_p": {
+        "mean": 0.8184,
+        "sd": 0.0449
+      },
+      "full_ring_r": {
+        "mean": 0.4609,
+        "sd": 0.0341
+      },
+      "full_ring_f1": {
+        "mean": 0.5895,
+        "sd": 0.0371
+      },
+      "full_n_rings": {
+        "mean": 112.0,
+        "sd": 5.1478
+      },
+      "full_matched": {
+        "mean": 80.2,
+        "sd": 5.933
+      },
+      "full_a_lt3_members": {
+        "mean": 48.6,
+        "sd": 2.3022
+      },
+      "full_b_untouched": {
+        "mean": 33.2,
+        "sd": 3.5637
+      },
+      "full_c_over_merged": {
+        "mean": 5.2,
+        "sd": 2.9496
+      },
+      "full_c_under_covered": {
+        "mean": 6.8,
+        "sd": 1.9235
+      }
+    },
+    "in_window": {
+      "seeds_total": {
+        "mean": 863.0,
+        "sd": 0.0
+      },
+      "seeds_in_window": {
+        "mean": 863.0,
+        "sd": 0.0
+      },
+      "n_truth": {
+        "mean": 174.0,
+        "sd": 0.0
+      },
+      "rings_touched": {
+        "mean": 148.2,
+        "sd": 6.1806
+      },
+      "seed_precision_in_window": {
+        "mean": 0.5156,
+        "sd": 0.0496
+      },
+      "added_member_precision": {
+        "mean": 0.6999,
+        "sd": 0.1366
+      },
+      "n_added_edges": {
+        "mean": 75.2,
+        "sd": 16.9027
+      },
+      "b0_ring_p": {
+        "mean": 0.735,
+        "sd": 0.044
+      },
+      "b0_ring_r": {
+        "mean": 0.3827,
+        "sd": 0.0391
+      },
+      "b0_ring_f1": {
+        "mean": 0.5028,
+        "sd": 0.0419
+      },
+      "b0_n_rings": {
+        "mean": 90.6,
+        "sd": 7.6026
+      },
+      "b0_matched": {
+        "mean": 66.6,
+        "sd": 6.8044
+      },
+      "b0_a_lt3_members": {
+        "mean": 59.4,
+        "sd": 0.8944
+      },
+      "b0_b_untouched": {
+        "mean": 34.0,
+        "sd": 5.7009
+      },
+      "b0_c_over_merged": {
+        "mean": 7.4,
+        "sd": 0.8944
+      },
+      "b0_c_under_covered": {
+        "mean": 6.6,
+        "sd": 1.8166
+      },
+      "full_ring_p": {
+        "mean": 0.7057,
+        "sd": 0.0294
+      },
+      "full_ring_r": {
+        "mean": 0.446,
+        "sd": 0.0319
+      },
+      "full_ring_f1": {
+        "mean": 0.5456,
+        "sd": 0.0235
+      },
+      "full_n_rings": {
+        "mean": 110.2,
+        "sd": 10.3296
+      },
+      "full_matched": {
+        "mean": 77.6,
+        "sd": 5.5498
+      },
+      "full_a_lt3_members": {
+        "mean": 55.8,
+        "sd": 1.7889
+      },
+      "full_b_untouched": {
+        "mean": 28.0,
+        "sd": 5.5227
+      },
+      "full_c_over_merged": {
+        "mean": 7.8,
+        "sd": 1.9235
+      },
+      "full_c_under_covered": {
+        "mean": 4.8,
+        "sd": 1.0954
+      }
+    },
+    "per_day": {
+      "seeds_total": {
+        "mean": 866.4,
+        "sd": 3.5777
+      },
+      "seeds_in_window": {
+        "mean": 864.0,
+        "sd": 0.0
+      },
+      "n_truth": {
+        "mean": 174.0,
+        "sd": 0.0
+      },
+      "rings_touched": {
+        "mean": 139.8,
+        "sd": 7.2938
+      },
+      "seed_precision_in_window": {
+        "mean": 0.4785,
+        "sd": 0.0439
+      },
+      "added_member_precision": {
+        "mean": 0.7379,
+        "sd": 0.0981
+      },
+      "n_added_edges": {
+        "mean": 80.4,
+        "sd": 7.0214
+      },
+      "b0_ring_p": {
+        "mean": 0.7034,
+        "sd": 0.0653
+      },
+      "b0_ring_r": {
+        "mean": 0.3713,
+        "sd": 0.0275
+      },
+      "b0_ring_f1": {
+        "mean": 0.4855,
+        "sd": 0.0359
+      },
+      "b0_n_rings": {
+        "mean": 92.2,
+        "sd": 7.4632
+      },
+      "b0_matched": {
+        "mean": 64.6,
+        "sd": 4.7749
+      },
+      "b0_a_lt3_members": {
+        "mean": 58.4,
+        "sd": 0.8944
+      },
+      "b0_b_untouched": {
+        "mean": 37.8,
+        "sd": 2.5884
+      },
+      "b0_c_over_merged": {
+        "mean": 7.2,
+        "sd": 1.0954
+      },
+      "b0_c_under_covered": {
+        "mean": 6.0,
+        "sd": 2.3452
+      },
+      "full_ring_p": {
+        "mean": 0.6857,
+        "sd": 0.0556
+      },
+      "full_ring_r": {
+        "mean": 0.4356,
+        "sd": 0.0302
+      },
+      "full_ring_f1": {
+        "mean": 0.5319,
+        "sd": 0.0315
+      },
+      "full_n_rings": {
+        "mean": 111.0,
+        "sd": 10.3682
+      },
+      "full_matched": {
+        "mean": 75.8,
+        "sd": 5.2631
+      },
+      "full_a_lt3_members": {
+        "mean": 56.0,
+        "sd": 1.4142
+      },
+      "full_b_untouched": {
+        "mean": 30.6,
+        "sd": 3.7815
+      },
+      "full_c_over_merged": {
+        "mean": 6.8,
+        "sd": 1.6432
+      },
+      "full_c_under_covered": {
+        "mean": 4.8,
+        "sd": 1.0954
+      }
+    }
+  }
+}

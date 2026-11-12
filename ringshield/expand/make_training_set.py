@@ -123,9 +123,15 @@ def main(argv=None):
     summary = json.loads((args.cross_scores / f"cross_scores{tag}.json").read_text(encoding="utf-8"))
     assert summary["assertion"]["passed"], summary["assertion"]
     cross = pd.read_parquet(xs_path)
-    train_days = {f["fold"]: set(f["train_days"]) for f in summary["folds"]}
-    viol = int(sum(d in train_days[f] for d, f in zip(cross["day"].tolist(), cross["fold"].tolist())))
-    assert viol == 0, f"{viol} cross-scored edges come from a model trained on their day"
+    if summary.get("fold_unit") == "ring":           # deep-analysis #8: re-check at the ring level
+        rf = pd.read_parquet(args.cross_scores / "ring_folds.parquet")
+        got = cross.set_index("edge_id")["fold"].reindex(rf["edge_id"]).to_numpy()
+        viol = int((got != rf["fold"].to_numpy()).sum())
+        assert viol == 0, f"{viol} ring edges not scored by their ring's held-out fold model"
+    else:
+        train_days = {f["fold"]: set(f["train_days"]) for f in summary["folds"]}
+        viol = int(sum(d in train_days[f] for d, f in zip(cross["day"].tolist(), cross["fold"].tolist())))
+        assert viol == 0, f"{viol} cross-scored edges come from a model trained on their day"
     print(f"[training_set] cross-scores {xs_path.name}: {len(cross):,} rows, {cross['fold'].nunique()} folds, "
           f"assertion re-checked (0 violations)")
 
