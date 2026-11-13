@@ -1,0 +1,87 @@
+{
+ "seeds": [
+  1,
+  2
+ ],
+ "primary_days": [
+  6,
+  14
+ ],
+ "n_truth": 2187,
+ "P1_global": {
+  "pass": false,
+  "values": {
+   "full/ring_recall": 0.187,
+   "full/ring_recall_ge3": 0.2635,
+   "proposed/ring_recall": 0.1722,
+   "proposed/ring_recall_ge3": 0.2434
+  }
+ },
+ "P1_blocks_global": {
+  "ring_recall": {
+   "mean": 0.1619,
+   "lo": 0.0294,
+   "hi": 0.2943,
+   "clears": false
+  },
+  "ring_recall_ge3": {
+   "mean": 0.2497,
+   "lo": 0.0454,
+   "hi": 0.454,
+   "clears": false
+  }
+ },
+ "P1_per_day": {
+  "pass": false,
+  "values": {
+   "full/ring_recall": 0.2417,
+   "full/ring_recall_ge3": 0.3399,
+   "proposed/ring_recall": 0.2222,
+   "proposed/ring_recall_ge3": 0.3152
+  }
+ },
+ "P1_blocks_per_day": {
+  "ring_recall": {
+   "mean": 0.172,
+   "lo": 0.0563,
+   "hi": 0.2878,
+   "clears": false
+  },
+  "ring_recall_ge3": {
+   "mean": 0.2662,
+   "lo": 0.0883,
+   "hi": 0.4441,
+   "clears": false
+  }
+ },
+ "P2_global": {
+  "pass": false,
+  "shares": {
+   "b_untouched": 0.2867,
+   "c_under_covered": 0.0855
+  }
+ },
+ "P2_per_day": {
+  "pass": false,
+  "shares": {
+   "b_untouched": 0.2019,
+   "c_under_covered": 0.0928
+  }
+ },
+ "P3_global": {
+  "pass": true,
+  "resolved": {
+   "full vs b2": true,
+   "policy vs b1b": true,
+   "full vs b1b": true
+  }
+ },
+ "P3_per_day": {
+  "pass": true,
+  "resolved": {
+   "full vs b2": true,
+   "policy vs b1b": true,
+   "full vs b1b": true
+  }
+ }
+}

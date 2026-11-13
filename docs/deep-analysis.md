@@ -1037,6 +1037,28 @@ re-check in `make_training_set.py` branches on `fold_unit`. Dry run (1 % sample,
 loses some graph context unevenly. The fold record (`ring_folds` in each `fold.json`) reports how
 many rings span day folds and how many edges moved.
 
+### Result (2026-11-12)
+
+**Verdict: success.** Mean Δ ring-F1 = **+0.0028** (ring-folded 0.58476 vs shipped 0.58192), inside
+the registered ±0.008. The B17 bound is now confirmed as a measurement.
+
+| Detector seed | Shipped (day folds) | Ring folds | Δ |
+|---|---|---|---|
+| 1 | 0.5985 | 0.6074 | +0.0089 |
+| 2 | 0.5940 | 0.5950 | +0.0010 |
+| 3 | 0.5649 | 0.5768 | +0.0119 |
+| 4 | 0.6204 | 0.6075 | −0.0129 |
+| 5 | 0.5318 | 0.5371 | +0.0053 |
+| **Mean** | **0.58192** | **0.58476** | **+0.0028** |
+
+- Per-seed Δ ranges from −0.013 to +0.012, so a single seed moves more than the bound; only the
+  five-seed mean is within it. The sign is not consistent (4 up, 1 down).
+- Val ring-F1 at the fixed cell, seeds 1–5: 0.550, 0.477, 0.540, 0.516, 0.529.
+- **Not yet computed:** the paired ring-unit bootstrap CI, ring P/R deltas, exact-reproduction and
+  Jaccard ≥ 0.5 overlap with shipped rings, and the fold models' held-out AP on ring edges.
+- Outputs: `experiments/R3_ringfold/` (`cross_scores/`, `expansion/`, `runs/proposed/seed1–5`,
+  `chain.log`).
+
 ---
 
 ## 9. Day-0 label exclusion on HI-Small (C10)
@@ -1351,6 +1373,76 @@ real 0.29) is reported beside every P4 number.
 Script: `evaluation/hm_closeout.py`, with the rings written per window, rule, method and seed
 under `experiments_hi_medium/closeout/`. A report script computes P1–P3 from those rings. P4
 uses `evaluation/p4_arms.py`.
+
+---
+
+### Diagnosis of the close-out outputs (2026-11-12)
+
+The run finished for seeds 1–3 (`experiments_hi_medium/closeout/`, detector `R1_gine_causal_c1prime`),
+but its numbers are not usable as P1–P3 verdicts yet. There are two separate causes. Neither is a
+truth-window or scope bug: block 6–7 reproduces validation (`full` F1 0.405 / 0.404 for seeds 1 / 2;
+val ≈ 0.37).
+
+**1. Seed 3: zero seeds is a tie artefact in the seed cut.** 780,093 of 18.9 M test scores are
+exactly 1.0 (saturated sigmoid; `score_calibrated` has 787,504 ties at its maximum). So the 99.9 %
+quantile is 1.0, and the strict rule `s > q` (`ringshield/aggregators/cc.py:58`) selects nothing.
+The blocks that "work" (6–7, and the per-day primary) are the slices where fewer than 0.1 % of
+edges are saturated. Saturation grows with test day: 124 edges on day 6, 25,495 on day 9, and
+221,909 on day 15. Seed 3's results are an artefact of the cut, not a measurement.
+
+**2. Seeds 1–2: real temporal decay, with day 15 dominating the global rule.**
+- *Global rule:* 16,531 of seed 1's 18,894 primary seeds (87 %) fall on **day 15**. That day has
+  3.0 M edges (vs about 1.9 M on a normal day) and mean score 0.045 (vs 0.004 on day 6). So the
+  global primary run is in effect a day-15 run, which is why F1 is 0.09.
+- *Per-day rule* removes that concentration, but F1 still falls with distance from training
+  (days 0–3):
+
+| `full` ring-F1 | 6–7 | 8–9 | 10–11 | 12–13 | 14–15 (per-day) | primary per-day |
+|---|---|---|---|---|---|---|
+| seed 1 | 0.408 | 0.227 | 0.185 | 0.127 | 0.065 | 0.182 |
+| seed 2 | 0.402 | 0.312 | 0.290 | 0.198 | 0.106 | 0.249 |
+
+  The primary per-day number is consistent with the block numbers, so it is not a bug. The decay
+  is detector drift, the same thing the R12 monitor targets. Recall falls first (seed 1: 0.33 → 0.05),
+  then precision.
+
+**What this means for the pre-registration.**
+- P1–P3 cannot be scored from these outputs as registered without first deciding on: (a) the
+  seed-cut tie rule for saturated scores; (b) whether day 15 belongs in `primary` (it looks like the
+  start of the tail regime, not a clean day).
+- Both are amendments to `V3_HIMEDIUM_PREREG.md`, so they are decided before any verdict is read
+  off. Candidate fixes:
+  - (a) rank-based top-k with ties broken by `edge_id`, or ranking on logits;
+  - (b) primary = days 6–14, with day 15 reported beside the tail.
+- No code was changed and no verdict was computed. `hm_closeout_report.py` is not written yet.
+
+### Result (2026-11-13): P1 fail, P2 fail, P3 pass (detector seeds 1–2, Amendment 15)
+
+These runs follow Amendment 15: primary = days 6–14 (2,187 truth rings) and a tie-safe seed cut.
+Seed 3 is excluded as degenerate (saturated scores; dated note in the pre-registration). The rings
+are in `experiments_hi_medium/closeout_a15/`, the tables in `results/tables/v3_closeout_*.csv`,
+and the verdicts in `v3_closeout_verdicts.json`. The headline rule is global; per-day sits beside it.
+
+| | Bar (HI-Small) | Global | Per-day | Verdict |
+|---|---|---|---|---|
+| P1 (a) ring recall, `full` | > 0.4609 | 0.187 [0.174, 0.200] | 0.242 [0.226, 0.257] | **fail** |
+| P1 (b) Ring-Recall≥3, `full` | > 0.6035 | 0.264 [0.246, 0.280] | 0.340 [0.321, 0.360] | **fail** |
+| P1, mean over the 5 blocks (Amendment 13) | same | 0.162 / 0.250 | 0.172 / 0.266 | fail |
+| P2 class (b) untouched share | < 19.08 % | 28.7 % | 20.2 % | **fail** |
+| P2 under-covered share | < 3.91 % | 8.6 % | 9.3 % | **fail** |
+| P3 `full` vs b2 (matched, paired) | resolved | +0.015 [+0.010, +0.020], p_Holm 0.0003 | +0.019 [+0.013, +0.026] | **pass** |
+| P3 policy vs b1b | resolved | +0.047 [+0.037, +0.057], p_Holm 0.0003 | +0.065 [+0.055, +0.076] | **pass** |
+| (`full` vs b1b, reported) | — | +0.062 [+0.051, +0.073] | +0.085 [+0.073, +0.096] | resolved |
+
+- **P1 cannot be read as a containment test.** The detector failed the 0.45 val-AP gate
+  (Amendments 4 and 7), and recall falls steadily across the test days (the earlier diagnosis), so
+  the shortfall is mostly detector drift. P1 is recorded as failed and nothing more.
+- **P2 fails by a wide margin, and under-covered rose** rather than fell. That is the
+  "informative failure" the pre-registration named: rings are reached but not completed.
+- **P3 passes, and in a definite direction.** With 2,187 rings, both comparisons that could not be
+  resolved at 174 rings now favour the method: `full` over b2, and the policy over b1b. Every
+  P3 test has p_raw at the permutation floor (1/10,001).
+- **Caveats:** 2 of the 3 registered detector seeds; the C1′ gate failure; P4 is still open.
 
 ---
 

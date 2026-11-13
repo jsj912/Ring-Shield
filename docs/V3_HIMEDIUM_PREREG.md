@@ -1478,6 +1478,62 @@ regardless and simply stop them from crowding out the other nine days. The tempo
 confound (validation sits adjacent to training; the test window runs 3–12 days further out) is
 untouched by this amendment and is not claimed to be addressed by it.
 
+## Amendment 15 — 2026-11-12, close-out: a tie-safe seed cut, and primary = days 6–14
+
+Written **after** the first close-out pass (seeds 1–3) and its diagnosis (`docs/deep-analysis.md`
+§7), and **before** any P1–P4 verdict was read off. That pass is kept in
+`experiments_hi_medium/closeout/` as a superseded run. No P1–P4 verdict is computed from it.
+
+### The reason
+
+1. **Saturated scores break the strict cut.** On detector seed 3, 780,093 test scores equal 1.0
+   exactly. The 99.9 % quantile is then 1.0, and `s > q` selects no seed at all. This is a property
+   of the cut, not of the method under test.
+2. **Day 15 is not a clean day.** It holds 3.02 M edges (a normal day holds about 1.93 M), and its
+   mean detector score is about 10× day 6's. Under the registered global cut, which took its
+   quantile over the whole test split, 87 % of seed 1's primary budget landed on day 15. It behaves
+   like the start of the tail regime that the V3.2 rule meant to exclude.
+
+Both reasons are label-free: they use scores, edge counts and timestamps only.
+
+### What changes
+
+- **Seed cut (every HI-Medium close-out run, val B1b grid included).**
+  - Budget n_k = ⌊n · k\*/100⌋ over the n candidate edges.
+  - Seeds are the n_k highest `score_raw`, with ties broken by ascending `edge_id`.
+  - Where there are no ties at the threshold, this equals the registered strict cut up to rounding.
+- **Primary window = days 6–14.**
+  - The global budget is taken over the window's own edges.
+  - Graph context stays the whole test split, as registered.
+  - The per-day rule is unchanged apart from the tie-break.
+- **Day 15** is reported as its own single-day run, beside the tail, never merged into primary.
+- **Amendment 13 blocks are unchanged** (6–7 … 14–15), with the tie-safe cut.
+
+### What does not change
+
+The method configuration (`v33_a12_val_chosen.json`), the truth scope, Jaccard 0.5, the P1–P4
+definitions, and every caveat (the C1′ gate failure, P4).
+
+### Known in advance
+
+Per-day F1 falls with test day in the superseded pass (seed 1 `full`: 0.41 on days 6–7 to 0.07 on
+days 14–15). This amendment does not address that drift and is not expected to remove it.
+
+### Dated note (2026-11-13): detector seed 3 is excluded from the close-out
+
+Under Amendment 15, seed 3's seed cut no longer comes back empty. But 780,093 of its test scores
+are exactly 1.0, so the 0.1 % budget is filled almost entirely by edge-id order among tied edges.
+That makes it an arbitrary sample, not the detector's ranking. Expanding from that sample produced
+components whose partition step needed 61.8 M pairs, and the run stopped out of memory
+(`experiments_hi_medium/closeout_a15_seed3.log`).
+
+Seed 3 is reported as **degenerate (saturated scores)** and is not part of any P1–P3 number. The
+verdicts are over **detector seeds 1–2 only**, which is fewer than the three registered, and every
+verdict says so.
+
+This decision was made after seeing seeds 1–2's block and primary F1 (in the log), but before any
+P1–P3 statistic was computed.
+
 ## Recorded non-predictions
 
 * Nothing is predicted about the **tail** (days 16–27). It is reported beside the primary numbers

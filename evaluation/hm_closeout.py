@@ -8,6 +8,7 @@ policy variant no_detector, p_min 0.9, delta_t 48 h, k* 0.1 %, min_size 3, parti
 B1b (rule_q) has no recorded HI-Medium cell, so its delta_t is chosen per seed on HI-Medium validation
 from the registered grid {24, 48, 72} h (highest val ring-F1, ties -> smaller), never on test.
 
+Amendment 15 (2026-11-12): tie-safe top-k seed cut; primary = days 6-14 (budget over the window); day 15 run alone.
 Runs per seed (Amendments 13 and 14):
   primary   days 6-15, context = whole test split; budget rules: global (registered) and per_day
   block     each of 6-7, 8-9, 10-11, 12-13, 14-15; context = the block's edges only (run as validation
@@ -33,7 +34,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from evaluation.ring_metrics import evaluate_rings  # noqa: E402
 from evaluation.window_budget import cc_rings_from_mask  # noqa: E402
 from preprocessing.account_bank import load_paths  # noqa: E402
-from ringshield.aggregators.cc import SELECT_COL, seed_mask_for_pct  # noqa: E402
+from ringshield.aggregators.cc import SELECT_COL  # noqa: E402
 from ringshield.aggregators.expand import expand_all  # noqa: E402
 from ringshield.aggregators.full import (component_pairs, included_from_trajectories,  # noqa: E402
                                          partition_labels, rings_from_edge_clusters)
@@ -54,12 +55,27 @@ BLOCKS = [(6, 7), (8, 9), (10, 11), (12, 13), (14, 15)]
 B1B_GRID = [24.0, 48.0, 72.0]
 
 
-def per_day_mask(scores, ts, day_of):
+def topk_mask(scores, edge_ids, pct=None):
+    """Amendment 15: the floor(n*k/100) highest scores, ties broken by ascending edge_id (NaN never a seed)."""
+    pct = K if pct is None else pct
+    s = np.asarray(scores, dtype=float)
+    ok = ~np.isnan(s)
+    n_k = int(np.floor(ok.sum() * pct / 100.0))
+    m = np.zeros(len(s), dtype=bool)
+    if n_k:
+        idx = np.flatnonzero(ok)
+        order = np.lexsort((np.asarray(edge_ids)[idx], -s[idx]))
+        m[idx[order[:n_k]]] = True
+    return m
+
+
+def per_day_mask(scores, ts, day_of, edge_ids, base=None):
     days = day_of(ts)
     m = np.zeros(len(scores), dtype=bool)
-    for d in np.unique(days):
-        sel = days == d
-        m[sel] = seed_mask_for_pct(scores[sel], K)
+    base = np.ones(len(scores), dtype=bool) if base is None else base
+    for d in np.unique(days[base]):
+        sel = (days == d) & base
+        m[sel] = topk_mask(scores[sel], edge_ids[sel])
     return m
 
 
@@ -84,7 +100,7 @@ def main(argv=None):
     ap.add_argument("--exp-dir", type=Path, required=True, help="experiments_hi_medium holding R1_gine_causal_c1prime")
     ap.add_argument("--policy-dir", type=Path, default=REPO_ROOT / "experiments_hi_medium/R3_expansion/policy_no_detector")
     ap.add_argument("--affinity-dir", type=Path, default=REPO_ROOT / "experiments_hi_medium/R4_partition/affinity")
-    ap.add_argument("--out", type=Path, default=REPO_ROOT / "experiments_hi_medium/closeout")
+    ap.add_argument("--out", type=Path, default=REPO_ROOT / "experiments_hi_medium/closeout_a15")
     ap.add_argument("--only", nargs="*", default=None, help="subset of run keys, e.g. primary block6-7")
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")
@@ -107,7 +123,7 @@ def main(argv=None):
     cv = ctx_for(sv, "val")
     Wv = Wall["val"]
     tv, pv = load_ground_truth(gt, *Wv.bounds, "test_visible", verbose=False)
-    mv = seed_mask_for_pct(sv[SELECT_COL].to_numpy(float), K)
+    mv = topk_mask(sv[SELECT_COL].to_numpy(float), sv["edge_id"].to_numpy(np.int64))
     grid = []
     for dt in B1B_GRID:
         trajs = expand_all(sv, mv, rule, cv, delta_t_h=dt, p_floor=0.5)
@@ -122,8 +138,9 @@ def main(argv=None):
     del sv, cv
 
     se_all = build_scored_edges(r1 / f"scores_test_seed{S}.parquet", "test", model_id="gine_causal", seed=S, processed_dir=pdir)
-    P = Wall["primary"]
-    runs = [("primary", None)] + [(f"block{lo}-{hi}", (lo, hi)) for lo, hi in BLOCKS]
+    P0 = Wall["primary"]
+    P = Window("primary", "test", 6, 14, P0.day_zero, P0.seconds_per_day)   # Amendment 15
+    runs = [("primary", None)] + [(f"block{lo}-{hi}", (lo, hi)) for lo, hi in BLOCKS] + [("day15", (15, 15))]
     for key, days in runs:
         if a.only and key not in a.only:
             continue
@@ -136,9 +153,14 @@ def main(argv=None):
         ctx = ctx_for(se, "test")
         truth, pats = load_ground_truth(gt, *W.bounds, "test_visible", verbose=False)
         sc, ts = se[SELECT_COL].to_numpy(float), se["timestamp"].to_numpy(np.int64)
+        eid = se["edge_id"].to_numpy(np.int64)
+        in_w = W.mask(ts)
         for rule_name in ("global", "per_day"):
-            mask = seed_mask_for_pct(sc, K) if rule_name == "global" else per_day_mask(sc, ts, P.days_of)
-            in_w = W.mask(ts)
+            if rule_name == "global":   # Amendment 15: budget over the window's own edges
+                mask = np.zeros(len(sc), dtype=bool)
+                mask[in_w] = topk_mask(sc[in_w], eid[in_w])
+            else:
+                mask = per_day_mask(sc, ts, P.days_of, eid, base=in_w)
             rings = build_methods(se, ctx, mask, policy, rule, affinity, dt_b1b)
             for meth, rr in rings.items():
                 p = a.out / key / rule_name / meth / f"seed{S}.parquet"

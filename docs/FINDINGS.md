@@ -196,3 +196,15 @@ changes.** Each note names the row it qualifies. Full method, per-seed tables an
     any monitor sensitive to +3 SD fires on real data first.
   R12 is **not testable on HI-Small's primary window**. (`results/platform/r12b/summary.json`;
   `docs/R12.md`, R12b)
+
+*HI-Medium pre-registration close-out (2026-11-13, `docs/deep-analysis.md` §7, `V3_HIMEDIUM_PREREG.md`
+Amendment 15).*
+- **P1 fail:** ring recall 0.187 / Ring-Recall≥3 0.264 against 0.4609 / 0.6035. It is not
+  interpretable as a containment test (detector gate failed; recall drifts across test days).
+- **P2 fail:** class (b) 28.7 %, under-covered 8.6 %, against 19.08 % / 3.91 %.
+- **P3 pass:** at 2,187 rings, `full` beats b2 (+0.015 matched per ring) and the policy beats b1b
+  (+0.047), both at Holm p 0.0003.
+- Scope: detector seeds 1–2 (seed 3 is excluded, its scores saturate), primary days 6–14, global
+  rule, with per-day reported in `v3_closeout_verdicts.json`. P4 is still open. None of this enters
+  sections A–C until reviewed.
+
