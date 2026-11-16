@@ -1,0 +1,59 @@
+{
+  "seed": 4,
+  "split": "val",
+  "n_groups": 535,
+  "n_undersized": 409,
+  "n_undersized_seedless_skipped": 1,
+  "cells": {
+    "p0.7_h2": {
+      "n_additions": 4,
+      "n_rescued_rings": 0,
+      "n_rescued_accounts": 0,
+      "n_shipped_rings": 134
+    },
+    "p0.5_h2": {
+      "n_additions": 73,
+      "n_rescued_rings": 28,
+      "n_rescued_accounts": 124,
+      "n_shipped_rings": 134
+    },
+    "p0.3_h2": {
+      "n_additions": 122,
+      "n_rescued_rings": 52,
+      "n_rescued_accounts": 215,
+      "n_shipped_rings": 134
+    },
+    "p0.1_h2": {
+      "n_additions": 243,
+      "n_rescued_rings": 65,
+      "n_rescued_accounts": 348,
+      "n_shipped_rings": 134
+    },
+    "p0.7_h3": {
+      "n_additions": 10,
+      "n_rescued_rings": 0,
+      "n_rescued_accounts": 0,
+      "n_shipped_rings": 134
+    },
+    "p0.5_h3": {
+      "n_additions": 97,
+      "n_rescued_rings": 29,
+      "n_rescued_accounts": 139,
+      "n_shipped_rings": 134
+    },
+    "p0.3_h3": {
+      "n_additions": 172,
+      "n_rescued_rings": 57,
+      "n_rescued_accounts": 258,
+      "n_shipped_rings": 134
+    },
+    "p0.1_h3": {
+      "n_additions": 314,
+      "n_rescued_rings": 70,
+      "n_rescued_accounts": 395,
+      "n_shipped_rings": 134
+    }
+  },
+  "seconds_h2": 57.2,
+  "seconds_h3": 285.9
+}

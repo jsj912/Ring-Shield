@@ -1,0 +1,127 @@
+{
+ "created_utc": "2026-11-15T13:43:46+00:00",
+ "scope": "test_visible",
+ "k_grid": [
+  0.2
+ ],
+ "rules": [
+  "global"
+ ],
+ "detectors": {
+  "gine_causal": {
+   "r1": "R1_gine_causal",
+   "model_id": "gine_causal",
+   "policy": "R3_expansion/policy_proposed",
+   "affinity": "R4_partition/affinity",
+   "r3": "R3_expansion/runs/proposed/seed{S}/config.yaml",
+   "r4": "R4_partition/runs/average/seed{S}/config.yaml"
+  }
+ },
+ "summary": {
+  "cells": {
+   "gine_causal|global|0.20": {
+    "seeds_total": {
+     "mean": 1728.0,
+     "sd": null,
+     "n": 1
+    },
+    "seeds_in_window": {
+     "mean": 1114.0,
+     "sd": null,
+     "n": 1
+    },
+    "n_truth": {
+     "mean": 174.0,
+     "sd": null,
+     "n": 1
+    },
+    "rings_touched": {
+     "mean": 155.0,
+     "sd": null,
+     "n": 1
+    },
+    "added_member_precision": {
+     "mean": 0.5277777777777778,
+     "sd": null,
+     "n": 1
+    },
+    "n_added_edges": {
+     "mean": 72.0,
+     "sd": null,
+     "n": 1
+    },
+    "b0_ring_p": {
+     "mean": 0.6694,
+     "sd": null,
+     "n": 1
+    },
+    "b0_ring_r": {
+     "mean": 0.477,
+     "sd": null,
+     "n": 1
+    },
+    "b0_ring_f1": {
+     "mean": 0.557,
+     "sd": null,
+     "n": 1
+    },
+    "b0_n_rings": {
+     "mean": 136.0,
+     "sd": null,
+     "n": 1
+    },
+    "b0_matched": {
+     "mean": 83.0,
+     "sd": null,
+     "n": 1
+    },
+    "b0_untouched": {
+     "mean": 23.0,
+     "sd": null,
+     "n": 1
+    },
+    "full_ring_p": {
+     "mean": 0.6309,
+     "sd": null,
+     "n": 1
+    },
+    "full_ring_r": {
+     "mean": 0.5402,
+     "sd": null,
+     "n": 1
+    },
+    "full_ring_f1": {
+     "mean": 0.582,
+     "sd": null,
+     "n": 1
+    },
+    "full_n_rings": {
+     "mean": 159.0,
+     "sd": null,
+     "n": 1
+    },
+    "full_matched": {
+     "mean": 94.0,
+     "sd": null,
+     "n": 1
+    },
+    "full_untouched": {
+     "mean": 19.0,
+     "sd": null,
+     "n": 1
+    }
+   }
+  },
+  "tp8_bar": [],
+  "veto_rows": [
+   {
+    "detector": "gine_causal",
+    "rule": "global",
+    "k_pct": 0.2,
+    "seed": 1,
+    "added_member_precision": 0.5277777777777778
+   }
+  ],
+  "pairs_mean": []
+ }
+}

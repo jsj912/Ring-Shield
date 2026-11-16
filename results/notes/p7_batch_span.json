@@ -1,0 +1,35 @@
+{
+ "2048": {
+  "n_batches": 600,
+  "size_median": 2048,
+  "span_median_s": 300.0,
+  "span_max_s": 1800,
+  "share_batches_cut_by_window": 0.29833333333333334,
+  "lookahead_median_s": 180.0,
+  "lookahead_p95_s": 720.0,
+  "lookahead_max_s": 1800,
+  "share_edges_lookahead_gt0": 0.9013172820928348
+ },
+ "4096": {
+  "n_batches": 390,
+  "size_median": 4092,
+  "span_median_s": 600.0,
+  "span_max_s": 1800,
+  "share_batches_cut_by_window": 0.5025641025641026,
+  "lookahead_median_s": 300.0,
+  "lookahead_p95_s": 1380.0,
+  "lookahead_max_s": 1800,
+  "share_edges_lookahead_gt0": 0.9500127329552032
+ },
+ "8192": {
+  "n_batches": 307,
+  "size_median": 11,
+  "span_median_s": 1140.0,
+  "span_max_s": 1800,
+  "share_batches_cut_by_window": 0.7328990228013029,
+  "lookahead_median_s": 600.0,
+  "lookahead_p95_s": 1440.0,
+  "lookahead_max_s": 1800,
+  "share_edges_lookahead_gt0": 0.9712721379789327
+ }
+}

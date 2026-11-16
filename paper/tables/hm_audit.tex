@@ -1,0 +1,27 @@
+% Source: results/tables/v41_hm_audit_scope_v2.csv (tv_ring_f1, fm_ring_f1, gap_f1_fm_minus_tv), point estimates only;
+% points identical to v41_hm_audit_scope.csv (only the intervals were re-scored).
+\begin{table}[t]
+\centering
+\caption{The scope gap on HI-Medium (2{,}187 in-scope rings, test days 6--14, two detector
+seeds, Jaccard $\ge 0.5$). Ring-F1 when a ring's members are its in-window accounts, when they
+are all its accounts, and the difference. Point estimates over the two seeds.$^{\ddagger}$}
+\label{tab:hm-audit}
+\small
+\begin{tabular}{llccc}
+\toprule
+Seed allocation & Method & In-window members & All members & Gap \\
+\midrule
+global  & seeds + components       & 0.090 & 0.052 & $-0.038$ \\ % source: v41_hm_audit_scope_v2.csv (global,b0)
+global  & rule expansion           & 0.097 & 0.054 & $-0.043$ \\ % source: v41_hm_audit_scope_v2.csv (global,b1b)
+global  & learned expansion        & 0.180 & 0.121 & $-0.059$ \\ % source: v41_hm_audit_scope_v2.csv (global,proposed)
+global  & expansion + partition    & 0.182 & 0.126 & $-0.057$ \\ % source: v41_hm_audit_scope_v2.csv (global,full)
+\midrule
+per day & seeds + components       & 0.148 & 0.087 & $-0.061$ \\ % source: v41_hm_audit_scope_v2.csv (per_day,b0)
+per day & rule expansion           & 0.141 & 0.082 & $-0.059$ \\ % source: v41_hm_audit_scope_v2.csv (per_day,b1b)
+per day & learned expansion        & 0.233 & 0.160 & $-0.073$ \\ % source: v41_hm_audit_scope_v2.csv (per_day,proposed)
+per day & expansion + partition    & 0.234 & 0.165 & $-0.069$ \\ % source: v41_hm_audit_scope_v2.csv (per_day,full)
+\bottomrule
+\multicolumn{5}{l}{\footnotesize $^{\ddagger}$ HI-Medium: detector seeds 1--2 only (seed 3's scores saturate); the detector did not}\\
+\multicolumn{5}{l}{\footnotesize meet its pre-registered adequacy bar, so these rows are an audit replication, not a method comparison.}\\
+\end{tabular}
+\end{table}

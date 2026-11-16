@@ -1,0 +1,137 @@
+{
+ "part": "M1",
+ "created_utc": "2026-11-15T17:31:26.979151+00:00",
+ "prereg_sha256": "5b14316f...4d49",
+ "amendments": [
+  "7feb2334...95bd",
+  "60dbe5c1...2b2b"
+ ],
+ "chosen_cells_sha256": "dea2ac41eee4bfc3e76ff2057f7f9df40dac56710dfd192cc2ce1e83cdbbfbec",
+ "primary": {
+  "comparison": "M1-V minus REF (ring-folded full, 0.1 %)",
+  "metric": "ring-F1 test_visible tau 0.5 primary window 5 seeds",
+  "delta": 0.0040476853987253,
+  "ci95": [
+   -0.0408997444377541,
+   0.0456735821207587
+  ],
+  "p": 0.8521147885211479,
+  "p_holm_m3": 1.0,
+  "holm_note": "M2, M3 not tested -> p = 1",
+  "amp_M1V": 0.8297872340425532,
+  "amp_bar": 0.8,
+  "reading": "R6 INCONCLUSIVE"
+ },
+ "other_metrics_paired": {
+  "ring_f1": {
+   "delta": 0.0040476853987253,
+   "ci_lo": -0.0408997444377541,
+   "ci_hi": 0.0456735821207587,
+   "p": 0.8521147885211479
+  },
+  "ring_recall": {
+   "delta": -0.028735632183908,
+   "ci_lo": -0.0632471264367817,
+   "ci_hi": 0.0045977011494252,
+   "p": 0.095990400959904
+  },
+  "ring_precision": {
+   "delta": 0.0980085637456805,
+   "ci_lo": 0.0337368643756831,
+   "ci_hi": 0.1557463357665256,
+   "p": 0.0047995200479952
+  }
+ },
+ "arms": {
+  "REF": {
+   "ring_f1": 0.5892553655357726,
+   "ring_f1_lo": 0.5033684146898167,
+   "ring_f1_hi": 0.672249703680264,
+   "ring_precision": 0.7596935003629947,
+   "ring_recall": 0.4827586206896551,
+   "predicted_per_run": 111.0,
+   "matched_per_run": 84.0,
+   "n_rings": 126.6,
+   "n_rings_in_window": 111.0,
+   "n_accounts": 919.6,
+   "n_accounts_in_window": 501.6,
+   "rings_touched": 104.2,
+   "amp_pooled": 0.8173598553345389,
+   "n_added_edges": 110.6,
+   "quiet_member_recall_own_seeds": 0.24248366013071895,
+   "quiet_member_recall_ref_seeds": 0.24248366013071895
+  },
+  "M1-V": {
+   "ring_f1": 0.593303050934498,
+   "ring_f1_lo": 0.5044671354734802,
+   "ring_f1_hi": 0.6826149889931314,
+   "ring_precision": 0.8577020641086752,
+   "ring_recall": 0.454022988505747,
+   "predicted_per_run": 92.0,
+   "matched_per_run": 79.0,
+   "n_rings": 100.6,
+   "n_rings_in_window": 92.0,
+   "n_accounts": 889.0,
+   "n_accounts_in_window": 462.2,
+   "rings_touched": 99.6,
+   "amp_pooled": 0.8297872340425532,
+   "n_added_edges": 56.4,
+   "quiet_member_recall_own_seeds": 0.25475285171102663,
+   "quiet_member_recall_ref_seeds": 0.30915032679738563
+  },
+  "M1-V-IS": {
+   "ring_f1": 0.5997638160538845,
+   "ring_f1_lo": 0.5140132788554083,
+   "ring_f1_hi": 0.6852850227351224,
+   "ring_precision": 0.8467501349681475,
+   "ring_recall": 0.4655172413793103,
+   "predicted_per_run": 95.8,
+   "matched_per_run": 81.0,
+   "n_rings": 105.8,
+   "n_rings_in_window": 95.8,
+   "n_accounts": 908.6,
+   "n_accounts_in_window": 477.6,
+   "rings_touched": 101.8,
+   "amp_pooled": 0.8408304498269896,
+   "n_added_edges": 57.8,
+   "quiet_member_recall_own_seeds": 0.2598225602027883,
+   "quiet_member_recall_ref_seeds": 0.3156862745098039
+  },
+  "M1-S": {
+   "ring_f1": 0.5347471016389611,
+   "ring_f1_lo": 0.4613796410719309,
+   "ring_f1_hi": 0.6110242223858359,
+   "ring_precision": 0.6414815810811361,
+   "ring_recall": 0.4632183908045976,
+   "predicted_per_run": 126.0,
+   "matched_per_run": 80.6,
+   "n_rings": 133.8,
+   "n_rings_in_window": 126.0,
+   "n_accounts": 896.2,
+   "n_accounts_in_window": 539.6,
+   "rings_touched": 102.6,
+   "amp_pooled": 0.5863453815261044,
+   "n_added_edges": 49.8,
+   "quiet_member_recall_own_seeds": 0.13814955640050697,
+   "quiet_member_recall_ref_seeds": 0.2372549019607843
+  },
+  "full020": {
+   "ring_f1": 0.5205148638787767,
+   "ring_f1_lo": 0.4517877854572225,
+   "ring_f1_hi": 0.5857184603034028,
+   "ring_precision": 0.5046642712442437,
+   "ring_recall": 0.5402298850574713,
+   "predicted_per_run": 187.2,
+   "matched_per_run": 94.0,
+   "n_rings": 200.4,
+   "n_rings_in_window": 187.2,
+   "n_accounts": 1219.2,
+   "n_accounts_in_window": 778.0,
+   "rings_touched": 118.8,
+   "amp_pooled": 0.38535911602209943,
+   "n_added_edges": 144.8,
+   "quiet_member_recall_own_seeds": 0.2864385297845374,
+   "quiet_member_recall_ref_seeds": 0.36209150326797385
+  }
+ }
+}

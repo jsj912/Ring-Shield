@@ -1,0 +1,23 @@
+% Source: docs/report.md §7.2 "Detection by ring type" (full pipeline, 5 seeds summed;
+%         computed by evaluation/unmatched_rings.py)
+\begin{table}[t]
+\centering
+\caption{Detection by pattern type (full pipeline, 5 seeds summed, primary window). ``Found
+\%'' excludes the below-\texttt{min\_size} column from its denominator.}
+\label{tab:per-pattern}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Pattern & Found & $<3$ visible, unmatched & Never flagged & Merged/partial & Found \% \\
+\midrule
+SCATTER-GATHER & 78 & 25 & 5 & 2 & 92\,\% \\ % source: docs/report.md §7.2 (per-type table)
+FAN-OUT & 64 & 24 & 6 & 6 & 84\,\% \\ % source: docs/report.md §7.2
+GATHER-SCATTER & 117 & 43 & 17 & 8 & 82\,\% \\ % source: docs/report.md §7.2
+FAN-IN & 56 & 21 & 12 & 1 & 81\,\% \\ % source: docs/report.md §7.2
+CYCLE & 42 & 40 & 18 & 10 & 60\,\% \\ % source: docs/report.md §7.2
+RANDOM & 35 & 25 & 21 & 4 & 58\,\% \\ % source: docs/report.md §7.2
+BIPARTITE & 5 & 25 & 41 & 9 & 9\,\% \\ % source: docs/report.md §7.2
+STACK & 4 & 40 & 46 & 20 & 6\,\% \\ % source: docs/report.md §7.2
+\bottomrule
+\end{tabular}
+\end{table}

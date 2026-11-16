@@ -1,0 +1,65 @@
+{
+ "created_utc": "2026-11-15T17:30:57+00:00",
+ "window": "primary",
+ "scope": "test_visible",
+ "amp_definition": "expansion_vs_truth vs B0 of the same seed set (0.2 % for M1 arms, 0.1 % for REF), pooled over seeds",
+ "quiet_definition": "r9 ring_evidence; own = the arm's own seed set, ref = the 0.1 % seed set",
+ "touched_definition": "truth rings with >= 1 in-window member edge in the arm's output rings",
+ "summary": {
+  "M1-S": {
+   "n_rings": 133.8,
+   "n_rings_in_window": 126.0,
+   "n_accounts": 896.2,
+   "n_accounts_in_window": 539.6,
+   "rings_touched": 102.6,
+   "amp_pooled": 0.5863453815261044,
+   "n_added_edges": 49.8,
+   "quiet_member_recall_own_seeds": 0.13814955640050697,
+   "quiet_member_recall_ref_seeds": 0.2372549019607843
+  },
+  "M1-V": {
+   "n_rings": 100.6,
+   "n_rings_in_window": 92.0,
+   "n_accounts": 889.0,
+   "n_accounts_in_window": 462.2,
+   "rings_touched": 99.6,
+   "amp_pooled": 0.8297872340425532,
+   "n_added_edges": 56.4,
+   "quiet_member_recall_own_seeds": 0.25475285171102663,
+   "quiet_member_recall_ref_seeds": 0.30915032679738563
+  },
+  "M1-V-IS": {
+   "n_rings": 105.8,
+   "n_rings_in_window": 95.8,
+   "n_accounts": 908.6,
+   "n_accounts_in_window": 477.6,
+   "rings_touched": 101.8,
+   "amp_pooled": 0.8408304498269896,
+   "n_added_edges": 57.8,
+   "quiet_member_recall_own_seeds": 0.2598225602027883,
+   "quiet_member_recall_ref_seeds": 0.3156862745098039
+  },
+  "REF": {
+   "n_rings": 126.6,
+   "n_rings_in_window": 111.0,
+   "n_accounts": 919.6,
+   "n_accounts_in_window": 501.6,
+   "rings_touched": 104.2,
+   "amp_pooled": 0.8173598553345389,
+   "n_added_edges": 110.6,
+   "quiet_member_recall_own_seeds": 0.24248366013071895,
+   "quiet_member_recall_ref_seeds": 0.24248366013071895
+  },
+  "full020": {
+   "n_rings": 200.4,
+   "n_rings_in_window": 187.2,
+   "n_accounts": 1219.2,
+   "n_accounts_in_window": 778.0,
+   "rings_touched": 118.8,
+   "amp_pooled": 0.38535911602209943,
+   "n_added_edges": 144.8,
+   "quiet_member_recall_own_seeds": 0.2864385297845374,
+   "quiet_member_recall_ref_seeds": 0.36209150326797385
+  }
+ }
+}

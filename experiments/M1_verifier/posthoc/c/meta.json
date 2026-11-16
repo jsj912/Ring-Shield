@@ -1,0 +1,16 @@
+{
+ "label": "POST HOC, outside the Holm family",
+ "part": "c",
+ "created_utc": "2026-11-15T17:36:25+00:00",
+ "arms": {
+  "c": "E:\\JSJ\\RS-react\\experiments\\M1_verifier\\posthoc\\c\\rings"
+ },
+ "train": {
+  "n_train": 1097,
+  "n_dropped_mixed_fold": 290,
+  "n_pos_dropped": 26,
+  "n_train_kept": 807,
+  "n_pos_kept": 49,
+  "rule": "drop a train candidate if its seed and expanded edges have more than one owner fold"
+ }
+}

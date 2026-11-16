@@ -1,0 +1,7 @@
+{"gate": "T-P7a seed-1 test edge F1 >= 0.70", "result": "PASS",
+ "test_edge_f1_val_tuned": 0.7558, "threshold_tuned_on": "rescore_val/scores_val_seed1.parquet (scoring batch 2048, same as test)",
+ "test_edge_f1_val_tuned_on_original_val_4096": 0.7557, "test_f1_at_0.5": 0.7556, "test_ap": 0.7450,
+ "rule": "evaluation.r6_detector_swap.edge_f1 (400 val quantiles 0.90-0.99999), labels E:/JSJ/Ring-Shield/contract/out",
+ "reference_mega_gin_seed1_same_rule": 0.6435, "best_val_f1_training": 0.6652, "best_epoch": 42, "epochs_run": 62,
+ "mean_epoch_s": 538.1, "peak_vram_training_mib": 21627, "peak_vram_test_scoring_mib": 6610,
+ "deviation": "D-7a-1 scoring batch 2048 (training 4096)", "date": "2026-11-15"}

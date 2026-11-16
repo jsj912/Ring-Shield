@@ -1,0 +1,351 @@
+{
+ "seed": 1,
+ "created_utc": "2026-11-15T17:02:55+00:00",
+ "lgbm_params": {
+  "n_estimators": 200,
+  "learning_rate": 0.05,
+  "num_leaves": 15,
+  "min_child_samples": 20,
+  "subsample": 0.8,
+  "subsample_freq": 1,
+  "colsample_bytree": 0.8,
+  "reg_lambda": 1.0,
+  "deterministic": true,
+  "force_row_wise": true,
+  "n_jobs": 8,
+  "verbose": -1
+ },
+ "n_train": 1097,
+ "n_train_pos": 75,
+ "n_val_candidates": 283,
+ "val_unfiltered": {
+  "ring_f1": 0.41818181818181815,
+  "ring_precision": 0.3250883392226148,
+  "ring_recall": 0.5859872611464968,
+  "n_rings": 283,
+  "n_accounts": 1124
+ },
+ "variants": {
+  "M1-V": {
+   "features": [
+    "n_members",
+    "n_edges",
+    "density",
+    "n_seed",
+    "seed_share",
+    "q_mean",
+    "q_max",
+    "q_min",
+    "q_std",
+    "duration_hours",
+    "log_amt_mean",
+    "log_amt_std",
+    "log_amt_range",
+    "conservation_closure",
+    "topo_0",
+    "topo_1",
+    "topo_2",
+    "topo_3",
+    "topo_4",
+    "topo_5",
+    "topo_6",
+    "topo_7",
+    "n_source",
+    "n_sink",
+    "n_mule",
+    "n_currencies"
+   ],
+   "chosen_t": 0.1,
+   "val_at_chosen": {
+    "cut": 0.1,
+    "ring_f1": 0.6204081632653061,
+    "ring_precision": 0.8636363636363636,
+    "ring_recall": 0.4840764331210191,
+    "n_rings": 88,
+    "n_accounts": 487
+   },
+   "val_grid": [
+    {
+     "cut": 0.1,
+     "ring_f1": 0.6204081632653061,
+     "ring_precision": 0.8636363636363636,
+     "ring_recall": 0.4840764331210191,
+     "n_rings": 88,
+     "n_accounts": 487
+    },
+    {
+     "cut": 0.2,
+     "ring_f1": 0.5887445887445888,
+     "ring_precision": 0.918918918918919,
+     "ring_recall": 0.43312101910828027,
+     "n_rings": 74,
+     "n_accounts": 439
+    },
+    {
+     "cut": 0.3,
+     "ring_f1": 0.5545454545454546,
+     "ring_precision": 0.9682539682539683,
+     "ring_recall": 0.3885350318471338,
+     "n_rings": 63,
+     "n_accounts": 406
+    },
+    {
+     "cut": 0.4,
+     "ring_f1": 0.514018691588785,
+     "ring_precision": 0.9649122807017544,
+     "ring_recall": 0.3503184713375796,
+     "n_rings": 57,
+     "n_accounts": 386
+    },
+    {
+     "cut": 0.5,
+     "ring_f1": 0.48803827751196166,
+     "ring_precision": 0.9807692307692307,
+     "ring_recall": 0.3248407643312102,
+     "n_rings": 52,
+     "n_accounts": 371
+    },
+    {
+     "cut": 0.6,
+     "ring_f1": 0.45320197044334976,
+     "ring_precision": 1.0,
+     "ring_recall": 0.2929936305732484,
+     "n_rings": 46,
+     "n_accounts": 333
+    },
+    {
+     "cut": 0.7,
+     "ring_f1": 0.3814432989690722,
+     "ring_precision": 1.0,
+     "ring_recall": 0.2356687898089172,
+     "n_rings": 37,
+     "n_accounts": 280
+    },
+    {
+     "cut": 0.8,
+     "ring_f1": 0.36458333333333337,
+     "ring_precision": 1.0,
+     "ring_recall": 0.2229299363057325,
+     "n_rings": 35,
+     "n_accounts": 270
+    },
+    {
+     "cut": 0.9,
+     "ring_f1": 0.26519337016574585,
+     "ring_precision": 1.0,
+     "ring_recall": 0.15286624203821655,
+     "n_rings": 24,
+     "n_accounts": 203
+    }
+   ]
+  },
+  "M1-V-IS": {
+   "features": [
+    "n_members",
+    "n_edges",
+    "density",
+    "n_seed",
+    "seed_share",
+    "q_mean",
+    "q_max",
+    "q_min",
+    "q_std",
+    "duration_hours",
+    "log_amt_mean",
+    "log_amt_std",
+    "log_amt_range",
+    "conservation_closure",
+    "topo_0",
+    "topo_1",
+    "topo_2",
+    "topo_3",
+    "topo_4",
+    "topo_5",
+    "topo_6",
+    "topo_7",
+    "n_source",
+    "n_sink",
+    "n_mule",
+    "n_currencies",
+    "exp_prob_mean",
+    "exp_prob_min",
+    "exp_prob_count",
+    "confidence",
+    "max_edge_prob"
+   ],
+   "chosen_t": 0.1,
+   "val_at_chosen": {
+    "cut": 0.1,
+    "ring_f1": 0.6147540983606558,
+    "ring_precision": 0.8620689655172413,
+    "ring_recall": 0.47770700636942676,
+    "n_rings": 87,
+    "n_accounts": 484
+   },
+   "val_grid": [
+    {
+     "cut": 0.1,
+     "ring_f1": 0.6147540983606558,
+     "ring_precision": 0.8620689655172413,
+     "ring_recall": 0.47770700636942676,
+     "n_rings": 87,
+     "n_accounts": 484
+    },
+    {
+     "cut": 0.2,
+     "ring_f1": 0.5752212389380531,
+     "ring_precision": 0.9420289855072463,
+     "ring_recall": 0.4140127388535032,
+     "n_rings": 69,
+     "n_accounts": 429
+    },
+    {
+     "cut": 0.3,
+     "ring_f1": 0.5454545454545454,
+     "ring_precision": 0.9523809523809523,
+     "ring_recall": 0.3821656050955414,
+     "n_rings": 63,
+     "n_accounts": 411
+    },
+    {
+     "cut": 0.4,
+     "ring_f1": 0.514018691588785,
+     "ring_precision": 0.9649122807017544,
+     "ring_recall": 0.3503184713375796,
+     "n_rings": 57,
+     "n_accounts": 386
+    },
+    {
+     "cut": 0.5,
+     "ring_f1": 0.5023696682464455,
+     "ring_precision": 0.9814814814814815,
+     "ring_recall": 0.3375796178343949,
+     "n_rings": 54,
+     "n_accounts": 376
+    },
+    {
+     "cut": 0.6,
+     "ring_f1": 0.47572815533980584,
+     "ring_precision": 1.0,
+     "ring_recall": 0.31210191082802546,
+     "n_rings": 49,
+     "n_accounts": 356
+    },
+    {
+     "cut": 0.7,
+     "ring_f1": 0.41414141414141414,
+     "ring_precision": 1.0,
+     "ring_recall": 0.2611464968152866,
+     "n_rings": 41,
+     "n_accounts": 319
+    },
+    {
+     "cut": 0.8,
+     "ring_f1": 0.33862433862433866,
+     "ring_precision": 1.0,
+     "ring_recall": 0.20382165605095542,
+     "n_rings": 32,
+     "n_accounts": 264
+    },
+    {
+     "cut": 0.9,
+     "ring_f1": 0.2057142857142857,
+     "ring_precision": 1.0,
+     "ring_recall": 0.11464968152866242,
+     "n_rings": 18,
+     "n_accounts": 143
+    }
+   ]
+  },
+  "M1-S": {
+   "chosen_q": 0.5,
+   "chosen_c": 0.3358059952626415,
+   "val_at_chosen": {
+    "cut": 0.3358059952626415,
+    "ring_f1": 0.5752508361204013,
+    "ring_precision": 0.6056338028169014,
+    "ring_recall": 0.5477707006369427,
+    "n_rings": 142,
+    "n_accounts": 639,
+    "q": 0.5
+   },
+   "val_grid": [
+    {
+     "cut": 0.062433281098492444,
+     "ring_f1": 0.41818181818181815,
+     "ring_precision": 0.3250883392226148,
+     "ring_recall": 0.5859872611464968,
+     "n_rings": 283,
+     "n_accounts": 1124
+    },
+    {
+     "cut": 0.1350931167602539,
+     "ring_f1": 0.44768856447688565,
+     "ring_precision": 0.36220472440944884,
+     "ring_recall": 0.5859872611464968,
+     "n_rings": 254,
+     "n_accounts": 1015
+    },
+    {
+     "cut": 0.1555548258125782,
+     "ring_f1": 0.48041775456919056,
+     "ring_precision": 0.40707964601769914,
+     "ring_recall": 0.5859872611464968,
+     "n_rings": 226,
+     "n_accounts": 923
+    },
+    {
+     "cut": 0.20614102035760878,
+     "ring_f1": 0.5183098591549296,
+     "ring_precision": 0.46464646464646464,
+     "ring_recall": 0.5859872611464968,
+     "n_rings": 198,
+     "n_accounts": 830
+    },
+    {
+     "cut": 0.24605348482728007,
+     "ring_f1": 0.5565749235474006,
+     "ring_precision": 0.5352941176470588,
+     "ring_recall": 0.5796178343949044,
+     "n_rings": 170,
+     "n_accounts": 742
+    },
+    {
+     "cut": 0.3358059952626415,
+     "ring_f1": 0.5752508361204013,
+     "ring_precision": 0.6056338028169014,
+     "ring_recall": 0.5477707006369427,
+     "n_rings": 142,
+     "n_accounts": 639,
+     "q": 0.5
+    },
+    {
+     "cut": 0.44815778187007704,
+     "ring_f1": 0.5259259259259259,
+     "ring_precision": 0.6283185840707964,
+     "ring_recall": 0.45222929936305734,
+     "n_rings": 113,
+     "n_accounts": 517
+    },
+    {
+     "cut": 0.5170335873728618,
+     "ring_f1": 0.4545454545454545,
+     "ring_precision": 0.6470588235294118,
+     "ring_recall": 0.3503184713375796,
+     "n_rings": 85,
+     "n_accounts": 394
+    },
+    {
+     "cut": 0.5712457803033221,
+     "ring_f1": 0.35514018691588783,
+     "ring_precision": 0.6666666666666666,
+     "ring_recall": 0.24203821656050956,
+     "n_rings": 57,
+     "n_accounts": 283
+    }
+   ]
+  }
+ },
+ "ref_val_ring_f1": 0.5852,
+ "gate_pass": true
+}

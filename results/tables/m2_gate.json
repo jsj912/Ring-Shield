@@ -1,0 +1,24 @@
+{
+ "part": "M2",
+ "reading": "R0 NOT TESTED (seed-1 validation gate failed)",
+ "ref_val_seed1": 0.5852,
+ "chosen": {
+  "variant": "M2-G",
+  "T_h": 24.0,
+  "f": 5.0,
+  "L": 4.0,
+  "g": 0.01,
+  "ring_f1": 0.5692883895131087,
+  "ring_precision": 0.6909090909090909,
+  "ring_recall": 0.4840764331210191,
+  "n_rings": 110.0,
+  "n_accounts": 563.0,
+  "grid_index": 12.0
+ },
+ "best_M2-S": 0.2127659574468084,
+ "caps": {
+  "inst_cap_bound": 0,
+  "cycle_cap_bound": 0
+ },
+ "n_seeds": 966
+}

@@ -1,0 +1,16 @@
+{
+  "seed": 3,
+  "split": "test",
+  "n_groups": 192,
+  "n_undersized": 90,
+  "n_undersized_seedless_skipped": 2,
+  "cells": {
+    "p0.7_h2": {
+      "n_additions": 1,
+      "n_rescued_rings": 0,
+      "n_rescued_accounts": 0,
+      "n_shipped_rings": 113
+    }
+  },
+  "seconds_h2": 13.7
+}

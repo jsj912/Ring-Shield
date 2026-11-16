@@ -163,3 +163,6 @@ platform/out/
 results/xai/tenant/**/*.parquet.log.json
 !results/xai/tenant/**/*_12_*.parquet.log.json
 !results/xai/tenant/**/*_20_*.parquet.log.json
+
+# TAML working copy: raw CSV copy and built daily graphs (rebuilt by experiments/R15_taml/build_graphs.sh)
+experiments/R15_taml/work/

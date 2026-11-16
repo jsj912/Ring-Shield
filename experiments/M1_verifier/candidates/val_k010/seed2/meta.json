@@ -1,0 +1,33 @@
+{
+ "n_seeds": 966,
+ "val_unfiltered": {
+  "ring_f1": 0.5073746312684365,
+  "ring_precision": 0.4725274725274725,
+  "ring_recall": 0.5477707006369427,
+  "n_rings": 182,
+  "n_accounts": 784
+ },
+ "split": "val",
+ "seed": 2,
+ "k_pct": 0.1,
+ "n_rings": 182,
+ "r3_cell": {
+  "seed_frac_pct": 0.1,
+  "min_size": 3,
+  "max_gap_hours": null,
+  "delta_t_h": 24.0,
+  "p_min": 0.7,
+  "val_ring_f1": 0.4773
+ },
+ "r4_cell": {
+  "seed_frac_pct": 0.1,
+  "min_size": 3,
+  "delta_t_h": 24.0,
+  "p_min": 0.7,
+  "method": "average",
+  "cut": 0.5,
+  "val_ring_f1": 0.5074
+ },
+ "seconds": 117.1,
+ "created_utc": "2026-11-15T17:34:04+00:00"
+}

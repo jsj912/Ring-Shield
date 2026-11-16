@@ -1,0 +1,20 @@
+% Source: results/tables/r10_registered.md / r10_registered.json, as summarised in docs/report.md §7.2
+% R10 is a platform-side experiment registered in docs/TENANT_SIZES.md; it is NOT in docs/FINDINGS.md.
+\begin{table}[t]
+\centering
+\caption{Ring recall of a pooled model applied to one
+bank's view vs.\ the pooled view. Banks 1, 20, 11, 118, 12; 68 tenant-ring pairs; 10{,}000
+bootstrap resamples. The gap includes distribution shift, so it is not only the cost of seeing
+fewer edges.}
+\label{tab:r10}
+\small
+\begin{tabular}{lccc}
+\toprule
+Row & Bank alone & Pooled & Pooled $-$ bank \\
+\midrule
+Primary: bank's own scores, features, embeddings & \ci{0.088}{0.031}{0.161} & \ci{0.359}{0.239}{0.500} & \ci{0.271}{0.154}{0.407} \\ % source: r10_registered.json (rows.primary); docs/report.md §7.2
+Pooled scores on the bank's edges & \ci{0.121}{0.054}{0.205} & 0.359 & \ci{0.238}{0.135}{0.363} \\ % source: docs/report.md §7.2 (R10 table)
+Matched seed budget & \ci{0.076}{0.020}{0.151} & 0.359 & \ci{0.282}{0.167}{0.417} \\ % source: docs/report.md §7.2 (R10 table)
+\bottomrule
+\end{tabular}
+\end{table}

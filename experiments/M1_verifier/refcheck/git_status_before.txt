@@ -1,0 +1,44 @@
+ M docs/FINDINGS.md
+ M docs/FUTURE_IMPLEMENTATIONS.md
+ M docs/deep-analysis.md
+?? docs/PROTOCOL.md
+?? results/notes/
+?? results/tables/r14_scope_sensitivity_wci.csv
+?? results/tables/r14_scope_sensitivity_wci.json
+?? results/tables/r6_detector_swap_sb2048.csv
+?? results/tables/r6_detector_swap_sb2048.json
+?? results/tables/r6_detector_swap_sb2048_valpicked.csv
+?? results/tables/r6_detector_swap_sb2048_valpicked.json
+?? results/tables/r6_pvalues_sb2048.csv
+?? results/tables/r6_pvalues_sb2048_valpicked.csv
+?? results/tables/v36_component_scope_wci.csv
+?? results/tables/v36_component_scope_wci.json
+?? results/tables/v39_ringfold_precision_paired.csv
+?? results/tables/v39_ringfold_precision_paired.json
+?? results/tables/v39_ringfold_quiet_members.csv
+?? results/tables/v39_ringfold_report.csv
+?? results/tables/v39_ringfold_report.json
+?? results/tables/v39_ringfold_ring_ci.csv
+?? results/tables/v39_ringfold_significance.csv
+?? results/tables/v40_external_baselines.csv
+?? results/tables/v40_external_baselines.json
+?? results/tables/v40_external_baselines_v2.csv
+?? results/tables/v40_external_baselines_v2.json
+?? results/tables/v41_hm_audit.json
+?? results/tables/v41_hm_audit_component.csv
+?? results/tables/v41_hm_audit_component_v2.csv
+?? results/tables/v41_hm_audit_scope.csv
+?? results/tables/v41_hm_audit_scope_v2.csv
+?? results/tables/v41_hm_audit_tail.csv
+?? results/tables/v41_hm_audit_tail_v2.csv
+?? results/tables/v41_hm_audit_threshold.csv
+?? results/tables/v41_hm_audit_threshold_v2.csv
+?? results/tables/v41_hm_audit_v2.json
+?? results/tables/v42_budget_sweep.csv
+?? results/tables/v42_budget_sweep.json
+?? results/tables/v42_budget_sweep_pairs.csv
+?? results/tables/v45_posthoc_quiet_members.csv
+?? results/tables/v45_posthoc_ring_ci.csv
+?? results/tables/v45_posthoc_significance.csv
+?? results/tables/v45_ringfold_full_precision_paired.csv
+?? results/tables/v45_ringfold_full_precision_paired.json

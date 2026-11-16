@@ -1,0 +1,225 @@
+{
+  "created_utc": "2026-11-14T09:37:18+00:00",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "n_boot": 10000,
+  "rng_seed": 20261114,
+  "scope": "test_visible",
+  "window": {
+    "name": "primary",
+    "split": "test",
+    "days": [
+      8,
+      9
+    ],
+    "bounds": [
+      691210,
+      864009
+    ]
+  },
+  "runs": {
+    "shipped": "..\\RS-e2e\\experiments\\R3_expansion\\runs\\proposed",
+    "ringfold": "E:\\JSJ\\RS-react\\experiments\\R3_ringfold\\runs\\proposed"
+  },
+  "recorded_ring_f1": {
+    "shipped": {
+      "1": 0.5985,
+      "2": 0.594,
+      "3": 0.5649,
+      "4": 0.6204,
+      "5": 0.5318
+    },
+    "ringfold": {
+      "1": 0.6074,
+      "2": 0.595,
+      "3": 0.5768,
+      "4": 0.6075,
+      "5": 0.5371
+    }
+  },
+  "points": {
+    "shipped": {
+      "ring_f1": 0.5819256938541917,
+      "ring_precision": 0.8381646762151671,
+      "ring_recall": 0.4459770114942529,
+      "added_member_precision": 0.9262899262899262
+    },
+    "ringfold": {
+      "ring_f1": 0.5847559036798249,
+      "ring_precision": 0.7835493424952105,
+      "ring_recall": 0.46781609195402296,
+      "added_member_precision": 0.8189964157706093
+    }
+  },
+  "n_units": 218,
+  "n_truth_units": 174,
+  "n_offring_units": 44,
+  "overlap_per_seed": [
+    {
+      "seed": 1,
+      "n_shipped": 90,
+      "n_other": 96,
+      "n_exact": 73,
+      "exact_share": 0.8111111111111111,
+      "n_jaccard": 88,
+      "jaccard_share": 0.9777777777777777,
+      "shipped_ring_f1": 0.5985,
+      "ringfold_ring_f1": 0.6074,
+      "delta_ring_f1": 0.008900000000000019
+    },
+    {
+      "seed": 2,
+      "n_shipped": 92,
+      "n_other": 105,
+      "n_exact": 75,
+      "exact_share": 0.8152173913043478,
+      "n_jaccard": 90,
+      "jaccard_share": 0.9782608695652174,
+      "shipped_ring_f1": 0.594,
+      "ringfold_ring_f1": 0.595,
+      "delta_ring_f1": 0.0010000000000000009
+    },
+    {
+      "seed": 3,
+      "n_shipped": 88,
+      "n_other": 93,
+      "n_exact": 72,
+      "exact_share": 0.8181818181818182,
+      "n_jaccard": 87,
+      "jaccard_share": 0.9886363636363636,
+      "shipped_ring_f1": 0.5649,
+      "ringfold_ring_f1": 0.5768,
+      "delta_ring_f1": 0.011900000000000022
+    },
+    {
+      "seed": 4,
+      "n_shipped": 100,
+      "n_other": 119,
+      "n_exact": 86,
+      "exact_share": 0.86,
+      "n_jaccard": 100,
+      "jaccard_share": 1.0,
+      "shipped_ring_f1": 0.6204,
+      "ringfold_ring_f1": 0.6075,
+      "delta_ring_f1": -0.012899999999999912
+    },
+    {
+      "seed": 5,
+      "n_shipped": 93,
+      "n_other": 109,
+      "n_exact": 63,
+      "exact_share": 0.6774193548387096,
+      "n_jaccard": 85,
+      "jaccard_share": 0.9139784946236559,
+      "shipped_ring_f1": 0.5318,
+      "ringfold_ring_f1": 0.5371,
+      "delta_ring_f1": 0.005299999999999971
+    }
+  ],
+  "overlap_pooled": {
+    "exact_share": 0.796976241900648,
+    "jaccard_share": 0.9719222462203023
+  },
+  "fold_models": {
+    "shipped": [
+      {
+        "fold": 0,
+        "n_edges": 1114921,
+        "n_ring_edges": 98,
+        "ap": 0.10137151629571788,
+        "roc_auc": 0.991098330663894
+      },
+      {
+        "fold": 1,
+        "n_edges": 754449,
+        "n_ring_edges": 174,
+        "ap": 0.3661536112132217,
+        "roc_auc": 0.9840116470219367
+      },
+      {
+        "fold": 2,
+        "n_edges": 414812,
+        "n_ring_edges": 485,
+        "ap": 0.6975797764766077,
+        "roc_auc": 0.9907609306748325
+      },
+      {
+        "fold": 3,
+        "n_edges": 482650,
+        "n_ring_edges": 296,
+        "ap": 0.7772937696610126,
+        "roc_auc": 0.9969445242582295
+      },
+      {
+        "fold": 4,
+        "n_edges": 482089,
+        "n_ring_edges": 353,
+        "ap": 0.7685067373951522,
+        "roc_auc": 0.9957507611400336
+      }
+    ],
+    "ringfold": [
+      {
+        "fold": 0,
+        "n_edges": 1114880,
+        "n_ring_edges": 57,
+        "ap": 0.09743090366986572,
+        "roc_auc": 0.9469227992151882
+      },
+      {
+        "fold": 1,
+        "n_edges": 754380,
+        "n_ring_edges": 105,
+        "ap": 0.011096914056267667,
+        "roc_auc": 0.9682699912088397
+      },
+      {
+        "fold": 2,
+        "n_edges": 415014,
+        "n_ring_edges": 687,
+        "ap": 0.08330225005533626,
+        "roc_auc": 0.9759275374787564
+      },
+      {
+        "fold": 3,
+        "n_edges": 482565,
+        "n_ring_edges": 211,
+        "ap": 0.5110047097199987,
+        "roc_auc": 0.997633957338013
+      },
+      {
+        "fold": 4,
+        "n_edges": 482082,
+        "n_ring_edges": 346,
+        "ap": 0.1671299407318352,
+        "roc_auc": 0.992051921129948
+      }
+    ]
+  },
+  "fold_model_positives": "train edges with ring_id > 0, scored by the arm's owner fold model",
+  "leak_assertion": {
+    "n_rings": 220,
+    "n_ring_edges": 1406,
+    "violations": 0,
+    "passed": true
+  },
+  "fold_record": {
+    "rule": "ring edges -> the ring's plurality day fold (ties -> lower fold); all other edges -> day fold",
+    "n_rings": 220,
+    "n_ring_edges": 1406,
+    "n_rings_spanning_day_folds": 137,
+    "n_edges_moved_from_day_fold": 597,
+    "rings_per_fold": {
+      "0": 10,
+      "1": 24,
+      "2": 79,
+      "3": 38,
+      "4": 69
+    }
+  }
+}

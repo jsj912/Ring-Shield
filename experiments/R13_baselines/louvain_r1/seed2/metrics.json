@@ -1,0 +1,10 @@
+{
+  "test_primary": {
+    "ring_precision": 0.7901234567901234,
+    "ring_recall": 0.367816091954023,
+    "ring_f1": 0.5019607843137255
+  },
+  "n_rings": 99,
+  "seed_frac_pct": 0.1,
+  "val_ring_f1": 0.47509578544061304
+}

@@ -1,0 +1,415 @@
+{
+  "experiment": "seed5",
+  "step": "7.3 B5 CSGM",
+  "created_utc": "2026-11-14T14:34:49+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "aggregator": "b5",
+  "method": "b5",
+  "bank_seed": 4,
+  "K": 2,
+  "grid": {
+    "len_threshold": [
+      2,
+      3,
+      4,
+      8
+    ],
+    "threshold": [
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9
+    ]
+  },
+  "grid_results_val": [
+    {
+      "len_threshold": 2,
+      "threshold": 0.1,
+      "n_rings": 30453,
+      "ring_precision": 0.0006,
+      "ring_recall": 0.121,
+      "ring_f1": 0.0012,
+      "mean_jaccard": 0.652
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.2,
+      "n_rings": 19721,
+      "ring_precision": 0.0009,
+      "ring_recall": 0.1146,
+      "ring_f1": 0.0018,
+      "mean_jaccard": 0.6605
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.3,
+      "n_rings": 7378,
+      "ring_precision": 0.0014,
+      "ring_recall": 0.0637,
+      "ring_f1": 0.0027,
+      "mean_jaccard": 0.6972
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.4,
+      "n_rings": 212,
+      "ring_precision": 0.0189,
+      "ring_recall": 0.0255,
+      "ring_f1": 0.0217,
+      "mean_jaccard": 0.7889
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.5,
+      "n_rings": 166,
+      "ring_precision": 0.0241,
+      "ring_recall": 0.0255,
+      "ring_f1": 0.0248,
+      "mean_jaccard": 0.7889
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.6,
+      "n_rings": 115,
+      "ring_precision": 0.0174,
+      "ring_recall": 0.0127,
+      "ring_f1": 0.0147,
+      "mean_jaccard": 0.7778
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.7,
+      "n_rings": 46,
+      "ring_precision": 0.0217,
+      "ring_recall": 0.0064,
+      "ring_f1": 0.0099,
+      "mean_jaccard": 1.0
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.8,
+      "n_rings": 46,
+      "ring_precision": 0.0217,
+      "ring_recall": 0.0064,
+      "ring_f1": 0.0099,
+      "mean_jaccard": 1.0
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.9,
+      "n_rings": 45,
+      "ring_precision": 0.0222,
+      "ring_recall": 0.0064,
+      "ring_f1": 0.0099,
+      "mean_jaccard": 1.0
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.1,
+      "n_rings": 4306,
+      "ring_precision": 0.0009,
+      "ring_recall": 0.0255,
+      "ring_f1": 0.0018,
+      "mean_jaccard": 0.7639
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.2,
+      "n_rings": 1216,
+      "ring_precision": 0.0025,
+      "ring_recall": 0.0191,
+      "ring_f1": 0.0044,
+      "mean_jaccard": 0.8519
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.3,
+      "n_rings": 36,
+      "ring_precision": 0.0833,
+      "ring_recall": 0.0191,
+      "ring_f1": 0.0311,
+      "mean_jaccard": 0.8519
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.4,
+      "n_rings": 27,
+      "ring_precision": 0.037,
+      "ring_recall": 0.0064,
+      "ring_f1": 0.0109,
+      "mean_jaccard": 0.5556
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.5,
+      "n_rings": 14,
+      "ring_precision": 0.0714,
+      "ring_recall": 0.0064,
+      "ring_f1": 0.0117,
+      "mean_jaccard": 0.5556
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.6,
+      "n_rings": 5,
+      "ring_precision": 0.2,
+      "ring_recall": 0.0064,
+      "ring_f1": 0.0123,
+      "mean_jaccard": 0.5556
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.7,
+      "n_rings": 1,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.8,
+      "n_rings": 1,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.9,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.1,
+      "n_rings": 539,
+      "ring_precision": 0.0037,
+      "ring_recall": 0.0127,
+      "ring_f1": 0.0057,
+      "mean_jaccard": 0.75
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.2,
+      "n_rings": 26,
+      "ring_precision": 0.0385,
+      "ring_recall": 0.0064,
+      "ring_f1": 0.0109,
+      "mean_jaccard": 1.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.3,
+      "n_rings": 1,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.4,
+      "n_rings": 1,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.5,
+      "n_rings": 1,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.6,
+      "n_rings": 1,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.7,
+      "n_rings": 1,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.8,
+      "n_rings": 1,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.9,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.1,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.2,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.3,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.4,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.5,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.6,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.7,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.8,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.9,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    }
+  ],
+  "chosen": {
+    "method": "b5",
+    "len_threshold": 3,
+    "threshold": 0.3,
+    "val_ring_f1": 0.0311,
+    "seed_frac_pct": null,
+    "min_size": 3
+  },
+  "reference": "github.com/zhihuat/Collaborative-AML aml_sim.py (exact Jaccard instead of LSH/Bloom estimate; random institutions)",
+  "eval_windows": {
+    "val": {
+      "name": "val",
+      "split": "val",
+      "days": [
+        6,
+        7
+      ],
+      "bounds": [
+        518410,
+        691209
+      ]
+    },
+    "primary": {
+      "name": "primary",
+      "split": "test",
+      "days": [
+        8,
+        9
+      ],
+      "bounds": [
+        691210,
+        864009
+      ]
+    },
+    "tail": {
+      "name": "tail",
+      "split": "test",
+      "days": [
+        10,
+        17
+      ],
+      "bounds": [
+        864010,
+        1555209
+      ]
+    },
+    "whole": {
+      "name": "whole",
+      "split": "test",
+      "days": [
+        8,
+        17
+      ],
+      "bounds": [
+        691210,
+        1555209
+      ]
+    }
+  },
+  "primary_block": "primary"
+}

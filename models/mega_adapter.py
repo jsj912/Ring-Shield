@@ -345,7 +345,20 @@ def main(argv=None):
                     help="parallel-edge aggregator (their --edge_agg_type); gin = published MEGA-GIN")
     ap.add_argument("--node-agg-type", default="sum", choices=["sum", "genagg"],
                     help="neighbour aggregator inside GINEConv (their --node_agg_type); MEGA-GenAgg sets both to genagg")
+    ap.add_argument("--score-only", action="store_true",
+                    help="no training: load model_best_seed<N>.pt and training_log_seed<N>.csv from --ckpt-dir "
+                         "and only score --splits; the training code path is not entered")
+    ap.add_argument("--ckpt-dir", type=Path, default=None,
+                    help="with --score-only: where the checkpoint and training log are read (default --out-dir)")
+    ap.add_argument("--score-batch-size", type=int, default=None,
+                    help="batch size for the scoring loaders only (default --batch-size); training is unaffected")
     a = ap.parse_args(argv)
+    if a.ckpt_dir is not None and not a.score_only:
+        ap.error("--ckpt-dir needs --score-only")
+    if a.score_only and a.dry_run:
+        ap.error("--score-only and --dry-run are exclusive")
+    score_bs = a.score_batch_size or a.batch_size
+    ckpt_dir = a.ckpt_dir or a.out_dir
     flags = mega_flags(a.edge_agg_type, a.node_agg_type)
     variant = {("gin", "sum"): "MEGA-GIN", ("genagg", "genagg"): "MEGA-GenAgg"}.get(
         (a.edge_agg_type, a.node_agg_type), f"MEGA edge={a.edge_agg_type} node={a.node_agg_type}")
@@ -398,8 +411,14 @@ def main(argv=None):
               f"{'' if ROUTE['route'] == 'native' else f' (window {a.window_s}s)'}", flush=True)
 
         best_f1, best_epoch, log, waited = -1.0, 0, [], 0
-        ckpt = out_dir / f"model_best_seed{seed}.pt"
-        for epoch in range(1, a.epochs + 1):
+        ckpt = (ckpt_dir if a.score_only else out_dir) / f"model_best_seed{seed}.pt"
+        if a.score_only:
+            log = pd.read_csv(ckpt_dir / f"training_log_seed{seed}.csv").to_dict("records")
+            best_epoch = int(np.argmax([r["val_f1"] for r in log])) + 1  # first maximum, as the strict '>' rule
+            best_f1 = float(log[best_epoch - 1]["val_f1"])
+            print(f"[mega] seed {seed}: score-only from {ckpt} (best epoch {best_epoch}, val F1 {best_f1:.4f}); "
+                  f"scoring batch {score_bs}", flush=True)
+        for epoch in range(1, (0 if a.score_only else a.epochs) + 1):
             t_ep = time.time()
             tr_m = run_epoch(tr_loader, tr_inds, model, optimizer, loss_fn, device, hetero, train=True)
             va_m = run_epoch(val_loader, val_inds, model, optimizer, loss_fn, device, hetero, train=False)
@@ -408,6 +427,13 @@ def main(argv=None):
             print(f"    epoch {epoch:3d} | loss {tr_m['loss']:.4f} | trF1 {tr_m['f1']:.4f} | "
                   f"valF1 {va_m['f1']:.4f} | valAP {va_m['average_precision']:.4f} | "
                   f"{log[-1]['time_s']:.0f}s", flush=True)
+            if device.type == "cuda":  # logging only (2026-11-15 rerun): cache vs real growth
+                MiB = 2 ** 20
+                print(f"    [mem] epoch {epoch} alloc {torch.cuda.memory_allocated() / MiB:.0f} MiB | "
+                      f"reserved {torch.cuda.memory_reserved() / MiB:.0f} MiB | "
+                      f"peak_alloc {torch.cuda.max_memory_allocated() / MiB:.0f} MiB | "
+                      f"peak_reserved {torch.cuda.max_memory_reserved() / MiB:.0f} MiB", flush=True)
+                torch.cuda.reset_peak_memory_stats()
             if a.dry_run:
                 t = log[-1]["time_s"]
                 print(f"[mega] DRY RUN: {t:.0f}s for one train+val epoch on this machine -> "
@@ -423,8 +449,10 @@ def main(argv=None):
                     print(f"    early stop at epoch {epoch}")
                     break
         model.load_state_dict(torch.load(ckpt, map_location=device, weights_only=True))
-        pd.DataFrame(log).to_csv(out_dir / f"training_log_seed{seed}.csv", index=False)
+        if not a.score_only:
+            pd.DataFrame(log).to_csv(out_dir / f"training_log_seed{seed}.csv", index=False)
 
+        train_bs, args.batch_size = args.batch_size, score_bs
         for split in a.splits:
             inds = inds_of[split]
             want_emb = split in (a.embeddings_for or [])
@@ -443,11 +471,13 @@ def main(argv=None):
                 e.to_parquet(out_dir / f"embeddings_{split}_seed{seed}.parquet", index=False)
                 msg += f", embeddings {emb.shape}"
             print(msg, flush=True)
+        args.batch_size = train_bs
 
         (out_dir / f"metrics_seed{seed}.json").write_text(json.dumps(
             {"seed": seed, "best_val_f1": best_f1, "best_epoch": best_epoch, "epochs_run": len(log),
              "mean_epoch_time_s": float(np.mean([r["time_s"] for r in log])), "n_params": n_params,
-             "val_at_best": {k: v for k, v in log[best_epoch - 1].items() if k.startswith("val_")}},
+             "val_at_best": {k: v for k, v in log[best_epoch - 1].items() if k.startswith("val_")},
+             "score_only": a.score_only, "score_batch_size": score_bs, "splits_scored": list(a.splits)},
             indent=2), encoding="utf-8")
         summary.append({"seed": seed, "best_val_f1": best_f1, "best_epoch": best_epoch})
 
@@ -459,7 +489,8 @@ def main(argv=None):
                         "shims": ["ports_cpp (pure python; unused -- their AML command has no --ports)",
                                   "negative_sampling (stub; link-prediction task only)"]},
            "params": params, "flags": flags, "seeds": a.seeds, "epochs": a.epochs, "patience": a.patience,
-           "batch_size": a.batch_size, "num_neighbors": list(a.num_neighs),
+           "batch_size": a.batch_size, "score_batch_size": score_bs, "score_only": a.score_only,
+           "ckpt_dir": str(ckpt_dir), "num_neighbors": list(a.num_neighs),
            "causal_sampling": not a.non_causal,
            "loader_route": ("mega_native_noncausal" if a.non_causal else f"ours_{ROUTE['route']}"),
            "loader_window_s": None if ROUTE["route"] == "native" else a.window_s,
@@ -479,14 +510,15 @@ def main(argv=None):
                     "label_informed_preprocessing": False},
            "calibration": "models/calibrate.py --scores-dir <out-dir> (isotonic, fit on val only)",
            "summary": summary, "seconds": round(time.time() - t_start, 1)}
-    (out_dir / "config.yaml").write_text(yaml.dump(cfg, sort_keys=False), encoding="utf-8")
+    sfx = "_score_only" if a.score_only else ""
+    (out_dir / f"config{sfx}.yaml").write_text(yaml.dump(cfg, sort_keys=False), encoding="utf-8")
     env = [f"python: {sys.version}", f"platform: {platform.platform()}", f"torch: {torch.__version__}",
            f"cuda: {torch.cuda.is_available()}", f"mega_gnn_commit: {git_commit(MEGA)}"]
     try:
         env.append("\n# pip freeze\n" + subprocess.check_output([sys.executable, "-m", "pip", "freeze"], text=True))
     except Exception:  # pragma: no cover
         pass
-    (out_dir / "environment.txt").write_text("\n".join(env), encoding="utf-8")
+    (out_dir / f"environment{sfx}.txt").write_text("\n".join(env), encoding="utf-8")
     print(f"[mega] {len(summary)} seed(s) -> {out_dir}  ({cfg['seconds']} s)")
 
 

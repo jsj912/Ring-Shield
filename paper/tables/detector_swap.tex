@@ -1,0 +1,19 @@
+% Source: results/tables/r6_detector_swap.csv
+\begin{table}[t]
+\centering
+\caption{The same ring layer on three detectors, every downstream parameter
+re-chosen on validation per detector per seed. Edge F1 is on the whole test split (mean $\pm$
+std over 5 seeds); ring numbers are on the primary window with bootstrap CIs. Added-member precision here was measured with day-folded expansion-policy inputs; with leak-free (ring-folded) inputs the reference full pipeline's value is 0.817 (Table~\ref{tab:precision-paired}).}
+% source (leak-free value): results/tables/v45_ringfold_full_precision_paired.csv (full_ringfold, added_member_precision 0.8174)
+\label{tab:detector-swap}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Detector & Edge F1 & Ring F1, B0 & Ring F1, full & Quiet rec., full & Added prec., full \\
+\midrule
+GFP-XGBoost & $0.500 \pm 0.006$ & \ci{0.343}{0.259}{0.426} & \ci{0.451}{0.375}{0.526} & 0.267 & 0.260 \\ % source: r6_detector_swap.csv (gfpxgb rows)
+Multi-GINe (shipped) & $0.596 \pm 0.071$ & \ci{0.521}{0.429}{0.607} & \ci{0.589}{0.502}{0.675} & 0.203 & 0.926 \\ % source: r6_detector_swap.csv (gine_causal rows)
+MEGA-GNN & $0.689 \pm 0.040$ & \ci{0.521}{0.432}{0.609} & \ci{0.607}{0.521}{0.688} & 0.242 & 0.932 \\ % source: r6_detector_swap.csv (mega rows)
+\bottomrule
+\end{tabular}
+\end{table}

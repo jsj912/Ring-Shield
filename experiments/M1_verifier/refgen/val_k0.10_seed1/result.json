@@ -1,0 +1,8 @@
+{
+ "n_rings": 154,
+ "ring_f1": 0.5852090032154341,
+ "ring_precision": 0.5909090909090909,
+ "ring_recall": 0.5796178343949044,
+ "n_accounts": 686,
+ "ref_val_ring_f1": 0.5852
+}

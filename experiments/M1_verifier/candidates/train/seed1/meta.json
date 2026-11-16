@@ -1,0 +1,71 @@
+{
+ "n_truth_train": 220,
+ "n_pos": 75,
+ "fold_seed_rows": [
+  {
+   "fold": 0,
+   "n_edges": 1114880,
+   "q": 0.15084642788768027,
+   "n_seeds": 2230,
+   "n_on_boundary": 0,
+   "seed_frac_pct_realised": 0.20002152698048223
+  },
+  {
+   "fold": 1,
+   "n_edges": 754380,
+   "q": 0.6415454249382018,
+   "n_seeds": 1509,
+   "n_on_boundary": 0,
+   "seed_frac_pct_realised": 0.20003181420504254
+  },
+  {
+   "fold": 2,
+   "n_edges": 415014,
+   "q": 0.9473849534988403,
+   "n_seeds": 621,
+   "n_on_boundary": 1993,
+   "seed_frac_pct_realised": 0.14963350633954517
+  },
+  {
+   "fold": 3,
+   "n_edges": 482565,
+   "q": 0.31810736393928357,
+   "n_seeds": 966,
+   "n_on_boundary": 0,
+   "seed_frac_pct_realised": 0.20018028659351592
+  },
+  {
+   "fold": 4,
+   "n_edges": 482082,
+   "q": 0.5829526504278157,
+   "n_seeds": 965,
+   "n_on_boundary": 0,
+   "seed_frac_pct_realised": 0.2001734144813538
+  }
+ ],
+ "n_trajectories": 4832,
+ "n_trajectories_crossing_folds": 318,
+ "split": "train",
+ "seed": 1,
+ "k_pct": 0.2,
+ "n_rings": 1097,
+ "r3_cell": {
+  "seed_frac_pct": 0.1,
+  "min_size": 3,
+  "max_gap_hours": null,
+  "delta_t_h": 24.0,
+  "p_min": 0.7,
+  "val_ring_f1": 0.5497
+ },
+ "r4_cell": {
+  "seed_frac_pct": 0.1,
+  "min_size": 3,
+  "delta_t_h": 24.0,
+  "p_min": 0.7,
+  "method": "average",
+  "cut": 0.5,
+  "val_ring_f1": 0.5852
+ },
+ "seconds": 1201.4,
+ "created_utc": "2026-11-15T17:02:30+00:00"
+}

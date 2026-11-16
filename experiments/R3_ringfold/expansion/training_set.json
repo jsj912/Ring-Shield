@@ -1,0 +1,236 @@
+{
+  "created_utc": "2026-11-12T15:14:05+00:00",
+  "git_commit": "aa4d23332353c1ca0dd54e41f6cacf6064644981",
+  "dry_run": false,
+  "inputs": {
+    "cross_scores": "experiments\\R3_ringfold\\cross_scores\\cross_scores_train.parquet",
+    "cross_scores_assertion": {
+      "rule": "every edge of a train ring scored by the single fold model that held out the whole ring; one row per train edge",
+      "violations": 0,
+      "passed": true
+    },
+    "train_split": "amlworld_train.parquet",
+    "gfp": "amlworld_gfp_features_train.parquet",
+    "embeddings": {
+      "0": "experiments\\R3_ringfold\\cross_scores\\embeddings_fold0.parquet",
+      "1": "experiments\\R3_ringfold\\cross_scores\\embeddings_fold1.parquet",
+      "2": "experiments\\R3_ringfold\\cross_scores\\embeddings_fold2.parquet",
+      "3": "experiments\\R3_ringfold\\cross_scores\\embeddings_fold3.parquet",
+      "4": "experiments\\R3_ringfold\\cross_scores\\embeddings_fold4.parquet"
+    }
+  },
+  "params": {
+    "delta_t_h": 72.0,
+    "max_hops": 2,
+    "seed_frac_pct": 0.1,
+    "seed_frac_source": "experiments\\R2_b0\\gine_causal\\seed1\\config.yaml (chosen on val)",
+    "cut": "strict, quantile within the edge's fold",
+    "membership": "train parquet ring_id == test_visible on the train window"
+  },
+  "seeds_per_fold": [
+    {
+      "fold": 0,
+      "n_edges": 1114880,
+      "q": 0.21776515750587386,
+      "n_seeds": 1115,
+      "n_on_boundary": 0,
+      "seed_frac_pct_realised": 0.10001076349024111
+    },
+    {
+      "fold": 1,
+      "n_edges": 754380,
+      "q": 0.6483841543793679,
+      "n_seeds": 755,
+      "n_on_boundary": 0,
+      "seed_frac_pct_realised": 0.10008218669635993
+    },
+    {
+      "fold": 2,
+      "n_edges": 415014,
+      "q": 0.996882655739785,
+      "n_seeds": 416,
+      "n_on_boundary": 0,
+      "seed_frac_pct_realised": 0.10023758234661963
+    },
+    {
+      "fold": 3,
+      "n_edges": 482565,
+      "q": 0.49050982749465577,
+      "n_seeds": 483,
+      "n_on_boundary": 0,
+      "seed_frac_pct_realised": 0.10009014329675796
+    },
+    {
+      "fold": 4,
+      "n_edges": 482082,
+      "q": 0.6888000705242375,
+      "n_seeds": 483,
+      "n_on_boundary": 0,
+      "seed_frac_pct_realised": 0.10019042403574495
+    }
+  ],
+  "n_seed_edges_total": 3252,
+  "dry_run_seed_note": null,
+  "rings": {
+    "train_visible": 220,
+    "with_seeds": 125,
+    "zero_seeds": 95,
+    "member_edges_total": 1406,
+    "seed_member_edges": 382,
+    "quiet_member_edges": 1024,
+    "quiet_member_edges_in_rings_with_seeds": 600,
+    "quiet_reached_as_candidates": 384,
+    "zero_seed_rings_by_pattern": {
+      "CYCLE": 17,
+      "GATHER-SCATTER": 14,
+      "BIPARTITE": 14,
+      "FAN-OUT": 14,
+      "RANDOM": 11,
+      "FAN-IN": 10,
+      "STACK": 9,
+      "SCATTER-GATHER": 6
+    }
+  },
+  "candidates_before_day0_drop": {
+    "n": 127971,
+    "n_pos": 384,
+    "n_truncated_queries": 306,
+    "by_hop": {
+      "1": {
+        "n": 8663,
+        "n_pos": 330
+      },
+      "2": {
+        "n": 119308,
+        "n_pos": 54
+      }
+    }
+  },
+  "day0_dropped": {
+    "n": 14233,
+    "n_pos": 23
+  },
+  "training_set": {
+    "n_rows": 113738,
+    "n_pos": 361,
+    "n_neg": 113377,
+    "pos_rate": 0.0031739612090945857,
+    "neg_per_pos": 314.06371191135736,
+    "n_rings": 125,
+    "n_rings_with_positive": 64,
+    "by_hop": {
+      "1": {
+        "n": 7530,
+        "n_pos": 309,
+        "pos_rate": 0.041035856573705176
+      },
+      "2": {
+        "n": 106208,
+        "n_pos": 52,
+        "pos_rate": 0.0004896053028020488
+      }
+    },
+    "by_fold": {
+      "0": {
+        "n": 15,
+        "n_pos": 1,
+        "pos_rate": 0.06666666666666667
+      },
+      "1": {
+        "n": 30712,
+        "n_pos": 7,
+        "pos_rate": 0.00022792393852565774
+      },
+      "2": {
+        "n": 22507,
+        "n_pos": 189,
+        "pos_rate": 0.008397387479450838
+      },
+      "3": {
+        "n": 31614,
+        "n_pos": 58,
+        "pos_rate": 0.0018346302271145694
+      },
+      "4": {
+        "n": 28890,
+        "n_pos": 106,
+        "pos_rate": 0.0036690896503980617
+      }
+    },
+    "by_pattern": {
+      "BIPARTITE": {
+        "n": 10666,
+        "n_pos": 0,
+        "pos_rate": 0.0
+      },
+      "CYCLE": {
+        "n": 12644,
+        "n_pos": 46,
+        "pos_rate": 0.0036380892122745965
+      },
+      "FAN-IN": {
+        "n": 8401,
+        "n_pos": 26,
+        "pos_rate": 0.003094869658374003
+      },
+      "FAN-OUT": {
+        "n": 10345,
+        "n_pos": 37,
+        "pos_rate": 0.0035766070565490574
+      },
+      "GATHER-SCATTER": {
+        "n": 23568,
+        "n_pos": 67,
+        "pos_rate": 0.002842837746096402
+      },
+      "RANDOM": {
+        "n": 10266,
+        "n_pos": 15,
+        "pos_rate": 0.0014611338398597311
+      },
+      "SCATTER-GATHER": {
+        "n": 24364,
+        "n_pos": 149,
+        "pos_rate": 0.006115580364472172
+      },
+      "STACK": {
+        "n": 13484,
+        "n_pos": 21,
+        "pos_rate": 0.0015574013645802433
+      }
+    },
+    "by_day": {
+      "1": {
+        "n": 30725,
+        "n_pos": 51,
+        "pos_rate": 0.001659886086248983
+      },
+      "2": {
+        "n": 10719,
+        "n_pos": 54,
+        "pos_rate": 0.005037783375314861
+      },
+      "3": {
+        "n": 11671,
+        "n_pos": 80,
+        "pos_rate": 0.006854596864021935
+      },
+      "4": {
+        "n": 31694,
+        "n_pos": 87,
+        "pos_rate": 0.0027449990534486025
+      },
+      "5": {
+        "n": 28929,
+        "n_pos": 89,
+        "pos_rate": 0.003076497632133845
+      }
+    },
+    "n_dead_region_rows": 85,
+    "n_features": 70,
+    "cosine_nan_rows": 0
+  },
+  "quiet_ceiling_note": "quiet members = member edges below the seed cut; the policy can only recover the ones that appear as candidates (quiet_reached_as_candidates); rings with zero seeds contribute nothing",
+  "out": "experiments\\R3_ringfold\\expansion\\training_set.parquet",
+  "seconds": 1122.3
+}

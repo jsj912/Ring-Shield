@@ -1,0 +1,64 @@
+{
+  "created_utc": "2026-11-15T17:36:28+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "argv": [
+    "--rings",
+    "experiments/M1_verifier/posthoc/a/rings/seed1/rings.parquet",
+    "experiments/M1_verifier/posthoc/a/rings/seed2/rings.parquet",
+    "experiments/M1_verifier/posthoc/a/rings/seed3/rings.parquet",
+    "experiments/M1_verifier/posthoc/a/rings/seed4/rings.parquet",
+    "experiments/M1_verifier/posthoc/a/rings/seed5/rings.parquet",
+    "--split",
+    "test",
+    "--window",
+    "primary",
+    "--out",
+    "experiments/M1_verifier/posthoc/scored_a_rings"
+  ],
+  "ringshield_paths": "configs/paths.yaml",
+  "eval_window_file": "E:\\JSJ\\RS-react\\configs\\eval_window.yaml",
+  "truth": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+    "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "split_parquet": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_test.parquet"
+  },
+  "inputs": [
+    {
+      "path": "experiments\\M1_verifier\\posthoc\\a\\rings\\seed1\\rings.parquet",
+      "sha256": "9e288f8c5fa994663249a65acd388e224124ff8ddcb6ecb9611443cf55157693",
+      "schema": "full",
+      "n_rings_in_file": 94,
+      "n_rings_after_min_size": 94
+    },
+    {
+      "path": "experiments\\M1_verifier\\posthoc\\a\\rings\\seed2\\rings.parquet",
+      "sha256": "95b757c482b8fbeb0039c92d79d68dc934683c28266d6eeb120bdc6a3a14fb42",
+      "schema": "full",
+      "n_rings_in_file": 89,
+      "n_rings_after_min_size": 89
+    },
+    {
+      "path": "experiments\\M1_verifier\\posthoc\\a\\rings\\seed3\\rings.parquet",
+      "sha256": "d00687d14d4b982a59ebc0c7f3d8fe499ecbea8262dce1fa07c42fd4a622b1e0",
+      "schema": "full",
+      "n_rings_in_file": 95,
+      "n_rings_after_min_size": 95
+    },
+    {
+      "path": "experiments\\M1_verifier\\posthoc\\a\\rings\\seed4\\rings.parquet",
+      "sha256": "c5b0ffc4db7e2ec626a9e33168b2df10969b699d3a1a9bd0ecd94eca084ffc76",
+      "schema": "full",
+      "n_rings_in_file": 89,
+      "n_rings_after_min_size": 89
+    },
+    {
+      "path": "experiments\\M1_verifier\\posthoc\\a\\rings\\seed5\\rings.parquet",
+      "sha256": "639cfeace8a6c33d921147ed8cf0aa83e320c681eebf3c3d4ecb174ab5ce0be7",
+      "schema": "full",
+      "n_rings_in_file": 87,
+      "n_rings_after_min_size": 87
+    }
+  ]
+}

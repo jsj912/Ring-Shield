@@ -1,0 +1,16 @@
+% Source: results/tables/r5_typing_ci.csv
+\begin{table}[t]
+\centering
+\caption{Typing accuracy over matched rings (a per-ring classification rate, not a ring-F1;
+bootstrap CIs over matched rings). Typing does not change with the window.}
+\label{tab:typing}
+\small
+\begin{tabular}{lccc}
+\toprule
+Window & Matched rings & Head accuracy [CI] & Rule accuracy [CI] \\
+\midrule
+primary (days 8--9) & 401 & \ci{0.599}{0.549}{0.648} & \ci{0.551}{0.499}{0.601} \\ % source: r5_typing_ci.csv (primary rows)
+whole (days 8--17) & 433 & \ci{0.594}{0.547}{0.640} & \ci{0.547}{0.499}{0.591} \\ % source: r5_typing_ci.csv (whole rows)
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,66 @@
+{
+  "created_utc": "2026-11-14T14:53:50+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "argv": [
+    "--rings",
+    "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed1\\rings.parquet",
+    "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed2\\rings.parquet",
+    "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed3\\rings.parquet",
+    "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed4\\rings.parquet",
+    "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed5\\rings.parquet",
+    "--split",
+    "test",
+    "--window",
+    "primary",
+    "--n-boot",
+    "1000",
+    "--out",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\scored\\b0"
+  ],
+  "ringshield_paths": "configs/paths.yaml",
+  "eval_window_file": "E:\\JSJ\\RS-react\\configs\\eval_window.yaml",
+  "truth": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+    "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "split_parquet": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_test.parquet"
+  },
+  "inputs": [
+    {
+      "path": "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed1\\rings.parquet",
+      "sha256": "6bdc8adeb6e8476420a49ebaeb1bb9d954827e2170ffba7a808721a9292053eb",
+      "schema": "full",
+      "n_rings_in_file": 98,
+      "n_rings_after_min_size": 98
+    },
+    {
+      "path": "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed2\\rings.parquet",
+      "sha256": "5db96dae6a9a41135643c868ad21180727a0abf8567eb7be1ee508c32404fb61",
+      "schema": "full",
+      "n_rings_in_file": 96,
+      "n_rings_after_min_size": 96
+    },
+    {
+      "path": "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed3\\rings.parquet",
+      "sha256": "e0c5db39bbf96f415e08e998eaea22db2d8541408ae82eaafc91ce31861d818c",
+      "schema": "full",
+      "n_rings_in_file": 94,
+      "n_rings_after_min_size": 94
+    },
+    {
+      "path": "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed4\\rings.parquet",
+      "sha256": "874cd6331f2f4bd7920304c231acb205c31e0d378af64d3b8bce691f667d325c",
+      "schema": "full",
+      "n_rings_in_file": 99,
+      "n_rings_after_min_size": 99
+    },
+    {
+      "path": "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed5\\rings.parquet",
+      "sha256": "53d9df439f32f140a129fa59a311b725d5187ec105e8f943dfe1a2641674c57e",
+      "schema": "full",
+      "n_rings_in_file": 91,
+      "n_rings_after_min_size": 91
+    }
+  ]
+}

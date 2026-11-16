@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "typing_head": {
+    "added_utc": "2026-10-22T05:08:00+00:00",
+    "source": "experiments/R5_typing/head_w2",
+    "chosen_by": "experiments/R5_typing/chosen_head.json (val accuracy on 114 val rings; nothing chosen on test)",
+    "files": {
+      "head.json": {
+        "sha256": "58055aa04f830d7dafd810c7f1f2111ecabf7c712226a3c8551e51e2dcf3e5f1",
+        "bytes": 9911
+      },
+      "head.txt": {
+        "sha256": "ac1470376331376dec3a4756109a58cbc538fa1b9687c7033f6be285cd1d7a5f",
+        "bytes": 581446
+      }
+    },
+    "one_head_for_all_seeds": true,
+    "note": "the same head contract/make_rings_full.py loaded for all five seeds. The copy those contract logs point to (RS-ccy-valrings/experiments/R5_typing/head_w2) differs only in line endings (LF vs this original CRLF); its sha256s are recorded under lf_copy_sha256",
+    "lf_copy_sha256": {
+      "head.json": "b01c3aa946c5638d7fdb564730d46c3fb1d234db334d567564f12e1b2cb0388f",
+      "head.txt": "eb33438cb3f82d22cf1a9adddc28bd01eaef264cab1df1de8ab469db1e97b664"
+    },
+    "retrained": false
+  }
+}

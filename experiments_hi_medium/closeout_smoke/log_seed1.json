@@ -1,0 +1,133 @@
+{
+ "seed": 1,
+ "chosen": {
+  "variant": "no_detector",
+  "p_min": 0.9,
+  "delta_t_h": 48.0,
+  "seed_frac_pct": 0.1,
+  "min_size": 3,
+  "cut": 0.3,
+  "val_ring_f1": 0.4769
+ },
+ "runs": [
+  {
+   "seed": 1,
+   "window": "block6-7",
+   "rule": "global",
+   "method": "b0",
+   "n_truth": 914,
+   "n_seeds": 3862,
+   "n_seeds_in_window": 3862,
+   "n_rings": 449,
+   "ring_f1": 0.339,
+   "ring_p": 0.5145,
+   "ring_r": 0.2527
+  },
+  {
+   "seed": 1,
+   "window": "block6-7",
+   "rule": "global",
+   "method": "proposed",
+   "n_truth": 914,
+   "n_seeds": 3862,
+   "n_seeds_in_window": 3862,
+   "n_rings": 540,
+   "ring_f1": 0.4003,
+   "ring_p": 0.5389,
+   "ring_r": 0.3184
+  },
+  {
+   "seed": 1,
+   "window": "block6-7",
+   "rule": "global",
+   "method": "full",
+   "n_truth": 914,
+   "n_seeds": 3862,
+   "n_seeds_in_window": 3862,
+   "n_rings": 586,
+   "ring_f1": 0.4053,
+   "ring_p": 0.5188,
+   "ring_r": 0.3326
+  },
+  {
+   "seed": 1,
+   "window": "block6-7",
+   "rule": "global",
+   "method": "b1b",
+   "n_truth": 914,
+   "n_seeds": 3862,
+   "n_seeds_in_window": 3862,
+   "n_rings": 1065,
+   "ring_f1": 0.3234,
+   "ring_p": 0.3005,
+   "ring_r": 0.3501
+  },
+  {
+   "seed": 1,
+   "window": "block6-7",
+   "rule": "per_day",
+   "method": "b0",
+   "n_truth": 914,
+   "n_seeds": 3863,
+   "n_seeds_in_window": 3863,
+   "n_rings": 447,
+   "ring_f1": 0.338,
+   "ring_p": 0.5145,
+   "ring_r": 0.2516
+  },
+  {
+   "seed": 1,
+   "window": "block6-7",
+   "rule": "per_day",
+   "method": "proposed",
+   "n_truth": 914,
+   "n_seeds": 3863,
+   "n_seeds_in_window": 3863,
+   "n_rings": 538,
+   "ring_f1": 0.4008,
+   "ring_p": 0.5409,
+   "ring_r": 0.3184
+  },
+  {
+   "seed": 1,
+   "window": "block6-7",
+   "rule": "per_day",
+   "method": "full",
+   "n_truth": 914,
+   "n_seeds": 3863,
+   "n_seeds_in_window": 3863,
+   "n_rings": 582,
+   "ring_f1": 0.4078,
+   "ring_p": 0.5241,
+   "ring_r": 0.3337
+  },
+  {
+   "seed": 1,
+   "window": "block6-7",
+   "rule": "per_day",
+   "method": "b1b",
+   "n_truth": 914,
+   "n_seeds": 3863,
+   "n_seeds_in_window": 3863,
+   "n_rings": 1069,
+   "ring_f1": 0.3217,
+   "ring_p": 0.2984,
+   "ring_r": 0.349
+  }
+ ],
+ "b1b_val_grid": [
+  {
+   "delta_t_h": 24.0,
+   "val_ring_f1": 0.3657
+  },
+  {
+   "delta_t_h": 48.0,
+   "val_ring_f1": 0.3715
+  },
+  {
+   "delta_t_h": 72.0,
+   "val_ring_f1": 0.3715
+  }
+ ],
+ "b1b_delta_t_h": 48.0
+}

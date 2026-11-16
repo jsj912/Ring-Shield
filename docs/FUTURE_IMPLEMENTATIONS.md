@@ -154,7 +154,12 @@ paths (val-chosen Δt per hop, 2–3 hops); these signals need no path at all.
   transfer control `mega_noembed` scores 0.5881 against 0.6074). Cross-score MEGA itself and
   retrain the policy and affinity model on its scores.
 - **MEGA-GenAgg.** Published at 74.88 ± 0.38 HI-Small edge F1 (Bilgi et al., 2024), the best
-  AMLworld number to date. `models/mega_adapter.py` hard-codes the GIN variant in `MEGA_FLAGS`
+  AMLworld number to date.
+  *Correction (2026-11-14): the figure above (74.88 ± 0.38) is not what the paper reports. The
+  TMLR 2026 version of the MEGA paper (Bilgi and Atasu) gives MEGA-GenAgg at **74.48 ± 0.84**
+  HI-Small edge F1; the paper draft uses 74.48 ± 0.84 cited to that version. The old value is left
+  in place above for traceability.*
+  `models/mega_adapter.py` hard-codes the GIN variant in `MEGA_FLAGS`
   (`edge_agg_type="gin"`, `node_agg_type="sum"`). Upstream selects GenAgg with
   `edge_agg_type="genagg"` (multi-edge stage) and `node_agg_type="genagg"` (node stage, GIN model
   only), and needs `pip install -e third_party/mega_gnn/genagg`. Expose both as CLI flags, write to

@@ -1,0 +1,66 @@
+experiment: R13_baselines/components
+created_utc: '2026-11-14T14:29:10+00:00'
+git_commit: aeab2be6fd52cc763c7095954146de2e89c40c93
+method: components
+resolution: null
+detector_seed: 2
+community_seed: 2
+weight: max score_raw between the two accounts
+min_size: 3
+k_grid:
+- 0.05
+- 0.1
+- 0.15
+- 0.2
+- 0.3
+- 0.5
+- 0.75
+- 1.0
+cut: strict score > q (configs/threshold_rule.yaml)
+chosen_on: val ring-F1, test_visible, Jaccard 0.5; ties -> smaller k
+chosen:
+  seed_frac_pct: 0.1
+  val_ring_f1: 0.5303030303030304
+val_grid:
+- seed_frac_pct: 0.05
+  n_rings: 70
+  ring_precision: 0.8
+  ring_recall: 0.35668789808917195
+  ring_f1: 0.4933920704845815
+- seed_frac_pct: 0.1
+  n_rings: 107
+  ring_precision: 0.6542056074766355
+  ring_recall: 0.445859872611465
+  ring_f1: 0.5303030303030304
+- seed_frac_pct: 0.15
+  n_rings: 158
+  ring_precision: 0.45569620253164556
+  ring_recall: 0.4585987261146497
+  ring_f1: 0.4571428571428572
+- seed_frac_pct: 0.2
+  n_rings: 159
+  ring_precision: 0.4528301886792453
+  ring_recall: 0.4585987261146497
+  ring_f1: 0.45569620253164556
+- seed_frac_pct: 0.3
+  n_rings: 332
+  ring_precision: 0.2289156626506024
+  ring_recall: 0.4840764331210191
+  ring_f1: 0.310838445807771
+- seed_frac_pct: 0.5
+  n_rings: 886
+  ring_precision: 0.09029345372460497
+  ring_recall: 0.5095541401273885
+  ring_f1: 0.15340364333652926
+- seed_frac_pct: 0.75
+  n_rings: 1639
+  ring_precision: 0.04820012202562538
+  ring_recall: 0.5031847133757962
+  ring_f1: 0.08797327394209355
+- seed_frac_pct: 1.0
+  n_rings: 2023
+  ring_precision: 0.03855659911023233
+  ring_recall: 0.4968152866242038
+  ring_f1: 0.07155963302752293
+scores: ..\RS-e2e\experiments\R1_gine_causal
+networkx: 3.6.1

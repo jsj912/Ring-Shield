@@ -1,0 +1,12 @@
+{
+  "max": {
+    "N": 966,
+    "seed_jaccard_vs_shipped": 0.2760898282694848,
+    "n_seed_accounts": 705
+  },
+  "top3": {
+    "N": 966,
+    "seed_jaccard_vs_shipped": 0.5011655011655012,
+    "n_seed_accounts": 963
+  }
+}

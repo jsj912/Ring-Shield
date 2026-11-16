@@ -1,0 +1,2 @@
+convention,threshold,n_runs,n_targets,ring_precision,ring_precision_lo,ring_precision_hi,ring_recall,ring_recall_lo,ring_recall_hi,ring_f1,ring_f1_lo,ring_f1_hi,ring_recall_ge3,member_coverage,matched_per_run,predicted_per_run
+test_visible,0.5,1,157,0.4397905759162304,0.3480366492146597,0.5129581151832461,0.535031847133758,0.4234076433121019,0.6240445859872611,0.4827586206896552,0.3820402298850575,0.5630747126436781,0.7017543859649122,0.9638888888888889,84.0,191.0

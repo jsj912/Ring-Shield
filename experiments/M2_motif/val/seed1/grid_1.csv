@@ -1,0 +1,2 @@
+variant,T_h,f,L,ring_f1,ring_precision,ring_recall,n_rings,n_accounts,seconds,n_seeds,n_instances,by_shape
+M2-S,24,3,6,0.18305084745762712,0.12471131639722864,0.34394904458598724,433,2750,0.5,966,1685,"{""FAN_IN"": 564, ""GATHER_SCATTER"": 423, ""FAN_OUT"": 639, ""BIPARTITE"": 13, ""SCATTER_GATHER"": 11, ""CYCLE"": 35}"

@@ -208,3 +208,24 @@ Amendment 15).*
   rule, with per-day reported in `v3_closeout_verdicts.json`. P4 is still open. None of this enters
   sections A–C until reviewed.
 
+### Dated notes — 2026-11-14 (`docs/deep-analysis.md` §15, §17; approved by the author at Checkpoint A)
+
+*B17 (2026-11-14, post hoc; docs/deep-analysis.md §15, paper/PREREG_AMENDMENT_2026-11-14.md):* The
+ring-folded re-run (§8) leaves ring-F1 **inconclusive**: +0.0028 [−0.0137, +0.0211], p 0.77, 5 seeds.
+That is not distinguishable from zero, and the ±0.02 equivalence reading is not met. The leak did
+inflate precision: ring precision 0.838 → 0.784 (Δ −0.055 [−0.089, −0.027]); added-member precision
+0.926 → 0.819 (Δ −0.107 [−0.167, −0.059]); ring recall +0.022 [+0.007, +0.040]. Fold models'
+ring-edge AP is 0.434 → 0.088 over all 1,406 train ring edges. **B17 is not closed.** The row's
+"small in effect" holds for ring-F1 only, not for precision.
+
+*A5 (2026-11-14, post hoc; §15):* Under leak-free (ring-folded) cross-scores, added-member precision
+is **0.819** vs B1b 0.518, Δ **+0.301 [+0.235, +0.366]**. The shipped 0.926 / +0.408 was measured
+under day folds, which leak ring labels into the policy's inputs. The purity claim holds, at a
+smaller size; the paper reports the leak-free value first.
+
+*HI-Medium audit (2026-11-14, T-P4; §17):* On HI-Medium (seeds 1–2, days 6–14), the
+full_membership − test_visible gap is negative for every method. Under the global rule it ranges
+−0.038 to −0.059; across all eight cells (both rules) it ranges −0.038 to −0.073. It is smaller than
+full − B0 (0.092 global, 0.086 per day), so the registered scope bar is not met
+(HM_AUDIT=NOT_REPRODUCED). The observability share (40.0 % vs 44.3 %) and the threshold dependence
+(gain at 0.7 < half the gain at 0.3) reproduce.

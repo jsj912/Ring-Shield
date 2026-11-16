@@ -1,0 +1,415 @@
+{
+  "experiment": "seed4",
+  "step": "7.3 B5 CSGM",
+  "created_utc": "2026-11-14T14:32:25+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "aggregator": "b5",
+  "method": "b5",
+  "bank_seed": 3,
+  "K": 2,
+  "grid": {
+    "len_threshold": [
+      2,
+      3,
+      4,
+      8
+    ],
+    "threshold": [
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9
+    ]
+  },
+  "grid_results_val": [
+    {
+      "len_threshold": 2,
+      "threshold": 0.1,
+      "n_rings": 30577,
+      "ring_precision": 0.0008,
+      "ring_recall": 0.1529,
+      "ring_f1": 0.0016,
+      "mean_jaccard": 0.6108
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.2,
+      "n_rings": 19891,
+      "ring_precision": 0.0008,
+      "ring_recall": 0.0955,
+      "ring_f1": 0.0015,
+      "mean_jaccard": 0.6374
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.3,
+      "n_rings": 7355,
+      "ring_precision": 0.001,
+      "ring_recall": 0.0446,
+      "ring_f1": 0.0019,
+      "mean_jaccard": 0.6634
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.4,
+      "n_rings": 198,
+      "ring_precision": 0.0101,
+      "ring_recall": 0.0127,
+      "ring_f1": 0.0113,
+      "mean_jaccard": 0.5635
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.5,
+      "n_rings": 152,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.6,
+      "n_rings": 87,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.7,
+      "n_rings": 44,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.8,
+      "n_rings": 44,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 2,
+      "threshold": 0.9,
+      "n_rings": 44,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.1,
+      "n_rings": 4237,
+      "ring_precision": 0.0033,
+      "ring_recall": 0.0892,
+      "ring_f1": 0.0064,
+      "mean_jaccard": 0.54
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.2,
+      "n_rings": 1288,
+      "ring_precision": 0.0031,
+      "ring_recall": 0.0255,
+      "ring_f1": 0.0055,
+      "mean_jaccard": 0.5734
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.3,
+      "n_rings": 57,
+      "ring_precision": 0.0351,
+      "ring_recall": 0.0127,
+      "ring_f1": 0.0187,
+      "mean_jaccard": 0.5635
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.4,
+      "n_rings": 37,
+      "ring_precision": 0.0541,
+      "ring_recall": 0.0127,
+      "ring_f1": 0.0206,
+      "mean_jaccard": 0.5635
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.5,
+      "n_rings": 16,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.6,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.7,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.8,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 3,
+      "threshold": 0.9,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.1,
+      "n_rings": 472,
+      "ring_precision": 0.0106,
+      "ring_recall": 0.0318,
+      "ring_f1": 0.0159,
+      "mean_jaccard": 0.5
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.2,
+      "n_rings": 17,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.3,
+      "n_rings": 10,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.4,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.5,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.6,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.7,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.8,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 4,
+      "threshold": 0.9,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.1,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.2,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.3,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.4,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.5,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.6,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.7,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.8,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    },
+    {
+      "len_threshold": 8,
+      "threshold": 0.9,
+      "n_rings": 0,
+      "ring_precision": 0.0,
+      "ring_recall": 0.0,
+      "ring_f1": 0.0,
+      "mean_jaccard": 0.0
+    }
+  ],
+  "chosen": {
+    "method": "b5",
+    "len_threshold": 3,
+    "threshold": 0.4,
+    "val_ring_f1": 0.0206,
+    "seed_frac_pct": null,
+    "min_size": 3
+  },
+  "reference": "github.com/zhihuat/Collaborative-AML aml_sim.py (exact Jaccard instead of LSH/Bloom estimate; random institutions)",
+  "eval_windows": {
+    "val": {
+      "name": "val",
+      "split": "val",
+      "days": [
+        6,
+        7
+      ],
+      "bounds": [
+        518410,
+        691209
+      ]
+    },
+    "primary": {
+      "name": "primary",
+      "split": "test",
+      "days": [
+        8,
+        9
+      ],
+      "bounds": [
+        691210,
+        864009
+      ]
+    },
+    "tail": {
+      "name": "tail",
+      "split": "test",
+      "days": [
+        10,
+        17
+      ],
+      "bounds": [
+        864010,
+        1555209
+      ]
+    },
+    "whole": {
+      "name": "whole",
+      "split": "test",
+      "days": [
+        8,
+        17
+      ],
+      "bounds": [
+        691210,
+        1555209
+      ]
+    }
+  },
+  "primary_block": "primary"
+}

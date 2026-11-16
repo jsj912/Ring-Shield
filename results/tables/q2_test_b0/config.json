@@ -1,0 +1,64 @@
+{
+  "created_utc": "2026-11-15T16:36:37+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "argv": [
+    "--rings",
+    "experiments/Q2_account_seeds/test/top3/b0/seed1/rings.parquet",
+    "experiments/Q2_account_seeds/test/top3/b0/seed2/rings.parquet",
+    "experiments/Q2_account_seeds/test/top3/b0/seed3/rings.parquet",
+    "experiments/Q2_account_seeds/test/top3/b0/seed4/rings.parquet",
+    "experiments/Q2_account_seeds/test/top3/b0/seed5/rings.parquet",
+    "--split",
+    "test",
+    "--window",
+    "primary",
+    "--out",
+    "results/tables/q2_test_b0"
+  ],
+  "ringshield_paths": "configs/paths.yaml",
+  "eval_window_file": "E:\\JSJ\\RS-react\\configs\\eval_window.yaml",
+  "truth": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+    "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "split_parquet": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_test.parquet"
+  },
+  "inputs": [
+    {
+      "path": "experiments\\Q2_account_seeds\\test\\top3\\b0\\seed1\\rings.parquet",
+      "sha256": "d6f45ebb1a2855b6fe17cd614cfc47b07ccd4e6652117b48ccd906722fbe19b3",
+      "schema": "minimal",
+      "n_rings_in_file": 104,
+      "n_rings_after_min_size": 104
+    },
+    {
+      "path": "experiments\\Q2_account_seeds\\test\\top3\\b0\\seed2\\rings.parquet",
+      "sha256": "cbdbd7e201b177c05cda34b1e1579eac063ce9d02dfce8e4d2b52df050d1eb96",
+      "schema": "minimal",
+      "n_rings_in_file": 104,
+      "n_rings_after_min_size": 104
+    },
+    {
+      "path": "experiments\\Q2_account_seeds\\test\\top3\\b0\\seed3\\rings.parquet",
+      "sha256": "3c0c2c1d4df6aaf6cc366b1206ca49b2d100023d865840e13b8b3d504c4e0015",
+      "schema": "minimal",
+      "n_rings_in_file": 99,
+      "n_rings_after_min_size": 99
+    },
+    {
+      "path": "experiments\\Q2_account_seeds\\test\\top3\\b0\\seed4\\rings.parquet",
+      "sha256": "8d74ad30254bec4fc3ba2f08371c918c5fc3a5a0dba3067c7e0811e5f74348ab",
+      "schema": "minimal",
+      "n_rings_in_file": 115,
+      "n_rings_after_min_size": 115
+    },
+    {
+      "path": "experiments\\Q2_account_seeds\\test\\top3\\b0\\seed5\\rings.parquet",
+      "sha256": "52c6fef60a24c6c49f22512bfbe9eeeb168ad11dc5d17632c234485aae0a13fe",
+      "schema": "minimal",
+      "n_rings_in_file": 119,
+      "n_rings_after_min_size": 119
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "created_utc": "2026-11-14T14:50:52+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "argv": [
+    "--rings",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed1\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed2\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed3\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed4\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed5\\rings.parquet",
+    "--split",
+    "test",
+    "--window",
+    "primary",
+    "--n-boot",
+    "1000",
+    "--out",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\scored\\lpa_on_expansion"
+  ],
+  "ringshield_paths": "configs/paths.yaml",
+  "eval_window_file": "E:\\JSJ\\RS-react\\configs\\eval_window.yaml",
+  "truth": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+    "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "split_parquet": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_test.parquet"
+  },
+  "inputs": [
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed1\\rings.parquet",
+      "sha256": "3bec48d54b7c3f4e5b675cd6965e6a92facdd0d9a364d69bd5c9fc98f0648c40",
+      "schema": "full",
+      "n_rings_in_file": 109,
+      "n_rings_after_min_size": 109
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed2\\rings.parquet",
+      "sha256": "89b5c5f7dadd46f2b7f53a4fc9c195057ecd3a3fc7a3c4efcc2b5c1aaf494d09",
+      "schema": "full",
+      "n_rings_in_file": 112,
+      "n_rings_after_min_size": 112
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed3\\rings.parquet",
+      "sha256": "3809afe8988091ad1dd2ae09a1aed5ae6232ec4229b37586fea250bcf41aea8c",
+      "schema": "full",
+      "n_rings_in_file": 112,
+      "n_rings_after_min_size": 112
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed4\\rings.parquet",
+      "sha256": "22df0bec30056f337dcbfcd0302a476f75a5ce52403930921d76f239b0b73341",
+      "schema": "full",
+      "n_rings_in_file": 117,
+      "n_rings_after_min_size": 117
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed5\\rings.parquet",
+      "sha256": "138311e9675d4f1b0554319668c6d7193453ef8fed564448d93ff8d17f78d481",
+      "schema": "full",
+      "n_rings_in_file": 114,
+      "n_rings_after_min_size": 114
+    }
+  ]
+}

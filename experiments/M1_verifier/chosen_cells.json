@@ -1,0 +1,216 @@
+{
+ "created_utc": "2026-11-15T17:25:06+00:00",
+ "rule": "threshold chosen per seed on validation ring-F1 (prereg \u00a72); grid t 0.1..0.9 frozen",
+ "seeds": {
+  "1": {
+   "M1-V_t": 0.1,
+   "M1-V-IS_t": 0.1,
+   "M1-S_q": 0.5,
+   "M1-S_c": 0.3358059952626415,
+   "val": {
+    "M1-V": {
+     "cut": 0.1,
+     "ring_f1": 0.6204081632653061,
+     "ring_precision": 0.8636363636363636,
+     "ring_recall": 0.4840764331210191,
+     "n_rings": 88,
+     "n_accounts": 487
+    },
+    "M1-V-IS": {
+     "cut": 0.1,
+     "ring_f1": 0.6147540983606558,
+     "ring_precision": 0.8620689655172413,
+     "ring_recall": 0.47770700636942676,
+     "n_rings": 87,
+     "n_accounts": 484
+    },
+    "M1-S": {
+     "cut": 0.3358059952626415,
+     "ring_f1": 0.5752508361204013,
+     "ring_precision": 0.6056338028169014,
+     "ring_recall": 0.5477707006369427,
+     "n_rings": 142,
+     "n_accounts": 639,
+     "q": 0.5
+    }
+   },
+   "val_unfiltered_020": {
+    "ring_f1": 0.41818181818181815,
+    "ring_precision": 0.3250883392226148,
+    "ring_recall": 0.5859872611464968,
+    "n_rings": 283,
+    "n_accounts": 1124
+   },
+   "ref_val_ring_f1": 0.5852,
+   "gate_pass": true
+  },
+  "2": {
+   "M1-V_t": 0.1,
+   "M1-V-IS_t": 0.1,
+   "M1-S_q": 0.5,
+   "M1-S_c": 0.30146971344947815,
+   "val": {
+    "M1-V": {
+     "cut": 0.1,
+     "ring_f1": 0.5316455696202531,
+     "ring_precision": 0.7875,
+     "ring_recall": 0.4012738853503185,
+     "n_rings": 80,
+     "n_accounts": 436
+    },
+    "M1-V-IS": {
+     "cut": 0.1,
+     "ring_f1": 0.5276595744680851,
+     "ring_precision": 0.7948717948717948,
+     "ring_recall": 0.39490445859872614,
+     "n_rings": 78,
+     "n_accounts": 440
+    },
+    "M1-S": {
+     "cut": 0.30146971344947815,
+     "ring_f1": 0.5296167247386759,
+     "ring_precision": 0.5846153846153846,
+     "ring_recall": 0.4840764331210191,
+     "n_rings": 130,
+     "n_accounts": 565,
+     "q": 0.5
+    }
+   },
+   "val_unfiltered_020": {
+    "ring_f1": 0.4134615384615385,
+    "ring_precision": 0.33204633204633205,
+    "ring_recall": 0.5477707006369427,
+    "n_rings": 259,
+    "n_accounts": 1088
+   },
+   "ref_val_ring_f1": 0.5074,
+   "gate_pass": true
+  },
+  "3": {
+   "M1-V_t": 0.1,
+   "M1-V-IS_t": 0.1,
+   "M1-S_q": 0.5,
+   "M1-S_c": 0.388532392680645,
+   "val": {
+    "M1-V": {
+     "cut": 0.1,
+     "ring_f1": 0.5679012345679012,
+     "ring_precision": 0.8023255813953488,
+     "ring_recall": 0.4394904458598726,
+     "n_rings": 86,
+     "n_accounts": 494
+    },
+    "M1-V-IS": {
+     "cut": 0.1,
+     "ring_f1": 0.5679012345679012,
+     "ring_precision": 0.8023255813953488,
+     "ring_recall": 0.4394904458598726,
+     "n_rings": 86,
+     "n_accounts": 492
+    },
+    "M1-S": {
+     "cut": 0.388532392680645,
+     "ring_f1": 0.570446735395189,
+     "ring_precision": 0.6194029850746269,
+     "ring_recall": 0.5286624203821656,
+     "n_rings": 134,
+     "n_accounts": 618,
+     "q": 0.5
+    }
+   },
+   "val_unfiltered_020": {
+    "ring_f1": 0.4329411764705882,
+    "ring_precision": 0.34328358208955223,
+    "ring_recall": 0.5859872611464968,
+    "n_rings": 268,
+    "n_accounts": 1085
+   },
+   "ref_val_ring_f1": 0.5742,
+   "gate_pass": false
+  },
+  "4": {
+   "M1-V_t": 0.2,
+   "M1-V-IS_t": 0.1,
+   "M1-S_q": 0.5,
+   "M1-S_c": 0.3756261618619883,
+   "val": {
+    "M1-V": {
+     "cut": 0.2,
+     "ring_f1": 0.5714285714285714,
+     "ring_precision": 0.8918918918918919,
+     "ring_recall": 0.42038216560509556,
+     "n_rings": 74,
+     "n_accounts": 453
+    },
+    "M1-V-IS": {
+     "cut": 0.1,
+     "ring_f1": 0.5630252100840336,
+     "ring_precision": 0.8271604938271605,
+     "ring_recall": 0.4267515923566879,
+     "n_rings": 81,
+     "n_accounts": 469
+    },
+    "M1-S": {
+     "cut": 0.3756261618619883,
+     "ring_f1": 0.5944055944055944,
+     "ring_precision": 0.6589147286821705,
+     "ring_recall": 0.5414012738853503,
+     "n_rings": 129,
+     "n_accounts": 589,
+     "q": 0.5
+    }
+   },
+   "val_unfiltered_020": {
+    "ring_f1": 0.43855421686746987,
+    "ring_precision": 0.35271317829457366,
+    "ring_recall": 0.5796178343949044,
+    "n_rings": 258,
+    "n_accounts": 1077
+   },
+   "ref_val_ring_f1": 0.5528,
+   "gate_pass": true
+  },
+  "5": {
+   "M1-V_t": 0.1,
+   "M1-V-IS_t": 0.1,
+   "M1-S_q": 0.6,
+   "M1-S_c": 0.2723167476709932,
+   "val": {
+    "M1-V": {
+     "cut": 0.1,
+     "ring_f1": 0.5517241379310345,
+     "ring_precision": 0.8533333333333334,
+     "ring_recall": 0.40764331210191085,
+     "n_rings": 75,
+     "n_accounts": 441
+    },
+    "M1-V-IS": {
+     "cut": 0.1,
+     "ring_f1": 0.5555555555555555,
+     "ring_precision": 0.8441558441558441,
+     "ring_recall": 0.4140127388535032,
+     "n_rings": 77,
+     "n_accounts": 446
+    },
+    "M1-S": {
+     "cut": 0.2723167476709932,
+     "ring_f1": 0.5522388059701493,
+     "ring_precision": 0.6666666666666666,
+     "ring_recall": 0.4713375796178344,
+     "n_rings": 111,
+     "n_accounts": 512,
+     "q": 0.6
+    }
+   },
+   "val_unfiltered_020": {
+    "ring_f1": 0.4009216589861751,
+    "ring_precision": 0.3140794223826715,
+    "ring_recall": 0.554140127388535,
+    "n_rings": 277,
+    "n_accounts": 1170
+   },
+   "ref_val_ring_f1": 0.557,
+   "gate_pass": false
+  }
+ }
+}

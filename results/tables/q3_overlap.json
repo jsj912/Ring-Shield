@@ -1,0 +1,129 @@
+{
+  "definitions": "Q3: overlapping membership in the truth, and the ring-F1 ceiling of any hard partition.\n\n    python -m evaluation.q3_overlap\n\nFor the primary window (test days 8-9) and the whole test period (days 8-17), scope test_visible:\naccounts in more than one truth ring, rings sharing >= 1 account with another, and the size of the\nshared part.\n\nCeiling. A hard partition assigns each account to at most one predicted ring, so predicted rings\nare pairwise disjoint. A prediction P matches truth ring T at Jaccard >= 0.5 at best when P is a\nsubset of T with |P| >= |T| / 2, because outsiders only lower the Jaccard. A set S of truth rings can\nall be matched at once iff disjoint subsets exist, one per ring T in S, each of size ceil(|T| / 2).\nThat is a b-matching with account capacity 1 and ring demand ceil(|T| / 2), checked by max-flow.\nThe ceiling m* is the largest such S, found exactly by search inside each connected cluster of\noverlapping rings (non-overlapping rings are always matchable). With precision 1 (output only those\npredictions), the best ring-F1 is 2 m* / (n + m*). min_size and observability are ignored here: this\nis the bound that overlap alone imposes.\n",
+  "primary": {
+    "n_rings": 174,
+    "n_accounts": 762,
+    "accounts_in_gt1_ring": 25,
+    "max_rings_per_account": 8,
+    "rings_sharing_an_account": 49,
+    "overlapping_pairs": 101,
+    "shared_part_size": {
+      "median": 2.0,
+      "mean": 1.7425742574257426,
+      "max": 2.0
+    },
+    "shared_share_of_smaller_ring_median": 1.0,
+    "overlap_clusters": [
+      {
+        "rings": 8,
+        "matchable": 8
+      },
+      {
+        "rings": 8,
+        "matchable": 4
+      },
+      {
+        "rings": 6,
+        "matchable": 2
+      },
+      {
+        "rings": 2,
+        "matchable": 2
+      },
+      {
+        "rings": 4,
+        "matchable": 2
+      },
+      {
+        "rings": 5,
+        "matchable": 2
+      },
+      {
+        "rings": 8,
+        "matchable": 2
+      },
+      {
+        "rings": 2,
+        "matchable": 2
+      },
+      {
+        "rings": 4,
+        "matchable": 3
+      },
+      {
+        "rings": 2,
+        "matchable": 2
+      }
+    ],
+    "max_matchable_m": 154,
+    "ceiling_ring_recall": 0.8850574712643678,
+    "ceiling_ring_f1": 0.9390243902439024
+  },
+  "whole": {
+    "n_rings": 183,
+    "n_accounts": 1309,
+    "accounts_in_gt1_ring": 42,
+    "max_rings_per_account": 10,
+    "rings_sharing_an_account": 63,
+    "overlapping_pairs": 169,
+    "shared_part_size": {
+      "median": 2.0,
+      "mean": 1.9763313609467457,
+      "max": 7.0
+    },
+    "shared_share_of_smaller_ring_median": 1.0,
+    "overlap_clusters": [
+      {
+        "rings": 8,
+        "matchable": 6
+      },
+      {
+        "rings": 9,
+        "matchable": 4
+      },
+      {
+        "rings": 7,
+        "matchable": 2
+      },
+      {
+        "rings": 2,
+        "matchable": 2
+      },
+      {
+        "rings": 5,
+        "matchable": 2
+      },
+      {
+        "rings": 2,
+        "matchable": 2
+      },
+      {
+        "rings": 7,
+        "matchable": 2
+      },
+      {
+        "rings": 10,
+        "matchable": 2
+      },
+      {
+        "rings": 3,
+        "matchable": 3
+      },
+      {
+        "rings": 2,
+        "matchable": 2
+      },
+      {
+        "rings": 5,
+        "matchable": 3
+      },
+      {
+        "rings": 3,
+        "matchable": 3
+      }
+    ],
+    "max_matchable_m": 153,
+    "ceiling_ring_recall": 0.8360655737704918,
+    "ceiling_ring_f1": 0.9107142857142857
+  }
+}

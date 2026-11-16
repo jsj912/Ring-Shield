@@ -1,0 +1,67 @@
+{
+  "fold": 2,
+  "held_out_days": [
+    2,
+    3
+  ],
+  "train_days": [
+    0,
+    1,
+    4,
+    5
+  ],
+  "n_train_edges": 2833907,
+  "n_train_illicit": 1556,
+  "supervised_days": [
+    0,
+    1,
+    4,
+    5
+  ],
+  "label_exclude_days": [],
+  "held_out_kept_in_graph": false,
+  "fold_unit": "ring",
+  "ring_folds": {
+    "rule": "ring edges -> the ring's plurality day fold (ties -> lower fold); all other edges -> day fold",
+    "n_rings": 220,
+    "n_ring_edges": 1406,
+    "n_rings_spanning_day_folds": 137,
+    "n_edges_moved_from_day_fold": 597,
+    "rings_per_fold": {
+      "0": 10,
+      "1": 24,
+      "2": 79,
+      "3": 38,
+      "4": 69
+    }
+  },
+  "graph_edges": 2833907,
+  "n_held_out_edges": 415014,
+  "n_held_out_illicit": 974,
+  "epochs": 30,
+  "best_epoch": 23,
+  "best_val_f1": 0.29707112970711297,
+  "val_tuned_threshold": 0.4000000000000001,
+  "train_seed": 1,
+  "held_out": {
+    "f1_at_val_threshold": 0.09399054692775152,
+    "precision_at_val_threshold": 0.05030355594102342,
+    "recall_at_val_threshold": 0.7145790554414785,
+    "average_precision": 0.08235668854836908,
+    "f1_oracle_threshold": 0.13420992972115167,
+    "base_rate": 0.00234690877898095
+  },
+  "head_constants": [
+    0.9877776503562927,
+    0.9473849534988403
+  ],
+  "n_dead_region": 1995,
+  "checkpoint": "experiments\\R3_ringfold\\cross_scores\\fold2\\model_best.pt",
+  "scores": "experiments\\R3_ringfold\\cross_scores\\scores_fold2.parquet",
+  "mean_epoch_time_s": 215.33075533707935,
+  "score_seconds": 25.9,
+  "loader_route": "fallback",
+  "loader_window_s": 1800,
+  "git_commit": "aa4d23332353c1ca0dd54e41f6cacf6064644981",
+  "created_utc": "2026-11-12T11:32:33+00:00"
+}

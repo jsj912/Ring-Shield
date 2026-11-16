@@ -1,0 +1,66 @@
+{
+  "created_utc": "2026-11-14T14:56:35+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "argv": [
+    "--rings",
+    "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed1\\rings.parquet",
+    "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed2\\rings.parquet",
+    "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed3\\rings.parquet",
+    "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed4\\rings.parquet",
+    "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed5\\rings.parquet",
+    "--split",
+    "test",
+    "--window",
+    "primary",
+    "--n-boot",
+    "1000",
+    "--out",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\scored\\full"
+  ],
+  "ringshield_paths": "configs/paths.yaml",
+  "eval_window_file": "E:\\JSJ\\RS-react\\configs\\eval_window.yaml",
+  "truth": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+    "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "split_parquet": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_test.parquet"
+  },
+  "inputs": [
+    {
+      "path": "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed1\\rings.parquet",
+      "sha256": "b3a981bc51931ba2d1ba63dc122be9ecf70d252baea7da4d529b9a13d5090038",
+      "schema": "full",
+      "n_rings_in_file": 108,
+      "n_rings_after_min_size": 108
+    },
+    {
+      "path": "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed2\\rings.parquet",
+      "sha256": "ea462594afe1b6034a0d00a29e8e766041ba3697ad4942e0667127aa70a996e4",
+      "schema": "full",
+      "n_rings_in_file": 112,
+      "n_rings_after_min_size": 112
+    },
+    {
+      "path": "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed3\\rings.parquet",
+      "sha256": "4e3f54bbbf009f014ef99c851e175e3e05419857c7ac90681511771d0f3e54d2",
+      "schema": "full",
+      "n_rings_in_file": 113,
+      "n_rings_after_min_size": 113
+    },
+    {
+      "path": "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed4\\rings.parquet",
+      "sha256": "5028b96dd239a3c7981ccf22470f67ffa666c1c10e046ea8fb5a057f151736a3",
+      "schema": "full",
+      "n_rings_in_file": 120,
+      "n_rings_after_min_size": 120
+    },
+    {
+      "path": "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed5\\rings.parquet",
+      "sha256": "a9709283e4f34abb014226d1055c10aba6b5213ea99e35eefe5195c8e4bb2df4",
+      "schema": "full",
+      "n_rings_in_file": 107,
+      "n_rings_after_min_size": 107
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+arm,added_member_precision,n_expanded_in_window,quiet_member_recall,rings_touched,rings_output,accounts_output_unrestricted,rings_output_in_window,accounts_output_in_window,n_matched_check
+q2top3_b0,0.03684895834084524,261.0,0.0018006798773986907,108.6,108.2,651.6,92.2,444.2,46.4
+q2top3_full,0.23903693627818828,370.0,0.17394925661900157,108.6,130.8,818.6,114.6,528.0,65.4
+shipped_b0,0.035273023796906916,243.8,0.005379811093318224,129.6,95.6,657.0,82.0,352.2,66.8
+shipped_full,0.224689337661841,364.0,0.2032327433648747,129.6,112.0,836.8,98.0,451.2,80.2

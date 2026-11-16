@@ -1,0 +1,66 @@
+{
+  "created_utc": "2026-11-14T14:52:53+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "argv": [
+    "--rings",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed1\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed2\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed3\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed4\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed5\\rings.parquet",
+    "--split",
+    "test",
+    "--window",
+    "primary",
+    "--n-boot",
+    "1000",
+    "--out",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\scored\\csgm"
+  ],
+  "ringshield_paths": "configs/paths.yaml",
+  "eval_window_file": "E:\\JSJ\\RS-react\\configs\\eval_window.yaml",
+  "truth": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+    "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "split_parquet": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_test.parquet"
+  },
+  "inputs": [
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed1\\rings.parquet",
+      "sha256": "e1ca1b9665be689261f178b922a0a329ebdcb3ae5f7fa91c54df30bd0f6a4566",
+      "schema": "full",
+      "n_rings_in_file": 22,
+      "n_rings_after_min_size": 22
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed2\\rings.parquet",
+      "sha256": "bd39f1990ca3c7090b6644ad3c81d0c54730e9254fd1fc06395dd219a558e0ed",
+      "schema": "full",
+      "n_rings_in_file": 37,
+      "n_rings_after_min_size": 37
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed3\\rings.parquet",
+      "sha256": "5ce49ee18d2e7188e1185ccf0d61183acc7bca66d259a57dc5fb285550df3e61",
+      "schema": "full",
+      "n_rings_in_file": 28,
+      "n_rings_after_min_size": 28
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed4\\rings.parquet",
+      "sha256": "c213a46367b1b64893a4dac743ea10f10ceba7bc0864744d3d95145248b8de6a",
+      "schema": "full",
+      "n_rings_in_file": 17,
+      "n_rings_after_min_size": 17
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed5\\rings.parquet",
+      "sha256": "cad1f59af6903446b3e81e0eb0ceab9fe2eeaad2afd75b9d5af59e6ce7574d45",
+      "schema": "full",
+      "n_rings_in_file": 32,
+      "n_rings_after_min_size": 32
+    }
+  ]
+}

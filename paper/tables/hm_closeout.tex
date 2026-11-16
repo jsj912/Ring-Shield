@@ -1,0 +1,21 @@
+% Source: results/tables/v3_closeout_p1.csv (point / lo / hi), v3_closeout_p3.csv. Intervals: ring bootstrap
+% (evaluation/ring_stats.py::bootstrap_over_rings, 1,000 resamples), the same procedure as the HI-Small headline.
+\begin{table}[t]
+\centering
+\caption{Ring recovery on HI-Medium (2{,}187 in-scope rings, test days 6--14, two detector seeds,
+in-window members, Jaccard $\ge 0.5$). Brackets: 95\,\% bootstrap intervals over rings.$^{\ddagger}$}
+\label{tab:hm-closeout}
+\small
+\begin{tabular}{llccc}
+\toprule
+Seed allocation & Method & Ring rec. & Rec. (rings $\ge$3) & Ring F1 \
+\midrule
+global  & learned expansion     & \ci{0.172}{0.159}{0.185} & \ci{0.243}{0.227}{0.260} & \ci{0.180}{0.166}{0.194} \ % source: v3_closeout_p1.csv (global,proposed)
+global  & expansion + partition & \ci{0.187}{0.174}{0.200} & \ci{0.264}{0.246}{0.280} & \ci{0.182}{0.169}{0.195} \ % source: v3_closeout_p1.csv (global,full)
+per day & learned expansion     & \ci{0.222}{0.207}{0.238} & \ci{0.315}{0.296}{0.336} & \ci{0.233}{0.217}{0.249} \ % source: v3_closeout_p1.csv (per_day,proposed)
+per day & expansion + partition & \ci{0.242}{0.226}{0.257} & \ci{0.340}{0.321}{0.360} & \ci{0.234}{0.219}{0.249} \ % source: v3_closeout_p1.csv (per_day,full)
+\bottomrule
+\multicolumn{5}{l}{\footnotesize $^{\ddagger}$ Detector seeds 1--2 only (seed 3's scores saturate); the detector did not meet its}\
+\multicolumn{5}{l}{\footnotesize pre-registered adequacy bar. Not pooled with HI-Small.}\
+\end{tabular}
+\end{table}

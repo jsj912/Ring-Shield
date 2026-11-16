@@ -1,0 +1,25 @@
+% Source: results/tables/v36_component_scope_wci.csv (v36_component_scope.csv re-scored with the
+%         weighted ring bootstrap by evaluation/rescore_weighted_intervals.py; point estimates identical)
+\begin{table}[t]
+\centering
+\caption{A third scope convention: each in-window connected piece of a truth ring scored as
+its own target (\texttt{component}: 254 targets), or only pieces of $\ge 3$ accounts
+(\texttt{component\_ge3}: 108 targets in 97 rings). Ring-F1 with 95\,\% bootstrap CIs over
+targets; same shipped runs, nothing re-selected. Denominators differ between conventions, so
+the right-hand columns are never headline numbers.}
+\label{tab:component-scope}
+\small
+\begin{tabular}{llccc}
+\toprule
+Detector & Method & \texttt{test\_visible} & \texttt{component} & \texttt{component\_ge3} \\
+\midrule
+GINe & B0 & \ci{0.521}{0.429}{0.607} & \ci{0.444}{0.371}{0.514} & \ci{0.673}{0.576}{0.761} \\ % source: v36_component_scope_wci.csv (gine_causal, b0)
+GINe & B1b & \ci{0.555}{0.470}{0.632} & \ci{0.488}{0.412}{0.562} & \ci{0.700}{0.628}{0.767} \\ % source: v36_component_scope_wci.csv (gine_causal, b1b)
+GINe & proposed & \ci{0.582}{0.490}{0.668} & \ci{0.504}{0.425}{0.572} & \ci{0.766}{0.678}{0.840} \\ % source: v36_component_scope_wci.csv (gine_causal, proposed)
+GINe & full & \ci{0.589}{0.502}{0.675} & \ci{0.515}{0.438}{0.583} & \ci{0.740}{0.656}{0.812} \\ % source: v36_component_scope_wci.csv (gine_causal, full)
+MEGA & B0 & \ci{0.521}{0.432}{0.609} & \ci{0.441}{0.366}{0.510} & \ci{0.674}{0.588}{0.762} \\ % source: v36_component_scope_wci.csv (mega, b0)
+MEGA & proposed & \ci{0.598}{0.506}{0.683} & \ci{0.517}{0.437}{0.583} & \ci{0.777}{0.707}{0.846} \\ % source: v36_component_scope_wci.csv (mega, proposed)
+MEGA & full & \ci{0.607}{0.521}{0.688} & \ci{0.530}{0.452}{0.595} & \ci{0.774}{0.709}{0.837} \\ % source: v36_component_scope_wci.csv (mega, full)
+\bottomrule
+\end{tabular}
+\end{table}

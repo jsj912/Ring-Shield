@@ -1,0 +1,21 @@
+% Source: docs/FINDINGS.md §D (D1–D4), from results/tables/r9_ring_ci.csv
+\begin{table}[t]
+\centering
+\caption{The headline rows on both windows. Ring-F1 is stable across the two windows
+($\pm 0.01$ for every method except B0); the tail's 59\,\% base rate inflates edge-level
+numbers, not these ring-level ones.}
+\label{tab:windows}
+\small
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{Ring F1} & \multicolumn{2}{c}{Quiet-member recall} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Method & primary (d.\,8--9) & whole (d.\,8--17) & primary & whole \\
+\midrule
+B0 & \ci{0.521}{0.429}{0.607} & \ci{0.471}{0.395}{0.555} & \ci{0.0052}{0.000}{0.015} & \ci{0.0000}{0.000}{0.000} \\ % source: docs/FINDINGS.md (D1, point estimate corrected 2026-11-12); r9_quiet_members.csv (b0,primary,ALL)
+B1b (rule) & \ci{0.555}{0.470}{0.632} & \ci{0.552}{0.475}{0.634} & \ci{0.223}{0.163}{0.299} & \ci{0.252}{0.192}{0.319} \\ % source: docs/FINDINGS.md (D2)
+Proposed (policy) & \ci{0.582}{0.490}{0.668} & \ci{0.577}{0.490}{0.667} & \ci{0.209}{0.142}{0.290} & \ci{0.237}{0.171}{0.306} \\ % source: docs/FINDINGS.md (D3: 0.2092, corrected 2026-11-12)
+Full & \ci{0.589}{0.502}{0.675} & \ci{0.587}{0.499}{0.674} & \ci{0.203}{0.136}{0.284} & \ci{0.227}{0.165}{0.291} \\ % source: docs/FINDINGS.md (D4)
+\bottomrule
+\end{tabular}
+\end{table}

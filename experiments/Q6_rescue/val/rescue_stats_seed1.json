@@ -1,0 +1,58 @@
+{
+  "seed": 1,
+  "split": "val",
+  "n_groups": 510,
+  "n_undersized": 386,
+  "cells": {
+    "p0.7_h2": {
+      "n_additions": 2,
+      "n_rescued_rings": 0,
+      "n_rescued_accounts": 0,
+      "n_shipped_rings": 133
+    },
+    "p0.5_h2": {
+      "n_additions": 28,
+      "n_rescued_rings": 16,
+      "n_rescued_accounts": 56,
+      "n_shipped_rings": 133
+    },
+    "p0.3_h2": {
+      "n_additions": 54,
+      "n_rescued_rings": 35,
+      "n_rescued_accounts": 116,
+      "n_shipped_rings": 133
+    },
+    "p0.1_h2": {
+      "n_additions": 83,
+      "n_rescued_rings": 50,
+      "n_rescued_accounts": 175,
+      "n_shipped_rings": 133
+    },
+    "p0.7_h3": {
+      "n_additions": 7,
+      "n_rescued_rings": 0,
+      "n_rescued_accounts": 0,
+      "n_shipped_rings": 133
+    },
+    "p0.5_h3": {
+      "n_additions": 35,
+      "n_rescued_rings": 16,
+      "n_rescued_accounts": 56,
+      "n_shipped_rings": 133
+    },
+    "p0.3_h3": {
+      "n_additions": 82,
+      "n_rescued_rings": 39,
+      "n_rescued_accounts": 143,
+      "n_shipped_rings": 133
+    },
+    "p0.1_h3": {
+      "n_additions": 120,
+      "n_rescued_rings": 55,
+      "n_rescued_accounts": 211,
+      "n_shipped_rings": 133
+    }
+  },
+  "seconds_h2": 35.5,
+  "seconds_h3": 140.9
+}

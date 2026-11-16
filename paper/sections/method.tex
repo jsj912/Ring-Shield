@@ -1,0 +1,78 @@
+\section{Reference pipeline}
+\label{sec:method}
+
+The pipeline (Figure~\ref{fig:pipeline}) is deliberately conventional: a detector scores
+edges, the highest-scoring edges seed candidate rings, and a ring layer grows and separates
+them. It is the instrument for the measurements in Sections~\ref{sec:results}
+and~\ref{sec:results-ceiling}, not the contribution.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  node distance=5mm and 6mm,
+  stage/.style={draw, rounded corners=2pt, align=center, font=\small,
+                minimum height=9mm, inner sep=5pt, fill=gray!8},
+  arr/.style={-{Stealth[length=2mm]}, thick}
+]
+\node[stage] (l1) {Detector\\causal Multi-GINe\\edge scores};
+\node[stage, right=of l1] (l2) {Seeds\\top 0.1\,\% of scores\\(chosen on validation)};
+\node[stage, right=of l2] (l3a) {Expansion\\add edges of the\\same attempt};
+\node[stage, right=of l3a] (l3b) {Partition\\one ring\\per attempt};
+\node[stage, right=of l3b] (l3c) {Roles,\\pattern type};
+\draw[arr] (l1) -- (l2);
+\draw[arr] (l2) -- (l3a);
+\draw[arr] (l3a) -- (l3b);
+\draw[arr] (l3b) -- (l3c);
+\end{tikzpicture}
+\caption{The reference pipeline. ``B0'' denotes seeds grouped by connected components with no
+further stage.}
+% source: docs/report.md §3.2 (architecture, redrawn)
+\label{fig:pipeline}
+\end{figure}
+
+\paragraph{Detector.}
+A Multi-GINe edge classifier~\citep{egressy2024} with port numbering, time deltas, reverse
+message passing, ego identifiers and subgraph-pattern edge features~\citep{blanusa2024},
+trained with 5 seeds under causal neighbour sampling.
+% source: docs/report.md §5.2
+Causality matters here: a forward-looking variant of one cycle feature read edges after the
+scored transaction and inflated its lift over the base rate by 12--16$\times$; made trailing,
+the lift falls to 1.0--4.0$\times$ with primary-window edge F1 unchanged (0.495 vs.\ 0.494).
+% source: docs/FINDINGS.md (C4)
+
+\paragraph{Seeds.}
+Seeds are the top $k^{*}$ of raw scores, with $k^{*}$ and \texttt{min\_size} grid-searched on
+validation ring-F1; every seed of every detector chose $k^{*}=0.1\,\%$ and
+\texttt{min\_size}~3.
+% source: results/tables/r4_partition.csv (chosen_cells)
+
+\paragraph{Expansion.}
+A member edge below the seed cut --- a \emph{quiet member} --- never enters a baseline ring.
+Expansion considers candidates that share an endpoint with an included edge within a
+validation-chosen $\Delta t$ (up to two hops, capped at the 500 events nearest in time per
+account to neutralise hub accounts).
+% source: docs/EXPANSION.md §6.1
+A LightGBM policy~\citep{ke2017} scores each candidate on 70 causal features: timing, money
+conservation at the shared account, direction, reach to other seeds, trailing account state,
+embedding similarity, detector-score quantile and trailing pattern counts.
+% source: docs/EXPANSION.md §6.2
+Its training data is cross-scored --- fold models trained on other days score each held-out
+day --- so the policy never learns from in-sample detector scores; rows from day 0 are
+dropped.
+% source: docs/EXPANSION.md §6.3
+The folds hold out days, not rings; Section~\ref{sec:limitations} reports the resulting leak
+and its bound. We compare the policy with two rules: \emph{B1}, add every candidate sharing an
+endpoint within $\Delta t$; and \emph{B1b}, the same with the candidate's score quantile above
+0.99.
+% source: docs/FINDINGS.md (B1)
+
+\paragraph{Partition, roles and typing.}
+A LightGBM affinity model scores pairs of ring edges that share an account, and
+average-linkage clustering with a validation-chosen cut splits merged components. Each ring
+then receives account roles from money-conservation rules and one of the eight pattern types
+from a classifier over role counts, depth, cycle presence and size.
+% source: docs/report.md §5.2
+
+The project also delivers a deterministic explanation layer and a multi-bank analyst platform
+on top of these rings. Neither is evaluated as a research claim here; both are summarised in
+Appendix~\ref{app:platform}.

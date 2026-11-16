@@ -1473,3 +1473,164 @@ Design in one paragraph:
 - `sample_external.py` and `aggregate_external.py`, still to write.
 
 Until the study runs, L4 stays "a delivered capability, not a validated explanation".
+
+---
+
+## 15. Ring-folded cross-scores: intervals, precision and the B17 leak (T-P2)
+
+### Registration (copied from paper/PREREG_2026-11-14.md §3, row T-P2, when the task started)
+
+| Task | Hypothesis / question | Metric and comparison | Success bar | Failure bar | What each outcome means for the paper |
+|---|---|---|---|---|---|
+| T-P2 | Folding cross-scores by ring instead of by day does not change the reported rings materially | paired ring-unit bootstrap of ring-F1, ring-folded minus shipped expansion policy, 5 seeds | (already fixed by `deep-analysis.md` §8: \|mean Δ\| ≤ 0.008 → met, Δ = +0.0028.) New reading: paired 95 % CI inside [−0.02, +0.02] → "no detectable effect" | CI excludes 0 → report direction and size; CI wider than ±0.05 → "under-powered, not closed" | Success: the leak paragraph cites a measurement and an interval. CI excludes 0: the main results table caption carries the caveat. |
+
+Amendment: `paper/PREREG_AMENDMENT_2026-11-14.md` (sha256 4f10b6e2…). The three readings left a
+gap. That is a pre-registration defect, found after the result was seen.
+
+### Result (2026-11-14)
+
+**Ring-F1 verdict: INCONCLUSIVE.** Ring-folded minus shipped, primary window, 5 detector seeds,
+10,000 paired ring-unit draws (seed 20261114): Δ ring-F1 = **+0.0028 [−0.0137, +0.0211], p = 0.77**.
+This is not distinguishable from zero, and the ±0.02 equivalence reading is not met. No
+equivalence claim is made. The §8 verdict (|mean Δ| ≤ 0.008) stands as registered, but **B17 is
+not closed**: the leak inflated precision.
+
+*Everything below is post hoc and exploratory (amendment §3).*
+
+| Quantity | Shipped (day folds) | Ring folds (leak-free) | Ring folds − shipped |
+|---|---|---|---|
+| ring precision | 0.838 [0.706, 0.960] | 0.784 [0.666, 0.898] | −0.055 [−0.089, −0.027] |
+| ring recall | 0.446 [0.376, 0.513] | 0.468 [0.399, 0.536] | +0.022 [+0.007, +0.040] |
+| added-member precision | 0.926 (407 edges) | 0.819 (558 edges) | −0.107 [−0.167, −0.059] |
+| added-member precision vs B1b (0.518) | +0.408 [+0.342, +0.481] | **+0.301 [+0.235, +0.366]** | |
+| quiet-member recall (B0 0.0052) | 0.2092 [0.142, 0.290] | **0.2510 [0.179, 0.344]** | |
+| ring-F1 vs B1b (0.5553), paired unit bootstrap | +0.027 [+0.001, +0.052], p 0.047 | +0.030 [+0.010, +0.050], p 0.003 | |
+| ring-matched indicator vs B1b (sign-flip, r9 test) | −0.017 [−0.041, +0.005], p 0.18 | +0.005 [−0.013, +0.022], p 0.69 | |
+
+Notes on the table:
+- Single-arm intervals are bootstraps over truth rings (1,000 resamples). Paired intervals use
+  10,000 draws over ring units (174 truth rings plus off-ring clusters).
+- The "vs B1b" precision and ring-F1 rows rerun `evaluation/precision_paired.py` with the shipped
+  seed (20261111), with the family {proposed vs B1b, ring-folded vs B1b}. The off-ring clusters
+  are built over the methods in the run, so the shipped row differs from
+  `v35_precision_paired.csv` in the third decimal of its interval: [+0.342, +0.479] there,
+  [+0.342, +0.481] here; ring-F1 p 0.042 there, 0.047 here. The Holm-adjusted p values are not
+  comparable with the registered family of four.
+- Shipped quiet-member recall, B0, B1b and ring-F1 point values reproduce `r9_quiet_members.csv`
+  and `r9_ring_ci.csv` exactly.
+
+**The leak was real, with its denominator.** Fold models were scored on the train edges each one
+held out, with ring edges (`ring_id > 0`) as positives.
+- Over all 3,248,921 train edges (1,406 ring edges, the same set for both arms), ring-edge AP is
+  0.434 under day folds and 0.088 under ring folds (ROC-AUC 0.993 vs 0.979).
+- Fold 2 alone: AP 0.698 on day fold 2's 485 ring edges (414,812 edges), against 0.083 on ring
+  fold 2's 687 ring edges (415,014). The sets differ because ring folds move ring edges. On the
+  414,699 edges both arms place in fold 2 (372 ring edges), AP is 0.678 vs 0.104.
+- 137 of 220 train rings span day folds, and 597 edges moved.
+
+Overlap with the shipped rings (in-window account sets, 463 shipped rings over 5 seeds): 79.7 %
+reproduced exactly, 97.2 % matched one-to-one at Jaccard ≥ 0.5.
+
+Outputs: `results/tables/v39_ringfold_report.{csv,json}`, `v39_ringfold_precision_paired.{csv,json}`,
+`v39_ringfold_quiet_members.csv`, `v39_ringfold_significance.csv`, `v39_ringfold_ring_ci.csv`.
+Code: `evaluation/ringfold_report.py` and `evaluation/ringfold_followup.py`, which runs
+`step9_tables` and `precision_paired` unmodified with the ring-folded method added. Tests:
+`tests/test_ringfold_report.py`.
+
+**Addendum (2026-11-14, post hoc; amendment addendum A).** The full pipeline was re-run with the
+ring-folded policy. The affinity model is unchanged; note that it was trained on pairs built from
+day-folded inputs. Shipped `full` seed 1 reproduced first (0.6045).
+- Ring-F1: 0.5893 [0.5034, 0.6722] vs 0.5894 [0.5023, 0.6747], paired Δ −0.0002
+  [−0.0170, +0.0185], p 0.96.
+- Ring precision: 0.760 vs 0.818. Ring recall: 0.483 vs 0.461.
+- Added-member precision: 0.817 vs 0.926 (Δ −0.108 [−0.167, −0.060]). Against B1b:
+  +0.300 [+0.233, +0.364].
+- Quiet-member recall: 0.2425 [0.171, 0.336] vs 0.2026.
+
+Tables: `results/tables/v45_posthoc_*`, `v45_ringfold_full_precision_paired.*`.
+
+---
+
+## 16. Classical community baselines under the protocol (T-P3)
+
+### Registration (copied from paper/PREREG_2026-11-14.md §3 when the task started, 2026-11-14)
+
+| Task | Hypothesis / question | Metric and comparison | Success bar | Failure bar | What each outcome means for the paper |
+|---|---|---|---|---|---|
+| T-P3 (A) | Scope conventions can change the ranking of methods | ordering of {CSGM, Louvain, Leiden, label propagation, B0, B1b, proposed, full} by ring-F1 point estimate under `test_visible`, `full_membership`, `component`, `component_ge3` | at least one adjacent pair changes order between `test_visible` and another convention | identical ordering under all four | Success: a concrete example beyond the partition step. Failure: the "re-ranks methods" claim rests on the partition swap alone, and the paper says so. |
+| T-P3 (B) | Simple community detection on flagged edges is a non-trivial baseline | ring-F1 of the best community baseline vs B0 (0.5213) and vs full (0.5894); paired unit bootstrap, Holm across these two comparisons | descriptive; "competitive" if point estimate ≥ 0.5213 | — | **If any external or community baseline ≥ 0.5894: the paper drops every method-superiority sentence and T-P7 runs B0 only.** |
+
+### Result
+
+**Gate: METHOD_SUPERIORITY=ON** (best baseline `lpa_on_expansion` 0.5550 < 0.5894). **Bar (A) met,
+narrowly.** Beyond the known full ↔ proposed swap under `component_ge3`, the only new adjacent
+swaps are B0 ↔ Louvain r0.5 under `component` / `component_ge3` (differences 0.0015 / 0.0007) and
+Louvain r2 ↔ CSGM under `full_membership`. Conventions re-rank near-ties, not methods that are
+clearly apart. **Bar (B): not competitive.** Louvain r0.5, the best community baseline by
+validation, scores 0.5151 on test. Against B0: Δ −0.0062 [−0.0140, +0.0002], p_Holm 0.072.
+Against full: Δ −0.0743 [−0.1178, −0.0355], p_Holm 0.0004. CSGM over bank seeds 0–4: 0.0834.
+Leiden was not run (install refused in this session). Full table and checks:
+`results/tables/v40_external_baselines.{csv,json}`, `results/notes/p3_baselines.md`.
+
+---
+
+## 17. The audit on a second release: HI-Medium (T-P4)
+
+### Registration (copied from paper/PREREG_2026-11-14.md §3 when the task started, 2026-11-14)
+
+| Task | Hypothesis / question | Metric and comparison | Success bar | Failure bar | What each outcome means for the paper |
+|---|---|---|---|---|---|
+| T-P4 (scope) | The scope-convention gap reproduces on HI-Medium | `full_membership` minus `test_visible` ring-F1, each method, global rule | gap negative for every method **and** its absolute size exceeds the largest method effect on HI-Medium (full − B0 ring-F1) | otherwise | Reproduced: the abstract says "on two releases". Not reproduced: the audit is HI-Small-specific and the paper says so in the abstract. |
+| T-P4 (observability) | A comparable share of rings has no matchable in-window piece | share of in-scope rings with no connected in-window piece of ≥ 3 accounts | within 15 percentage points of HI-Small's 44.3 % (77/174) | outside that band | Either way the number is reported; outside the band, the paper explains the difference (window length 9 days vs 2). |
+| T-P4 (threshold) | The partition gain shrinks as the matching threshold tightens | full − expansion-only ring recall at Jaccard 0.3 / 0.5 / 0.7 | gain at 0.7 is less than half the gain at 0.3 | otherwise | Reproduced: the threshold-sweep recommendation stands on two releases. Not: it is stated for HI-Small only. |
+
+### Result
+
+**HM_AUDIT=NOT_REPRODUCED.** The close-out reproduces byte for byte, and `test_visible` rows match
+it exactly. The HI-Small cross-check returns 77/174 and gap −0.3467.
+- **Scope:** the full_membership − test_visible gap is negative for every method under both rules
+  (global −0.038 to −0.059; per day −0.059 to −0.073). But it is smaller than full − B0 (0.092 /
+  0.086), so the bar fails on size.
+- **Observability:** 875 of 2,187 rings (40.0 %) have no in-window piece of ≥ 3 accounts, against
+  44.3 % on HI-Small. Within band.
+- **Threshold:** the full − expansion-only recall gain is +0.019 / +0.015 / +0.009 (global) at
+  τ 0.3 / 0.5 / 0.7. Reproduced.
+- proposed > full under `component_ge3` again (0.2434 vs 0.2430 global).
+- Day 15 takes 87.5 % of global seeds; days 16–27 hold 6,987 edges at about 58 %.
+- Step 7 not done.
+
+Tables: `results/tables/v41_hm_audit_*`; note: `results/notes/p4_hm_audit.md`.
+
+---
+
+## 18. A stronger edge detector at a fixed budget: MEGA-GenAgg (T-P7)
+
+### Registration (copied from paper/PREREG_2026-11-14.md §3, rows T-P7 and T-P7 seed-1 gate; the copy was due when the task started on 2026-11-14 and is added late, on 2026-11-15)
+
+| Task | Hypothesis / question | Metric and comparison | Success bar | Failure bar | What each outcome means for the paper |
+|---|---|---|---|---|---|
+| T-P7 | Ring recovery does not respond to a stronger edge detector at a fixed 0.1 % budget | d = B0 ring-F1(new detector) − 0.5213, 5 seeds; plus paired unit bootstrap new-full vs Multi-GINe-full on ring-F1 and added-member precision | **extends** if \|d\| ≤ 0.045 while test edge F1 is ≥ 5 points above Multi-GINe's 0.5957 | **contradicted** if d > 0.090; between the two: "inconclusive at 5 seeds" | Extends: a third point on the edge-vs-ring figure, claim stands. Contradicted: the claim becomes "a plateau between about 0.60 and 0.69 edge F1" and T-P8 is mandatory. |
+| T-P7 seed-1 gate | The new detector is actually stronger | seed-1 test edge F1 of the new detector | ≥ 0.70 → train seeds 2–5 | < 0.70 → stop T-P7 | Gate failed: no stronger point is available; the claim is stated as bounded and T-P8 is mandatory. |
+
+### Result
+
+Pending (seed-1 gate PASS, 0.7558; seeds 2–5 running). Scoring batch 2048 for every compared MEGA-family score (author decision 2026-11-15); see `results/notes/p7_genagg.md`.
+
+---
+
+## 19. Budget sweep for every detector (T-P8)
+
+### Registration (copied from paper/PREREG_2026-11-14.md §3 when the task started, 2026-11-15)
+
+| Task | Hypothesis / question | Metric and comparison | Success bar | Failure bar | What each outcome means for the paper |
+|---|---|---|---|---|---|
+| T-P8 | "The budget binds, not the ranking" holds across budgets | \|B0 ring-F1(MEGA) − B0 ring-F1(Multi-GINe)\| at k ∈ {0.05, 0.10, 0.15, 0.20, 0.30} %, global and in-window rules | at every k and rule, the gap ≤ the larger of the two seed SDs at that row | gap > 2 seed SDs at any k ≥ 0.15 % | Holds: one sentence and one figure. Fails: the claim is restricted to k ≤ 0.10 %. |
+| T-P8 (union) | Two detectors' union of touched rings (150.8) is a double-budget number | rings touched by one detector at k = 0.20 % global | ≥ 140 → supported | < 135 → not supported | Supported or not, one sentence. |
+| T-P8 (veto) | — | added-member precision | any row below 0.85 is reported as "reach gained at a precision cost", never as an improvement | — | Guards against reading a larger budget as better. |
+
+### Result (2026-11-15; results/tables/v42_budget_sweep.csv, notes results/notes/p8_budget.md)
+
+- Gap bar holds at every k and rule (10/10 rows); the largest gap is 0.041 at global 0.30 % (larger SD 0.052). The failure bar is not met.
+- Union: at 0.20 % global a single detector touches 152.0–156.2 rings (≥ 140) → supported.
+- Veto: rows with added-member precision < 0.85 are listed in the table JSON (veto_rows) and are reported as reach gained at a precision cost.
+- MEGA rows use scoring batch 2048 (decision C-1); the reference budget is 0.1 % because the pre-registration fixes it. A separate finding in the note reports that validation-chosen budgets are unstable (a near-tie on validation, a large gap on test). It is not used in any paired test.

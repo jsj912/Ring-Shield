@@ -1,0 +1,89 @@
+{
+  "created_utc": "2026-11-15T15:52:04+00:00",
+  "dataset": "HI-Small",
+  "split": "val",
+  "window": {
+    "name": "val",
+    "split": "val",
+    "days": [
+      6,
+      7
+    ],
+    "bounds": [
+      518410,
+      691209
+    ]
+  },
+  "min_size": 3,
+  "thresholds": [
+    0.5
+  ],
+  "n_boot": 10,
+  "boot_seed": 0,
+  "interval": "2.5/97.5 percentile bootstrap over truth targets, runs averaged inside each resample; draw counts as weights (as evaluation.ring_stats.bootstrap_over_rings)",
+  "legacy_subsample_intervals": false,
+  "observability": {
+    "n_in_scope_rings": 157,
+    "rings_lt3_visible_members": 43,
+    "rings_no_in_window_piece_ge3": 60,
+    "rings_split_into_ge2_pieces": 30,
+    "n_pieces": 290,
+    "n_pieces_ge3": 121,
+    "rings_with_a_piece_ge3": 97
+  },
+  "rows": [
+    {
+      "convention": "test_visible",
+      "threshold": 0.5,
+      "n_runs": 1,
+      "n_targets": 157,
+      "ring_precision": 0.5945945945945946,
+      "ring_precision_lo": 0.5195945945945946,
+      "ring_precision_hi": 0.6650337837837837,
+      "ring_recall": 0.5605095541401274,
+      "ring_recall_lo": 0.48980891719745223,
+      "ring_recall_hi": 0.6269108280254777,
+      "ring_f1": 0.5770491803278689,
+      "ring_f1_lo": 0.5042622950819672,
+      "ring_f1_hi": 0.6454098360655737,
+      "ring_recall_ge3": 0.7368421052631579,
+      "member_coverage": 0.9456439393939394,
+      "matched_per_run": 88.0,
+      "predicted_per_run": 148.0,
+      "per_pattern_recall": {
+        "BIPARTITE": {
+          "n_targets": 9,
+          "recall": 0.0
+        },
+        "CYCLE": {
+          "n_targets": 24,
+          "recall": 0.7083333333333334
+        },
+        "FAN-IN": {
+          "n_targets": 20,
+          "recall": 0.65
+        },
+        "FAN-OUT": {
+          "n_targets": 20,
+          "recall": 0.55
+        },
+        "GATHER-SCATTER": {
+          "n_targets": 23,
+          "recall": 0.8260869565217391
+        },
+        "RANDOM": {
+          "n_targets": 15,
+          "recall": 0.6
+        },
+        "SCATTER-GATHER": {
+          "n_targets": 21,
+          "recall": 0.8095238095238095
+        },
+        "STACK": {
+          "n_targets": 25,
+          "recall": 0.08
+        }
+      }
+    }
+  ]
+}

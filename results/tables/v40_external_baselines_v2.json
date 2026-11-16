@@ -1,0 +1,220 @@
+{
+  "created_utc": "2026-11-14T19:47:13+00:00",
+  "runs": {
+    "louvain_r0.5": [
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r0.5\\seed1\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r0.5\\seed2\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r0.5\\seed3\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r0.5\\seed4\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r0.5\\seed5\\rings.parquet"
+    ],
+    "louvain_r1": [
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed1\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed2\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed3\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed4\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed5\\rings.parquet"
+    ],
+    "louvain_r2": [
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r2\\seed1\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r2\\seed2\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r2\\seed3\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r2\\seed4\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r2\\seed5\\rings.parquet"
+    ],
+    "lpa": [
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa\\seed1\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa\\seed2\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa\\seed3\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa\\seed4\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa\\seed5\\rings.parquet"
+    ],
+    "louvain_r1_on_expansion": [
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1_on_expansion\\seed1\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1_on_expansion\\seed2\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1_on_expansion\\seed3\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1_on_expansion\\seed4\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1_on_expansion\\seed5\\rings.parquet"
+    ],
+    "lpa_on_expansion": [
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed1\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed2\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed3\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed4\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\lpa_on_expansion\\seed5\\rings.parquet"
+    ],
+    "components_on_expansion": [
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\components_on_expansion\\seed1\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\components_on_expansion\\seed2\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\components_on_expansion\\seed3\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\components_on_expansion\\seed4\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\components_on_expansion\\seed5\\rings.parquet"
+    ],
+    "csgm": [
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed1\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed2\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed3\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed4\\rings.parquet",
+      "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\csgm\\seed5\\rings.parquet"
+    ],
+    "b0": [
+      "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed1\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed2\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed3\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed4\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R2_b0\\gine_causal\\seed5\\rings.parquet"
+    ],
+    "b1b": [
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\b1b\\seed1\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\b1b\\seed2\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\b1b\\seed3\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\b1b\\seed4\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\b1b\\seed5\\rings.parquet"
+    ],
+    "proposed": [
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\proposed\\seed1\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\proposed\\seed2\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\proposed\\seed3\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\proposed\\seed4\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R3_expansion\\runs\\proposed\\seed5\\rings.parquet"
+    ],
+    "full": [
+      "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed1\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed2\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed3\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed4\\rings.parquet",
+      "..\\RS-e2e\\experiments\\R4_partition\\runs\\average\\seed5\\rings.parquet"
+    ]
+  },
+  "bar_A": {
+    "test_visible_order": [
+      "full",
+      "proposed",
+      "b1b",
+      "b0",
+      "louvain_r0.5",
+      "lpa",
+      "louvain_r1",
+      "louvain_r2",
+      "csgm"
+    ],
+    "orders": {
+      "component": [
+        "full",
+        "proposed",
+        "b1b",
+        "louvain_r0.5",
+        "b0",
+        "lpa",
+        "louvain_r1",
+        "louvain_r2",
+        "csgm"
+      ],
+      "component_ge3": [
+        "proposed",
+        "full",
+        "b1b",
+        "louvain_r0.5",
+        "b0",
+        "lpa",
+        "louvain_r1",
+        "louvain_r2",
+        "csgm"
+      ],
+      "full_membership": [
+        "full",
+        "proposed",
+        "b1b",
+        "b0",
+        "louvain_r0.5",
+        "lpa",
+        "louvain_r1",
+        "csgm",
+        "louvain_r2"
+      ],
+      "test_visible": [
+        "full",
+        "proposed",
+        "b1b",
+        "b0",
+        "louvain_r0.5",
+        "lpa",
+        "louvain_r1",
+        "louvain_r2",
+        "csgm"
+      ]
+    },
+    "adjacent_swaps": {
+      "component": [
+        [
+          "b0",
+          "louvain_r0.5"
+        ]
+      ],
+      "component_ge3": [
+        [
+          "full",
+          "proposed"
+        ],
+        [
+          "b0",
+          "louvain_r0.5"
+        ]
+      ],
+      "full_membership": [
+        [
+          "louvain_r2",
+          "csgm"
+        ]
+      ]
+    },
+    "success": true
+  },
+  "bar_B": {
+    "best_community_by_val": "louvain_r0.5",
+    "val_ring_f1": {
+      "louvain_r0.5": 0.5264909196824634,
+      "louvain_r1": 0.4977348704161152,
+      "louvain_r2": 0.07513845133891686,
+      "lpa": 0.5169555111895161
+    },
+    "test_ring_f1": 0.5151397875469774,
+    "competitive_vs_b0": false,
+    "comparisons": {
+      "b0": {
+        "convention": "test_visible",
+        "threshold": 0.5,
+        "metric": "ring_f1",
+        "delta": -0.0061777150838668,
+        "ci_lo": -0.0140286635444288,
+        "ci_hi": 0.0001871166341067,
+        "p": 0.071992800719928,
+        "n_valid_draws": 10000,
+        "n_units": 174,
+        "p_holm": 0.071992800719928
+      },
+      "full": {
+        "convention": "test_visible",
+        "threshold": 0.5,
+        "metric": "ring_f1",
+        "delta": -0.0743068699963062,
+        "ci_lo": -0.1178123144545355,
+        "ci_hi": -0.035494231201154,
+        "p": 0.0001999800019998,
+        "n_valid_draws": 10000,
+        "n_units": 174,
+        "p_holm": 0.0003999600039996
+      }
+    }
+  },
+  "gate": {
+    "max_baseline": "lpa_on_expansion",
+    "max_baseline_ring_f1": 0.5550453791365967,
+    "METHOD_SUPERIORITY": "ON"
+  },
+  "notes": [
+    "Leiden registered, not run: leidenalg/igraph not installed (install not permitted in this session).",
+    "partition_alternative rows: community step on R3 proposed's expanded subgraph, nothing tuned; components_on_expansion reproduces proposed (identity check).",
+    "CSGM uses no detector: its five runs are bank seeds 0-4 (random two-institution splits)."
+  ]
+}

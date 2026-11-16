@@ -1,0 +1,34 @@
+{
+  "created_utc": "2026-11-15T14:04:52+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "argv": [
+    "--rings",
+    "experiments/M1_verifier/refgen/test_k0.10_seed1/rings.parquet",
+    "--split",
+    "test",
+    "--window",
+    "primary",
+    "--conventions",
+    "test_visible",
+    "--out",
+    "experiments/M1_verifier/refgen/test_k0.10_seed1/scored"
+  ],
+  "ringshield_paths": "configs/paths.yaml",
+  "eval_window_file": "E:\\JSJ\\RS-react\\configs\\eval_window.yaml",
+  "truth": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+    "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "split_parquet": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_test.parquet"
+  },
+  "inputs": [
+    {
+      "path": "experiments\\M1_verifier\\refgen\\test_k0.10_seed1\\rings.parquet",
+      "sha256": "276a47ca1877f93b3b22cafc7a8f44a55153bc68804201df4504488f60f6fa03",
+      "schema": "full",
+      "n_rings_in_file": 115,
+      "n_rings_after_min_size": 115
+    }
+  ]
+}

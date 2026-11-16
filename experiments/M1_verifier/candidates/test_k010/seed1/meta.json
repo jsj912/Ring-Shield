@@ -1,0 +1,26 @@
+{
+ "n_seeds": 864,
+ "split": "test",
+ "seed": 1,
+ "k_pct": 0.1,
+ "n_rings": 115,
+ "r3_cell": {
+  "seed_frac_pct": 0.1,
+  "min_size": 3,
+  "max_gap_hours": null,
+  "delta_t_h": 24.0,
+  "p_min": 0.7,
+  "val_ring_f1": 0.5497
+ },
+ "r4_cell": {
+  "seed_frac_pct": 0.1,
+  "min_size": 3,
+  "delta_t_h": 24.0,
+  "p_min": 0.7,
+  "method": "average",
+  "cut": 0.5,
+  "val_ring_f1": 0.5852
+ },
+ "seconds": 82.5,
+ "created_utc": "2026-11-15T17:35:31+00:00"
+}

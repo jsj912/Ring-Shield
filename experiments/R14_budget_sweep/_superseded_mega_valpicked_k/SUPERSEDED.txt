@@ -1,0 +1,1 @@
+SUPERSEDED 2026-11-15 (author decision D-5): MEGA seeds 4-5 expansion cells were chosen under val-picked k=0.05 %. Replaced by the run with B0 grid fixed at k=0.1 %. Kept, not deleted; excluded from v42 (outside the */*/k*/seed* glob root).

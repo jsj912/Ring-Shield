@@ -1,0 +1,66 @@
+{
+  "created_utc": "2026-11-14T14:47:07+00:00",
+  "git_commit": "aeab2be6fd52cc763c7095954146de2e89c40c93",
+  "argv": [
+    "--rings",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed1\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed2\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed3\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed4\\rings.parquet",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed5\\rings.parquet",
+    "--split",
+    "test",
+    "--window",
+    "primary",
+    "--n-boot",
+    "1000",
+    "--out",
+    "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\scored\\louvain_r1"
+  ],
+  "ringshield_paths": "configs/paths.yaml",
+  "eval_window_file": "E:\\JSJ\\RS-react\\configs\\eval_window.yaml",
+  "truth": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+    "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "split_parquet": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_test.parquet"
+  },
+  "inputs": [
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed1\\rings.parquet",
+      "sha256": "35933950b6cc5deb3fd6734587335ad0c09e264166a84ffac162e9879f91a008",
+      "schema": "full",
+      "n_rings_in_file": 98,
+      "n_rings_after_min_size": 98
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed2\\rings.parquet",
+      "sha256": "9938443686747d34d500618602ae5e4af5800b2b7a83adfd9def26e0003868d3",
+      "schema": "full",
+      "n_rings_in_file": 99,
+      "n_rings_after_min_size": 99
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed3\\rings.parquet",
+      "sha256": "88714618973564c7588854c1a2d68befd1c5a6e6ff0fca64677a56bdaaa1ecad",
+      "schema": "full",
+      "n_rings_in_file": 98,
+      "n_rings_after_min_size": 98
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed4\\rings.parquet",
+      "sha256": "4ffd30686b3a34ae9cdb36ea5b6182ac7ffaecdeadeaf86117c0e3f0678d5176",
+      "schema": "full",
+      "n_rings_in_file": 102,
+      "n_rings_after_min_size": 102
+    },
+    {
+      "path": "E:\\JSJ\\RS-react\\experiments\\R13_baselines\\louvain_r1\\seed5\\rings.parquet",
+      "sha256": "5926b1b39eb08acc9d736457afda08efc46e6a548eb09f83c87530d35c4a8282",
+      "schema": "full",
+      "n_rings_in_file": 111,
+      "n_rings_after_min_size": 111
+    }
+  ]
+}

@@ -1,0 +1,257 @@
+\section{Results with the reference pipeline}
+\label{sec:results}
+
+\subsection{Expansion recovers quiet members, and a two-line rule matches it}
+\label{sec:results-expansion}
+
+The detector reaches primary-window edge F1 $0.495 \pm 0.027$ and ROC-AUC 0.965.
+% source: results/tables/r1_edge_metrics.csv (label=causal); docs/FINDINGS.md (A4)
+Table~\ref{tab:ring-methods} gives the ring-level picture; Section~\ref{sec:results-baselines}
+discusses the baselines in its upper block.
+
+\input{tables/ring_methods}
+
+Expansion from seeds recovers ring members the detector never fires on. Quiet-member recall
+rises from \ci{0.0052}{0.000}{0.015} with seeds alone to \ci{0.2092}{0.142}{0.290} with the
+learned policy, and the comparison is significant both on quiet accounts per ring
+($+0.359$ [$+0.236$, $+0.510$], $p_{\mathrm{Holm}}=0.0005$) and on whole-ring matching
+($+0.062$ [$+0.036$, $+0.092$], $p_{\mathrm{Holm}}=0.0005$).
+% source: results/tables/r9_quiet_members.csv (b0/proposed, primary, ALL); CIs r9_ring_ci.csv; r9_significance.csv (proposed_vs_b0)
+It is the only one of the five pre-registered matched-ring comparisons to survive correction
+(Table~\ref{tab:significance}), and the result is stable across seed budgets: expansion
+recovers 14--24\,\% of quiet members at every budget we tried
+(Table~\ref{tab:robustness}, appendix).
+% source: docs/FINDINGS.md (section E)
+
+\input{tables/significance}
+
+\textbf{The learned policy is not what produces this recovery.} The rule B1b reaches
+\ci{0.2229}{0.163}{0.299} quiet recall, indistinguishable from the policy on quiet accounts
+($-0.024$ [$-0.084$, $+0.037$], $p_{\mathrm{Holm}}=1.00$) and on whole-ring matching
+($p_{\mathrm{Holm}}=0.49$).
+% source: docs/FINDINGS.md (B1, B2); r9_significance.csv (proposed_vs_b1b)
+We ran this comparison on purpose, against our own method.
+
+What the policy buys is the purity of what it adds. With leak-free policy inputs (cross-scores
+folded by ring; Section~\ref{sec:limitations}) its added-member precision is 0.819 against the
+rule's 0.518, a paired difference of $+0.301$ [$+0.235$, $+0.366$]; with the day-folded inputs we
+first reported, the same comparison gave 0.926 and $+0.408$ [$+0.342$, $+0.479$],
+$p_{\mathrm{Holm}}=0.0008$ (Figure~\ref{fig:quiet-precision}, Table~\ref{tab:precision-paired}).
+The leak-free comparison was run after the main results and is exploratory.
+% source: results/tables/v39_ringfold_precision_paired.csv (proposed_ringfold_vs_b1b, added_member_precision: 0.8190 vs 0.5179, +0.3011 [+0.2349, +0.3657]); v35_precision_paired.csv (proposed_vs_b1b); paper/PREREG_AMENDMENT_2026-11-14.md §3
+The matched-ring test cannot see this difference, which is why we test it with the
+precision-aware paired bootstrap of Section~\ref{sec:data-stats}. The same test resolves the
+gap between the pipeline on Multi-GINe scores and on GFP-XGBoost scores
+($+0.139$ ring-F1 [$+0.083$, $+0.196$], $p_{\mathrm{Holm}}=0.0008$), which the matched-ring
+test had scored at $p=0.807$: the weaker detector's pipeline matches about as many rings but
+adds 2{,}419 edges at 26\,\% precision (day-folded inputs). The policy's ring-F1 gain over the
+rule ($+0.027$) does not survive correction ($p_{\mathrm{Holm}}=0.093$); with leak-free inputs
+it is $+0.030$ [$+0.010$, $+0.050$], outside the registered family.
+% source: results/tables/v35_precision_paired.csv; docs/deep-analysis.md §2; v39_ringfold_precision_paired.csv (proposed_ringfold_vs_b1b, ring_f1: +0.0295 [+0.0101, +0.0501])
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.55\textwidth]{r9_quiet_vs_precision.png}
+\caption{Quiet-member recall against added-member precision (day-folded policy inputs, as first
+reported; with leak-free inputs the policy's added-member precision is 0.819). The rule and the
+policy recover similar shares of quiet members; they differ in how many wrong edges they add.}
+% source: results/figures/r9_quiet_vs_precision.png (repository figure)
+\label{fig:quiet-precision}
+\end{figure}
+
+\input{tables/precision_paired}
+
+\subsection{Community detection is not a stronger baseline than components}
+\label{sec:results-baselines}
+
+Replacing connected components with community detection on the same flagged-edge graph does
+not help (Table~\ref{tab:ring-methods}, upper block; edge weight is the larger detector score
+between two accounts, and the seed fraction is chosen on validation per seed). The best
+community method by validation ring-F1, Louvain at resolution 0.5, reaches 0.515 on test,
+against 0.521 for seeds and connected components ($-0.006$ [$-0.014$, $+0.000$],
+$p_{\mathrm{Holm}}=0.072$) and 0.589 for the full pipeline ($-0.074$ [$-0.118$, $-0.035$],
+$p_{\mathrm{Holm}}=0.0004$). Higher resolutions split rings apart (Louvain at resolution 2:
+0.107). On the learned policy's expanded subgraph, label propagation in place of components
+gives 0.555, below both components (0.582) and the average-linkage partition (0.589). CSGM,
+collaborative scatter-gather mining~\citep{tian2025}, is designed for one pattern family and
+uses no detector; over five random two-institution splits it reaches 0.083, with ring recall
+0.048 over all eight pattern types. These comparisons were added after the main results.
+% source: results/tables/v40_external_baselines.json (bar_B: louvain_r0.5 best by val; compare vs b0 / full, paired unit bootstrap 10,000 draws, Holm over two); v45_posthoc_ring_ci.csv (test_visible rows); results/notes/p3_baselines.md
+
+\subsection{Partition: not significant at 174 rings, resolved at 2{,}187}
+\label{sec:results-partition}
+
+On HI-Small the partition stage is not significant ($+0.015$ matched rate
+[$-0.002$, $+0.036$], $p_{\mathrm{Holm}}=0.49$), nor is partitioning without expansion
+($p_{\mathrm{Holm}}=0.23$). On HI-Medium, with 2{,}187 rings, an effect of the same size is
+resolved: $+0.015$ [$+0.010$, $+0.020$], $p_{\mathrm{Holm}}=0.0003$
+(Section~\ref{sec:results-hm}).
+% source: results/tables/v3_closeout_p3.csv (global, full vs b2: mean_delta 0.01486, lo 0.00983, hi 0.01989, p_holm 0.0003) Its pre-registered hypothesis --- that partitioning would allow a
+looser seed budget --- was rejected: validation ring-F1 falls from 0.593 to 0.194 as the seed
+fraction grows from 0.10\,\% to 0.50\,\%. A Louvain partition of the same expanded subgraph
+leaves ring-F1 unchanged at 0.582.
+% source: r9_significance.csv (full_vs_b2, cc_partition_vs_b0); docs/FINDINGS.md (B3, B4); results/tables/r4_partition.csv (b4)
+On MEGA-GNN scores, where merged rings are commoner, the gain is the same size ($+0.017$)
+and its interval excludes zero ($p_{\mathrm{Holm}} \approx 0.011$): over-merged rings fall
+from 9.8 to 8.2 per seed there and stay at 5.2 on ours. The stage removes over-merges only
+where they exist, and pays for recall with precision on both detectors.
+% source: docs/FINDINGS.md (B3)
+Its apparent benefit also depends on two evaluation choices: the recall gain is $+0.024$ at
+Jaccard 0.3, $+0.015$ at 0.5 and $+0.001$ at 0.7, and it reverses when only connected pieces
+of three or more accounts are scored (Section~\ref{sec:findings-scope}), on both releases.
+On HI-Small we do not claim the partition step beyond neutral. Typing, held-out pattern types and time-to-detection are
+reported in Appendix~\ref{app:tables}.
+% source: docs/FINDINGS.md (B3; dated note, component-level scope)
+
+\subsection{The same pipeline on a larger release}
+\label{sec:results-hm}
+
+On HI-Medium the pipeline recovers far less: full-pipeline ring recall is
+\ci{0.187}{0.174}{0.200} against HI-Small's 0.461 (Table~\ref{tab:hm-closeout}), 28.7\,\% of rings
+are untouched by any seed or expanded edge, and 8.6\,\% are recovered only in part. Its
+detector did not meet the adequacy bar fixed before the run, and only two of its three seeds
+are usable (Section~\ref{sec:findings-saturation}), so these are not method results on a par
+with HI-Small's.
+% source: results/tables/v3_closeout_p1.csv (global,full,ring_recall); v3_closeout_verdicts.json (P2_global shares: b_untouched 0.2867, c_under_covered 0.0855); docs/deep-analysis.md §7
+Ring-F1 also falls with distance from training: with seeds allocated per day, seed 1 scores
+0.408 on test days 6--7 and 0.066 on days 14--15.
+% source: results/tables/v3_closeout_blocks.csv (seed 1, per_day, full, ring_f1: block6-7 0.4078, block14-15 0.0656)
+What the larger release does provide is power. The partition gain that is not significant on
+HI-Small is resolved here at the same size, and the learned policy matches more rings than the
+rule ($+0.047$ [$+0.037$, $+0.057$], $p_{\mathrm{Holm}}=0.0003$), where on HI-Small the two were
+indistinguishable.
+% source: results/tables/v3_closeout_p3.csv (global: full vs b2 +0.0149 [+0.0098, +0.0199]; policy vs b1b +0.0471 [+0.0373, +0.0572]; p_holm 0.0003)
+
+\input{tables/hm_closeout}
+
+\subsection{Edge F1 is not a proxy for ring recovery}
+\label{sec:results-swap}
+
+We re-ran the ring layer on two other detectors, re-choosing every downstream parameter on
+validation per detector and seed (Figure~\ref{fig:edge-ring}, Table~\ref{tab:detector-swap}).
+Our MEGA-GNN reproduction reaches $0.6893 \pm 0.0396$ test edge F1, against the
+$0.7083 \pm 0.0218$ its authors report for the same configuration; the gap is attributable to
+causal sampling, which their setup does not use\footnote{All MEGA-GNN scores in this paper are produced with a scoring batch of 2048 transactions. The released models were originally scored at 8192, which gives test edge F1 $0.6893 \pm 0.0396$ against $0.6856 \pm 0.0447$ at 2048; per seed, 2048 minus 8192 is $-0.0126$, $-0.0029$, $-0.0013$, $+0.0049$ and $-0.0069$. The causal neighbour sampler cuts batches by size or by 30 minutes of seed time, whichever comes first, so a larger scoring batch lets a transaction see later transactions of the same batch (median look-ahead 180\,s at 2048, 600\,s at 8192). The validation-to-test gap per seed is in Table~\ref{tab:val-test-gap}.}.
+% source: results/notes/p7_genagg.md (batch-2048 per-seed table, look-ahead); results/notes/p7_batch_span.json
+% TODO pass 2: switch MEGA-GNN numbers in this section, Table detector_swap and fig_edge_vs_ring to batch 2048 (results/tables/r6_detector_swap_sb2048.csv); see results/notes/p5_required_changes.md
+% source: docs/paper/generalisation.md §1
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\textwidth]{fig_edge_vs_ring.png}
+\caption{Edge F1 against ring F1 for three detectors. From Multi-GINe to MEGA-GNN, 9.4 points
+of edge F1 buy no change in ring F1 at the baseline operating point; below Multi-GINe, ring
+F1 falls with edge F1.}
+% source: results/tables/r6_detector_swap.csv; figure built by paper_draft/make_figs.py
+\label{fig:edge-ring}
+\end{figure}
+
+\input{tables/detector_swap}
+
+MEGA-GNN outscores Multi-GINe by 9.4 points of edge F1 and produces the same baseline rings
+(ring-F1 0.5208 vs.\ 0.5213); every seed of both detectors chose the same operating point on
+validation.
+% source: results/tables/r6_detector_swap.csv; docs/FINDINGS.md (C6)
+This is not the detectors agreeing. Their seed sets overlap at Jaccard 0.415, yet they reach
+128.8 and 129.6 of the 174 truth rings. What binds at this operating point is how many rings a
+0.1\,\% quantile can reach, not the ranking that fills it. The relation is a ceiling, not
+independence: the weaker GFP-XGBoost, 9.6 edge points below, loses 17.7 ring points.
+% source: docs/FINDINGS.md (C6)
+The claim is conditional on this budget, these detectors and this dataset; a detector
+stronger than MEGA-GNN was not tested.
+
+\paragraph{Can the budget be spent better?}
+Each GNN detector touches about 74\,\% of truth rings and their touched sets overlap at
+71.5\,\%, so their union reaches 150.8 of 174 --- but that is two full budgets. At the same
+budget, a best-rank ensemble of the two reaches 133.6, about a fifth of the gap, because 484
+of the 864 selected edges are in both detectors' top 0.1\,\%. A per-account budget reaches
+fewer (116.2). At an equal budget neither reallocation changes baseline ring-F1 beyond seed
+noise (0.521 / 0.515 / 0.519), and under the full pipeline the ensemble's gain
+($+0.021 \pm 0.038$) is inside seed spread.
+% source: docs/FINDINGS.md (C7, B14 with its dated correction); results/tables/v37_realloc_full.csv
+
+\paragraph{The effective test budget is about half the nominal one.}
+Because the quantile is taken over the whole test split, only 463 of 864 seeds land in the
+primary window (Section~\ref{sec:findings-tail}). Spending the full budget inside the window
+reaches 148.2 rings instead of 129.6 and leaves 28.0 rings untouched instead of 33.2. But
+added-member precision (day-folded policy inputs) falls from 0.926 to 0.700, below a 0.85
+bound fixed in advance, and
+ring-F1 falls from 0.589 to 0.546, on every seed (Table~\ref{tab:window-budget}). The extra
+seeds are weaker, and expanding from them costs more rings than the new reach gains. The
+budget binds, then, at about 463 in-window seeds, and the reported ring-F1 is not depressed by
+the budget lost to the tail. This is a sensitivity analysis on a window examined many times,
+and downstream parameters were deliberately not re-tuned.
+% source: results/tables/v34_window_budget.json; docs/deep-analysis.md §1
+
+\input{tables/window_budget}
+
+\section{Where ring recovery stops}
+\label{sec:results-ceiling}
+
+Figure~\ref{fig:decomposition} accounts for all 174 truth rings. With the full pipeline on the
+reference detector, 80.2 are matched per seed, 48.6 have fewer than three visible members and
+go unmatched, 33.2 are untouched by any seed or expanded edge, 5.2 are merged with a
+neighbour and 6.8 are recovered only in part. Achieved ring recall is
+\ci{0.461}{0.393}{0.529}.
+% source: docs/FINDINGS.md (B11); results/tables/r6_detector_swap.csv; r9_ring_ci.csv (average, primary, ring_recall)
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{fig_ring_decomposition.png}
+\caption{What happens to the 174 primary-window truth rings (per seed, full pipeline). A
+stronger detector converts untouched rings into matches and into over-merges.}
+% source: docs/FINDINGS.md (B11); figure built by paper_draft/make_figs.py
+\label{fig:decomposition}
+\end{figure}
+
+\paragraph{Small rings are not a hard ceiling.}
+60 of the 174 rings have fewer than three visible members, yet the pipeline matches
+$11.4 \pm 2.3$ of them per seed, most at Jaccard 1.0, because \texttt{min\_size} applies to
+the unrestricted prediction while matching uses the window-restricted one. The share of rings
+with three or more visible members (114 of 174) is a reference level, not a bound.
+% source: docs/FINDINGS.md (B7, B9, as corrected)
+
+\paragraph{The untouched count belongs to the detector and budget.}
+MEGA-GNN at the same budget leaves 24.0 rings untouched instead of 33.2, and 6.4 of the 9.2
+newly reached rings become matches. The net matched count rises only from 80.2 to 83.6,
+because the stronger detector also merges more rings with their neighbours (5.2 to 8.2).
+% source: docs/FINDINGS.md (B8, B11)
+
+\paragraph{Partially recovered rings are clean, short fragments of long patterns.}
+In every one of the 34 partially recovered instances the prediction contains no wrong
+account, and it holds a median 3 of the ring's 14 members. Thirteen distinct rings produce all
+34 instances, half of them STACK.
+% source: docs/FINDINGS.md (B12); results/tables/r_under_covered.csv
+
+\paragraph{Most of what is missing is disconnected inside the window.}
+For each partially recovered ring we measured the distance from the recovered fragment to the
+ring's missing member edges, through the ring itself, inside the primary window. 176 of 216
+missing edges (81.5\,\%) lie in a piece with no path to the fragment at all --- all 140 for
+STACK, all 24 for BIPARTITE --- and 85.6\,\% were never generated as candidates. The exception
+is GATHER-SCATTER, whose 31 missing edges sit one hop away and were declined by the policy; an
+oracle admitting exactly those edges completes all 8 instances, about 1.6 rings per seed,
+whereas lowering the policy's floor to reach them costs more precision than validation
+accepts.
+% source: docs/FINDINGS.md (B13, B15); results/tables/r_in_window_connectivity.csv
+Widening the window to all ten test days reduces disconnection to 52.3\,\% and removes it for
+CYCLE and RANDOM, but STACK stays at 100\,\% (237 of 237): its chains are severed by the
+train/validation/test split itself. Traversing the full 18-day graph backwards under the
+expansion's own rules reaches none of the 140 missing STACK edges at two or three hops, and a
+permutation null reaches none of 216.
+% source: docs/FINDINGS.md (B13, B16); results/tables/r_historical_bridge.csv
+A supervised-contrastive head~\citep{khosla2020} trained on the frozen detector embeddings to
+recognise ring identity does not reconnect the pieces either: same-ring separability across
+components rises only from AUC 0.552 to 0.618, against a bar of 0.75 fixed in advance.
+% source: docs/deep-analysis.md §10 — registered follow-up; not yet recorded in docs/FINDINGS.md
+
+\paragraph{Observability, counted directly.}
+77 of the 174 rings (44\,\%) have no connected in-window piece of three or more accounts. 60
+of them are the small rings above; the other 17 have enough visible members, split across
+pieces that are each too small, and are scored as ordinary misses. On the 97 rings that do
+have a matchable piece, the pipeline recovers 70.6\,\% of the pieces, and STACK recall rises
+from 0.036 to 0.493.
+% source: docs/FINDINGS.md (dated note, component-level scope); results/tables/v36_component_scope.csv
+
+Taken together, the binding constraint is neither seed allocation nor policy thresholds. It is
+how much of a ring is observable and connected inside the evaluation window --- a property of
+the split and the scope rule that is easy to mistake for a property of the method.

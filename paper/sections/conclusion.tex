@@ -1,0 +1,24 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+When the unit of evaluation is the laundering attempt, the numbers AMLworld produces are
+governed first by choices that papers rarely state and only then by the method. The scope rule
+is worth 0.35--0.38 ring-F1. The standard split's tail inflates edge metrics and halves the
+effective seed budget in the two days that carry ordinary traffic. And 44\,\% of in-scope
+rings cannot be matched as connected objects by any method, because the split and the window
+sever them.
+% source: docs/FINDINGS.md (C9, C1 and dated notes on the window-matched budget and component-level scope)
+
+Within those limits, a reference pipeline shows what is and is not gained. Growing rings
+outward from the detector's strongest edges recovers members the detector never flags (0.5\,\%
+to 21\,\%), and ring-F1 rises from \ci{0.521}{0.429}{0.607} to \ci{0.589}{0.502}{0.675}; on
+HI-Small a two-line rule matches that recall, and the learned policy adds purity. Community
+detection on the same flagged edges does no better than connected components. Partitioning is
+not significant at 174 rings; on HI-Medium, with 2{,}187 rings, an effect of the same size is
+resolved. A 9.4-point better edge detector recovers no more rings at the same budget.
+% source: results/tables/r9_ring_ci.csv; r4_partition.csv; r9_significance.csv; r6_detector_swap.csv; results/tables/v40_external_baselines.json (bar_B); results/tables/v3_closeout_p3.csv (global, full vs b2)
+
+The practical consequence is for how group-level AML results are reported. A ring-level number
+is interpretable only with its scope rule, split, window, budget allocation and matching
+threshold attached, and edge F1 is not evidence about it. We release the protocol, the tables
+behind every number in this paper, and the code.

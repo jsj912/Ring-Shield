@@ -1,0 +1,18 @@
+experiment: R13_baselines/components_on_expansion
+created_utc: '2026-11-14T14:29:10+00:00'
+git_commit: aeab2be6fd52cc763c7095954146de2e89c40c93
+method: components
+resolution: null
+detector_seed: 4
+community_seed: 4
+subgraph: seed + expanded edges of ..\RS-e2e\experiments\R3_expansion\runs\proposed\seed4
+  (min_size 3)
+expansion_chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  max_gap_hours: null
+  delta_t_h: 24.0
+  p_min: 0.7
+  val_ring_f1: 0.5654
+tuned: nothing (no validation rings for this subgraph)
+networkx: 3.6.1

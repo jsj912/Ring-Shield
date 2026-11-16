@@ -1,0 +1,59 @@
+\section{Limitations}
+\label{sec:limitations}
+
+\paragraph{One generator family.}
+Everything here is AMLworld. The tail and warm-up are reproduced on LI-Small; on HI-Medium the
+warm-up, the budget capture, the share of unobservable rings, the threshold dependence of the
+partition gain and the direction (not the size) of the scope effect reproduce, from a detector
+that missed its adequacy bar and two usable seeds. All three releases come from one simulator;
+nothing establishes how the findings carry to other generators or to real transaction data. Method
+comparisons rest on 174 truth rings and 5 detector seeds, and only one of five pre-registered
+comparisons survives correction at that power.
+% source: docs/FINDINGS.md (A6); docs/paper/generalisation.md §3
+
+\paragraph{External baselines.}
+We score one external group-level method (CSGM, five random two-institution splits) and two
+families of community detection (Louvain at three resolutions, label propagation) under the
+protocol. Leiden was planned but not run, and learned sub-network
+methods~\citep{chai2023,rico2026} were not run, so we cannot say how the protocol would re-rank
+published group-level results.
+% source: results/tables/v40_external_baselines.json (runs, notes); results/notes/p3_baselines.md
+
+\paragraph{The edge-versus-ring claim is conditional.}
+It is measured at one seed budget, between two GNN detectors about 9 edge-F1 points apart, on
+one dataset. Stronger published detectors were not tested.
+
+\paragraph{A ring-level leak in the expansion policy's training data.}
+The policy's cross-scored inputs hold out a day per fold, but rings span days, so a fold model
+is supervised on some edges of a ring and then scores that ring's held-out-day edges. Between
+65.0\,\% and 92.4\,\% of each fold's held-out rings are affected. The measured effect is small
+--- the gap in ROC-AUC between affected and unaffected ring edges ranges from $-0.008$ to
+$+0.036$ across folds, and unaffected rings are still scored at AUC 0.958--0.996 --- and the
+leak touches training inputs only: test scores come from a detector trained on the train
+split alone. Removing the affected feature group changes primary-window ring-F1 by 0.008,
+which bounds what a leak-free version could change on HI-Small; on HI-Medium the same ablation
+moves validation ring-F1 by 0.026 in the opposite direction, so the bound does not transfer
+between releases.
+% source: docs/FINDINGS.md (B17); results/tables/v33_ring_fold_leakage.csv, v33_leak_inflation.csv, v33_policy_ablations.csv
+We re-ran the policy with its inputs folded by ring, so that no fold model sees any edge of a
+ring it scores. The registered check on the mean ring-F1 difference passed ($+0.0028$, inside
+$\pm 0.008$), but the paired interval, $[-0.0137, +0.0211]$ ($p=0.77$), is too wide to call the
+two equivalent, so on ring-F1 the comparison is inconclusive. The leak did inflate precision:
+with leak-free inputs, ring precision falls from 0.838 to 0.784 ($-0.055$ [$-0.089$, $-0.027$])
+and added-member precision from 0.926 to 0.819, while ring recall rises by 0.022. The full
+pipeline behaves the same way: ring-F1 0.589 with either input ($-0.000$ [$-0.017$, $+0.019$]),
+added-member precision 0.926 against 0.817. Where this paper reports added-member or ring
+precision, the leak-free value is given first. These re-runs were added after the main results
+and are exploratory.
+% source: docs/deep-analysis.md §8 (verdict) and §15; results/tables/v39_ringfold_report.csv (paired: ring_f1, ring_precision, ring_recall, added_member_precision); v45_ringfold_full_precision_paired.csv (full_ringfold_vs_full); v45_posthoc_ring_ci.csv; paper/PREREG_AMENDMENT_2026-11-14.md
+
+\paragraph{Analyses added after the main results.}
+The precision-aware paired test, the window-matched budget, the component-level scope and the
+reallocation analysis were run on a test window that had already been examined many times.
+Their designs and bars were written down before each was run, but they are sensitivity
+analyses, not confirmatory tests. None changes a reported point estimate.
+% source: docs/FINDINGS.md (section G preamble); docs/deep-analysis.md (header and caveats)
+
+\paragraph{Published-number comparison.}
+The only published figure we compare against is MEGA-GNN's edge F1
+(Section~\ref{sec:results-swap}).

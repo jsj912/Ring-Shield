@@ -1,0 +1,2 @@
+detector,rule,k_pct,seed,seeds_total,seeds_in_window,n_truth,rings_touched,added_member_precision,n_added_edges,b0_ring_p,b0_ring_r,b0_ring_f1,b0_n_rings,b0_matched,b0_untouched,full_ring_p,full_ring_r,full_ring_f1,full_n_rings,full_matched,full_untouched
+gine_causal,global,0.2,1,1728,1114,174,155,0.5277777777777778,72,0.6694,0.477,0.557,136,83,23,0.6309,0.5402,0.582,159,94,19

@@ -1,0 +1,197 @@
+{
+  "created_utc": "2026-11-15T14:04:52+00:00",
+  "dataset": "HI-Small",
+  "split": "test",
+  "window": {
+    "name": "primary",
+    "split": "test",
+    "days": [
+      8,
+      9
+    ],
+    "bounds": [
+      691210,
+      864009
+    ]
+  },
+  "min_size": 3,
+  "thresholds": [
+    0.3,
+    0.5,
+    0.7
+  ],
+  "n_boot": 1000,
+  "boot_seed": 0,
+  "interval": "2.5/97.5 percentile bootstrap over truth targets, runs averaged inside each resample; draw counts as weights (as evaluation.ring_stats.bootstrap_over_rings)",
+  "legacy_subsample_intervals": false,
+  "observability": {
+    "n_in_scope_rings": 174,
+    "rings_lt3_visible_members": 60,
+    "rings_no_in_window_piece_ge3": 77,
+    "rings_split_into_ge2_pieces": 28,
+    "n_pieces": 254,
+    "n_pieces_ge3": 108,
+    "rings_with_a_piece_ge3": 97
+  },
+  "rows": [
+    {
+      "convention": "test_visible",
+      "threshold": 0.3,
+      "n_runs": 1,
+      "n_targets": 174,
+      "ring_precision": 0.8613861386138614,
+      "ring_precision_lo": 0.7324257425742574,
+      "ring_precision_hi": 0.9900990099009901,
+      "ring_recall": 0.5,
+      "ring_recall_lo": 0.4251436781609195,
+      "ring_recall_hi": 0.5747126436781609,
+      "ring_f1": 0.6327272727272728,
+      "ring_f1_lo": 0.5379999999999999,
+      "ring_f1_hi": 0.7272727272727273,
+      "ring_recall_ge3": 0.6578947368421053,
+      "member_coverage": 0.9429392446633826,
+      "matched_per_run": 87.0,
+      "predicted_per_run": 101.0,
+      "per_pattern_recall": {
+        "BIPARTITE": {
+          "n_targets": 16,
+          "recall": 0.0625
+        },
+        "CYCLE": {
+          "n_targets": 22,
+          "recall": 0.45454545454545453
+        },
+        "FAN-IN": {
+          "n_targets": 18,
+          "recall": 0.6666666666666666
+        },
+        "FAN-OUT": {
+          "n_targets": 20,
+          "recall": 0.7
+        },
+        "GATHER-SCATTER": {
+          "n_targets": 37,
+          "recall": 0.5945945945945946
+        },
+        "RANDOM": {
+          "n_targets": 17,
+          "recall": 0.6470588235294118
+        },
+        "SCATTER-GATHER": {
+          "n_targets": 22,
+          "recall": 0.7272727272727273
+        },
+        "STACK": {
+          "n_targets": 22,
+          "recall": 0.045454545454545456
+        }
+      }
+    },
+    {
+      "convention": "test_visible",
+      "threshold": 0.5,
+      "n_runs": 1,
+      "n_targets": 174,
+      "ring_precision": 0.8316831683168316,
+      "ring_precision_lo": 0.7029702970297029,
+      "ring_precision_hi": 0.9603960396039604,
+      "ring_recall": 0.4827586206896552,
+      "ring_recall_lo": 0.40804597701149425,
+      "ring_recall_hi": 0.5574712643678161,
+      "ring_f1": 0.610909090909091,
+      "ring_f1_lo": 0.5163636363636364,
+      "ring_f1_hi": 0.7054545454545454,
+      "ring_recall_ge3": 0.631578947368421,
+      "member_coverage": 0.9607993197278911,
+      "matched_per_run": 84.0,
+      "predicted_per_run": 101.0,
+      "per_pattern_recall": {
+        "BIPARTITE": {
+          "n_targets": 16,
+          "recall": 0.0625
+        },
+        "CYCLE": {
+          "n_targets": 22,
+          "recall": 0.4090909090909091
+        },
+        "FAN-IN": {
+          "n_targets": 18,
+          "recall": 0.6111111111111112
+        },
+        "FAN-OUT": {
+          "n_targets": 20,
+          "recall": 0.7
+        },
+        "GATHER-SCATTER": {
+          "n_targets": 37,
+          "recall": 0.5945945945945946
+        },
+        "RANDOM": {
+          "n_targets": 17,
+          "recall": 0.6470588235294118
+        },
+        "SCATTER-GATHER": {
+          "n_targets": 22,
+          "recall": 0.6818181818181818
+        },
+        "STACK": {
+          "n_targets": 22,
+          "recall": 0.045454545454545456
+        }
+      }
+    },
+    {
+      "convention": "test_visible",
+      "threshold": 0.7,
+      "n_runs": 1,
+      "n_targets": 174,
+      "ring_precision": 0.7029702970297029,
+      "ring_precision_lo": 0.5742574257425742,
+      "ring_precision_hi": 0.8316831683168316,
+      "ring_recall": 0.40804597701149425,
+      "ring_recall_lo": 0.3333333333333333,
+      "ring_recall_hi": 0.4827586206896552,
+      "ring_f1": 0.5163636363636364,
+      "ring_f1_lo": 0.4218181818181818,
+      "ring_f1_hi": 0.610909090909091,
+      "ring_recall_ge3": 0.5526315789473685,
+      "member_coverage": 0.9878940308517774,
+      "matched_per_run": 71.0,
+      "predicted_per_run": 101.0,
+      "per_pattern_recall": {
+        "BIPARTITE": {
+          "n_targets": 16,
+          "recall": 0.0
+        },
+        "CYCLE": {
+          "n_targets": 22,
+          "recall": 0.3181818181818182
+        },
+        "FAN-IN": {
+          "n_targets": 18,
+          "recall": 0.5555555555555556
+        },
+        "FAN-OUT": {
+          "n_targets": 20,
+          "recall": 0.55
+        },
+        "GATHER-SCATTER": {
+          "n_targets": 37,
+          "recall": 0.5405405405405406
+        },
+        "RANDOM": {
+          "n_targets": 17,
+          "recall": 0.4117647058823529
+        },
+        "SCATTER-GATHER": {
+          "n_targets": 22,
+          "recall": 0.6818181818181818
+        },
+        "STACK": {
+          "n_targets": 22,
+          "recall": 0.045454545454545456
+        }
+      }
+    }
+  ]
+}

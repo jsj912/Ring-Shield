@@ -191,6 +191,8 @@ def main(argv=None):
     ap.add_argument("--n-perm", type=int, default=10000)
     ap.add_argument("--labels-dir", type=Path, default=REPO_ROOT / "contract" / "out")
     ap.add_argument("--out", type=Path, default=TABLES / "r6_detector_swap.csv")
+    ap.add_argument("--pvalues-out", type=Path, default=TABLES / "r6_pvalues.csv",
+                    help="where the paired-test table is written (default: results/tables/r6_pvalues.csv)")
     ap.add_argument("--dry-run", action="store_true", help="2 seeds, 50 resamples; pipeline check, writes nothing")
     a = ap.parse_args(argv)
     t0 = time.time()
@@ -302,8 +304,9 @@ def main(argv=None):
         print(pvd.to_string(index=False) if len(pvd) else "(no comparisons available)")
         return d
     a.out.parent.mkdir(parents=True, exist_ok=True)
+    a.pvalues_out.parent.mkdir(parents=True, exist_ok=True)
     d.to_csv(a.out, index=False)
-    pvd.to_csv(TABLES / "r6_pvalues.csv", index=False)
+    pvd.to_csv(a.pvalues_out, index=False)
     meta = {"created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "git_commit": _git_commit(),
             "step": "10.3 (R6 detector swap)", "window": a.window, "window_bounds": list(W.bounds),
             "scope": a.scope, "seeds": a.seeds, "n_truth_rings": len(truth),
@@ -324,7 +327,7 @@ def main(argv=None):
                 "genuine_reach_signature": "higher rings_touched_by_seeds at unchanged gini"},
             "provenance": prov}
     Path(str(a.out).replace(".csv", ".json")).write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
-    print(f"\n-> {a.out}\n-> {TABLES / 'r6_pvalues.csv'}  ({time.time() - t0:.0f}s)")
+    print(f"\n-> {a.out}\n-> {a.pvalues_out}  ({time.time() - t0:.0f}s)")
     return d
 
 
