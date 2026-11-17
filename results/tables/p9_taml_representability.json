@@ -1,0 +1,167 @@
+{
+ "addendum": "paper/PREREG_TP9_ADDENDUM_2026-11-17.md",
+ "seed": 20261117,
+ "repeatability": {
+  "1": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 177262,
+   "edges": 180973
+  },
+  "2": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 22366,
+   "edges": 14297
+  },
+  "3": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 5422,
+   "edges": 4440
+  },
+  "4": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 5496,
+   "edges": 4493
+  },
+  "5": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 6909,
+   "edges": 5409
+  },
+  "6": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 6612,
+   "edges": 5229
+  },
+  "7": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 7086,
+   "edges": 5674
+  },
+  "8": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 7015,
+   "edges": 5505
+  },
+  "9": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 74859,
+   "edges": 52765
+  },
+  "10": {
+   "identical": true,
+   "x": true,
+   "y": true,
+   "edge_index": true,
+   "edge_attr": true,
+   "n_id": true,
+   "names": true,
+   "nodes": 14457,
+   "edges": 9735
+  }
+ },
+ "graph_sizes": {
+  "9": {
+   "nodes": 74859,
+   "edges": 52765
+  },
+  "10": {
+   "nodes": 14457,
+   "edges": 9735
+  }
+ },
+ "all_174": {
+  "n_rings": 174,
+  "members_total": 832,
+  "members_present_either": 615,
+  "share_present_median": 0.8452380952380952,
+  "share_present_mean": 0.67127990239045,
+  "rings_ge3_present_s9": 54,
+  "rings_ge3_present_s10": 59,
+  "rings_ge3_present_either": 93,
+  "rings_ge3_connected_s9": 25,
+  "rings_ge3_connected_s10": 39,
+  "rings_ge3_connected_both": 63,
+  "rings_zero_present": 32,
+  "tx_in_window": 585,
+  "tx_survive": 338,
+  "tx_survive_share": 0.5777777777777777
+ },
+ "matchable_97": {
+  "n_rings": 97,
+  "members_total": 594,
+  "members_present_either": 453,
+  "share_present_median": 0.9,
+  "share_present_mean": 0.7660072475869928,
+  "rings_ge3_present_s9": 44,
+  "rings_ge3_present_s10": 53,
+  "rings_ge3_present_either": 78,
+  "rings_ge3_connected_s9": 25,
+  "rings_ge3_connected_s10": 39,
+  "rings_ge3_connected_both": 63,
+  "rings_zero_present": 3,
+  "tx_in_window": 460,
+  "tx_survive": 266,
+  "tx_survive_share": 0.5782608695652174
+ },
+ "gate": {
+  "statistic": 63,
+  "of": 97,
+  "share": 0.6494845360824743,
+  "bar_share": 0.6,
+  "outcome": "GO-to-author (stop and report)"
+ }
+}

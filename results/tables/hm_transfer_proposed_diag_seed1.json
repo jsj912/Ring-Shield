@@ -1,0 +1,39 @@
+{
+ "seed": 1,
+ "p_min": 0.9,
+ "delta_t_h": 48.0,
+ "n_seeds": 15864,
+ "n_seed_components": 4962,
+ "n_added_edges": 1,
+ "stops": {
+  "below_p_floor": 4900,
+  "closure": 57,
+  "no_candidate": 5
+ },
+ "n_scored_candidates": 4272905,
+ "p_quantiles": {
+  "0.5": 0.0,
+  "0.9": 5e-06,
+  "0.99": 0.000262,
+  "0.999": 0.005283,
+  "1.0": 0.90545
+ },
+ "p_max": 0.9054497046943634,
+ "n_p_ge_pmin": 1,
+ "n_p_ge_0.5": 80,
+ "n_distinct_p": 149468,
+ "nan_share": {
+  "cos_mean_included": 1.0,
+  "cos_anchor": 1.0
+ },
+ "ctx_meta": {
+  "gfp_parquet": "E:\\JSJ\\RS-e2e\\data\\processed_hi_medium\\amlworld_gfp_features_test.parquet",
+  "embeddings_parquet": null,
+  "checkpoint": "E:\\JSJ\\RS-react\\experiments\\R18_hm_transfer\\closeout_input\\R1_gine_causal_c1prime\\model_best_seed1.pt",
+  "head_constants": [
+   0.007663604337722063,
+   0.050237201154232025
+  ],
+  "n_dead_region": 1891373
+ }
+}
