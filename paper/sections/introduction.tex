@@ -29,37 +29,36 @@ its edges, and a global score quantile over that split places only 463 of 864 se
 days that carry ordinary traffic.
 % source: docs/FINDINGS.md (C1; dated note on the window-matched budget)
 
-\emph{Edge F1 is not a proxy for ring recovery.} Replacing our detector with
-MEGA-GNN~\citep{bilgi2024}, which is 9.4 points of test edge F1 stronger, changes ring-F1 at
-the baseline operating point by 0.0005. The two detectors choose different seed edges (Jaccard
-0.415 between their seed sets) and reach the same number of truth rings.
-% source: results/tables/r6_detector_swap.csv; docs/FINDINGS.md (C6)
+\emph{On HI-Small, ring recovery is bounded by observability once the detector is adequate.}
+Three graph neural detectors spanning test edge F1 0.596 to 0.715 give seeds-only ring-F1 0.518
+to 0.551, and nine recovery attempts after the detector leave ring-F1 flat. 44\,\% of in-scope
+rings have no connected in-window piece of three or more accounts, and 81.5\,\% of the missing
+members of partially recovered rings sit in a piece with no in-window path to the recovered part.
+% source: results/notes/final_numbers.md (detector swap); results/notes/recovery_attempts.md; docs/FINDINGS.md (component-level scope; B13)
 
-\emph{Much of the remaining loss is unobservable, not missed.} 44\,\% of in-scope rings have
-no connected in-window piece of three or more accounts, and 81.5\,\% of the missing members of
-partially recovered rings sit in a piece of the ring with no in-window path to the recovered
-part.
-% source: docs/FINDINGS.md (dated note, component-level scope; B13)
+\emph{Below that range, the detector still matters.} On HI-Medium, a detector trained only on
+HI-Small, applied without retraining, gives seeds-only ring-F1 $0.396 \pm 0.015$ (five seeds)
+against 0.090 for an earlier in-domain detector that differs in architecture and training data
+(two seeds), and most of that gain is ranking, not budget allocation.
+% source: results/notes/final_numbers.md (HI-Medium transfer)
 
 \paragraph{Contributions.}
 \begin{enumerate}
-\item \textbf{An attempt-level evaluation protocol for AMLworld}
-  (Section~\ref{sec:data}): ring ground truth, an explicit scope rule, matching with a
-  mandatory threshold sweep, named evaluation windows, selection on validation only,
-  bootstrap intervals over rings, pre-registered permutation tests, and a precision-aware
-  paired test for the differences those tests cannot see.
-\item \textbf{A benchmark audit} (Section~\ref{sec:findings}): the test tail, the day-0
-  warm-up, seed-budget capture by global quantiles, scope sensitivity and in-window
-  disconnection and score saturation, on HI-Small with partial replication on HI-Medium: the
-  direction of the scope effect, the share of unobservable rings and the threshold dependence of
-  the partition gain reproduce there; the size of the scope effect does not.
-\item \textbf{A reference pipeline, external baselines and a decomposition of where ring
-  recovery is lost} (Sections~\ref{sec:method}--\ref{sec:results-ceiling}), with negative
-  results reported against our own method: on HI-Small a two-line rule matches the learned
-  expansion policy's recall, and the partition stage is not significant at 174 rings.
-\item \textbf{Reporting recommendations} for group-level AML evaluation
-  (Section~\ref{sec:recommendations}).
+\item \textbf{A ring-level evaluation protocol for AMLworld} (Section~\ref{sec:data}): a ring
+  metric under an explicit scope rule, one-to-one Jaccard matching with a deterministic
+  tie-break, a ring bootstrap that keeps multiplicities, ring-folded cross-fitting for learned
+  stages, and a precision-aware paired test, released as a scorer.
+\item \textbf{The HI-Small bound} (Sections~\ref{sec:findings}--\ref{sec:results-ceiling}): ring
+  recovery is bounded by observability, not by detector strength or reassembly, once edge F1 is
+  at or above about 0.6 --- three detectors and nine recovery attempts are flat, the loss buckets
+  show where rings go, and two detectors' touched rings bound what a reallocated budget can add.
+\item \textbf{Transfer} (Section~\ref{sec:results-hm}): the HI-Medium result above, with the
+  decomposition into ranking and allocation.
+\item \textbf{An external baseline} (Section~\ref{sec:results-baselines}): TAML, an
+  account-flagging method, converted to rings and scored with its protocol differences stated.
+\item \textbf{A list of evaluation defects} we found in our own pipeline and in common practice,
+  with their measured effects (Sections~\ref{sec:findings} and~\ref{sec:limitations}).
 \end{enumerate}
 
-We do not claim a new detection method. The pipeline is a vehicle for the measurements, and
-its one robust gain --- expansion over seeds --- is the part a simple rule reproduces.
+We do not claim a new detection method, that transfer beats in-domain training, or that the
+expansion policy helps on HI-Medium, where it was not evaluated under transfer.

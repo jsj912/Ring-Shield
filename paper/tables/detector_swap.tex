@@ -1,9 +1,11 @@
-% Source: results/tables/r6_detector_swap.csv
+% Source: results/tables/r6_detector_swap.csv (GFP-XGBoost, Multi-GINe); results/tables/r6_detector_swap_sb2048.csv (MEGA-GNN rows, scoring batch 2048); results/tables/r6_genagg_5seed.csv (MEGA-GenAgg)
 \begin{table}[t]
 \centering
-\caption{The same ring layer on three detectors, every downstream parameter
-re-chosen on validation per detector per seed. Edge F1 is on the whole test split (mean $\pm$
-std over 5 seeds); ring numbers are on the primary window with bootstrap CIs. Added-member precision here was measured with day-folded expansion-policy inputs; with leak-free (ring-folded) inputs the reference full pipeline's value is 0.817 (Table~\ref{tab:precision-paired}).}
+\caption{The same ring layer on several detectors at the fixed 0.1\,\% seed budget, every other
+downstream parameter re-chosen on validation per detector per seed. With the budget chosen on
+validation instead (sensitivity), MEGA-GNN's ring F1 falls to 0.414 (B0) and 0.510 (full); the
+Multi-GINe and GFP-XGBoost rows are unchanged. Edge F1 is on the whole test split (mean $\pm$
+std over 5 seeds); ring numbers are on the primary window with bootstrap CIs. MEGA-GNN and MEGA-GenAgg are scored with a batch of 2048 transactions (Section~\ref{sec:results-swap}). Added-member precision here was measured with day-folded expansion-policy inputs; with leak-free (ring-folded) inputs the reference full pipeline's value is 0.817.}
 % source (leak-free value): results/tables/v45_ringfold_full_precision_paired.csv (full_ringfold, added_member_precision 0.8174)
 \label{tab:detector-swap}
 \small
@@ -13,7 +15,9 @@ Detector & Edge F1 & Ring F1, B0 & Ring F1, full & Quiet rec., full & Added prec
 \midrule
 GFP-XGBoost & $0.500 \pm 0.006$ & \ci{0.343}{0.259}{0.426} & \ci{0.451}{0.375}{0.526} & 0.267 & 0.260 \\ % source: r6_detector_swap.csv (gfpxgb rows)
 Multi-GINe (shipped) & $0.596 \pm 0.071$ & \ci{0.521}{0.429}{0.607} & \ci{0.589}{0.502}{0.675} & 0.203 & 0.926 \\ % source: r6_detector_swap.csv (gine_causal rows)
-MEGA-GNN & $0.689 \pm 0.040$ & \ci{0.521}{0.432}{0.609} & \ci{0.607}{0.521}{0.688} & 0.242 & 0.932 \\ % source: r6_detector_swap.csv (mega rows)
+MEGA-GNN & $0.686 \pm 0.045$ & \ci{0.518}{0.429}{0.604} & \ci{0.602}{0.517}{0.683} & 0.234 & 0.915 \\ % source: r6_detector_swap_sb2048.csv (mega b0 / full rows, scoring batch 2048)
+MEGA-GNN, no embeddings & $0.686 \pm 0.045$ & -- & \ci{0.578}{0.493}{0.659} & 0.200 & 0.787 \\ % source: r6_detector_swap_sb2048.csv (mega_noembed full row)
+MEGA-GenAgg & $0.715 \pm 0.049$ & \ci{0.551}{0.458}{0.634} & \ci{0.591}{0.508}{0.673} & 0.226 & 0.943 \ % source: results/tables/r6_genagg_5seed.csv (scoring batch 2048)
 \bottomrule
 \end{tabular}
 \end{table}

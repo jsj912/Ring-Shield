@@ -1,0 +1,72 @@
+{
+  "created_utc": "2026-11-16T17:35:46+00:00",
+  "definitions": "Q0: where the truth rings are lost (descriptive; tunes nothing).\n\n    CUDA_VISIBLE_DEVICES=\"\" python -m evaluation.q0_loss_decomposition\n\nShipped full pipeline (experiments/R4_partition/runs/average/seed1..5), HI-Small primary window\n(test days 8-9), scope test_visible, Jaccard >= 0.5 one-to-one, min_size 3, seed budget 0.1 %\nglobal quantile (the shipped seed mask, rebuilt from experiments/R1_gine_causal scores).\n\nEach of the 174 truth rings goes to exactly one bucket, checked in this order:\n\n  a   no in-window connected piece of >= 3 accounts (evaluation.component_scope.component_truth,\n      min_members=3). Structural; identical for every seed. Rings in (a) that a seed still matches\n      are counted separately as `a_matched` (min_size applies to the unrestricted prediction,\n      FINDINGS B7/B9), but stay in (a).\n  d   matched (scorer matching: restrict_rings + match_rings at 0.5).\n  b   no in-window seed edge (shipped 0.1 % mask) has an endpoint among the ring's visible members\n      (every member is quiet in the sense of evaluation.ring_stats.quiet_accounts).\n  c   seed-touched and unmatched. With O = the window-restricted predictions that share >= 1\n      account with the ring's visible members V, and P* = the member of O with the highest Jaccard\n      (ties: larger intersection, then lower index):\n        c1  O is empty (sub-flag c1_no_prediction), or none of the rules below applies;\n        c2  J(P*) >= 0.5 but P* was taken by another truth ring in the one-to-one matching\n            (sub-flag c2_one_to_one); or rule c3 does not apply and P* holds more outsiders\n            than V has missing members: |P* - V| > |V - P*|;\n        c3  at least two predictions in O each hold >= 2 members of V, and together they hold\n            >= half of V (|union of their V-members| >= |V| / 2).\n      Order inside c: c1 (O empty) -> c2 (one-to-one) -> c3 -> c2 (outsiders > missing) -> c1.\n      c2 is further flagged `c2_other_ring` when P*'s outsiders include a visible member of\n      another truth ring of the window (merged with a ring) vs only non-ring accounts (noise).\n\nOutputs results/tables/q0_buckets_per_ring.csv (seed x ring), q0_buckets.csv (counts per seed and\nmean), q0_buckets_by_pattern.csv, q0_buckets.json (definitions, input sha256, checks).\n",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "k_pct": 0.1,
+  "inputs": {
+    "ground_truth": {
+      "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+      "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+    },
+    "seed1": {
+      "scores": "experiments\\R17_history_seeds\\r25_both\\scores_test_seed1.parquet",
+      "scores_sha256": "7b4df2ea74a5a4ef34e4e9e165682a9ba1563b8d37c2675ec5652254a2179faf",
+      "rings": "experiments\\R17_history_seeds\\r25_both\\full\\seed1\\rings.parquet",
+      "rings_sha256": "cbbf3ae36db00639c4733782f8845e62f271e4b9d912bcce4270794d1fef0999"
+    },
+    "seed2": {
+      "scores": "experiments\\R17_history_seeds\\r25_both\\scores_test_seed2.parquet",
+      "scores_sha256": "680d304f9d9ce9674fa13c6f7a1dcc39979968bc71fa80e1e409c630e2b6cb89",
+      "rings": "experiments\\R17_history_seeds\\r25_both\\full\\seed2\\rings.parquet",
+      "rings_sha256": "fc064b6af743c6b8829003cca6304c093ab6310fdbb3286eec1d6c1c8fb28968"
+    },
+    "seed3": {
+      "scores": "experiments\\R17_history_seeds\\r25_both\\scores_test_seed3.parquet",
+      "scores_sha256": "862ee4ed341c956d278d98b3dfafa5ad8e5d31500f179e6244b1b0185dddb22b",
+      "rings": "experiments\\R17_history_seeds\\r25_both\\full\\seed3\\rings.parquet",
+      "rings_sha256": "24e286f4a9fdc828beb74cd31f5e7a887f8ed39489c7100a657a6d0a8b0a82cf"
+    },
+    "seed4": {
+      "scores": "experiments\\R17_history_seeds\\r25_both\\scores_test_seed4.parquet",
+      "scores_sha256": "875ae942abb54a8229e2d6cb4b8db9bef4b5db9db5682194eecfde230da20985",
+      "rings": "experiments\\R17_history_seeds\\r25_both\\full\\seed4\\rings.parquet",
+      "rings_sha256": "427ef640975a686fb0f242c04b7d625b3e41b741ac97ba915113e08a52e5fe1d"
+    },
+    "seed5": {
+      "scores": "experiments\\R17_history_seeds\\r25_both\\scores_test_seed5.parquet",
+      "scores_sha256": "2093cef6f93e52aeff36736b315bf25ad9ab14c2fc4370e3651a3fc5939cc99c",
+      "rings": "experiments\\R17_history_seeds\\r25_both\\full\\seed5\\rings.parquet",
+      "rings_sha256": "3f24fe08eaefeb2571a6e7c871027e5ea0371e6933e6ae0ff63f935267722041"
+    }
+  },
+  "checks": {
+    "n_truth": 174,
+    "n_no_ge3_piece": 77
+  },
+  "mean": {
+    "a": 77.0,
+    "a_quiet_share": 0.40672268907563025,
+    "b": 13.0,
+    "b_quiet_share": 1.0,
+    "c1": 11.6,
+    "c1_quiet_share": 0.5773605273864548,
+    "c2": 1.8,
+    "c2_quiet_share": 0.2335897435897436,
+    "c3": 1.8,
+    "c3_quiet_share": 0.33266488413547235,
+    "d": 68.8,
+    "d_quiet_share": 0.19880242510709276,
+    "a_matched": 10.0,
+    "a_unmatched": 67.0,
+    "c1_no_prediction": 7.6,
+    "c2_one_to_one": 0.4,
+    "c2_other_ring": 2.0,
+    "matched_total": 78.8
+  }
+}

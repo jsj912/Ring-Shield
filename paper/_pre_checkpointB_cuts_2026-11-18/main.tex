@@ -1,0 +1,67 @@
+% Rings, Not Edges — evaluation / benchmark-audit framing (draft v4, acmart sigconf, anonymous review)
+% Compile on Overleaf: pdflatex main && bibtex main && pdflatex main && pdflatex main
+% Previous article-class version: main_article_v3.tex (kept for reference).
+\documentclass[sigconf,review,anonymous]{acmart}
+
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{siunitx}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
+\usepackage{subcaption}
+% acmart loads natbib, hyperref, graphicx and xcolor itself.
+
+\graphicspath{{figures/}}
+
+% Shorthand for confidence intervals: 0.589 [0.502, 0.675]
+\newcommand{\ci}[3]{#1\,[#2,\,#3]}
+
+% Review copy: no rights block, no ACM reference format box.
+\setcopyright{none}
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+
+\begin{document}
+
+\title{Rings, Not Edges: What AMLworld Can and Cannot Tell Us
+About Recovering Money-Laundering Attempts}
+
+% ---- camera-ready only (removed for anonymous review) ----
+% \author{Joan Sara Joe}
+% \affiliation{\institution{Affiliation}\country{}}  % [NO SOURCE] affiliation and final author list are open decisions; see OPEN_QUESTIONS.md
+% ----------------------------------------------------------
+\author{Anonymous Author(s)}
+
+\input{sections/abstract}   % acmart: the abstract environment must precede \maketitle
+
+\maketitle
+
+\input{sections/introduction}
+\input{sections/related}
+\input{sections/data}          % 3 Evaluation protocol
+\input{sections/findings}      % 4 Benchmark audit
+\input{sections/method}        % 5 Reference pipeline
+\input{sections/results}       % 6 Results; 7 Where recovery stops
+\input{sections/recommendations}
+\input{sections/limitations}
+\input{sections/conclusion}
+
+% ---- camera-ready only (removed for anonymous review) ----
+% \begin{acks}
+% % source: CONTRIBUTORS.md
+% Ruhani Kumar built the explanation layer and the Elliptic baselines, and found the evaluation
+% defect in ring typing that Appendix~\ref{app:corrections} records; Kashish Mittal built the
+% multi-tenant platform; Lakshmishree produced the dashboard mockup.
+% % source: CONTRIBUTORS.md; docs/FINDINGS.md (typing correction, 2026-10-22)
+% \end{acks}
+% ----------------------------------------------------------
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{refs}
+
+% Target: 8 pages including references, no supplementary material. Proposed cuts and moves to the
+% released repository (not applied yet): paper/PAGE_BUDGET.md.
+\appendix
+\input{sections/appendix}
+
+\end{document}

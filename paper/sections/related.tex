@@ -1,65 +1,41 @@
 \section{Related work}
 \label{sec:related}
 % Every sentence that describes another paper has a row in paper/RELATED_WORK_AUDIT.md.
+% Compressed at Checkpoint B (2026-11-18, cut rank 9); the related-comparison table moves to the released repository.
 
 \paragraph{Edge-level detection on AMLworld.}
 AMLworld~\citep{altman2023} is a family of synthetic transaction datasets with laundering
-labels on transactions and a temporal 60/20/20 split; detectors on it are compared by
-minority-class F1 over transactions. Multi-GNN adapts message passing to directed
-multigraphs~\citep{egressy2024}; the Graph Feature Preprocessor feeds streaming subgraph-pattern
-features to gradient-boosted trees~\citep{blanusa2024}; FraudGT is a graph
-transformer~\citep{lin2024fraudgt}; MEGA-GNN adds two-stage multi-edge
-aggregation~\citep{bilgi2024}; SALT-GNN adds degree-aware statistical aggregation before
-attention and reports $0.716 \pm 0.018$ HI-Small F1 for its transformer variant (code not
-released at the time of writing)~\citep{losavio2026salt}; ExSTraQt reports the highest HI-Small
-F1 we found, with tree models on graph features computed from expanding time
-windows~\citep{tariq2026exstraqt}. Reported HI-Small F1 for these detectors runs from 0.57
-(Multi-GIN) to 0.81 (ExSTraQt on FraudGT's split ratios), under slightly different split ratios;
-FraudGT itself reports 0.697 for the base model and 0.764 with port numbering and ego
-IDs~\citep{lin2024fraudgt}. All are evaluated per transaction.
-% source: paper/RELATED_WORK_AUDIT.md rows 5, 7, 8, 8a, 8b (Egressy T2; FraudGT T2/T3; SALT-GNN T2; ExSTraQt T2 and code) We use Multi-GINe as the reference detector, GFP features with
-XGBoost as a weaker control and MEGA-GNN as a stronger one.
+labels on transactions and a temporal split; detectors are compared by minority-class F1 over
+transactions. Multi-GNN adapts message passing to directed multigraphs~\citep{egressy2024}, the
+Graph Feature Preprocessor feeds subgraph-pattern features to boosted trees~\citep{blanusa2024},
+FraudGT is a graph transformer~\citep{lin2024fraudgt}, MEGA-GNN adds multi-edge
+aggregation~\citep{bilgi2024}, and SALT-GNN~\citep{losavio2026salt} and
+ExSTraQt~\citep{tariq2026exstraqt} report the highest HI-Small F1 we found. Reported HI-Small F1
+runs from 0.57 to 0.81 under slightly different split ratios. All are evaluated per transaction.
+We use Multi-GINe as the reference detector, GFP features with XGBoost as a weaker control, and
+two MEGA-GNN variants as stronger ones.
+% source: paper/RELATED_WORK_AUDIT.md rows 5, 7, 8, 8a, 8b
 
-\paragraph{Group- and sub-network-level detection.}
-Table~\ref{tab:related-comparison} lists the group-level work we found and how each defines
-its evaluation. \citet{chai2023} learn to propose the laundering sub-network behind a
-transaction and evaluate on private AliPay data. \citet{rico2026} learn account classification
-and sub-network discovery jointly; on HI-Small their unit is the sub-network around a target
-account, scored by node-wise precision and recall against that account's true sub-network, so
-no matching between predicted and true groups is needed. \citet{tian2025} mine laundering
-groups collaboratively across institutions and report account-level metrics on AMLworld; we
-score their method under our protocol (Section~\ref{sec:results-expansion}).
-\citet{tariq2026redirect} propose a turnover-weighted recall over the injected patterns of
-the large IBM releases. \citet{wang2026clue} recover a laundering group from an analyst's clue
-on HI-Small and HI-Medium, taking connected components of all laundering accounts as the
-groups. GARG-AML scores accounts for smurfing on HI-Small, with account labels derived from
-transaction labels, and uses FlowScope~\citep{li2020flowscope} as a
-baseline~\citep{deprez2025garg}. On blockchain data, Elliptic2 provides labelled subgraphs for
-subgraph classification under a random split~\citep{bellei2024,song2024revtrack}.
-The closest prior work to our decoupling result is \citet{malik2026queues}, who show that
-review queues built from transaction-level and from actor-level scores overlap only partly
-under the same review budget (mean Jaccard 0.374 at a 1\,\% budget under temporal evaluation). That study uses the Elliptic++ Bitcoin dataset and random-forest classifiers,
-and its unit is the individual actor address, not a group; it does not consider rings or
-AMLworld.
+\paragraph{Group-level detection.}
+\citet{chai2023} propose the laundering sub-network behind a transaction on private data.
+TAML~\citep{rico2026} learns account classification and sub-network discovery jointly and scores
+the sub-network around a target account node-wise, so no matching between predicted and true
+groups is needed; we convert it to rings (Section~\ref{sec:results-baselines}). \citet{tian2025}
+mine groups across institutions with account-level metrics; \citet{tariq2026redirect} propose a
+turnover-weighted pattern recall; \citet{wang2026clue} recover a group from an analyst's clue,
+taking connected components of laundering accounts as groups; GARG-AML scores accounts for
+smurfing~\citep{deprez2025garg,li2020flowscope}; Elliptic2 labels blockchain
+subgraphs~\citep{bellei2024,song2024revtrack}. Closest to our decoupling result,
+\citet{malik2026queues} show that transaction- and actor-level review queues overlap only
+partly under one budget, on Elliptic++ and for single actors, not rings. These works share no
+unit, ground truth, matching rule or split, and none states how a group crossing the evaluation
+window is scored. Our contribution is a protocol that makes those choices explicit and a
+measurement of what each is worth (the comparison table is in the released repository).
 
-\input{tables/related_comparison}
-
-Group-level evaluation on AMLworld therefore exists. The works do not share a unit (ego
-sub-network, mined set, clue-anchored group, injected pattern, laundering attempt), a ground
-truth, a matching rule or a split, and none of the papers states how a group that crosses
-the evaluation window is scored. Our contribution is not the task but a protocol that makes
-those choices explicit, and a measurement of how much each is worth.
-
-\paragraph{Benchmark artefacts.}
-The high laundering rate of AMLworld's last days has been noted by practitioners working with
-the data,\footnote{For example \url{https://github.com/Kluey/AML-Transaction-Detection}, which
-restricts evaluation to the earlier days for this reason.} and the released code of one
-group-level method keeps only the first ten days of HI-Small~\citep{rico2026}. We are not
-aware of a published quantification of the effect, of its reproduction across releases, or
-of its consequences for ring-level metrics and seed budgets.
-
-\paragraph{Statistics.}
-We use bootstrap intervals, paired permutation tests and Holm's sequentially rejective
-correction~\citep{holm1979}; the explanation layer described in the appendix uses
-TreeSHAP~\citep{lundberg2017,lundberg2020} and Fleiss' $\kappa$~\citep{fleiss1971,landis1977}.
-% source: explainability/report/xai_chapter.md §2.1
+\paragraph{Benchmark artefacts and statistics.}
+Practitioners have noted the high laundering rate of AMLworld's last days,\footnote{For example
+\url{https://github.com/Kluey/AML-Transaction-Detection}, which restricts evaluation to the
+earlier days for this reason.} and TAML's released code keeps only the first ten days of
+HI-Small~\citep{rico2026}. We are not aware of a published quantification of the effect or of
+its consequences for ring-level metrics. We use bootstrap intervals over rings, paired tests and
+Holm's correction~\citep{holm1979}.

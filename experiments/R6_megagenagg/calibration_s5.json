@@ -1,0 +1,58 @@
+{
+  "created_utc": "2026-11-16T11:01:52+00:00",
+  "git_commit": "0cc5f7c72b5edaecf1f6586dbe03218daf0e3fb9",
+  "scores_dir": "experiments\\R6_megagenagg",
+  "method": "isotonic (sklearn IsotonicRegression, clip out of bounds)",
+  "fit_on": "exactly the val split (score_raw vs labels_val); applied to val and test; val_cross_fitted is a StratifiedKFold diagnostic",
+  "labels_dir": "E:\\JSJ\\Ring-Shield\\contract\\out",
+  "ece_bins": 15,
+  "per_seed": [
+    {
+      "seed": 5,
+      "n_fit_rows": 965524,
+      "n_folds": 5,
+      "n_isotonic_knots": 74,
+      "val": {
+        "brier_raw": 0.0007619509914907494,
+        "brier_cal": 0.000552999719508873,
+        "ece_raw": 0.0022708765449257133,
+        "ece_cal": 6.86885299927152e-06
+      },
+      "val_cross_fitted": {
+        "brier_raw": 0.0007619509914907494,
+        "brier_cal": 0.0005602178305247449,
+        "ece_raw": 0.0022708765449257133,
+        "ece_cal": 3.821118523110309e-05
+      },
+      "test": {
+        "brier_raw": 0.001183048703060043,
+        "brier_cal": 0.0008978097918669553,
+        "ece_raw": 0.003138810639757064,
+        "ece_cal": 5.402535908820302e-05
+      },
+      "monotone_check": true,
+      "n_unique_raw_test": 836350,
+      "n_unique_cal_test": 94
+    }
+  ],
+  "mean": {
+    "val": {
+      "brier_raw": 0.0007619509914907494,
+      "brier_cal": 0.000552999719508873,
+      "ece_raw": 0.0022708765449257133,
+      "ece_cal": 6.86885299927152e-06
+    },
+    "val_cv": {
+      "brier_raw": 0.0007619509914907494,
+      "brier_cal": 0.0005602178305247449,
+      "ece_raw": 0.0022708765449257133,
+      "ece_cal": 3.821118523110309e-05
+    },
+    "test": {
+      "brier_raw": 0.001183048703060043,
+      "brier_cal": 0.0008978097918669553,
+      "ece_raw": 0.003138810639757064,
+      "ece_cal": 5.402535908820302e-05
+    }
+  }
+}

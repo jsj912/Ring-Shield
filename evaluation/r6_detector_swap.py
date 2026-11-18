@@ -180,6 +180,14 @@ def boot_mean(x: np.ndarray, n: int, seed: int) -> tuple[float, float, float]:
     return float(x.mean()), float(np.percentile(d, 2.5)), float(np.percentile(d, 97.5))
 
 
+def default_pvalues_out(out: Path) -> Path:
+    """Never default to the frozen p-value table unless --out is the frozen detector-swap table itself."""
+    out = Path(out)
+    if out.resolve() == (TABLES / "r6_detector_swap.csv").resolve():
+        return TABLES / "r6_pvalues.csv"
+    return out.with_name(out.stem + "_pvalues.csv")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--detectors", nargs="*", default=list(DETECTORS))
@@ -191,10 +199,12 @@ def main(argv=None):
     ap.add_argument("--n-perm", type=int, default=10000)
     ap.add_argument("--labels-dir", type=Path, default=REPO_ROOT / "contract" / "out")
     ap.add_argument("--out", type=Path, default=TABLES / "r6_detector_swap.csv")
-    ap.add_argument("--pvalues-out", type=Path, default=TABLES / "r6_pvalues.csv",
-                    help="where the paired-test table is written (default: results/tables/r6_pvalues.csv)")
+    ap.add_argument("--pvalues-out", type=Path, default=None,
+                    help="where the paired-test table is written (default: results/tables/r6_pvalues.csv when --out "
+                         "is the default r6_detector_swap.csv, else <out stem>_pvalues.csv beside --out)")
     ap.add_argument("--dry-run", action="store_true", help="2 seeds, 50 resamples; pipeline check, writes nothing")
     a = ap.parse_args(argv)
+    a.pvalues_out = default_pvalues_out(a.out) if a.pvalues_out is None else a.pvalues_out
     t0 = time.time()
     if a.dry_run:
         a.seeds, a.n_boot, a.n_perm = a.seeds[:2], 50, 200

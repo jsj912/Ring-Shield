@@ -1,0 +1,146 @@
+experiment: seed3
+step: 7.4 (R4 partition)
+created_utc: '2026-11-15T19:37:27+00:00'
+git_commit: aeab2be6fd52cc763c7095954146de2e89c40c93
+aggregator: full
+method: average
+detector_seed: 3
+r1_dir: experiments\R6_megagenagg
+r3_config: experiments\R6_full_sb2048\megagenagg\expand\seed3\config.yaml
+expansion_fixed:
+  delta_t_h: 24.0
+  p_min: 0.7
+  policy_dir: experiments\R3_expansion\policy_proposed
+affinity_dir: experiments\R4_partition\affinity
+affinity_cv_auc_pr: 0.9733834079984509
+cluster_seed: 0
+b0_cell_fixed:
+  seed_frac_pct: 0.1
+  min_size: 3
+grid:
+- cut: 0.3
+- cut: 0.5
+- cut: 0.7
+- cut: 0.9
+grid_results_val:
+- cut: 0.3
+  n_rings: 160
+  ring_precision: 0.5375
+  ring_recall: 0.5478
+  ring_f1: 0.5426
+  mean_jaccard: 0.9411
+  member_coverage: 0.9673
+  n_matched: 86
+  components_split: 9
+  n_clusters: 492
+  n_rings_gt100: 0
+- cut: 0.5
+  n_rings: 154
+  ring_precision: 0.5584
+  ring_recall: 0.5478
+  ring_f1: 0.5531
+  mean_jaccard: 0.9496
+  member_coverage: 0.9815
+  n_matched: 86
+  components_split: 5
+  n_clusters: 486
+  n_rings_gt100: 0
+- cut: 0.7
+  n_rings: 151
+  ring_precision: 0.5563
+  ring_recall: 0.535
+  ring_f1: 0.5455
+  mean_jaccard: 0.948
+  member_coverage: 0.9833
+  n_matched: 84
+  components_split: 2
+  n_clusters: 482
+  n_rings_gt100: 0
+- cut: 0.9
+  n_rings: 146
+  ring_precision: 0.5411
+  ring_recall: 0.5032
+  ring_f1: 0.5215
+  mean_jaccard: 0.9563
+  member_coverage: 0.9822
+  n_matched: 79
+  components_split: 0
+  n_clusters: 477
+  n_rings_gt100: 0
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  delta_t_h: 24.0
+  p_min: 0.7
+  method: average
+  cut: 0.5
+  val_ring_f1: 0.5531
+scope: test_visible
+model_id: mega
+selection_column: score_raw
+confidence_column: score_calibrated
+context:
+  val:
+    gfp_parquet: E:\JSJ\RS-react\data\processed\amlworld_gfp_features_val.parquet
+    embeddings_parquet: experiments\R6_megagenagg\embeddings_val_seed3.parquet
+    checkpoint: experiments\R6_megagenagg\model_best_seed3.pt
+    head_constants:
+    - 0.04515231028199196
+    - 0.027278626337647438
+    n_dead_region: 5240
+  test:
+    gfp_parquet: E:\JSJ\RS-react\data\processed\amlworld_gfp_features_test.parquet
+    embeddings_parquet: experiments\R6_megagenagg\embeddings_test_seed3.parquet
+    checkpoint: experiments\R6_megagenagg\model_best_seed3.pt
+    head_constants:
+    - 0.04515231028199196
+    - 0.027278626337647438
+    n_dead_region: 5281
+scope_windows:
+  val:
+  - 518410
+  - 691150
+  test:
+  - 691210
+  - 1527490
+eval_window: E:\JSJ\RS-react\configs\eval_window.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 6
+    - 7
+    bounds:
+    - 518410
+    - 691209
+  primary:
+    name: primary
+    split: test
+    days:
+    - 8
+    - 9
+    bounds:
+    - 691210
+    - 864009
+  tail:
+    name: tail
+    split: test
+    days:
+    - 10
+    - 17
+    bounds:
+    - 864010
+    - 1555209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 8
+    - 17
+    bounds:
+    - 691210
+    - 1555209
+primary_block: primary
+n_val_truth_rings: 157
+dry_run: false

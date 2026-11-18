@@ -24,10 +24,34 @@ import torch
 
 TAML = Path(__file__).resolve().parents[2] / "external" / "taml"
 sys.path.insert(0, str(TAML))
+import TAML_algorithm as _ta  # noqa: E402
 from TAML_algorithm import train_taml  # noqa: E402
 from TAML_configs import get_taml_config  # noqa: E402
 
 SPLITS = {"theirs": [1, 2, 3, 4, 5, 6, 7, 8], "ours": [1, 2, 3, 4, 5, 6]}
+
+
+def _install_snapshots(run: Path, every: int) -> None:
+    """Keep a reference to the TAML model when it is built, and save a copy after every `every`-th epoch.
+    The epoch boundary is TAML's own "The total loss for epoch E is L" print; nothing in training changes."""
+    holder, orig_init, builtin_print = {}, _ta.TAML.__init__, print
+    (run / "snapshots").mkdir(exist_ok=True)
+
+    def init(self, *args, **kw):
+        orig_init(self, *args, **kw)
+        holder["m"] = self
+    _ta.TAML.__init__ = init
+
+    def hooked_print(*args, **kw):
+        builtin_print(*args, **kw)
+        msg = " ".join(map(str, args))
+        if msg.startswith("The total loss for epoch") and "m" in holder:
+            e = int(msg.split()[5])
+            with open(run / "epoch_loss.csv", "a", encoding="utf-8") as f:
+                f.write(f"{e},{msg.split()[-1]},{time.time():.0f}\n")
+            if (e + 1) % every == 0:
+                torch.save(holder["m"].state_dict(), run / "snapshots" / f"epoch{e + 1:03d}.pt")
+    _ta.print = hooked_print
 
 
 def main(argv=None):
@@ -37,6 +61,8 @@ def main(argv=None):
     ap.add_argument("--seed", type=int, default=28, help="their seeds: 28 1999 1130 5898 820")
     ap.add_argument("--backbone", default="FraudGT", choices=["FraudGT", "GATe", "GAT", "GIN", "GCN"])
     ap.add_argument("--out-dir", type=Path, default=Path("runs"))
+    ap.add_argument("--snapshot-every", type=int, default=0,
+                    help="save a state_dict copy every N epochs (read-only hook: TAML's training is unchanged)")
     a = ap.parse_args(argv)
     if not Path("data/IBM/Graphs/Account_to_Account/acc_graph_1.pt").exists():
         sys.exit("run from experiments/R15_taml/work after build_graphs.sh")
@@ -51,6 +77,8 @@ def main(argv=None):
                                                  "seed": a.seed, "taml_commit": "15ebffde"}, indent=2), encoding="utf-8")
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats()
+    if a.snapshot_every > 0:
+        _install_snapshots(run, a.snapshot_every)
     t0 = time.time()
     train_taml(training_steps=SPLITS[a.split], device=device, pt_model_file_name=str(run / f"model_taml_{a.backbone}.pt"),
                dataset_choice="IBM", config_taml=cfg)

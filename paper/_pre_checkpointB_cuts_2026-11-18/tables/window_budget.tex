@@ -1,0 +1,22 @@
+% Source: results/tables/v34_window_budget.json (summary), as tabulated in docs/deep-analysis.md §1
+\begin{table}[t]
+\centering
+\caption{Window-matched seed budget (mean $\pm$ SD over 5 seeds, primary window, 174 truth
+rings). Only the seed mask changes; every downstream cell is the shipped, validation-chosen
+one. A sensitivity row, not a re-selection: the shipped rule stays the best on ring-F1. Added-member precision here was measured with day-folded expansion-policy inputs; with leak-free (ring-folded) inputs the reference full pipeline's value is 0.817 (Table~\ref{tab:precision-paired}).}
+\label{tab:window-budget}
+\small
+\begin{tabular}{lccc}
+\toprule
+ & Global (shipped) & In-window quantile & Per-day quantile \\
+\midrule
+Seeds in window & $463.0 \pm 84.2$ (of 864) & 863 & 864 \\ % source: v34_window_budget.json (seeds_in_window)
+Rings touched & $129.6 \pm 4.8$ & $148.2 \pm 6.2$ & $139.8 \pm 7.3$ \\ % source: v34_window_budget.json (rings_touched)
+Untouched rings, full & $33.2 \pm 3.6$ & $28.0 \pm 5.5$ & $30.6 \pm 3.8$ \\ % source: v34_window_budget.json (full_b_untouched)
+Added-member precision & $0.926 \pm 0.015$ & $0.700 \pm 0.137$ & $0.738 \pm 0.098$ \\ % source: v34_window_budget.json (added_member_precision)
+Matched rings, full & $80.2 \pm 5.9$ & $77.6 \pm 5.6$ & $75.8 \pm 5.3$ \\ % source: v34_window_budget.json (full_matched)
+Ring F1, full & $0.589 \pm 0.037$ & $0.546 \pm 0.023$ & $0.532 \pm 0.032$ \\ % source: v34_window_budget.json (full_ring_f1)
+Ring F1, B0 & $0.521 \pm 0.045$ & $0.503 \pm 0.042$ & $0.485 \pm 0.036$ \\ % source: v34_window_budget.json (b0_ring_f1)
+\bottomrule
+\end{tabular}
+\end{table}

@@ -5,23 +5,25 @@
 Everything here is AMLworld. The tail and warm-up are reproduced on LI-Small; on HI-Medium the
 warm-up, the budget capture, the share of unobservable rings, the threshold dependence of the
 partition gain and the direction (not the size) of the scope effect reproduce, from a detector
-that missed its adequacy bar and two usable seeds. All three releases come from one simulator;
+that missed its adequacy bar and two usable seeds; the transferred detector's seeds-only rings
+are the only HI-Medium method numbers we report under transfer. All three releases come from one simulator;
 nothing establishes how the findings carry to other generators or to real transaction data. Method
 comparisons rest on 174 truth rings and 5 detector seeds, and only one of five pre-registered
 comparisons survives correction at that power.
 % source: docs/FINDINGS.md (A6); docs/paper/generalisation.md §3
 
 \paragraph{External baselines.}
-We score one external group-level method (CSGM, five random two-institution splits) and two
-families of community detection (Louvain at three resolutions, label propagation) under the
-protocol. Leiden was planned but not run, and learned sub-network
-methods~\citep{chai2023,rico2026} were not run, so we cannot say how the protocol would re-rank
-published group-level results.
+We score two external group-level methods (CSGM over five random two-institution splits; TAML,
+three seeds, converted to rings) and two families of community detection under the protocol.
+TAML is scored with protocol differences we could not remove: its features aggregate all ten
+days, and its graphs omit about 42\,\% of in-window ring transactions. Leiden was planned but not
+run, and \citet{chai2023} was not run.
 % source: results/tables/v40_external_baselines.json (runs, notes); results/notes/p3_baselines.md
 
 \paragraph{The edge-versus-ring claim is conditional.}
-It is measured at one seed budget, between two GNN detectors about 9 edge-F1 points apart, on
-one dataset. Stronger published detectors were not tested.
+It is measured at one seed budget, across three graph neural detectors from edge F1 0.596 to
+0.715, on one dataset. Below that range it does not hold (GFP-XGBoost, HI-Medium), and detectors
+above it were not tested.
 
 \paragraph{A ring-level leak in the expansion policy's training data.}
 The policy's cross-scored inputs hold out a day per fold, but rings span days, so a fold model
@@ -57,3 +59,12 @@ analyses, not confirmatory tests. None changes a reported point estimate.
 \paragraph{Published-number comparison.}
 The only published figure we compare against is MEGA-GNN's edge F1
 (Section~\ref{sec:results-swap}).
+
+\paragraph{Evaluation defects we found.}
+Each changed a number we had reported, and each is corrected here: bootstrap resamples that
+collapsed repeated rings (intervals about a quarter too narrow); matcher ties broken by file
+order; detector scores that depend on the scoring batch through batch-level causal sampling, and
+the look-ahead that sampling allows (Section~\ref{sec:data}); a ring-level leak through
+day-folded policy inputs (above); a global quantile that hands the seed budget to one day; and
+saturated scores that leave a strict quantile cut empty (Section~\ref{sec:findings}).
+% source: results/notes/interval_consistency.md; matcher_tiebreak.md; p7_genagg.md (scoring batch, look-ahead); FINDINGS B17, C11; findings saturation

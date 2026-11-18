@@ -15,7 +15,7 @@ and a rule that reads the clock (``after day 10 $\Rightarrow$ illicit'') scores 
 on its own.
 % source: docs/FINDINGS.md (C1); docs/TEST_TAIL.md
 This is a property of the generator, not of one release: regenerating the full preprocessing
-path on LI-Small reproduces the collapse (Table~\ref{tab:tail}). What reproduces is the
+path on LI-Small reproduces the collapse (table in the released repository). What reproduces is the
 concentration; the share of test signal in the tail differs by release.
 % source: docs/paper/evaluation_protocol.md §4
 
@@ -28,7 +28,6 @@ background traffic collapses and the base rate jumps by more than two orders of 
 \label{fig:tail}
 \end{figure}
 
-\input{tables/tail}
 
 Two consequences follow. A single-number test F1 on HI-Small is not comparable across papers
 unless the window is stated: our detector's edge F1 is $0.495 \pm 0.027$ on days 8--9 and
@@ -103,14 +102,13 @@ other.}
 \end{figure}
 
 Counting all of a ring's accounts as members, not only those visible in the window, lowers
-ring-F1 by 0.347--0.383 for every method and both GNN detectors (Table~\ref{tab:scope},
-appendix). The in-scope ring count is unchanged at 174; only member sets grow, from a median
+ring-F1 by 0.347--0.383 for every method and both GNN detectors (released repository). The in-scope ring count is unchanged at 174; only member sets grow, from a median
 of 4 accounts to 11. For scale, the largest method effect in this paper is $+0.068$.
 % source: results/tables/r14_scope_sensitivity.csv; docs/FINDINGS.md (C9)
 
 Making targets smaller instead --- scoring each in-window connected piece of a ring as its own
 target --- gives 254 targets; keeping only pieces of three or more accounts gives 108 targets
-in 97 rings (Table~\ref{tab:component-scope}, appendix). The ordering
+in 97 rings (released repository). The ordering
 seeds $<$ rule $<$ policy $<$ policy-plus-partition is preserved under three of the four
 conventions for both detectors. Under the fourth it changes in one place: the policy alone
 overtakes policy-plus-partition (0.766 vs.\ 0.740). The swap was not tested for significance,
@@ -141,25 +139,14 @@ HI-Medium has 2{,}187 in-scope rings in its primary window (test days 6--14), ag
 HI-Small's 174. We re-scored its existing ring outputs under the same protocol, with no new
 training.
 % source: results/tables/v41_hm_audit.json (observability.n_in_scope_rings; window); results/notes/p4_hm_audit.md
-\emph{The direction of the scope effect reproduces; its size does not.} Counting all of a
-ring's accounts lowers ring-F1 for every method under both seed-allocation rules, by 0.038 to
-0.059 under the global rule and 0.038 to 0.073 across all eight cells
-(Table~\ref{tab:hm-audit}). That is smaller than the difference between the full pipeline and
-seeds-plus-components on the same release (0.092), where on HI-Small the scope gap was five
-times the method effect. One hypothesis, which we have not tested, is window length: HI-Medium's
-primary window spans nine days against HI-Small's two, so more of each ring is visible and
-restricting members to the window removes less.
-% source: results/tables/v41_hm_audit_scope.csv (gap_f1_fm_minus_tv); v41_hm_audit.json (verdicts.scope.global: largest_method_effect_full_minus_b0 0.0924)
-\emph{Observability reproduces.} 875 of the 2{,}187 rings (40.0\,\%) have no connected in-window
-piece of three or more accounts, against 44.3\,\% on HI-Small.
-% source: results/tables/v41_hm_audit.json (observability: rings_no_in_window_piece_ge3 875, n_in_scope_rings 2187)
-\emph{The threshold dependence of the partition gain reproduces.} The gain in ring recall from
-partitioning falls from 0.019 at Jaccard 0.3 to 0.015 at 0.5 and 0.009 at 0.7 (global rule),
-and under the scope that keeps only in-window pieces of three or more accounts the policy alone
-again edges past policy-plus-partition (0.2434 vs.\ 0.2430).
-% source: results/tables/v41_hm_audit_threshold.csv (global gain_ring_recall 0.0194 / 0.0149 / 0.0089); v41_hm_audit_component.csv (global proposed / full ring_f1_component_ge3)
-
-\input{tables/hm_audit}
+Under the earlier HI-Medium-trained detector, the direction of the scope effect reproduces but
+not its size (ring-F1 lower by 0.038 to 0.073 across all eight cells, against a method effect of
+0.092; tables in the released repository); observability reproduces (875 of 2{,}187 rings,
+40.0\,\%, have no connected in-window piece of three or more accounts, against 44.3\,\% on
+HI-Small); and the partition gain again falls with the Jaccard threshold (0.019 at 0.3 to 0.009
+at 0.7), and under the three-account scope the policy alone again edges past
+policy-plus-partition (0.2434 vs.\ 0.2430). Section~\ref{sec:results-hm} gives the transferred detector's rings on this release.
+% source: results/tables/v41_hm_audit_scope.csv; v41_hm_audit.json (observability; verdicts.scope.global 0.0924); v41_hm_audit_threshold.csv
 
 \subsection{A release without enough rings: LI-Small}
 

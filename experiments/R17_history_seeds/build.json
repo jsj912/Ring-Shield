@@ -1,0 +1,261 @@
+{
+  "H_size": {
+    "val": 3471,
+    "test": 4714
+  },
+  "test_history_days": "0-7",
+  "cells": {
+    "r10_one": {
+      "val_seed1": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed1": {
+        "K": 864,
+        "reserved": 86
+      },
+      "val_seed2": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed2": {
+        "K": 864,
+        "reserved": 86
+      },
+      "val_seed3": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed3": {
+        "K": 864,
+        "reserved": 86
+      },
+      "val_seed4": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed4": {
+        "K": 864,
+        "reserved": 86
+      },
+      "val_seed5": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed5": {
+        "K": 864,
+        "reserved": 86
+      }
+    },
+    "r10_both": {
+      "val_seed1": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed1": {
+        "K": 864,
+        "reserved": 86
+      },
+      "val_seed2": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed2": {
+        "K": 864,
+        "reserved": 86
+      },
+      "val_seed3": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed3": {
+        "K": 864,
+        "reserved": 86
+      },
+      "val_seed4": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed4": {
+        "K": 864,
+        "reserved": 86
+      },
+      "val_seed5": {
+        "K": 966,
+        "reserved": 97
+      },
+      "test_seed5": {
+        "K": 864,
+        "reserved": 86
+      }
+    },
+    "r25_one": {
+      "val_seed1": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed1": {
+        "K": 864,
+        "reserved": 216
+      },
+      "val_seed2": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed2": {
+        "K": 864,
+        "reserved": 216
+      },
+      "val_seed3": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed3": {
+        "K": 864,
+        "reserved": 216
+      },
+      "val_seed4": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed4": {
+        "K": 864,
+        "reserved": 216
+      },
+      "val_seed5": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed5": {
+        "K": 864,
+        "reserved": 216
+      }
+    },
+    "r25_both": {
+      "val_seed1": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed1": {
+        "K": 864,
+        "reserved": 216
+      },
+      "val_seed2": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed2": {
+        "K": 864,
+        "reserved": 216
+      },
+      "val_seed3": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed3": {
+        "K": 864,
+        "reserved": 216
+      },
+      "val_seed4": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed4": {
+        "K": 864,
+        "reserved": 216
+      },
+      "val_seed5": {
+        "K": 966,
+        "reserved": 242
+      },
+      "test_seed5": {
+        "K": 864,
+        "reserved": 216
+      }
+    },
+    "r50_one": {
+      "val_seed1": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed1": {
+        "K": 864,
+        "reserved": 432
+      },
+      "val_seed2": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed2": {
+        "K": 864,
+        "reserved": 432
+      },
+      "val_seed3": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed3": {
+        "K": 864,
+        "reserved": 432
+      },
+      "val_seed4": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed4": {
+        "K": 864,
+        "reserved": 432
+      },
+      "val_seed5": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed5": {
+        "K": 864,
+        "reserved": 432
+      }
+    },
+    "r50_both": {
+      "val_seed1": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed1": {
+        "K": 864,
+        "reserved": 432
+      },
+      "val_seed2": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed2": {
+        "K": 864,
+        "reserved": 432
+      },
+      "val_seed3": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed3": {
+        "K": 864,
+        "reserved": 432
+      },
+      "val_seed4": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed4": {
+        "K": 864,
+        "reserved": 432
+      },
+      "val_seed5": {
+        "K": 966,
+        "reserved": 483
+      },
+      "test_seed5": {
+        "K": 864,
+        "reserved": 432
+      }
+    }
+  }
+}

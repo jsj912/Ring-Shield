@@ -9,14 +9,15 @@ rings cannot be matched as connected objects by any method, because the split an
 sever them.
 % source: docs/FINDINGS.md (C9, C1 and dated notes on the window-matched budget and component-level scope)
 
-Within those limits, a reference pipeline shows what is and is not gained. Growing rings
-outward from the detector's strongest edges recovers members the detector never flags (0.5\,\%
-to 21\,\%), and ring-F1 rises from \ci{0.521}{0.429}{0.607} to \ci{0.589}{0.502}{0.675}; on
-HI-Small a two-line rule matches that recall, and the learned policy adds purity. Community
-detection on the same flagged edges does no better than connected components. Partitioning is
-not significant at 174 rings; on HI-Medium, with 2{,}187 rings, an effect of the same size is
-resolved. A 9.4-point better edge detector recovers no more rings at the same budget.
-% source: results/tables/r9_ring_ci.csv; r4_partition.csv; r9_significance.csv; r6_detector_swap.csv; results/tables/v40_external_baselines.json (bar_B); results/tables/v3_closeout_p3.csv (global, full vs b2)
+Within those limits, detector quality decides ring recovery only up to a point. On HI-Small,
+three graph neural detectors from edge F1 0.596 to 0.715 give seeds-only ring-F1 0.518 to 0.551,
+and nine attempts to spend the budget better or reassemble rings after the detector leave
+ring-F1 flat; most remaining losses are rings with too few visible members. Below that range the
+detector still matters: on HI-Medium a detector trained only on HI-Small, applied without
+retraining, gives $0.396 \pm 0.015$ against 0.090 for an earlier in-domain detector that differs
+in architecture and training data, mostly through ranking. TAML, converted to rings, reaches
+0.327 and loses mainly through what its graphs omit.
+% source: results/notes/final_numbers.md (detector swap, HI-Medium transfer, TAML); results/notes/recovery_attempts.md
 
 The practical consequence is for how group-level AML results are reported. A ring-level number
 is interpretable only with its scope rule, split, window, budget allocation and matching

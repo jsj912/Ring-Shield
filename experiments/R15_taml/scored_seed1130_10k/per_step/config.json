@@ -1,0 +1,38 @@
+{
+  "created_utc": "2026-11-18T18:09:35+00:00",
+  "git_commit": "7064658e270660256e59591843032114f7212240",
+  "argv": [
+    "--rings",
+    "experiments/R15_taml/scored_seed1130/rings_per_step.parquet",
+    "--split",
+    "test",
+    "--window",
+    "primary",
+    "--thresholds",
+    "0.3",
+    "0.5",
+    "0.7",
+    "--n-boot",
+    "10000",
+    "--out",
+    "experiments/R15_taml/scored_seed1130_10k/per_step"
+  ],
+  "ringshield_paths": "configs/paths.yaml",
+  "eval_window_file": "E:\\JSJ\\RS-react\\configs\\eval_window.yaml",
+  "truth": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_ring_ground_truth.parquet",
+    "sha256": "cd6d207b1ce464a1e014e7c19cd8ec6658e0401e1b7da1f2b2c07bd9891adf70"
+  },
+  "split_parquet": {
+    "path": "E:\\JSJ\\RS-react\\data\\processed\\amlworld_test.parquet"
+  },
+  "inputs": [
+    {
+      "path": "experiments\\R15_taml\\scored_seed1130\\rings_per_step.parquet",
+      "sha256": "ef8ac444b4a7339db81d0bef8a9f0b9eb68c1b2cd0aaa17355059e1f09bafc00",
+      "schema": "minimal",
+      "n_rings_in_file": 124,
+      "n_rings_after_min_size": 124
+    }
+  ]
+}

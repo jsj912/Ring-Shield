@@ -33,7 +33,8 @@ further stage.}
 \paragraph{Detector.}
 A Multi-GINe edge classifier~\citep{egressy2024} with port numbering, time deltas, reverse
 message passing, ego identifiers and subgraph-pattern edge features~\citep{blanusa2024},
-trained with 5 seeds under causal neighbour sampling.
+trained with 5 seeds under batch-causal neighbour sampling (look-ahead within a batch of up to
+1{,}800\,s; Section~\ref{sec:data}).
 % source: docs/report.md §5.2
 Causality matters here: a forward-looking variant of one cycle feature read edges after the
 scored transaction and inflated its lift over the base rate by 12--16$\times$; made trailing,
@@ -41,10 +42,12 @@ the lift falls to 1.0--4.0$\times$ with primary-window edge F1 unchanged (0.495 
 % source: docs/FINDINGS.md (C4)
 
 \paragraph{Seeds.}
-Seeds are the top $k^{*}$ of raw scores, with $k^{*}$ and \texttt{min\_size} grid-searched on
-validation ring-F1; every seed of every detector chose $k^{*}=0.1\,\%$ and
-\texttt{min\_size}~3.
-% source: results/tables/r4_partition.csv (chosen_cells)
+Seeds are the top $k^{*}=0.1\,\%$ of raw scores. The budget is fixed in advance for every detector
+and seed; \texttt{min\_size} is chosen on validation ring-F1 (it is 3 throughout). As a sensitivity
+analysis we also let validation choose $k^{*}$: it picks 0.1\,\% for every seed of Multi-GINe, but
+0.05\,\% for two of five MEGA-GNN seeds, which lowers MEGA-GNN's full-pipeline ring-F1 from 0.602 to
+0.510 (Table~\ref{tab:detector-swap}).
+% source: configs/threshold_rule_k010.yaml; results/tables/r4_partition.csv (chosen_cells); results/tables/r6_detector_swap_sb2048_valpicked.csv (mega full 0.5098; seeds 4, 5 seed_frac_pct 0.05)
 
 \paragraph{Expansion.}
 A member edge below the seed cut --- a \emph{quiet member} --- never enters a baseline ring.
@@ -73,6 +76,4 @@ then receives account roles from money-conservation rules and one of the eight p
 from a classifier over role counts, depth, cycle presence and size.
 % source: docs/report.md §5.2
 
-The project also delivers a deterministic explanation layer and a multi-bank analyst platform
-on top of these rings. Neither is evaluated as a research claim here; both are summarised in
-Appendix~\ref{app:platform}.
+% Platform and explanation-layer paragraph moved to the released repository (cut rank 13).

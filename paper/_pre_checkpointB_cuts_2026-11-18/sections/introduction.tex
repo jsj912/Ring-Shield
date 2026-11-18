@@ -1,0 +1,65 @@
+\section{Introduction}
+\label{sec:intro}
+
+Money laundering is executed as a coordinated \emph{attempt}: a group of accounts moves money
+through a fan-out, a cycle, a layered stack. Research on the AMLworld
+benchmark~\citep{altman2023} is nevertheless reported almost entirely as per-transaction
+classification~\citep{egressy2024,lin2024fraudgt,bilgi2024}. Group-level work is now
+appearing --- learned sub-network discovery~\citep{chai2023,rico2026}, collaborative mining of
+laundering groups~\citep{tian2025}, pattern-level metrics~\citep{tariq2026redirect} --- but
+each paper defines its own unit, its own ground truth and its own split, and none states how a
+group that straddles a split boundary is scored. Numbers from these papers cannot be set side
+by side.
+
+This paper asks a prior question: \emph{what can AMLworld support when the unit of evaluation
+is the laundering attempt?} We answer it in two steps. First we fix a protocol --- a predicted
+ring is a set of accounts, scored against the generator's laundering-attempt blocks by
+one-to-one Jaccard matching under a stated scope rule --- and audit the benchmark under it.
+Second we run a reference pipeline through the protocol and report where ring recovery is
+gained and where it stops, including the results that go against our own method.
+
+Three measurements carry the argument.
+
+\emph{Unstated evaluation choices are larger than method effects.} Re-scoring the same runs
+under a different, equally defensible rule for a ring's member set moves ring-F1 by
+0.35--0.38; our largest method effect is $+0.068$.
+% source: docs/FINDINGS.md (C9); results/tables/r14_scope_sensitivity.csv
+The last eight days of the standard test split hold 40.7\,\% of its positives in 0.13\,\% of
+its edges, and a global score quantile over that split places only 463 of 864 seeds in the two
+days that carry ordinary traffic.
+% source: docs/FINDINGS.md (C1; dated note on the window-matched budget)
+
+\emph{Edge F1 is not a proxy for ring recovery.} Replacing our detector with
+MEGA-GNN~\citep{bilgi2024}, which is 9.4 points of test edge F1 stronger, changes ring-F1 at
+the baseline operating point by 0.0005. The two detectors choose different seed edges (Jaccard
+0.415 between their seed sets) and reach the same number of truth rings.
+% source: results/tables/r6_detector_swap.csv; docs/FINDINGS.md (C6)
+
+\emph{Much of the remaining loss is unobservable, not missed.} 44\,\% of in-scope rings have
+no connected in-window piece of three or more accounts, and 81.5\,\% of the missing members of
+partially recovered rings sit in a piece of the ring with no in-window path to the recovered
+part.
+% source: docs/FINDINGS.md (dated note, component-level scope; B13)
+
+\paragraph{Contributions.}
+\begin{enumerate}
+\item \textbf{An attempt-level evaluation protocol for AMLworld}
+  (Section~\ref{sec:data}): ring ground truth, an explicit scope rule, matching with a
+  mandatory threshold sweep, named evaluation windows, selection on validation only,
+  bootstrap intervals over rings, pre-registered permutation tests, and a precision-aware
+  paired test for the differences those tests cannot see.
+\item \textbf{A benchmark audit} (Section~\ref{sec:findings}): the test tail, the day-0
+  warm-up, seed-budget capture by global quantiles, scope sensitivity and in-window
+  disconnection and score saturation, on HI-Small with partial replication on HI-Medium: the
+  direction of the scope effect, the share of unobservable rings and the threshold dependence of
+  the partition gain reproduce there; the size of the scope effect does not.
+\item \textbf{A reference pipeline, external baselines and a decomposition of where ring
+  recovery is lost} (Sections~\ref{sec:method}--\ref{sec:results-ceiling}), with negative
+  results reported against our own method: on HI-Small a two-line rule matches the learned
+  expansion policy's recall, and the partition stage is not significant at 174 rings.
+\item \textbf{Reporting recommendations} for group-level AML evaluation
+  (Section~\ref{sec:recommendations}).
+\end{enumerate}
+
+We do not claim a new detection method. The pipeline is a vehicle for the measurements, and
+its one robust gain --- expansion over seeds --- is the part a simple rule reproduces.

@@ -1,0 +1,22 @@
+% Source: results/tables/r14_scope_sensitivity.csv, as summarised in
+%         docs/paper/evaluation_protocol.md §9 (same shipped runs re-scored; no model re-run)
+\begin{table}[t]
+\centering
+\caption{The scope convention moves ring-F1 about five times more than the entire method does.
+The same shipped runs re-scored under \texttt{full\_membership} (a ring's member set is all its
+accounts) against the reported \texttt{test\_visible}; the method ordering survives under both.}
+\label{tab:scope}
+\small
+\begin{tabular}{lccc}
+\toprule
+Detector / method & \texttt{test\_visible} (reported) & \texttt{full\_membership} & Gap \\
+\midrule
+GINe B0 & 0.5213 & 0.1437 & $-0.378$ \\ % source: r14_scope_sensitivity.csv (gine_causal b0 rows, ring_f1)
+GINe B1b & 0.5553 & 0.2073 & $-0.348$ \\ % source: r14_scope_sensitivity.csv (gine_causal b1b rows)
+GINe proposed & 0.5819 & 0.2297 & $-0.352$ \\ % source: r14_scope_sensitivity.csv (gine_causal proposed rows)
+GINe full & 0.5894 & 0.2428 & $-0.347$ \\ % source: r14_scope_sensitivity.csv (gine_causal full rows)
+MEGA B0 & 0.5208 & 0.1595 & $-0.361$ \\ % source: r14_scope_sensitivity.csv (mega b0 rows)
+MEGA full & 0.6074 & 0.2252 & $-0.382$ \\ % source: r14_scope_sensitivity.csv (mega full rows)
+\bottomrule
+\end{tabular}
+\end{table}

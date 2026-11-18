@@ -1,0 +1,40 @@
+{
+  "created_utc": "2026-11-16T17:35:13+00:00",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "n_boot": 10000,
+  "rng_seed": 20261117,
+  "scope": "test_visible",
+  "window": {
+    "name": "primary",
+    "split": "test",
+    "days": [
+      8,
+      9
+    ],
+    "bounds": [
+      691210,
+      864009
+    ]
+  },
+  "exp_root": "E:\\JSJ\\RS-e2e\\experiments",
+  "n_units": 191,
+  "n_truth_units": 174,
+  "n_offring_units": 17,
+  "points": {
+    "cell_full": {
+      "added_member_precision": 0.9421487603305785,
+      "ring_f1": 0.5923908866643877
+    },
+    "gine_full": {
+      "added_member_precision": 0.9257425742574258,
+      "ring_f1": 0.5894466575432836
+    }
+  },
+  "unit": "truth ring or off-ring account cluster, with replacement; paired across arms; seeds pooled (precision) / averaged (ring-F1) inside each draw"
+}

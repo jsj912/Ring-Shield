@@ -1,0 +1,17 @@
+% Source: docs/paper/generalisation.md §2 (CYCLE arm), from results/tables/r7_heldout.csv
+\begin{table}[t]
+\centering
+\caption{Held-out CYCLE: the expansion policy trained with every
+CYCLE positive removed, evaluated on the 22 CYCLE truth rings (paired bootstrap).}
+\label{tab:heldout-cycle}
+\small
+\begin{tabular}{lcccc}
+\toprule
+CYCLE rings & All patterns & CYCLE held out & $\Delta$ [95\,\% CI] & $p$ \\
+\midrule
+Quiet-member recall & 0.1614 & 0.1344 & $+0.0270$ [$-0.0062$, $+0.0647$] & 0.130 \\ % source: docs/paper/generalisation.md §2 (CYCLE table)
+Ring recall & 0.3818 & 0.3455 & $+0.0364$ [$-0.0125$, $+0.0728$] & 0.286 \\ % source: docs/paper/generalisation.md §2
+Added-member precision & 0.952 (40/42) & 0.970 (32/33) & --- & --- \\ % source: docs/paper/generalisation.md §2; r7_heldout.csv (l3_cycle,full,CYCLE)
+\bottomrule
+\end{tabular}
+\end{table}

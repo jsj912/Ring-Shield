@@ -1,0 +1,27 @@
+% Group-level money-laundering evaluation in prior work. Every cell is verified against the
+% paper (or, where marked "code", its released code); "n.v." = not verified, listed in
+% paper/RELATED_WORK_AUDIT.md. "not stated" = read, and the paper does not say.
+\begin{table*}[t]
+\centering
+\small
+\caption{How group-level money-laundering work defines its evaluation. ``Scope rule'': whether
+the paper states how a group that crosses a split or evaluation-window boundary is scored.
+``Tail'': whether the high-base-rate last days of the AMLworld data are treated specially.}
+\label{tab:related-comparison}
+\begin{tabular}{@{}p{2.3cm}p{1.7cm}p{2.0cm}p{3.1cm}p{2.8cm}p{2.1cm}p{1.2cm}p{1.2cm}@{}}
+\toprule
+Work & Data & Unit & Ground-truth group & Metric / matching & Split & Scope rule & Tail \\
+\midrule
+\citet{chai2023} & private AliPay & sub-network around a transaction & n.v. & n.v. & n.v. & n.v. & n/a \\
+\citet{tian2025} & AMLworld HI, LI; AMLSim; private & account flags from mined sets & not stated for AMLworld & node-level P/R/F1; no group matching & none (unsupervised) & not stated & not stated \\
+\citet{rico2026} & HI-Small (and two others) & ego sub-network of an account & paper: connected, laundering accounts only; code: 2-hop ball of laundering accounts within one day & node-wise P/R per target account; no matching & stated 70/15/15 temporal; code: days 1--6 / 7--8 / 9--10 & not stated & code: days $>$10 dropped \\
+\citet{tariq2026redirect} & IBM large releases; Libra & per-account community & injected patterns & turnover-weighted recall; best-matched flow, no threshold & none (unsupervised) & not stated & not stated \\
+\citet{deprez2025garg} & HI-Small, LI-Large; synthetic & account & none (account labels from edge share) & AUC-ROC, AUC-PR, P@K & random 70/30 & not stated & not stated \\
+\citet{wang2026clue} & HI-Small, HI-Medium & members recovered from a clue & connected components of all laundering accounts & recall of members; AUC/AP & not stated & not stated & not stated \\
+\citet{bellei2024} & Elliptic2 & given subgraph (classification) & labelled subgraphs & F1, PR-AUC, ROC-AUC & random 80/10/10 & n/a & n/a \\
+\citet{song2024revtrack} & Elliptic2 & subgraph; sender--receiver link & labelled subgraphs & F1, PR-AUC; HR, NDCG & random 80/10/10 & n/a & n/a \\
+\midrule
+This paper & HI-Small, HI-Medium & laundering attempt & one attempt of the generator's pattern file & one-to-one greedy, Jaccard $\ge$ 0.5 (0.3, 0.7 swept) & day split, primary window & stated, four conventions & quantified \\
+\bottomrule
+\end{tabular}
+\end{table*}

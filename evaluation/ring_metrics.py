@@ -56,10 +56,23 @@ class MatchResult:
     truth_size: int
 
 
+def truth_id_key(tid) -> tuple:
+    """Numeric ids sort numerically and before non-numeric ones, which sort as strings."""
+    try:
+        return (0, float(tid), "")
+    except (TypeError, ValueError):
+        return (1, 0.0, str(tid))
+
+
+def member_key(ring) -> tuple:
+    return tuple(sorted(str(m) for m in ring))
+
+
 def match_rings(
     predicted: Sequence[Set],
     truth: Dict[object, Set],
     threshold: float = 0.5,
+    tie_break: str = "file_order",
 ) -> Tuple[List[MatchResult], List[int], List[object]]:
     """Greedy one-to-one pairing by descending Jaccard.
 
@@ -70,6 +83,12 @@ def match_rings(
     cannot both exceed it against the same prediction -- their Jaccards would
     have to sum above 1 -- so ties are rare and the difference is negligible.
 
+    tie_break (2026-11-16, opt-in; the default is unchanged pending the author's decision):
+      "file_order"    -- shipped rule: (-Jaccard, prediction index, str(truth id)); equal-Jaccard ties
+                         depend on the order of rings in the file.
+      "deterministic" -- (-Jaccard, truth id, sorted member tuple of the prediction); independent of
+                         file order. See results/notes/matcher_tiebreak.md.
+
     Returns (matches, unmatched_pred_indices, unmatched_truth_ids).
     """
     candidates = []
@@ -78,7 +97,12 @@ def match_rings(
             j = jaccard(p, t)
             if j >= threshold:
                 candidates.append((j, pi, tid))
-    candidates.sort(key=lambda c: (-c[0], c[1], str(c[2])))
+    if tie_break == "file_order":
+        candidates.sort(key=lambda c: (-c[0], c[1], str(c[2])))
+    elif tie_break == "deterministic":
+        candidates.sort(key=lambda c: (-c[0], truth_id_key(c[2]), member_key(predicted[c[1]])))
+    else:
+        raise ValueError(f"unknown tie_break {tie_break!r}")
 
     used_pred: Set[int] = set()
     used_truth: Set = set()

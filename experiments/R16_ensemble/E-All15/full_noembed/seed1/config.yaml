@@ -1,0 +1,142 @@
+experiment: seed1
+step: 7.4 (R4 partition)
+created_utc: '2026-11-16T11:52:36+00:00'
+git_commit: 0cc5f7c72b5edaecf1f6586dbe03218daf0e3fb9
+aggregator: full
+method: average
+detector_seed: 1
+r1_dir: experiments\R16_ensemble\E-All15
+r3_config: experiments\R16_ensemble\E-All15\full_noembed\expand\seed1\config.yaml
+expansion_fixed:
+  delta_t_h: 24.0
+  p_min: 0.7
+  policy_dir: experiments\R3_expansion\policy_no_embedding
+affinity_dir: experiments\R4_partition\affinity_no_embedding
+affinity_cv_auc_pr: 0.9634003428490578
+cluster_seed: 0
+b0_cell_fixed:
+  seed_frac_pct: 0.1
+  min_size: 3
+grid:
+- cut: 0.3
+- cut: 0.5
+- cut: 0.7
+- cut: 0.9
+grid_results_val:
+- cut: 0.3
+  n_rings: 138
+  ring_precision: 0.6087
+  ring_recall: 0.535
+  ring_f1: 0.5695
+  mean_jaccard: 0.9471
+  member_coverage: 0.9662
+  n_matched: 84
+  components_split: 5
+  n_clusters: 580
+  n_rings_gt100: 0
+- cut: 0.5
+  n_rings: 135
+  ring_precision: 0.6222
+  ring_recall: 0.535
+  ring_f1: 0.5753
+  mean_jaccard: 0.9521
+  member_coverage: 0.979
+  n_matched: 84
+  components_split: 1
+  n_clusters: 577
+  n_rings_gt100: 0
+- cut: 0.7
+  n_rings: 132
+  ring_precision: 0.6136
+  ring_recall: 0.5159
+  ring_f1: 0.5606
+  mean_jaccard: 0.9627
+  member_coverage: 0.9782
+  n_matched: 81
+  components_split: 1
+  n_clusters: 574
+  n_rings_gt100: 0
+- cut: 0.9
+  n_rings: 130
+  ring_precision: 0.6077
+  ring_recall: 0.5032
+  ring_f1: 0.5505
+  mean_jaccard: 0.9617
+  member_coverage: 0.9777
+  n_matched: 79
+  components_split: 0
+  n_clusters: 572
+  n_rings_gt100: 0
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  delta_t_h: 24.0
+  p_min: 0.7
+  method: average
+  cut: 0.5
+  val_ring_f1: 0.5753
+scope: test_visible
+model_id: ensemble
+selection_column: score_raw
+confidence_column: score_calibrated
+context:
+  val:
+    gfp_parquet: E:\JSJ\RS-react\data\processed\amlworld_gfp_features_val.parquet
+    embeddings_parquet: null
+    checkpoint: null
+    head_constants: null
+    n_dead_region: 0
+  test:
+    gfp_parquet: E:\JSJ\RS-react\data\processed\amlworld_gfp_features_test.parquet
+    embeddings_parquet: null
+    checkpoint: null
+    head_constants: null
+    n_dead_region: 0
+scope_windows:
+  val:
+  - 518410
+  - 691150
+  test:
+  - 691210
+  - 1527490
+eval_window: E:\JSJ\RS-react\configs\eval_window.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 6
+    - 7
+    bounds:
+    - 518410
+    - 691209
+  primary:
+    name: primary
+    split: test
+    days:
+    - 8
+    - 9
+    bounds:
+    - 691210
+    - 864009
+  tail:
+    name: tail
+    split: test
+    days:
+    - 10
+    - 17
+    bounds:
+    - 864010
+    - 1555209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 8
+    - 17
+    bounds:
+    - 691210
+    - 1555209
+primary_block: primary
+n_val_truth_rings: 157
+dry_run: false

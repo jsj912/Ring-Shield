@@ -134,8 +134,9 @@ class RunScorer:
         print(f"[score] data ready in {self.load_seconds}s")
 
     def score(self, seed: int, split: str, out_dir: Path, *, causal: bool | None = None,
-              export_embeddings: bool = False, window_s: int | None = None) -> dict:
+              export_embeddings: bool = False, window_s: int | None = None, rng_seed: int | None = None) -> dict:
         assert split in SPLITS, split
+        set_scoring_seed(rng_seed)
         args, cfg, out_dir = self.args, self.cfg, Path(out_dir)
         if causal is None:
             causal = bool(cfg.get("causal_sampling", False))
@@ -224,7 +225,7 @@ class RunScorer:
             "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "git_commit": git_commit(),
             "run_dir": str(self.run_dir), "checkpoint": str(ckpt), "run_config_commit": cfg.get("git_commit"),
-            "seed": seed, "split": split, "dry_run": self.dry_run,
+            "seed": seed, "split": split, "dry_run": self.dry_run, "scoring_rng_seed": rng_seed,
             "causal": causal, "loader_route": ROUTE["route"] if causal else "non-causal",
             "loader_window_s": loader.window_s,
             "num_neighbors": args.num_neighs, "batch_size": args.batch_size,
@@ -247,6 +248,19 @@ class RunScorer:
         return log
 
 
+def set_scoring_seed(rng_seed: int | None) -> None:
+    """Seed every RNG the neighbour sampler can draw from (python, numpy, torch CPU and CUDA).
+    None leaves the RNG state untouched: the shipped, unseeded behaviour (open item 20)."""
+    if rng_seed is None:
+        return
+    import random
+    random.seed(rng_seed)
+    np.random.seed(rng_seed)
+    torch.manual_seed(rng_seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(rng_seed)
+
+
 def score_split(run_dir: Path, seed: int, split: str, out_dir: Path, *, causal: bool | None = None,
                 export_embeddings: bool = False, dry_run: bool = False, device: torch.device | None = None,
                 window_s: int | None = None) -> dict:
@@ -255,7 +269,7 @@ def score_split(run_dir: Path, seed: int, split: str, out_dir: Path, *, causal: 
         seed, split, out_dir, causal=causal, export_embeddings=export_embeddings, window_s=window_s)
 
 
-def main(argv=None):
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run-dir", type=Path, required=True)
     ap.add_argument("--seeds", "--seed", dest="seeds", type=int, nargs="+", required=True)
@@ -282,7 +296,14 @@ def main(argv=None):
                          "hide the GPU here: torch.cuda.is_available() can stay True while "
                          "device_count() is 0, and the checkpoint then fails to deserialise.")
     ap.add_argument("--dry-run", action="store_true")
-    args = ap.parse_args(argv)
+    ap.add_argument("--rng-seed", type=int, default=None,
+                    help="seed python/numpy/torch before each (seed, split) is scored, so the neighbour "
+                         "sampling is reproducible. Default None: unseeded, as every shipped score file.")
+    return ap
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
     import torch
     scorer = RunScorer(args.run_dir, dry_run=args.dry_run, dry_run_seed=args.seeds[0],
                        feature_cache=args.feature_cache,
@@ -294,7 +315,7 @@ def main(argv=None):
         for split in args.splits:
             emb = (split in args.embeddings_for) if args.embeddings_for is not None else args.export_embeddings
             scorer.score(seed, split, args.out_dir or args.run_dir, causal=args.causal, export_embeddings=emb,
-                         window_s=args.window_s)
+                         window_s=args.window_s, rng_seed=args.rng_seed)
 
 
 if __name__ == "__main__":

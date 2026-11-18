@@ -1,0 +1,29 @@
+{
+  "backbone": "FraudGT",
+  "input_dim": "26",
+  "input_dim_e": "7",
+  "hidden_channels_mlp_translation": "128",
+  "hidden_channels_mlp_self_translation": "32",
+  "hidden_units_gnn": "32",
+  "num_layers_gnn": "2",
+  "num_heads": "1",
+  "output_dim": "16",
+  "num_epochs": "250",
+  "learning_rate": "0.001",
+  "weight_decay": "0.005",
+  "batch_size": "16",
+  "max_norm": "1",
+  "exploration_hop": "2",
+  "eta": "2",
+  "lambda_hparam": "0.75",
+  "training_steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "seed": 28,
+  "taml_commit": "15ebffde"
+}

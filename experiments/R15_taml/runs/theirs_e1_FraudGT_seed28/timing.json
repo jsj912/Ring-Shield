@@ -1,0 +1,7 @@
+{
+  "train_s": 352.94032096862793,
+  "epochs": 1,
+  "s_per_epoch": 352.94032096862793,
+  "peak_alloc_mib": 97.72900390625,
+  "device": "cuda"
+}

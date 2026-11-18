@@ -1,0 +1,35 @@
+\section{Recommendations for reporting ring-level AML results}
+\label{sec:recommendations}
+
+Each recommendation below follows from a measurement in this paper.
+
+\begin{enumerate}
+\item \textbf{State the scope rule.} Say which accounts count as a ring's members when the
+  ring crosses the evaluation window. The choice is worth 0.35--0.38 ring-F1 on HI-Small and
+  0.04--0.07 on HI-Medium (Sections~\ref{sec:findings-scope} and~\ref{sec:findings-hm}).
+% source: results/tables/r14_scope_sensitivity.csv; results/tables/v41_hm_audit_scope.csv
+\item \textbf{State the split and the window, and report the tail separately.} On AMLworld's
+  day split, do not average over days 10--17 (Section~\ref{sec:findings-tail}).
+\item \textbf{State how a selection budget is allocated across days.} A global quantile can
+  give one day most of the budget, and on this split gives the clean window about half
+  (Sections~\ref{sec:findings-tail} and~\ref{sec:results-swap}).
+\item \textbf{State the tie-handling rule of any quantile cut.} When many scores are tied at
+  the cut, ``score $>$ q'' and ``score $\ge$ q'' select very different sets; on one saturated
+  HI-Medium detector the strict rule selects no seeds at all
+  (Section~\ref{sec:findings-saturation}).
+\item \textbf{Sweep the matching threshold.} Report the gain at a stricter threshold wherever
+  it is reported at 0.5; a gain that vanishes at 0.7 is fragmentation
+  (Section~\ref{sec:results-partition}).
+\item \textbf{Resample rings, not edges, and test precision.} Matched-ring tests cannot see
+  false rings; pair them with a test that can (Section~\ref{sec:data-stats}).
+\item \textbf{Never quote recovered-member recall without the precision of what was added.}
+  The weakest detector in our comparison posts the highest quiet-member recall, at 26\,\%
+  added-member precision (Table~\ref{tab:detector-swap}).
+\item \textbf{Report how many targets are observable.} Count the rings that have a connected,
+  matchable piece in the window, and report recall on those beside recall on all
+  (Section~\ref{sec:results-ceiling}).
+\item \textbf{Do not use edge F1 as evidence of better group recovery.} Run the group-level
+  evaluation (Section~\ref{sec:results-swap}).
+\item \textbf{Include a rule baseline.} A two-line rule matched our learned component's recall
+  (Section~\ref{sec:results-expansion}).
+\end{enumerate}

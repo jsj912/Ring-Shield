@@ -2,8 +2,8 @@ experiment: R6_megagenagg
 step: 10 (R6 detector swap)
 model_id: mega
 model: MEGA-GNN / MultiMPNN (MEGA-GenAgg)
-created_utc: '2026-11-16T02:14:25+00:00'
-git_commit: aeab2be6fd52cc763c7095954146de2e89c40c93
+created_utc: '2026-11-16T10:36:43+00:00'
+git_commit: 0cc5f7c72b5edaecf1f6586dbe03218daf0e3fb9
 upstream:
   repo: https://github.com/hcagri/MEGA-GNN
   commit: ef60a7155460755513b52bd52995dbee5045a1f7
@@ -38,7 +38,7 @@ flags:
   reverse_mp_lp: false
   adamm_hetero: false
 seeds:
-- 4
+- 5
 epochs: 80
 patience: 20
 batch_size: 4096
@@ -67,7 +67,7 @@ data:
   label_informed_preprocessing: false
 calibration: models/calibrate.py --scores-dir <out-dir> (isotonic, fit on val only)
 summary:
-- seed: 4
-  best_val_f1: 0.6458087367178277
-  best_epoch: 36
-seconds: 30515.2
+- seed: 5
+  best_val_f1: 0.6444201312910285
+  best_epoch: 35
+seconds: 30035.3

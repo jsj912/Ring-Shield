@@ -114,7 +114,7 @@ def boot_pattern(evs, ids, metric: str, n: int, seed: int) -> tuple[float, float
     draws = np.empty(n)
     for b in range(n):
         res = [ids[i] for i in rng.integers(0, len(ids), len(ids))]
-        draws[b] = np.nanmean([metrics_from_evidence(ev, truth_ids=res)[metric] for ev in evs])
+        draws[b] = np.nanmean([metrics_from_evidence(ev, truth_ids=res, legacy_collapse_repeats=True)[metric] for ev in evs])  # frozen r7
     return point, float(np.nanpercentile(draws, 2.5)), float(np.nanpercentile(draws, 97.5))
 
 

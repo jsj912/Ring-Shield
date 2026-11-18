@@ -1,0 +1,4 @@
+visible,a_how,per_seed,median_jaccard,median_inwin,median_full
+1,in-window prediction < 3 accounts; min_size met by out-of-window members,0.4,1.0,1.0,3.5
+2,in-window prediction < 3 accounts; min_size met by out-of-window members,6.2,1.0,2.0,8.0
+2,"prediction >= 3 accounts, other",3.4,0.6666666666666666,3.0,3.0

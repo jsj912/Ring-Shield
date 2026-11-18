@@ -1,0 +1,30 @@
+{
+  "window": [
+    691210,
+    864009
+  ],
+  "in_window_edges": 862792,
+  "in_window_illicit_edges": 956,
+  "accounts_active_in_window": 354447,
+  "current_in_window_seeds": 463,
+  "b_days0_7": {
+    "accounts_with_history": 3585,
+    "in_window_edges_touching": 101293,
+    "illicit_share_of_those_edges": 0.004778217645839298,
+    "illicit_edges_among_them": 484,
+    "edges_added_vs_463_seeds": 218.78
+  },
+  "d_days0_5": {
+    "accounts_with_history": 2602,
+    "in_window_edges_touching": 95322,
+    "illicit_share_of_those_edges": 0.003105264262185015,
+    "illicit_edges_among_them": 296,
+    "edges_added_vs_463_seeds": 205.88
+  },
+  "bar": {
+    "target_rings_per_seed_mean": 25.4,
+    "with_history_b_per_seed_mean": 17.2,
+    "threshold": 8,
+    "verdict": "above bar: author decision"
+  }
+}

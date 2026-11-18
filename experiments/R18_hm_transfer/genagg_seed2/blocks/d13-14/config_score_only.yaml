@@ -1,0 +1,73 @@
+experiment: d13-14
+step: 10 (R6 detector swap)
+model_id: mega
+model: MEGA-GNN / MultiMPNN (MEGA-GenAgg)
+created_utc: '2026-11-17T07:32:27+00:00'
+git_commit: 0cc5f7c72b5edaecf1f6586dbe03218daf0e3fb9
+upstream:
+  repo: https://github.com/hcagri/MEGA-GNN
+  commit: ef60a7155460755513b52bd52995dbee5045a1f7
+  license: Apache-2.0
+  model_code_edited: false
+  shims:
+  - ports_cpp (pure python; unused -- their AML command has no --ports)
+  - negative_sampling (stub; link-prediction task only)
+params:
+  lr: 0.003213266113989207
+  n_hidden: 64
+  n_mlp_layers: 1
+  n_gnn_layers: 2
+  loss: ce
+  w_ce1: 1.0000182882773443
+  w_ce2: 6.275014431494497
+  norm_method: z_normalize
+  dropout: 0.00983468338330501
+  final_dropout: 0.10527690625126304
+flags:
+  model: gin
+  task: edge_class
+  emlps: true
+  reverse_mp: true
+  ego: true
+  flatten_edges: true
+  edge_agg_type: genagg
+  node_agg_type: genagg
+  ports: false
+  ports_batch: false
+  tds: false
+  reverse_mp_lp: false
+  adamm_hetero: false
+seeds:
+- 2
+epochs: 80
+patience: 20
+batch_size: 4096
+score_batch_size: 2048
+score_only: true
+ckpt_dir: E:\JSJ\RS-react\experiments\R6_megagenagg
+num_neighbors:
+- 100
+- 100
+causal_sampling: true
+loader_route: ours_fallback
+loader_window_s: 1800
+deviations_from_upstream:
+- early stopping on val minority-F1 (patience 20, R1's rule) inside their published
+  80-epoch budget, instead of a fixed 80
+- our causal loader (models/causal_loader.py) in place of their LinkNeighborLoader
+  call -- same loader class, temporal guarantee added
+- simp_edge_batch recomputed per batch after the causal filter (equivalent grouping)
+- seeds 1-5 from configs/seeds.yaml instead of their single seed
+- 'GenAgg as published: MLPAutoencoder''s inverse-objective forward hook never fires
+  (GenAgg calls f.forward() directly, bypassing hooks), so f^-1 is trained only by
+  the task loss; the node-stage GenAgg is one instance shared by every GINE layer'
+data:
+  source: data/raw/formatted_transactions.csv (the file our own detector reads)
+  split: their get_data, asserted identical to amlworld_{train,val,test}.parquet
+  label_informed_preprocessing: false
+calibration: models/calibrate.py --scores-dir <out-dir> (isotonic, fit on val only)
+summary:
+- seed: 2
+  best_val_f1: 0.6689381033503691
+  best_epoch: 27
+seconds: 3020.4

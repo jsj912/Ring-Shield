@@ -1,0 +1,56 @@
+{
+  "created_utc": "2026-11-16T11:29:10+00:00",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "n_boot": 10000,
+  "rng_seed": 20261111,
+  "scope": "test_visible",
+  "window": {
+    "name": "primary",
+    "split": "test",
+    "days": [
+      8,
+      9
+    ],
+    "bounds": [
+      691210,
+      864009
+    ]
+  },
+  "exp_root": "E:\\JSJ\\RS-e2e\\experiments",
+  "n_units": 221,
+  "n_truth_units": 174,
+  "n_offring_units": 47,
+  "points": {
+    "genagg_full": {
+      "added_member_precision": 0.9433962264150944,
+      "ring_f1": 0.5910496327015146
+    },
+    "genagg_b0": {
+      "added_member_precision": NaN,
+      "ring_f1": 0.551120537525082
+    },
+    "genagg_noembed_full": {
+      "added_member_precision": 0.8567567567567568,
+      "ring_f1": 0.5989141683968636
+    },
+    "gine_full": {
+      "added_member_precision": 0.9257425742574258,
+      "ring_f1": 0.5894466575432836
+    },
+    "gine_b0": {
+      "added_member_precision": NaN,
+      "ring_f1": 0.5213175026308443
+    },
+    "megagin_full": {
+      "added_member_precision": 0.9152173913043479,
+      "ring_f1": 0.602288927567278
+    }
+  },
+  "unit": "truth ring or off-ring account cluster, with replacement; paired across arms; seeds pooled (precision) / averaged (ring-F1) inside each draw"
+}

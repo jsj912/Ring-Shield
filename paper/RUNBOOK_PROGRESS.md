@@ -402,3 +402,43 @@ Baseline: pushed commit 0cc5f7c, clean tree at 07:59Z. Seed 5 epoch times checke
 - Raw CSVs (data/raw): HI-Small 5,078,345 tx / 515,088 (bank, account) pairs; HI-Medium 31,898,238 tx / 2,077,023 pairs.
 - Shared (bank, account) pairs: 18. Identical transactions (timestamp, from bank/account, to bank/account, amount received, payment format): 0. HI-Medium laundering transactions also in HI-Small: 0 of 35,230.
 - Both datasets start 2022-09-01, so the calendars coincide, but the transactions are disjoint. No train/test leak through shared data.
+
+## 2026-11-17 TAML seed 28 done (addendum 2); seed-2 HI-Medium primary rows
+- Driver: TAML trained 08:14-~10:20Z (early stop epoch 37), inference on steps 7-10 done, seeds 3-5 resumed 10:31:39Z. No overlap with HI-Medium scoring.
+- taml_convert: tau 0.797; joined 144 rings, test_visible J0.5 P 0.326 R 0.270 F1 0.296 [0.226, 0.371], coverage 0.848, rep63 recall 0.730; per-step 143 rings F1 0.303. Appended to results/notes/p9_taml.md. Stop before seeds 1999/1130.
+- Seed 2 HI-Medium primary B0: global 1,788 rings F1 0.3995 R 0.3631; per-day 1,857 rings F1 0.3848 R 0.3557. Budget shares (global) min 8.0 % (day 6), max 12.1 % (day 12). Val AP 0.5404.
+
+## 2026-11-17 TAML seeds 1999 and 1130 approved (author)
+- Order: only after HI-Medium seeds 3-5 finish test scoring, one after another, same settings as seed 28 (seeded rebuild, steps 1-6 fit, tau on steps 7-8, both conversions). The HI-Medium driver is not paused or overlapped.
+- Queued with scratchpad after_seeds.sh: waits for the driver to exit, requires "seed5 done", then TAML 1999 -> 1130 (train + inference), then the --seed 1 validation hash check (out-dir experiments/R18_hm_transfer/hashcheck_seed1).
+- When all three are in: mean ± SD per conversion, 10,000-draw ring bootstrap (seeds averaged inside each resample), per-seed rows, restricted recalls (63/25/39), coverage, tau; exploratory paired ring bootstrap of GenAgg B0 (5 seeds) against TAML joined (3 seeds), with all TAML labels. Framing: "TAML solves account flagging; converted to rings it loses mainly through what its graphs omit".
+- Wording fix in results/notes/hm_transfer.md: "ring-F1 about four times higher (0.40 against 0.09), mainly from precision (0.47 against 0.11)".
+
+## 2026-11-17 Seed-2 close-out and 10,000-draw intervals done
+- results/tables/hm_transfer_closeout_seed2_ci.csv: primary B0 global 1,788 rings P 0.444 [0.419, 0.469] R 0.363 [0.342, 0.384] F1 0.399 [0.377, 0.422]; per-day F1 0.385 [0.363, 0.407]; B1b global F1 0.301 [0.283, 0.319].
+
+## 2026-11-17 STOP: seed-3 block d15-27 failed (driver exit 3)
+- Seed 3 validation (rc 0) and blocks d6-7, d8-9, d10-12, d13-14 (rc 0) done. Block d15-27 started 14:19:34Z, died 14:32:26Z with rc=127, peak VRAM 652 MB, no Python traceback: the log ends after "score-only from model_best_seed3.pt ... scoring batch 2048", before scoring. Watchdog did not stop it (stopped=0). No CPU job of mine was running (seed-2 intervals ended ~11:58Z).
+- Driver stopped; seeds 4-5 not started. after_seeds.sh exits without TAML 1999/1130 (no "seed5 done"). Waiting for the author.
+
+## 2026-11-17 Resume after the seed-3 failure (author: rerun and resume)
+- Failed attempt kept: genagg_seed3/blocks/failed_d15-27_rc127/score.log. Seed-3 d15-27 rerun unchanged (bs 2048, same checkpoint) into genagg_seed3/blocks/d15-27, then seeds 4-5 (val + blocks), driver scratchpad resume_s3_s45.sh. after_seeds.sh re-queued (TAML 1999 -> 1130 -> --seed 1 hash check), watching the resume driver.
+- Seed 3 HI-Medium validation AP (trained on HI-Small, zero-shot): see next line
+  seed 3: 0.5205 (seed 1 0.5445, seed 2 0.5404); 3,857,689 validation edges, all matched.
+- 2026-11-17T17:37:42Z seed 3 test concatenated (5 blocks, 18,893,741 rows, failed dir excluded); seed 4 val AP 0.5445. Seed-3 close-out + 10k intervals started (CPU).
+
+- 2026-11-18 seed 3 close-out + 10k intervals done (CPU). Primary B0 global F1 0.3975 [0.374,0.421] P 0.456 R 0.353 rings 1692; per-day F1 0.4013 [0.379,0.424] rings 1670. B1b global 0.2887, per-day 0.2838. Val AP 0.5205. Budget shares global 7.0%(d6)-13.7%(d14); per-day 5.2%(d9/10)-16.5%(d8). No day >25%.
+
+- 2026-11-18T06:37:29Z TAML 1999 (01:28-04:03Z) and 1130 (04:03-06:09Z) trained+inferred; converted to scored_seed{1999,1130}. Hash check seed-1 val: 3,857,689 ids identical, scores not bit-identical, max |d| 6.3e-7. Seed 4 primary B0 global 0.3694 [0.347,0.391], per-day 0.3640; shares global 6.5-13.3%, per-day 5.2-16.5%.
+
+- 2026-11-18T06:37:48Z TAML convert done. Joined J0.5 test_visible F1: 28 0.296, 1999/1130 see results/notes; per-step 0.303/0.343/0.322.
+
+- 2026-11-18T09:46:18Z seeds 4,5 test concatenated (18,893,741 rows each, verified); val AP 0.5445 / 0.5308; inputs hard-linked to closeout_input; close-out + 10k intervals run (CPU).
+
+- 2026-11-18T09:51:40Z Seed 5 primary B0 global 0.4025 [0.380,0.426], per-day 0.3983; val AP 0.5308; shares global 7.7%(d6)-15.9%(d8), per-day 5.2-16.5%. Five-seed B0 global 0.3955 +- 0.0152 (P 0.4435, R 0.3572); per-day 0.3873 +- 0.0147. Addendum 5 primary (evaluation/hm_transfer_paired.py, new; rng 20261117 - the addendum names none, recovery-amendment seed used): GenAgg(1-5) - old HM detector(1-2), B0 global primary, 2,187 rings, 10k draws: dF1 +0.3057 [0.2860, 0.3256] p 0.0002; dP +0.318, dR +0.283. Old arm reproduces 0.0898. Old scores read from E:/JSJ/Ring-Shield/experiments_hi_medium (read only). -> results/tables/hm_transfer_paired_addendum5.csv
+
+- 2026-11-18T18:16:36Z Item 2 done: TAML 3-seed 10k joined 0.327 [0.254,0.403], per-step 0.323; GenAgg B0 ref reproduces 0.5511; paired GenAgg B0 - TAML joined +0.224 [0.146,0.304] (exploratory). p9_taml.md and final_numbers.md appended. Items 1,3,4 done earlier (seed set Jaccard 1.0; B0-B1b flips; old-checkout hashes in results/notes/hm_transfer_old_checkout_inputs.md).
+
+- 2026-11-18T18:18:45Z CHECKPOINT B written (paper/CHECKPOINT_B.md, sha256 125d76ad778217ea). STOP, waiting for the author.
+
+- 2026-11-18T18:30:23Z Checkpoint B decisions applied (paper-writing stop lifted by author). Abstract replaced (169 words, nine attempts 5 test / 4 val). Section 8 corrections; transfer subsection + tables/hm_transfer.tex; TAML paragraph; What did not help (9 attempts); intro contributions (a)-(e); conclusion, limitations (defects paragraph); cut list ranks 1-10,12,13 applied (paper/MOVED_TO_REPOSITORY.md; pre-cut copy paper/_pre_checkpointB_cuts_2026-11-18/). Loss buckets: Multi-GINe full throughout. Body ~6,970 words by plain count (pre-cut 7,281 same count). Page count not measured: no LaTeX here, Overleaf needed. results/notes/recovery_attempts.md new.

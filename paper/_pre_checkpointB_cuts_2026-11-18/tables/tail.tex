@@ -1,0 +1,18 @@
+% Source: docs/paper/evaluation_protocol.md §4 ("This is a property of the generator, not of HI-Small")
+\begin{table}[t]
+\centering
+\caption{The day-split test tail in two AMLworld releases. The concentration reproduces
+(${\le}\,0.13\,\%$ of test edges at a ${\sim}60\,\%$ base rate); the share of test signal in
+the tail differs by release.}
+\label{tab:tail}
+\begin{tabular}{lrr}
+\toprule
+ & HI-Small & LI-Small \\
+\midrule
+Tail edges (days $\ge 10$) & 1{,}108 (0.128\,\% of test) & 223 (0.019\,\% of test) \\ % source: docs/paper/evaluation_protocol.md §4 (table)
+Test positives in the tail & 655 (40.7\,\%) & 134 (16.7\,\%) \\ % source: docs/paper/evaluation_protocol.md §4 (table)
+Tail base rate & 59.1\,\% & 60.1\,\% \\ % source: docs/paper/evaluation_protocol.md §4 (table)
+Lift over the split's test base rate & 318$\times$ & 880$\times$ \\ % source: docs/paper/evaluation_protocol.md §4 (table)
+\bottomrule
+\end{tabular}
+\end{table}

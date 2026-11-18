@@ -1,0 +1,122 @@
+\section{Evaluation protocol}
+\label{sec:data}
+
+All results are on AMLworld HI-Small (5{,}078{,}345 transactions) under the IBM day-based
+60/20/20 split: train days 0--5, validation days 6--7, test days 8--17.
+% source: docs/report.md §3.3
+Unless stated otherwise, numbers are over 5 detector seeds, on the \emph{primary window}
+(test days 8--9, 174 in-scope truth rings), under the \texttt{test\_visible} scope at
+Jaccard $\ge 0.5$ matching.
+% source: docs/FINDINGS.md (preamble)
+
+\subsection{Ring ground truth and scope}
+\label{sec:data-scope}
+
+A ground-truth ring is one laundering-attempt block in the generator's pattern file; HI-Small
+has 370 rings over 3{,}209 pattern transactions in eight topologies (FAN-OUT, FAN-IN,
+GATHER-SCATTER, SCATTER-GATHER, CYCLE, RANDOM, BIPARTITE, STACK).
+% source: docs/RING_GROUND_TRUTH_DEFINITION.md §1–2
+A ring's members are the accounts appearing in its transactions, and a prediction is scored
+against that account set.
+
+A ring's transactions can straddle split boundaries, so the scope rule --- which rings a
+window is held responsible for, and with which members --- must be fixed and stated. We use
+\texttt{test\_visible}: a ring is in scope for a window if it has at least one transaction
+there, and its member set is the accounts of those in-window transactions. Two stricter
+alternatives (every transaction in the window; more than half) are reported in the released
+tables and never used for a headline.
+% source: docs/paper/evaluation_protocol.md §2
+Even under this scope, membership is only partly observable in one split: 7.9\,\% of ring
+members have no test-period transaction at all, and 33.2\,\% have none labelled illicit.
+% source: docs/FINDINGS.md (C5: 155/1,962 and 652/1,962)
+Section~\ref{sec:findings-scope} measures what the scope choice is worth.
+
+\subsection{Matching rule}
+
+A predicted ring matches a truth ring when their account sets reach Jaccard $\ge 0.5$, paired
+greedily one-to-one by descending Jaccard. Two truth rings can both reach Jaccard $\ge 0.5$ with one
+prediction (at exactly 0.5), so ties are possible; they are broken by the smaller truth-ring
+identifier, then by the prediction's sorted member list, which makes the result independent of file
+order. Against the file-order tie-break used for the reported tables, no match count changes in any
+headline cell, and the largest change in a five-seed mean ring F1 in any cell is 0.0032.
+% source: results/notes/matcher_tiebreak.md; docs/PROTOCOL.md (Matching)
+% source: docs/paper/evaluation_protocol.md §3
+The threshold is fixed, never tuned, and results at 0.3 and 0.7 are reported beside every
+headline, because a ring-level gain quoted at one threshold can be a fragmentation artefact
+(Section~\ref{sec:results-partition} gives an instance from our own pipeline). Predictions
+smaller than three accounts are discarded (\texttt{min\_size} $=3$). This constrains the
+unrestricted prediction; matching is done on predictions restricted to the evaluation window,
+which can be smaller, so \texttt{min\_size} does not imply a ceiling on ring recall
+(Section~\ref{sec:results-ceiling}).
+% source: docs/paper/evaluation_protocol.md §3
+
+\subsection{Evaluation windows}
+\label{sec:data-windows}
+
+We report three named windows: \emph{primary} (test days 8--9, every headline), \emph{tail}
+(days 10--17, reported separately) and \emph{whole} (days 8--17, only for comparison with
+papers that report one number). The reason is the benchmark artefact documented in
+Section~\ref{sec:findings-tail}; the cost of the choice --- a two-day window fragments long
+patterns --- is measured in Section~\ref{sec:results-ceiling}.
+% source: docs/paper/evaluation_protocol.md §4, §9
+
+\subsection{Nothing is chosen on the test period}
+
+The seed fraction is fixed in advance at $k^{*}=0.1\,\%$. Every other parameter --- \texttt{min\_size}, the expansion $\Delta t$
+and probability floor, the linkage cut, the calibration map, the detector checkpoint --- is
+selected on the validation split and frozen; the runners accept no other choice.
+% source: docs/paper/evaluation_protocol.md §5
+Two consequences cost us numbers and are reported anyway: the validation-chosen operating
+point is not test-optimal (Appendix~\ref{app:tables}), and when a pattern type is held out
+its labels are removed from train \emph{and} validation together, because validation chooses
+every parameter. Calibration is isotonic, fitted on validation rows only; selection uses the
+raw score, because isotonic regression collapses $\sim$800k distinct scores onto $\sim$100
+levels and a quantile cut on the calibrated column silently drops part of the seed set.
+% source: docs/paper/evaluation_protocol.md §5
+Neighbourhood sampling is causal at the level of batches, not of single edges. The library
+used here cannot express edge-level temporal sampling, so a fallback loader cuts batches by size
+or by 1{,}800 seconds of seed time, whichever comes first, and samples neighbours up to the
+batch's latest seed. A scored edge can therefore see neighbour edges, and other edges of its own
+batch, up to 1{,}800\,s later than itself. The measured look-ahead has median 180\,s (95th
+percentile 720\,s) at the scoring batch of 2048 used for MEGA-GNN and MEGA-GenAgg, and median
+600\,s (95th percentile 1{,}440\,s) at the batch of 8192 used for the shipped Multi-GINe scores.
+It applies to all three neural detectors.
+% source: results/notes/p7_batch_span.json; results/notes/p5_required_changes.md (R-LA)
+
+\subsection{Statistics}
+\label{sec:data-stats}
+
+Confidence intervals are 2.5/97.5 percentile bootstrap intervals over \emph{truth rings},
+1{,}000 resamples, with detector seeds averaged inside each resample, so the interval carries
+seed variation as well as ring sampling.
+% source: docs/FINDINGS.md (preamble)
+Significance is a paired sign-flip permutation test on per-ring matched indicators (10{,}000
+permutations), Holm-corrected~\citep{holm1979} across a family of five comparisons declared
+before the runs.
+
+This test is \textbf{blind to precision}. It asks only whether two methods match a different
+set of rings; a method can emit far more rings, match about as many, and test as
+indistinguishable. In our results the full pipeline on GFP-XGBoost scores sits 13.9 ring-F1
+points below the same pipeline on Multi-GINe at $p_{\mathrm{Holm}}=0.807$.
+% source: docs/FINDINGS.md (section B preamble)
+A non-significant result from it means ``no evidence these methods find different rings'',
+not ``these methods are equivalent''.
+
+We therefore add a \textbf{precision-aware paired bootstrap}. Every prediction of every method
+and seed is assigned to a resampling unit --- the truth ring it matched or overlaps most, or,
+if it shares no account with any truth ring, an off-ring cluster (union-find over shared
+accounts) --- giving 392 units (174 truth rings plus 218 off-ring clusters). Each of 10{,}000
+draws resamples units with replacement and recomputes both arms on the same draw, so the
+interval is on the paired difference and ring precision responds to false rings. Holm
+correction is across four comparisons per metric.
+% source: docs/deep-analysis.md §2 (Method); evaluation/ring_stats.py::paired_unit_bootstrap
+This test was added after the main results; its family and bar were fixed before it was run
+but not in a separately dated registration, and we label its results accordingly.
+% source: docs/deep-analysis.md §2 (Caveats)
+
+\paragraph{The protocol as a scorer.}
+We release the protocol as a standalone scorer that takes any file of predicted rings and
+reports every scope convention, the threshold sweep, observability counts and paired
+comparisons; on our runs it reproduces the point estimates of every scope table in this paper
+exactly (\url{https://anonymous.4open.science/r/<ID>}).
+% source: results/notes/p1_scorer.md (90 cells, maximum absolute deviation 0.0); docs/PROTOCOL.md

@@ -28,6 +28,14 @@ maximum absolute deviation 0.0; `results/notes/p1_scorer.md`).
   transaction between two of its members.
 - **Matching.** Greedy one-to-one by descending Jaccard on account sets; a pair counts when
   Jaccard ≥ τ. τ = 0.5 is reported; 0.3 and 0.7 are always swept alongside it.
+  **Ties** (equal Jaccard) are broken deterministically: Jaccard descending, then the smaller truth
+  ring id (numeric ids numerically), then the predicted ring's sorted member tuple. The result does
+  not depend on the order of predictions in the file. Two truth rings can both reach Jaccard ≥ 0.5
+  with one prediction (at exactly 0.5), so the tie-break matters. The frozen tables were scored with
+  file-order ties; `--legacy-file-order` reproduces them exactly (T-P1: 90 cells, deviation 0.0).
+  Measured effect of the change (results/notes/matcher_tiebreak.md): no match count changes in any
+  headline cell (primary window, test_visible, τ 0.5); the largest change in a five-seed mean ring-F1
+  in any cell is 0.0032.
 - **Metrics.** Ring recall = matched targets / targets; ring precision = matched predictions /
   predictions in the window; ring-F1; recall on targets with ≥ 3 members; member coverage of
   matched pairs; recall per pattern type.
@@ -67,7 +75,7 @@ Flags: `--rings PATH …` (one file per seed/run), `--split {val,test}`,
 `--window {primary,tail,whole,val}`, `--eval-window FILE` (default: the dataset's own window
 file), `--truth FILE`, `--min-size 3`, `--thresholds 0.3 0.5 0.7`,
 `--conventions …` (default all four), `--n-boot 1000`, `--boot-seed 0`,
-`--legacy-subsample-intervals` (reproduce r14/v36 only),
+`--legacy-subsample-intervals` (reproduce r14/v36 only), `--legacy-file-order` (file-order matcher ties, as the frozen tables),
 `--compare DIR_A DIR_B`, `--compare-n-boot 10000`, `--compare-seed 20261114`, `--out DIR`.
 
 Input schemas: the repository's `rings.parquet` (any schema version), or a minimal parquet /

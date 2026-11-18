@@ -1,0 +1,116 @@
+{
+  "E-GenAgg5": {
+    "val": {
+      "n_edges": 965524,
+      "n_models": 5,
+      "models": [
+        "genagg:seed1",
+        "genagg:seed2",
+        "genagg:seed3",
+        "genagg:seed4",
+        "genagg:seed5"
+      ],
+      "unique_scores": 913832
+    },
+    "test": {
+      "n_edges": 863900,
+      "n_models": 5,
+      "models": [
+        "genagg:seed1",
+        "genagg:seed2",
+        "genagg:seed3",
+        "genagg:seed4",
+        "genagg:seed5"
+      ],
+      "unique_scores": 817538
+    }
+  },
+  "E-2048": {
+    "val": {
+      "n_edges": 965524,
+      "n_models": 10,
+      "models": [
+        "genagg:seed1",
+        "genagg:seed2",
+        "genagg:seed3",
+        "genagg:seed4",
+        "genagg:seed5",
+        "megagin:seed1",
+        "megagin:seed2",
+        "megagin:seed3",
+        "megagin:seed4",
+        "megagin:seed5"
+      ],
+      "unique_scores": 938443
+    },
+    "test": {
+      "n_edges": 863900,
+      "n_models": 10,
+      "models": [
+        "genagg:seed1",
+        "genagg:seed2",
+        "genagg:seed3",
+        "genagg:seed4",
+        "genagg:seed5",
+        "megagin:seed1",
+        "megagin:seed2",
+        "megagin:seed3",
+        "megagin:seed4",
+        "megagin:seed5"
+      ],
+      "unique_scores": 839570
+    }
+  },
+  "E-All15": {
+    "val": {
+      "n_edges": 965524,
+      "n_models": 15,
+      "models": [
+        "genagg:seed1",
+        "genagg:seed2",
+        "genagg:seed3",
+        "genagg:seed4",
+        "genagg:seed5",
+        "megagin:seed1",
+        "megagin:seed2",
+        "megagin:seed3",
+        "megagin:seed4",
+        "megagin:seed5",
+        "gine:seed1",
+        "gine:seed2",
+        "gine:seed3",
+        "gine:seed4",
+        "gine:seed5"
+      ],
+      "unique_scores": 952348
+    },
+    "test": {
+      "n_edges": 863900,
+      "n_models": 15,
+      "models": [
+        "genagg:seed1",
+        "genagg:seed2",
+        "genagg:seed3",
+        "genagg:seed4",
+        "genagg:seed5",
+        "megagin:seed1",
+        "megagin:seed2",
+        "megagin:seed3",
+        "megagin:seed4",
+        "megagin:seed5",
+        "gine:seed1",
+        "gine:seed2",
+        "gine:seed3",
+        "gine:seed4",
+        "gine:seed5"
+      ],
+      "unique_scores": 852895
+    }
+  },
+  "sources": {
+    "genagg": "E:\\JSJ\\RS-react\\experiments\\R6_megagenagg",
+    "megagin": "E:\\JSJ\\RS-react\\experiments\\R6_mega_sb2048",
+    "gine": "E:\\JSJ\\RS-e2e\\experiments\\R1_gine_causal"
+  },
+  "note": "GINe scores are batch 8192 (look-ahead median 600 s); GenAgg and MEGA-GIN batch 2048 (180 s)."
+}

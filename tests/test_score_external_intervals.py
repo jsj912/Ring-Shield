@@ -26,7 +26,7 @@ def _run(tmp_path, extra):
 
 def test_default_interval_equals_r9(tmp_path):
     r9 = pd.read_csv(T / "r9_ring_ci.csv").query("method == 'average' and window == 'primary'").iloc[0]
-    row = _run(tmp_path, [])
+    row = _run(tmp_path, ["--legacy-file-order"])  # frozen tables were matched in file order
     assert row["ring_f1"] == pytest.approx(r9["ring_f1"], abs=1e-12)
     assert (row["ring_f1_lo"], row["ring_f1_hi"]) == pytest.approx((r9["ring_f1_lo"], r9["ring_f1_hi"]), abs=1e-12)
     assert round(row["ring_f1_lo"], 4) == 0.5023 and round(row["ring_f1_hi"], 4) == 0.6747
@@ -35,6 +35,16 @@ def test_default_interval_equals_r9(tmp_path):
 def test_legacy_flag_equals_r14(tmp_path):
     r14 = pd.read_csv(T / "r14_scope_sensitivity.csv").query(
         "policy == 'test_visible' and detector == 'gine_causal' and method == 'full'").iloc[0]
-    row = _run(tmp_path, ["--legacy-subsample-intervals"])
+    row = _run(tmp_path, ["--legacy-subsample-intervals", "--legacy-file-order"])
     assert row["ring_f1"] == pytest.approx(r14["ring_f1"], abs=1e-12)
     assert (row["ring_f1_lo"], row["ring_f1_hi"]) == pytest.approx((r14["ring_f1_lo"], r14["ring_f1_hi"]), abs=1e-12)
+
+
+def test_default_matcher_is_deterministic_same_point(tmp_path):
+    """Default tie-break is deterministic; at tau 0.5, test_visible, primary the match COUNT is unchanged
+    (results/notes/matcher_tiebreak.md), so the point estimate equals the frozen one; intervals may move."""
+    r9 = pd.read_csv(T / "r9_ring_ci.csv").query("method == 'average' and window == 'primary'").iloc[0]
+    row = _run(tmp_path, [])
+    assert row["ring_f1"] == pytest.approx(r9["ring_f1"], abs=1e-12)
+    cfg = __import__("json").loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert cfg["matcher_tie_break"] == "deterministic"

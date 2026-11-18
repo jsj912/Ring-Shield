@@ -1,0 +1,19 @@
+\begin{abstract}
+Money-laundering detection on AMLworld is reported per transaction, while group-level results
+are appearing under definitions that cannot be compared. We audit what the benchmark supports
+when the unit is the laundering attempt. We define attempt-level recovery with one-to-one
+matching, an explicit scope rule and intervals over rings, and release it as a scorer. Three
+unstated choices dominate reported numbers. The day split's tail (40.7\,\% of test positives in
+0.13\,\% of edges) inflates edge metrics and absorbs nearly half of a global seed budget.
+% source: docs/FINDINGS.md (C1; dated note on the window-matched budget: 463.0 of 864 seeds in window)
+The scope convention moves ring-F1 by 0.35--0.38 on HI-Small, five times our method's effect;
+on the larger HI-Medium release it keeps its direction but not its size (0.04--0.07).
+% source: results/tables/r14_scope_sensitivity.csv; docs/FINDINGS.md (C9); results/tables/v41_hm_audit_scope.csv (gap_f1_fm_minus_tv, all eight cells: -0.038 to -0.073)
+And 44\,\% of in-scope rings have no connected in-window piece any method could match (40\,\% on
+HI-Medium).
+% source: results/tables/v36_component_scope.csv (77 of 174); results/tables/v41_hm_audit.json (observability: 875 of 2,187)
+With a reference pipeline and three external baselines we find that a 9.4-point edge-F1 gain
+buys no rings at a fixed budget, and that effects too small to resolve at 174 rings are
+resolved at 2{,}187. We close with reporting recommendations.
+% source: results/tables/r6_detector_swap.csv (edge_f1 0.6893 vs 0.5957; B0 ring_f1 0.5208 vs 0.5213); results/tables/v40_external_baselines.csv (Louvain, label propagation, CSGM); r9_significance.csv (full_vs_b2 p_Holm 0.49) vs v3_closeout_p3.csv (global full vs b2, p_Holm 0.0003)
+\end{abstract}

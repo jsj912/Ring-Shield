@@ -1,0 +1,8 @@
+# Part C (PREREG_RECOVERY amendment d2cfe2fb): HI-Small-trained GenAgg, zero-shot on HI-Medium.
+# raw_dir = the HI-Small-vocabulary copy (evaluation/hm_vocab_remap.py); processed_dir = RS-e2e, read-only.
+dataset: HI-Medium
+raw_dir: experiments/R18_hm_transfer/raw/HI-Medium
+processed_dir: E:/JSJ/RS-e2e/data/processed_hi_medium
+experiments_dir: experiments/R18_hm_transfer
+account_bank_map: E:/JSJ/RS-e2e/data/processed_hi_medium/account_bank.parquet
+legacy_csv_time_offset_s: 10

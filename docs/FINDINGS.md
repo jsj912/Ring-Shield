@@ -229,3 +229,32 @@ full_membership − test_visible gap is negative for every method. Under the glo
 full − B0 (0.092 global, 0.086 per day), so the registered scope bar is not met
 (HM_AUDIT=NOT_REPRODUCED). The observability share (40.0 % vs 44.3 %) and the threshold dependence
 (gain at 0.7 < half the gain at 0.3) reproduce.
+
+### Dated notes — 2026-11-16 (approved by the author, 2026-11-16; appended, no earlier entry changed)
+
+*Intervals (2026-11-16; results/notes/interval_consistency.md):* The r14 / v36 bootstrap
+(`scope_sensitivity.boot`) passed resampled ring ids with repeats but no weights, and
+`metrics_from_evidence` collapsed the repeats. Each "resample" was therefore a without-replacement
+subsample of about 63 % of the rings, and its intervals are about 25 % too narrow. For `full`:
+[0.523, 0.653] against the correct [0.502, 0.675] (= r9 / A3). Point estimates and paired tests are
+unaffected. The corrected intervals are in r14_scope_sensitivity_wci, v36_component_scope_wci,
+v40_external_baselines_v2 and v41_hm_audit_*_v2. As of 2026-11-16 the defect is fixed at the source:
+repeats count with their multiplicity, and `legacy_collapse_repeats=True` is used only to reproduce
+the frozen r14 / v36 / r7 tables. The frozen tables are unchanged.
+
+*Look-ahead (2026-11-16; results/notes/p7_genagg.md):* "Causal" neighbour sampling is batch-causal,
+not strictly causal. The causal loader (window 1,800 s) keeps neighbour edges up to the batch's
+latest seed, so an edge can see up to 1,800 s after itself. The scoring batch sets the amount:
+- at batch 2048, the MEGA family's setting: median 180 s, p95 720 s;
+- at batch 8192, the shipped Multi-GINe scores: median 600 s, p95 1,440 s.
+
+This applies to all three neural detectors. Scores are a function of the scoring batch as well as
+the model. Every MEGA-family number is reported at batch 2048.
+
+*Matcher tie-break (2026-11-16; results/notes/matcher_tiebreak.md):* The greedy one-to-one matcher
+broke equal-Jaccard ties by prediction file order. Two truth rings can both reach Jaccard ≥ 0.5
+with one prediction (at exactly 0.5), so the order could matter.
+- Over 482 runs in the headline cells (primary window, test_visible, τ 0.5), no match count changes. In 5 seed-4 runs a different truth ring is matched.
+- In all other cells, 55 run-cells move by one match. The largest change in a five-seed mean ring-F1 is 0.0032.
+- Author decision (2026-11-16): new scoring uses a deterministic tie-break: Jaccard descending, then the smaller truth id, then the sorted member tuple. This is the `score_external.py` default. `--legacy-file-order` reproduces the frozen tables exactly (T-P1: 90 cells, deviation 0.0).
+- The frozen tables stay as scored.

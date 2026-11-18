@@ -1,19 +1,18 @@
 \begin{abstract}
-Money-laundering detection on AMLworld is reported per transaction, while group-level results
-are appearing under definitions that cannot be compared. We audit what the benchmark supports
-when the unit is the laundering attempt. We define attempt-level recovery with one-to-one
-matching, an explicit scope rule and intervals over rings, and release it as a scorer. Three
-unstated choices dominate reported numbers. The day split's tail (40.7\,\% of test positives in
-0.13\,\% of edges) inflates edge metrics and absorbs nearly half of a global seed budget.
-% source: docs/FINDINGS.md (C1; dated note on the window-matched budget: 463.0 of 864 seeds in window)
-The scope convention moves ring-F1 by 0.35--0.38 on HI-Small, five times our method's effect;
-on the larger HI-Medium release it keeps its direction but not its size (0.04--0.07).
-% source: results/tables/r14_scope_sensitivity.csv; docs/FINDINGS.md (C9); results/tables/v41_hm_audit_scope.csv (gap_f1_fm_minus_tv, all eight cells: -0.038 to -0.073)
-And 44\,\% of in-scope rings have no connected in-window piece any method could match (40\,\% on
-HI-Medium).
-% source: results/tables/v36_component_scope.csv (77 of 174); results/tables/v41_hm_audit.json (observability: 875 of 2,187)
-With a reference pipeline and three external baselines we find that a 9.4-point edge-F1 gain
-buys no rings at a fixed budget, and that effects too small to resolve at 174 rings are
-resolved at 2{,}187. We close with reporting recommendations.
-% source: results/tables/r6_detector_swap.csv (edge_f1 0.6893 vs 0.5957; B0 ring_f1 0.5208 vs 0.5213); results/tables/v40_external_baselines.csv (Louvain, label propagation, CSGM); r9_significance.csv (full_vs_b2 p_Holm 0.49) vs v3_closeout_p3.csv (global full vs b2, p_Holm 0.0003)
+Money-laundering detectors are scored per transaction; investigators act on rings. We
+give a ring-level evaluation protocol for AMLworld (a ring metric, a matching rule with a
+deterministic tie-break, a ring bootstrap that keeps multiplicities, and ring-folded
+cross-fitting) and audit the benchmark with it. On HI-Small (test days 8--9, 174 rings, five
+seeds), three graph neural detectors spanning test edge F1 0.596 to 0.715 give seeds-only
+ring-F1 0.518 to 0.551, and nine post-detector recovery attempts (five read on test, four
+stopped at their validation gate) leave ring-F1 flat; most remaining losses are rings with too
+few visible members. Below that range the detector still matters: on HI-Medium
+(test days 6--14, 2{,}187 rings), a detector trained only on HI-Small, applied without
+retraining, gives 0.396 $\pm$ 0.015 (five seeds), against 0.090 for an earlier in-domain detector
+that differs in architecture and training data (two seeds). TAML, an account-flagging method
+converted to rings, reaches 0.327 [0.254, 0.403] (three seeds), losing mainly through
+transactions its graphs omit. We list the evaluation defects we found.
+% source: results/notes/final_numbers.md (detector swap rows: edge F1 0.596 / 0.686 / 0.715, B0 0.521 / 0.518 / 0.551;
+%   HI-Medium transfer section: 0.396 +- 0.015, 0.090; TAML section: 0.327 [0.254, 0.403]); recovery count: results/notes/recovery_attempts.md;
+%   "mostly too few visible members": Q0 bucket a, 65.6 of the 93.8 unmatched rings per seed (results/notes/q_track.md)
 \end{abstract}

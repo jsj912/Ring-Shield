@@ -1,0 +1,175 @@
+\section{Reproducibility}
+\label{app:repro}
+
+All runs: Intel Xeon W-2295 (18C/36T), 128\,GB RAM, NVIDIA RTX A5000 (24\,GB), Windows 11,
+Python 3.12, PyTorch 2.5.1+cu121, PyG 2.8.0.
+% source: README.md (Hardware)
+Every reported number recomputes from a run's stored metrics; an audit script re-derives 18
+headline rows mechanically (18 traceable, 0 mismatched), and a frozen-numbers file pins every
+headline to its source with a failing test on change.
+% source: README.md; docs/REPRODUCE.md §13 (row 6); results/FROZEN.json
+
+\paragraph{Data integrity.}
+Edge identifiers are row positions after a stable sort on timestamps, so a manifest check pins
+the inputs:
+% source: docs/REPRODUCE.md §0
+
+\begin{center}\small
+\begin{tabular}{lll}
+\toprule
+File & SHA-256 (first 16) & Bytes \\
+\midrule
+\texttt{HI-Small\_Trans.csv} & \texttt{b19d39f515523373} & 475{,}664{,}283 \\ % source: docs/REPRODUCE.md §0
+\texttt{HI-Small\_accounts.csv} & \texttt{786808526e33cfc4} & 34{,}053{,}187 \\ % source: docs/REPRODUCE.md §0
+\texttt{HI-Small\_Patterns.txt} & \texttt{2c546b5ce6009e73} & 323{,}844 \\ % source: docs/REPRODUCE.md §0
+\texttt{formatted\_transactions.csv} & \texttt{3b9678458eeece7e} & 266{,}605{,}148 \\ % source: docs/REPRODUCE.md §0
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{End-to-end check.}
+With nothing retrained, the data manifest passes, the research test suite passes 258 tests,
+and the ring-building command regenerates the released rings byte-identically (108 rings in
+62\,s).
+% source: docs/REPRODUCE.md §13 (rows 1, 2a, 7)
+Measured training times: detector about 15\,h for 5 seeds; cross-scoring about 8\,h; MEGA-GNN
+about 18\,h; statistics about 45\,min.
+% source: docs/REPRODUCE.md §2, §4, §7, §8
+
+\section{Additional results}
+\label{app:tables}
+
+\paragraph{Scope conventions.}
+Tables~\ref{tab:scope} and~\ref{tab:component-scope} give the numbers behind
+Figure~\ref{fig:scope}.
+
+\input{tables/scope_sensitivity}
+\input{tables/component_scope}
+
+\paragraph{Validation-to-test gap.}
+Table~\ref{tab:val-test-gap} gives the per-seed edge F1 behind the scoring-batch footnote in
+Section~\ref{sec:results-swap}.
+
+\input{tables/val_test_gap}
+
+\paragraph{Seed budget and windows.}
+The validation-chosen budget is not test-optimal: the full pipeline at 0.15\,\% scores
+$0.606 \pm 0.033$ against \ci{0.589}{0.502}{0.675} at the validation-chosen 0.1\,\%, a gap
+inside seed noise, and we do not move the operating point (Table~\ref{tab:robustness}).
+Ring-level numbers are stable between the primary and whole windows
+(Table~\ref{tab:windows}).
+% source: docs/FINDINGS.md (section E; section D)
+
+\input{tables/robustness}
+\input{tables/windows}
+
+\paragraph{Pattern typing.}
+The typing classifier is correct on \ci{0.599}{0.549}{0.648} of 401 matched rings, against
+\ci{0.551}{0.499}{0.601} for a rule, with overlapping intervals; accuracy does not change with
+the window (Table~\ref{tab:typing}). RANDOM (0.11) and BIPARTITE (0 of 5) remain weak.
+% source: results/tables/r5_typing_ci.csv; docs/FINDINGS.md (B10)
+
+\input{tables/typing}
+
+\paragraph{Held-out pattern types.}
+We removed one pattern type from every label set the ring layer trains on, in train and
+validation together. Holding out BIPARTITE removes none of the policy's 244 positive training
+rows, because BIPARTITE quiet edges never share an endpoint with a seed of their own ring; the
+pattern is unreachable by endpoint-adjacent expansion whether or not it is held out, and its
+unchanged number is not evidence of transfer. Holding out CYCLE removes 14.8\,\% of the
+positives --- every positive for that topology --- and the policy still adds CYCLE members at
+undiminished precision (Table~\ref{tab:heldout-cycle}); the recall intervals are wide and
+cannot exclude a loss of up to 6.5 points.
+% source: docs/paper/generalisation.md §2; docs/FINDINGS.md (B6)
+
+\input{tables/heldout_cycle}
+
+\paragraph{Per-pattern detection and time-to-detection.}
+Table~\ref{tab:per-pattern} and Figure~\ref{fig:appendix-figs} break results down by pattern.
+Time-to-detection is uninformative on this dataset --- median 0\,h, because a ring's first
+in-window transaction is usually already a seed --- and is not reported further.
+% source: docs/report.md §7.2; results/tables/r9_ttd.csv
+
+\input{tables/per_pattern}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[t]{0.48\textwidth}
+  \includegraphics[width=\linewidth]{f2_per_pattern_recall.png}
+  \caption{Per-pattern recall.}
+  % source: results/figures/f2_per_pattern_recall.png
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+  \includegraphics[width=\linewidth]{r4_val_ringf1_vs_seedfrac.png}
+  \caption{Validation ring-F1 against seed fraction.}
+  % source: results/figures/r4_val_ringf1_vs_seedfrac.png
+\end{subfigure}
+\caption{Supplementary figures from the repository.}
+\label{fig:appendix-figs}
+\end{figure}
+
+\section{Corrections made during the project}
+\label{app:corrections}
+
+Four claims were corrected before this draft and appear in the paper only in corrected form.
+(i) An earlier bound on ring recall derived from \texttt{min\_size} was circular and is
+withdrawn (Section~\ref{sec:results-ceiling}). (ii) An earlier, much lower typing accuracy
+came from an evaluation lookup that typed a different ring than the matched one; it was found
+by an independent check from the explanation layer and fixed with a regression test. (iii) The
+partially recovered rings were first read as chains the policy declined to follow; the
+connectivity measurement shows most missing members were never reachable. (iv) An earlier
+comparison suggested a per-account seed budget lowers baseline ring-F1; at an equal budget it
+does not.
+% source: docs/FINDINGS.md (B7/B9, B10, B12/B13, and the dated correction to B14)
+
+\section{System context: explanations and platform}
+\label{app:platform}
+
+The rings feed two components that are delivered capabilities, not validated research claims.
+Their numbers come from their own reports and are outside the findings file this paper is
+otherwise restricted to.
+% source: docs/FINDINGS.md (scope note of 2026-11-12); README.md
+
+\paragraph{Explanations.}
+Each ring receives transaction weights (calibrated score and flow share), account roles,
+TreeSHAP feature attributions and a fixed-template narrative; there is no language model.
+Median latency is 393\,ms per ring. On the standard fidelity metric the ranking is
+indistinguishable from score-only because most matched rings contain only true transactions;
+on the 52 instances that mix true and false transactions, score-only is better than the mixed
+ranking ($+0.058$ [$+0.010$, $+0.133$]). An internal three-person review of 30 explanations
+found the named accounts right at a 0.91 yes-rate and the stated shape plausible at 0.53; it
+was not an analyst study, and an external one is designed but not run.
+% source: explainability/report/xai_chapter.md §5.2, §7; docs/deep-analysis.md §11, §14
+
+\paragraph{Platform.}
+A multi-bank analyst dashboard serves the rings with per-bank isolation enforced by database
+row-level security, records verdicts, and gates retraining on a frozen holdout
+(Figure~\ref{fig:platform}).
+% source: docs/report.md §3.1–3.2
+A pooled model applied to one bank's view recovers \ci{0.088}{0.031}{0.161} of tenant-ring
+pairs against \ci{0.359}{0.239}{0.500} with the pooled view (Table~\ref{tab:r10}); 172 of 174
+rings span more than one bank. Pooling the five studied banks closes 11\,\% of that gap
+(0.121 to 0.147).
+% source: results/tables/r10_registered.json; results/tables/r10_consortium.json; docs/report.md §7.2
+A drift-monitoring experiment could not be made testable on the two-day primary window: the
+detector's scores have a tie plateau across the 99th percentile, and day 9 already differs
+from day 8 by more than the synthetic shift.
+% source: docs/R12.md (second registration); results/platform/r12b/summary.json
+
+\input{tables/r10_tenant}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[t]{0.48\textwidth}
+  \includegraphics[width=\linewidth]{02-ring-queue-light.png}
+  \caption{The analyst's ring queue.}
+  % source: docs/screenshots/02-ring-queue-light.png
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+  \includegraphics[width=\linewidth]{05-ring-detail-narrative-light.png}
+  \caption{A ring's narrative.}
+  % source: docs/screenshots/05-ring-detail-narrative-light.png
+\end{subfigure}
+\caption{The multi-bank analyst platform.}
+\label{fig:platform}
+\end{figure}

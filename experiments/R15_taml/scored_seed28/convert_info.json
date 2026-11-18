@@ -1,0 +1,44 @@
+{
+ "tau": 0.7970314621925354,
+ "val_f1_class1": 0.7434011250540892,
+ "n_pred_s9": 1080,
+ "n_pred_s10": 679,
+ "n_rings_joined": 144,
+ "n_rings_per_step": 143,
+ "rings_with_no_member_edge": {
+  "joined": 0,
+  "per_step": 0
+ },
+ "restricted_recall_test_visible_j05": {
+  "joined:rep63_joined": {
+   "n": 63,
+   "matched": 46,
+   "recall": 0.7301587301587301
+  },
+  "joined:rep25_s9": {
+   "n": 25,
+   "matched": 15,
+   "recall": 0.6
+  },
+  "joined:rep39_s10": {
+   "n": 39,
+   "matched": 31,
+   "recall": 0.7948717948717948
+  },
+  "per_step:rep63_joined": {
+   "n": 63,
+   "matched": 47,
+   "recall": 0.746031746031746
+  },
+  "per_step:rep25_s9": {
+   "n": 25,
+   "matched": 18,
+   "recall": 0.72
+  },
+  "per_step:rep39_s10": {
+   "n": 39,
+   "matched": 34,
+   "recall": 0.8717948717948718
+  }
+ }
+}

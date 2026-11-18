@@ -1,0 +1,171 @@
+\section{Benchmark audit}
+\label{sec:findings}
+
+The findings in this section do not depend on our method. They concern the dataset, its
+standard split and the conventions under which group-level results are scored, and they affect
+any result published on the AMLworld family.
+
+\subsection{The test tail}
+\label{sec:findings-tail}
+
+The day split places a pathology in the test tail (Figure~\ref{fig:tail}). Days 10--17 hold
+655 of the test period's 1{,}611 positives inside 1{,}108 edges --- a 59\,\% base rate against
+0.11\,\% on days 8--9 --- so 40.7\,\% of the test positives sit in 0.13\,\% of the test edges,
+and a rule that reads the clock (``after day 10 $\Rightarrow$ illicit'') scores F1 0.48 there
+on its own.
+% source: docs/FINDINGS.md (C1); docs/TEST_TAIL.md
+This is a property of the generator, not of one release: regenerating the full preprocessing
+path on LI-Small reproduces the collapse (Table~\ref{tab:tail}). What reproduces is the
+concentration; the share of test signal in the tail differs by release.
+% source: docs/paper/evaluation_protocol.md §4
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\textwidth]{fig_tail_base_rate.png}
+\caption{Laundering base rate by test day in two AMLworld releases. After day 9 the
+background traffic collapses and the base rate jumps by more than two orders of magnitude.}
+% source: docs/paper/evaluation_protocol.md §4 (per-day base-rate table); figure built by paper_draft/make_figs.py
+\label{fig:tail}
+\end{figure}
+
+\input{tables/tail}
+
+Two consequences follow. A single-number test F1 on HI-Small is not comparable across papers
+unless the window is stated: our detector's edge F1 is $0.495 \pm 0.027$ on days 8--9 and
+0.596 on the whole split.
+% source: results/tables/r1_edge_metrics.csv (primary_f1_minority_mean/std); r6_detector_swap.csv (edge_f1, gine_causal)
+And the tail reaches ring-level results through the seed budget. A global 0.1\,\% score
+quantile over the test split places only $463.0$ of its 864 seeds in the two clean days, so
+any method that selects by a global quantile over this split operates in the clean window at
+roughly half its nominal budget (Section~\ref{sec:results-swap} measures what recovering that
+budget does).
+% source: results/tables/v34_window_budget.json; docs/FINDINGS.md (dated note, window-matched seed budget)
+
+\subsection{The day-0 warm-up}
+
+Day 0 holds 34.3\,\% of HI-Small's training edges (34.4\,\% of LI-Small's) at roughly ten
+times day 1's per-minute density. Trailing motif features count structures inside a time
+window, so that density distorts them in both directions: cycle-shaped features are nonzero on
+12.6\,\% of day-0 edges against about 2\,\% on every later day, while fan-in and fan-out
+features are depressed (63\,\% against 89\,\%) because there is no history to look back on.
+Both effects reproduce in LI-Small to within 0.3 percentage points.
+% source: docs/FINDINGS.md (C8)
+Day 0 is the simulation warming up, and anything trained across it is partly fitting that
+warm-up.
+
+How much this matters is release-specific. On HI-Medium, where day 0 is 48.8\,\% of training
+edges at 0.27 times the later base rate, a detector trained across it reaches validation AP
+0.3073; excluding day-0 \emph{labels} while keeping the day as message-passing history gives
+0.4495 on half the supervised edges.
+% source: docs/FINDINGS.md (C10)
+The same exclusion does not help on HI-Small: with a gate fixed before training, seed-1
+validation AP is 0.5455 against the reference detector's 0.5726, and the remaining seeds were
+not run.
+% source: docs/deep-analysis.md §9 — one seed; not yet recorded in docs/FINDINGS.md
+
+\subsection{A global quantile can hand the seed budget to one day}
+
+Every release ends its ordinary traffic with an elevated-volume day (1.36--1.57 times the
+weekday norm). On HI-Medium, a single global 0.1\,\% quantile over the test split gives that
+day 87.5\,\% of the seeds although it holds 16\,\% of the window's edges, because the
+detector's scores are systematically higher there. On HI-Small the corresponding day takes
+22.0--36.3\,\% of seeds across detector seeds against 75.8\,\% of the split's edges, so volume
+alone does not explain the capture.
+% source: docs/FINDINGS.md (C11); results/tables/v33_seed_by_day.csv
+Budget allocation across days is a design choice and should be stated, not left to the score
+distribution.
+
+\subsection{Saturated scores break strict quantile cuts}
+\label{sec:findings-saturation}
+
+On one HI-Medium detector seed, 780{,}093 of 18.9\,M test scores are exactly 1.0. The 99.9\,\%
+quantile is then 1.0 itself, and a strict ``score $>$ q'' rule selects no seeds at all.
+Saturation grows with distance from training: 124 saturated edges on test day 6, 25{,}495 on
+day 9 and 221{,}909 on day 15. Results from such a seed are an artefact of the cut, not a
+measurement, and we exclude that seed from every HI-Medium number. The general point is that
+a quantile rule is only defined once its tie handling is stated.
+% source: docs/deep-analysis.md §7 (diagnosis 1: seed 3, 780,093 of 18.9 M scores at 1.0; 124 / 25,495 / 221,909 on days 6 / 9 / 15)
+
+\subsection{The scope convention is worth five times the method}
+\label{sec:findings-scope}
+
+Figure~\ref{fig:scope} re-scores the same runs under four rules for what a truth ring's member
+set is. Nothing is re-run and no parameter is re-chosen.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.78\textwidth]{fig_scope_conventions.png}
+\caption{Ring-F1 of the same runs under four scope conventions (Multi-GINe detector, primary
+window). The convention moves every method by far more than the methods differ from each
+other.}
+% source: results/tables/r14_scope_sensitivity.csv and v36_component_scope.csv; figure built by paper_draft/make_figs.py
+\label{fig:scope}
+\end{figure}
+
+Counting all of a ring's accounts as members, not only those visible in the window, lowers
+ring-F1 by 0.347--0.383 for every method and both GNN detectors (Table~\ref{tab:scope},
+appendix). The in-scope ring count is unchanged at 174; only member sets grow, from a median
+of 4 accounts to 11. For scale, the largest method effect in this paper is $+0.068$.
+% source: results/tables/r14_scope_sensitivity.csv; docs/FINDINGS.md (C9)
+
+Making targets smaller instead --- scoring each in-window connected piece of a ring as its own
+target --- gives 254 targets; keeping only pieces of three or more accounts gives 108 targets
+in 97 rings (Table~\ref{tab:component-scope}, appendix). The ordering
+seeds $<$ rule $<$ policy $<$ policy-plus-partition is preserved under three of the four
+conventions for both detectors. Under the fourth it changes in one place: the policy alone
+overtakes policy-plus-partition (0.766 vs.\ 0.740). The swap was not tested for significance,
+but the sign of the partition step flips, and it flips again on HI-Medium
+(Section~\ref{sec:findings-hm}).
+% source: results/tables/v36_component_scope.csv; docs/deep-analysis.md §4
+Adding the community-detection baselines of Section~\ref{sec:results-baselines} shows what
+re-ranking by convention looks like beyond that swap. Conventions re-rank methods that are
+close, not methods that are clearly apart. The only other swaps between neighbours in the
+ranking are seeds-plus-components against Louvain at resolution 0.5 (0.4436 vs.\ 0.4451 when
+each in-window piece is a target; 0.6731 vs.\ 0.6738 with pieces of three or more accounts)
+and the two weakest methods, Louvain at resolution 2 against CSGM, when all of a ring's
+accounts count.
+% source: results/tables/v40_external_baselines.json (bar_A adjacent_swaps); v40_external_baselines.csv (b0 / louvain_r0.5 component and component_ge3 ring_f1; louvain_r2 / csgm full_membership)
+
+Neither extreme is right. Scoring against in-window accounts holds a method responsible only
+for evidence it could have seen, and makes patterns severed by the split structurally
+unmatchable. Scoring against all accounts keeps rings intact and penalises a perfect in-window
+method for members it could not observe. A ring-level number is not interpretable without
+knowing which rule produced it, and none of the group-level work we reviewed in
+Section~\ref{sec:related} states one.
+% source: docs/paper/evaluation_protocol.md §9
+
+\subsection{A second release with ring-level evaluation: HI-Medium}
+\label{sec:findings-hm}
+
+HI-Medium has 2{,}187 in-scope rings in its primary window (test days 6--14), against
+HI-Small's 174. We re-scored its existing ring outputs under the same protocol, with no new
+training.
+% source: results/tables/v41_hm_audit.json (observability.n_in_scope_rings; window); results/notes/p4_hm_audit.md
+\emph{The direction of the scope effect reproduces; its size does not.} Counting all of a
+ring's accounts lowers ring-F1 for every method under both seed-allocation rules, by 0.038 to
+0.059 under the global rule and 0.038 to 0.073 across all eight cells
+(Table~\ref{tab:hm-audit}). That is smaller than the difference between the full pipeline and
+seeds-plus-components on the same release (0.092), where on HI-Small the scope gap was five
+times the method effect. One hypothesis, which we have not tested, is window length: HI-Medium's
+primary window spans nine days against HI-Small's two, so more of each ring is visible and
+restricting members to the window removes less.
+% source: results/tables/v41_hm_audit_scope.csv (gap_f1_fm_minus_tv); v41_hm_audit.json (verdicts.scope.global: largest_method_effect_full_minus_b0 0.0924)
+\emph{Observability reproduces.} 875 of the 2{,}187 rings (40.0\,\%) have no connected in-window
+piece of three or more accounts, against 44.3\,\% on HI-Small.
+% source: results/tables/v41_hm_audit.json (observability: rings_no_in_window_piece_ge3 875, n_in_scope_rings 2187)
+\emph{The threshold dependence of the partition gain reproduces.} The gain in ring recall from
+partitioning falls from 0.019 at Jaccard 0.3 to 0.015 at 0.5 and 0.009 at 0.7 (global rule),
+and under the scope that keeps only in-window pieces of three or more accounts the policy alone
+again edges past policy-plus-partition (0.2434 vs.\ 0.2430).
+% source: results/tables/v41_hm_audit_threshold.csv (global gain_ring_recall 0.0194 / 0.0149 / 0.0089); v41_hm_audit_component.csv (global proposed / full ring_f1_component_ge3)
+
+\input{tables/hm_audit}
+
+\subsection{A release without enough rings: LI-Small}
+
+LI-Small was regenerated end to end (6{,}924{,}049 transactions, 705{,}907 accounts). The
+preprocessing, splitting, scoping and windowing path runs unchanged, and the tail and day-0
+artefacts reproduce. Its ring-level evaluation is under-powered --- 38 matchable rings in its
+primary window against HI-Small's 114, below a stopping threshold fixed in advance --- so we
+report no method numbers on it.
+% source: docs/paper/evaluation_protocol.md §4 (LI-Small subsection)

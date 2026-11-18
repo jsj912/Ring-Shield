@@ -44,3 +44,10 @@ def test_pvalues_out_keeps_results_tables_untouched(tmp_path, monkeypatch):
             "--out", str(out), "--pvalues-out", str(pv)])
     assert out.exists() and pv.exists()
     assert _snapshot(m.TABLES) == before
+
+
+def test_default_pvalues_path_follows_out(tmp_path):
+    """A non-default --out never sends the p-values to the frozen results/tables/r6_pvalues.csv."""
+    assert m.default_pvalues_out(m.TABLES / "r6_detector_swap.csv") == m.TABLES / "r6_pvalues.csv"
+    assert m.default_pvalues_out(tmp_path / "x.csv") == tmp_path / "x_pvalues.csv"
+    assert m.default_pvalues_out(m.TABLES / "r6_detector_swap_sb2048.csv") == m.TABLES / "r6_detector_swap_sb2048_pvalues.csv"

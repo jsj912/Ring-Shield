@@ -82,7 +82,8 @@ def quiet_accounts(truth: dict, scored_edges: pd.DataFrame, seed_mask: np.ndarra
 
 def ring_evidence(rings, scored_edges: pd.DataFrame, truth: dict, window, *, method: str, seed: int,
                   seed_mask: np.ndarray | None = None, patterns: dict | None = None, threshold: float = 0.5,
-                  causal: bool | None = None, truth_edges: pd.DataFrame | None = None) -> RingEvidence:
+                  causal: bool | None = None, truth_edges: pd.DataFrame | None = None,
+                  tie_break: str = "file_order") -> RingEvidence:
     """Evidence for one run on one window. `rings` are `ringshield.rings.Ring` records.
 
     `seed_mask` (positional over `scored_edges`) enables the quiet-member columns; `truth_edges`
@@ -94,7 +95,7 @@ def ring_evidence(rings, scored_edges: pd.DataFrame, truth: dict, window, *, met
         raise ValueError("ring_evidence: time-to-detection and quiet-member recall are only meaningful for a "
                          "causal run (loader_route / causal_sampling); got causal=False")
     pred_sets = restrict_rings(rings, scored_edges, window)
-    matches, _, _ = match_rings(pred_sets, truth, threshold)
+    matches, _, _ = match_rings(pred_sets, truth, threshold, tie_break=tie_break)
     by_truth = {m.truth_id: m for m in matches}
     quiet = quiet_accounts(truth, scored_edges, seed_mask, window) if seed_mask is not None else {t: set() for t in truth}
     quiet_found, ttd = {}, {}
@@ -124,15 +125,29 @@ def ring_evidence(rings, scored_edges: pd.DataFrame, truth: dict, window, *, met
 
 
 # --------------------------------------------------------------------------------- metrics from evidence
-def metrics_from_evidence(ev: RingEvidence, truth_ids: Sequence | None = None, weights: dict | None = None) -> dict:
+def metrics_from_evidence(ev: RingEvidence, truth_ids: Sequence | None = None, weights: dict | None = None,
+                          legacy_collapse_repeats: bool = False) -> dict:
     """Recompute the ring metrics from evidence over a (possibly resampled) set of truth rings.
 
     `truth_ids` may repeat entries (a bootstrap resample); `weights` counts them instead. Ring
     precision needs the predicted count, which a resample cannot change -- it is scaled by the
     resampled matched count over the observed matched count, the standard treatment when the
-    resampling unit is the truth ring."""
+    resampling unit is the truth ring.
+
+    Repeated ids with no `weights` count with their multiplicity (a ring drawn three times counts three
+    times), so a resample list and the equivalent `weights` give the same result. The pre-2026-11-16
+    behaviour collapsed repeats to one (a without-replacement subsample, intervals ~25 % too narrow;
+    results/notes/interval_consistency.md). `legacy_collapse_repeats=True` keeps it, and is passed ONLY by
+    the code that reproduces the frozen r14 / v36 / r7 tables."""
     ids = list(ev.truth_ids if truth_ids is None else truth_ids)
-    w = {i: 1 for i in ids} if weights is None else weights
+    if weights is not None:
+        w = weights
+    elif legacy_collapse_repeats:
+        w = {i: 1 for i in ids}
+    else:
+        w = {}
+        for i in ids:
+            w[i] = w.get(i, 0) + 1
     n_truth = sum(w[i] for i in set(ids))
     n_matched = sum(w[i] * ev.matched[i] for i in set(ids))
     recall = n_matched / n_truth if n_truth else 0.0
@@ -280,6 +295,10 @@ def paired_unit_bootstrap(stat: Callable, comparisons: Sequence[tuple], n_units:
             d = np.concatenate(draws[x][k]) - np.concatenate(draws[y][k])
             d = d[~np.isnan(d)]
             n = len(d)
+            if n == 0:   # metric undefined on every draw (e.g. added-member precision of two B0 arms)
+                out[(c, k)] = {"delta": float(point[x][k][0] - point[y][k][0]), "lo": float("nan"),
+                               "hi": float("nan"), "p": float("nan"), "n_valid": 0}
+                continue
             p = min(1.0, 2 * min(int((d <= 0).sum()) + 1, int((d >= 0).sum()) + 1) / (n + 1))
             out[(c, k)] = {"delta": float(point[x][k][0] - point[y][k][0]), "lo": float(np.percentile(d, 2.5)),
                            "hi": float(np.percentile(d, 97.5)), "p": float(p), "n_valid": n}

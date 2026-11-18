@@ -199,7 +199,8 @@ def weighted_boot(evs, ids, metric, n, seed):
 
 
 def score(rings_per_run: list[list], edges: pd.DataFrame, targets: dict, W, thresholds, n_boot: int,
-          boot_seed: int, conventions=CONVENTIONS, legacy_intervals: bool = False):
+          boot_seed: int, conventions=CONVENTIONS, legacy_intervals: bool = False,
+          tie_break: str = "deterministic"):
     ci = boot if legacy_intervals else weighted_boot
     rows, evidence = [], {}
     for conv in conventions:
@@ -207,7 +208,7 @@ def score(rings_per_run: list[list], edges: pd.DataFrame, targets: dict, W, thre
         ids = list(truth)
         for tau in thresholds:
             evs = [ring_evidence(rings, edges, truth, W, method=f"run{i + 1}", seed=i + 1, patterns=patterns,
-                                 threshold=tau, causal=True) for i, rings in enumerate(rings_per_run)]
+                                 threshold=tau, causal=True, tie_break=tie_break) for i, rings in enumerate(rings_per_run)]
             f1, f1lo, f1hi = ci(evs, ids, "ring_f1", n_boot, boot_seed)
             r, rlo, rhi = ci(evs, ids, "ring_recall", n_boot, boot_seed)
             p, plo, phi = ci(evs, ids, "ring_precision", n_boot, boot_seed)
@@ -291,6 +292,9 @@ def main(argv=None):
     ap.add_argument("--legacy-subsample-intervals", action="store_true",
                     help="reproduce the r14/v36 intervals (scope_sensitivity.boot: repeats collapse, ~63 %% "
                          "subsample per resample, too narrow); default is the weighted r9 bootstrap")
+    ap.add_argument("--legacy-file-order", action="store_true",
+                    help="break equal-Jaccard matcher ties by prediction file order, as the frozen tables were "
+                         "scored; default is deterministic (Jaccard desc, smaller truth id, sorted member tuple)")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args(argv)
     try:
@@ -332,7 +336,8 @@ def main(argv=None):
         runs.append(rings)
         inputs.append(info)
     rows, evidence = score(runs, edges, targets, W, a.thresholds, a.n_boot, a.boot_seed, a.conventions,
-                           legacy_intervals=a.legacy_subsample_intervals)
+                           legacy_intervals=a.legacy_subsample_intervals,
+                           tie_break="file_order" if a.legacy_file_order else "deterministic")
     # share of >=3-account pieces recovered, on rings that have one (component_ge3 recall at 0.5)
     ge3 = [r for r in rows if r["convention"] == "component_ge3" and abs(r["threshold"] - 0.5) < 1e-9]
     if ge3:
@@ -349,6 +354,7 @@ def main(argv=None):
                          if a.legacy_subsample_intervals else
                          "draw counts as weights (as evaluation.ring_stats.bootstrap_over_rings)")),
          "legacy_subsample_intervals": a.legacy_subsample_intervals,
+         "matcher_tie_break": "file_order" if a.legacy_file_order else "deterministic",
          "observability": obs, "rows": rows}, indent=2, default=float), encoding="utf-8")
     (a.out / "evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
     (a.out / "config.json").write_text(json.dumps(

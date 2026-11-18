@@ -1,0 +1,146 @@
+experiment: seed1
+step: 7.4 (R4 partition)
+created_utc: '2026-11-16T12:53:33+00:00'
+git_commit: 0cc5f7c72b5edaecf1f6586dbe03218daf0e3fb9
+aggregator: full
+method: average
+detector_seed: 1
+r1_dir: experiments\R17_history_seeds\r25_both
+r3_config: experiments\R17_history_seeds\r25_both\full\expand\seed1\config.yaml
+expansion_fixed:
+  delta_t_h: 24.0
+  p_min: 0.7
+  policy_dir: experiments\R3_expansion\policy_proposed
+affinity_dir: experiments\R4_partition\affinity
+affinity_cv_auc_pr: 0.9733834079984509
+cluster_seed: 0
+b0_cell_fixed:
+  seed_frac_pct: 0.1
+  min_size: 3
+grid:
+- cut: 0.3
+- cut: 0.5
+- cut: 0.7
+- cut: 0.9
+grid_results_val:
+- cut: 0.3
+  n_rings: 128
+  ring_precision: 0.6797
+  ring_recall: 0.5541
+  ring_f1: 0.6105
+  mean_jaccard: 0.9343
+  member_coverage: 0.9684
+  n_matched: 87
+  components_split: 7
+  n_clusters: 468
+  n_rings_gt100: 0
+- cut: 0.5
+  n_rings: 125
+  ring_precision: 0.704
+  ring_recall: 0.5605
+  ring_f1: 0.6241
+  mean_jaccard: 0.9384
+  member_coverage: 0.9783
+  n_matched: 88
+  components_split: 4
+  n_clusters: 464
+  n_rings_gt100: 0
+- cut: 0.7
+  n_rings: 124
+  ring_precision: 0.7016
+  ring_recall: 0.5541
+  ring_f1: 0.6192
+  mean_jaccard: 0.9467
+  member_coverage: 0.9814
+  n_matched: 87
+  components_split: 3
+  n_clusters: 463
+  n_rings_gt100: 0
+- cut: 0.9
+  n_rings: 116
+  ring_precision: 0.6897
+  ring_recall: 0.5096
+  ring_f1: 0.5861
+  mean_jaccard: 0.9552
+  member_coverage: 0.9815
+  n_matched: 80
+  components_split: 0
+  n_clusters: 455
+  n_rings_gt100: 0
+chosen:
+  seed_frac_pct: 0.1
+  min_size: 3
+  delta_t_h: 24.0
+  p_min: 0.7
+  method: average
+  cut: 0.5
+  val_ring_f1: 0.6241
+scope: test_visible
+model_id: gine_causal
+selection_column: score_raw
+confidence_column: score_calibrated
+context:
+  val:
+    gfp_parquet: E:\JSJ\RS-react\data\processed\amlworld_gfp_features_val.parquet
+    embeddings_parquet: experiments\R17_history_seeds\r25_both\embeddings_val_seed1.parquet
+    checkpoint: experiments\R17_history_seeds\r25_both\model_best_seed1.pt
+    head_constants:
+    - 0.0796026811003685
+    - 0.01074153557419777
+    n_dead_region: 125997
+  test:
+    gfp_parquet: E:\JSJ\RS-react\data\processed\amlworld_gfp_features_test.parquet
+    embeddings_parquet: experiments\R17_history_seeds\r25_both\embeddings_test_seed1.parquet
+    checkpoint: experiments\R17_history_seeds\r25_both\model_best_seed1.pt
+    head_constants:
+    - 0.0796026811003685
+    - 0.01074153557419777
+    n_dead_region: 156004
+scope_windows:
+  val:
+  - 518410
+  - 691150
+  test:
+  - 691210
+  - 1527490
+eval_window: E:\JSJ\RS-react\configs\eval_window.yaml
+eval_windows:
+  val:
+    name: val
+    split: val
+    days:
+    - 6
+    - 7
+    bounds:
+    - 518410
+    - 691209
+  primary:
+    name: primary
+    split: test
+    days:
+    - 8
+    - 9
+    bounds:
+    - 691210
+    - 864009
+  tail:
+    name: tail
+    split: test
+    days:
+    - 10
+    - 17
+    bounds:
+    - 864010
+    - 1555209
+  whole:
+    name: whole
+    split: test
+    days:
+    - 8
+    - 17
+    bounds:
+    - 691210
+    - 1555209
+primary_block: primary
+n_val_truth_rings: 157
+dry_run: false

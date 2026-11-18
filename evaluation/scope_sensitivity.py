@@ -66,7 +66,7 @@ def boot(evs, ids, metric, n, seed):
     d = np.empty(n)
     for b in range(n):
         r = [ids[i] for i in rng.integers(0, len(ids), len(ids))]
-        d[b] = np.nanmean([metrics_from_evidence(e, truth_ids=r)[metric] for e in evs])
+        d[b] = np.nanmean([metrics_from_evidence(e, truth_ids=r, legacy_collapse_repeats=True)[metric] for e in evs])  # frozen r14/v36
     return point, float(np.nanpercentile(d, 2.5)), float(np.nanpercentile(d, 97.5))
 
 

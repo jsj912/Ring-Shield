@@ -1,0 +1,20 @@
+{
+  "seed": 5,
+  "best_val_f1": 0.6444201312910285,
+  "best_epoch": 35,
+  "epochs_run": 55,
+  "mean_epoch_time_s": 530.4776891014793,
+  "n_params": 128420,
+  "val_at_best": {
+    "val_loss": 0.0118910398924169,
+    "val_f1": 0.6444201312910285,
+    "val_precision": 0.7436868686868687,
+    "val_recall": 0.5685328185328186,
+    "val_average_precision": 0.6032998422767379
+  },
+  "score_only": true,
+  "score_batch_size": 2048,
+  "splits_scored": [
+    "test"
+  ]
+}

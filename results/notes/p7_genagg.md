@@ -116,3 +116,17 @@ for B0) is running, but the delta_t / p_min cells of seeds 4-5 were chosen under
 > on the scoring batch. MEGA-GIN test edge F1 is 0.6893 at 8192 and 0.6856 at 2048 (per seed
 > −0.0126 to +0.0049). All MEGA-family comparisons now use batch 2048. Multi-GINe was not rescored
 > and the loader is unchanged. Sources: `results/notes/p7_genagg.md`, `results/notes/p7_batch_span.json`.
+
+## Scoring reproducibility and sampling noise (2026-11-16; PREREG_RECOVERY addendum 3)
+- **Bit-reproducible for a fixed seed.** GenAgg seed 1, HI-Small, batch 2048: two `--score-only` runs are identical on validation and test, and match the batch-2048 rescore in rescore_val/ (max |Δ| 8.3e-7). mega_adapter seeds random, numpy, torch and CUDA before scoring.
+- **Only the random state changed** (seeds +1000), on validation / test:
+  - edges differing by more than 1e-4: 0.05 % / 0.13 %;
+  - max |Δ| 0.053 / 0.217; Spearman 0.99968 / 0.99953;
+  - top-0.1 % seed edges shared: 966 of 966 / 863 of 864;
+  - edge F1: 0.6648 against 0.6648 / 0.7558 against 0.7553;
+  - B0 ring-F1: identical, 0.5504 on test.
+- The noise comes from neighbour sampling (100 per hop). It is far below the seed-to-seed spread of the detector.
+- The shipped GINe scorer (models/score.py) sets no seed.
+- GenAgg seed 1's stored validation file is the batch-4096 original (see open_items 21).
+
+Source: results/tables/scoring_noise_hs_genagg_s1.csv; evaluation/scoring_noise.py.
